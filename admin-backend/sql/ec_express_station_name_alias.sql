@@ -1,0 +1,5 @@
+-- 快递站点导入名称别名（存储于 sys_import_profile，无需改表）
+-- biz_type = 'EXPRESS_STATION_NAME'
+-- scope_key = 'express_station:{站点ID}'
+-- value_mapping = { "平台别名": "站点ID", ... }
+-- 在「快递管理 → 站点基本信息」中配置；订单导入解析 express_station_name 时会先精确匹配站点名称，再匹配别名。

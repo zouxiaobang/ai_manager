@@ -1,0 +1,46 @@
+@use './portal' as *;
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--el-bg-color-page);
+  color: var(--el-text-color-primary);
+}
+
+/* 列表操作列：悬停/点击时不参与整行高亮，且不可文本选中 */
+.table-actions-cell {
+  user-select: none;
+}
+
+.table-actions-cell-inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.el-table__body tr:hover > td.table-actions-cell {
+  background-color: var(--el-table-tr-bg-color, var(--el-fill-color-blank)) !important;
+}
+
+.el-table--striped .el-table__body tr.el-table__row--striped:hover > td.table-actions-cell {
+  background-color: var(--el-fill-color-lighter) !important;
+}
+
+.el-table__body tr:has(td.table-actions-cell:hover) > td:not(.table-actions-cell) {
+  background-color: var(--el-table-tr-bg-color, var(--el-fill-color-blank)) !important;
+}
+
+.el-table--striped .el-table__body tr.el-table__row--striped:has(td.table-actions-cell:hover) > td:not(.table-actions-cell) {
+  background-color: var(--el-fill-color-lighter) !important;
+}

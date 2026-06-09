@@ -1,0 +1,27 @@
+host: 0.0.0.0
+port: 8765
+
+desktop_app:
+  # Windows 桌面版网易云音乐路径。请按你的安装位置修改。
+  executable: "E:\\CloudMusic\\cloudmusic.exe"
+  process_name: "cloudmusic.exe"
+  # 守护进程启动时自动打开网易云（未运行则拉起，并尽量带 CDP 调试端口）
+  auto_launch_on_startup: true
+
+netease:
+  control_mode: "hotkey"
+  # 播放状态推送间隔（秒），建议 1.0；切歌/暂停仍会立即推送
+  playback_poll_interval_seconds: 1.0
+  # 歌词轮询间隔（秒），换行要准可保持 0.25～0.5
+  lyric_poll_interval_seconds: 0.5
+  # 歌词比歌曲快 → 减小/设负数；歌词比歌曲慢 → 增大。当前约快 1s，从 1500 调到 500。
+  lyric_offset_ms: 500
+  # 进度来源：auto=优先 CDP（拖动/最小化更准），失败回退 winsdk；cdp=仅 CDP；winsdk=仅系统媒体会话
+  progress_source: auto
+  cdp_port: 9222
+  # 由守护进程启动网易云时自动附加 --remote-debugging-port（已手动打开的旧进程需退出重开一次）
+  cdp_auto_launch_debug: true
+
+security:
+  allowed_device_ids:
+    - "esp32-s3-display"
