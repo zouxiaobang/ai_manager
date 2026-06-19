@@ -24,7 +24,7 @@ spring:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    # log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     db-config:
       logic-delete-field: deleted
@@ -38,3 +38,5 @@ ai-manager:
 logging:
   level:
     com.ai.manager: debug
+    # 关闭 MyBatis SQL 日志（mapper 继承 com.ai.manager 的 debug 级别）
+    com.ai.manager.system.mapper: warn

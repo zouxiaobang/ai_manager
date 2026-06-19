@@ -7,8 +7,6 @@ import com.ai.manager.system.domain.entity.EcInboundOrder;
 import com.ai.manager.system.domain.vo.EcInboundOrderDetailVO;
 import com.baomidou.mybatisplus.extension.service.IService;
 
-import java.util.List;
-
 public interface EcInboundOrderService extends IService<EcInboundOrder> {
 
     PageResult<EcInboundOrderDetailVO> pageOrders(String keyword, String status, Long factoryId,
