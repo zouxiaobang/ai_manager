@@ -15,7 +15,7 @@ Spring Boot 3 + MyBatis-Plus + Redis，Maven 多模块。
 
 - JDK 17+
 - Maven 3.9+
-- MySQL 8（执行 `sql/schema.sql`，番茄钟另执行 `sql/pomodoro.sql`）
+- MySQL 8（执行 `sql/schema.sql`，番茄钟另执行 `sql/pomodoro.sql`，笔记本另执行 `sql/notebook.sql`）
 - Redis 6+
 
 ## Maven

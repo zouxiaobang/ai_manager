@@ -4,3 +4,8 @@ spring:
     url: jdbc:mysql://127.0.0.1:3306/ai_manager_admin?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
     username: root
     password: 123456
+
+ai-manager:
+  note-storage:
+    # 本地未绑定百度网盘时可先用 LOCAL；绑定后改回 BAIDU_PAN
+    type: LOCAL

@@ -34,6 +34,18 @@ mybatis-plus:
 ai-manager:
   upload:
     ecommerce-path: uploads/ecommerce
+    notebook-images-path: uploads/notebook/images
+  baidu-pan:
+    app-key: 0FzEpqFsRX50bkxhGls0WUZfXvnDLL59
+    secret-key: mgOo20RU4AzgH8VBzKYV3aIH3CjVtxco
+    app-folder-name: ai_blog
+    redirect-uri: http://127.0.0.1:8080/oauth/baidu/callback
+    frontend-redirect-uri: http://127.0.0.1:5173/notebook
+    default-user-id: 1
+  note-storage:
+    type: BAIDU_PAN
+    local-root: uploads/notebook-content
+    cache-ttl-seconds: 3600
 
 logging:
   level:

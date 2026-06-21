@@ -74,7 +74,7 @@ const router = createRouter({
 
           name: 'notebook',
 
-          component: () => import('@/views/PlaceholderView.vue'),
+          component: () => import('@/views/NotebookView.vue'),
 
           meta: { titleKey: 'portal.menu.notebook' },
 
