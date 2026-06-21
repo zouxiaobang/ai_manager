@@ -37,23 +37,33 @@
       </el-col>
     </el-row>
 
-    <el-card shadow="never" class="dashboard-card">
-      <h3 class="dashboard-section-title">⚙️ {{ t('portal.dashboard.todos') }}</h3>
-      <div v-for="todo in todoKeys" :key="todo" class="todo-item">
-        <div>
-          <el-tag
-            size="small"
-            :type="todo === 'travel' || todo === 'server' ? 'warning' : 'info'"
-          >
-            {{ t(`portal.dashboard.todoItems.${todo}.badge`) }}
-          </el-tag>
-          {{ t(`portal.dashboard.todoItems.${todo}.title`) }}
-        </div>
-        <div class="todo-item__meta">
-          {{ t('portal.dashboard.todoFrom') }}
-          {{ t(`portal.dashboard.todoItems.${todo}.from`) }}
+    <el-card v-loading="todayTodosLoading" shadow="never" class="dashboard-card">
+      <div class="dashboard-card__header">
+        <h3 class="dashboard-section-title">📋 {{ t('portal.dashboard.todayTodos') }}</h3>
+        <router-link class="dashboard-card__link" to="/notebook?tab=todos&filter=today">
+          {{ t('portal.dashboard.viewAllTodayTodos') }}
+        </router-link>
+      </div>
+      <div v-if="todayTodos.length" class="today-todo-list">
+        <div v-for="item in todayTodos" :key="item.id" class="today-todo-item">
+          <el-checkbox
+            :model-value="item.completed === 1"
+            @change="(checked: boolean) => onToggleTodayTodo(item, checked)"
+          />
+          <div class="today-todo-item__body">
+            <div class="today-todo-item__title">{{ item.content }}</div>
+            <div class="today-todo-item__meta">
+              <span v-if="item.dueTime">
+                {{ t('notebook.todos.dueTime') }}：{{ formatDateTime(item.dueTime) }}
+              </span>
+              <span v-if="item.remindTime">
+                {{ t('notebook.todos.remindTime') }}：{{ formatDateTime(item.remindTime) }}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
+      <el-empty v-else :description="t('portal.dashboard.todayTodosEmpty')" :image-size="72" />
     </el-card>
 
     <el-card shadow="never" class="dashboard-card">
@@ -87,12 +97,19 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { ElMessage } from 'element-plus'
 import { fetchHealth } from '@/api/health'
+import { fetchTodayTodos, updateTodo, type NbTodoItem } from '@/api/notebook/todo'
+import { useTodoReminders, dismissTodoNotification } from '@/composables/useTodoReminders'
+import { formatDateTime } from '@/views/notebook/todoGroup'
 
 const { t } = useI18n()
+const { refreshTodayCount } = useTodoReminders()
 
 const healthLoading = ref(false)
 const healthStatus = ref<'unknown' | 'up' | 'down'>('unknown')
+const todayTodosLoading = ref(false)
+const todayTodos = ref<NbTodoItem[]>([])
 
 const systemBoard = [
   { key: 'hr', statusKey: 'todo', count: 3, tagType: 'warning' as const },
@@ -100,7 +117,6 @@ const systemBoard = [
 ]
 
 const noticeKeys = ['security', 'maintenance'] as const
-const todoKeys = ['travel', 'inventory', 'server'] as const
 const systemGroupKeys = ['ops', 'admin', 'devops'] as const
 
 const groupEntries: Record<(typeof systemGroupKeys)[number], string[]> = {
@@ -137,7 +153,44 @@ async function checkHealth() {
   }
 }
 
-onMounted(checkHealth)
+async function loadTodayTodos() {
+  todayTodosLoading.value = true
+  try {
+    todayTodos.value = await fetchTodayTodos()
+  } catch {
+    todayTodos.value = []
+  } finally {
+    todayTodosLoading.value = false
+  }
+}
+
+async function onToggleTodayTodo(item: NbTodoItem, checked: boolean) {
+  const prev = item.completed
+  item.completed = checked ? 1 : 0
+  try {
+    const result = await updateTodo(item.id, { completed: checked })
+    if (checked) {
+      dismissTodoNotification(item.id)
+    }
+    if (checked) {
+      todayTodos.value = todayTodos.value.filter((row) => row.id !== item.id)
+      if (result.nextOccurrence) {
+        todayTodos.value = [result.nextOccurrence, ...todayTodos.value]
+      }
+    } else {
+      todayTodos.value = todayTodos.value.map((row) => (row.id === item.id ? result.item : row))
+    }
+    await refreshTodayCount()
+  } catch {
+    item.completed = prev
+    ElMessage.error(t('notebook.todos.saveFailed'))
+  }
+}
+
+onMounted(() => {
+  void checkHealth()
+  void loadTodayTodos()
+})
 </script>
 
 <style scoped lang="scss">
@@ -145,5 +198,53 @@ onMounted(checkHealth)
   margin: 0 0 16px;
   font-size: 18px;
   font-weight: 600;
+}
+
+.dashboard-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.dashboard-card__link {
+  font-size: 13px;
+  color: var(--el-color-primary);
+  text-decoration: none;
+}
+
+.today-todo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.today-todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+}
+
+.today-todo-item__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.today-todo-item__title {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.today-todo-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 </style>

@@ -291,6 +291,13 @@
         </div>
       </el-tab-pane>
 
+      <el-tab-pane :label="t('notebook.tabs.todos')" name="todos">
+        <NotebookTodosView
+          ref="todosViewRef"
+          :initial-filter="todoInitialFilter"
+        />
+      </el-tab-pane>
+
       <el-tab-pane :label="t('notebook.tabs.trash')" name="trash">
         <el-table v-loading="trashLoading" :data="trashItems" stripe border>
           <el-table-column prop="title" :label="t('notebook.titlePlaceholder')" min-width="200" />
@@ -432,6 +439,7 @@ import {
   Top,
 } from '@element-plus/icons-vue'
 import NotebookFolderView from './notebook/NotebookFolderView.vue'
+import NotebookTodosView from './notebook/NotebookTodosView.vue'
 import NoteRichEditor from './notebook/NoteRichEditor.vue'
 import NoteTocPanel from './notebook/NoteTocPanel.vue'
 import NoteTreeContextMenu, { type TreeContextMenuAction } from './notebook/NoteTreeContextMenu.vue'
@@ -466,6 +474,7 @@ import {
   type NbTreeNode,
   type BaiduPanAuthStatus,
 } from '@/api/notebook'
+import type { NbTodoFilter } from '@/api/notebook/todo'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -484,6 +493,25 @@ const filterText = ref('')
 const treeRef = ref<InstanceType<typeof ElTree> | null>(null)
 const moveTreeRef = ref<InstanceType<typeof ElTree> | null>(null)
 const editorRef = ref<InstanceType<typeof NoteRichEditor> | null>(null)
+const todosViewRef = ref<InstanceType<typeof NotebookTodosView> | null>(null)
+
+const todoInitialFilter = computed((): NbTodoFilter | undefined => {
+  const value = route.query.filter
+  if (value === 'today' || value === 'pending' || value === 'done' || value === 'all') {
+    return value
+  }
+  return undefined
+})
+
+function applyNotebookRouteQuery() {
+  if (route.query.tab === 'todos') {
+    activeTab.value = 'todos'
+  }
+  const filter = todoInitialFilter.value
+  if (filter) {
+    void nextTick(() => todosViewRef.value?.setFilter(filter))
+  }
+}
 const editorRevision = ref(0)
 const contentLoadBlocked = ref(false)
 const contentLoading = ref(false)
@@ -800,6 +828,9 @@ async function onTabChange(tab: string | number) {
   if (tab === 'trash') {
     void flushSaveInBackground()
     await loadTrash()
+  } else if (tab === 'todos') {
+    void flushSaveInBackground()
+    todosViewRef.value?.reload()
   }
 }
 
@@ -1182,7 +1213,7 @@ function buildNoteStubFromTree(data: NbTreeNode): NbNoteDetail {
     id: data.noteId!,
     notebookId: data.notebookId,
     title: data.name,
-    noteType: 'RICH',
+    noteType: 'NOTE',
     isPinned: data.isPinned ?? 0,
     isFavorite: data.isFavorite ?? 0,
     status: 'ACTIVE',
@@ -1569,12 +1600,20 @@ onBeforeRouteLeave(() => {
   flushSaveInBackground()
 })
 
+watch(
+  () => [route.query.tab, route.query.filter],
+  () => {
+    applyNotebookRouteQuery()
+  },
+)
+
 onMounted(async () => {
   window.addEventListener('pagehide', onPageHide)
   document.addEventListener('visibilitychange', onVisibilityChange)
   document.addEventListener('click', closeContextMenu)
   document.addEventListener('scroll', closeContextMenu, true)
   await Promise.all([loadTree(false), loadTags(), loadBaiduPanStatus()])
+  applyNotebookRouteQuery()
   if (route.query.baidu === 'connected') {
     ElMessage.success(t('notebook.baiduPanConnected'))
     await loadBaiduPanStatus()

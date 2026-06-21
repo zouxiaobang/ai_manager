@@ -13,8 +13,18 @@
         :prefix-icon="Search"
       />
       <div class="portal-header__actions">
-        <el-badge :value="3" :max="99" class="portal-badge">
-          <el-button :icon="Bell" circle />
+        <el-badge
+          :value="todayTodoCount"
+          :max="99"
+          :hidden="todayTodoCount === 0"
+          class="portal-badge"
+        >
+          <el-button
+            :icon="Bell"
+            circle
+            :title="t('portal.dashboard.todayTodos')"
+            @click="goTodayTodos"
+          />
         </el-badge>
         <el-select
           :model-value="appStore.locale"
@@ -101,8 +111,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import {
@@ -119,14 +129,28 @@ import {
   Setting,
 } from '@element-plus/icons-vue'
 import { useAppStore, type LocaleCode } from '@/stores/app'
+import { useTodoReminders } from '@/composables/useTodoReminders'
 import i18n from '@/i18n'
 
 const route = useRoute()
+const router = useRouter()
 const { t } = useI18n()
 const appStore = useAppStore()
+const { todayTodoCount, refreshTodayCount } = useTodoReminders()
 const searchKeyword = ref('')
 
 const activeMenu = computed(() => route.path)
+
+watch(
+  () => route.fullPath,
+  () => {
+    void refreshTodayCount()
+  },
+)
+
+function goTodayTodos() {
+  router.push({ path: '/notebook', query: { tab: 'todos', filter: 'today' } })
+}
 
 const quickNavItems = [
   { key: 'finance', icon: '⭐' },
@@ -146,6 +170,9 @@ function onQuickNav(key: string) {
 
 <style scoped lang="scss">
 .portal-badge :deep(.el-badge__content) {
-  transform: translateY(2px) translateX(2px);
+  top: 0;
+  right: 0;
+  left: auto;
+  transform: translate(50%, -50%);
 }
 </style>
