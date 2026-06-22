@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:pc": "vite --open /index_pc.html",
+    "dev:mobile": "vite --open /mobile.html",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview"
   },

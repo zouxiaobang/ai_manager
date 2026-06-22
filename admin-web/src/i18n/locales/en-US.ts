@@ -1077,11 +1077,36 @@ export default {
     healthOk: 'Backend is healthy',
     healthFail: 'Backend is unavailable',
   },
+  mobile: {
+    nav: {
+      home: 'Home',
+      notebook: 'Notes',
+      todos: 'Todos',
+      pomodoro: 'Focus',
+      more: 'More',
+    },
+    notebook: {
+      pinned: 'Pinned',
+      allNotes: 'All notes',
+    },
+    more: {
+      functions: 'Features',
+      ecommerce: 'E-commerce',
+      settings: 'Settings',
+      users: 'Access control',
+      openDesktop: 'Open desktop site',
+      resetShell: 'Use auto detection',
+    },
+    header: {
+      todoEntry: 'Today\'s todos',
+    },
+  },
   user: {
     id: 'ID',
     username: 'Username',
     nickname: 'Nickname',
     status: 'Status',
     refresh: 'Refresh',
+    empty: 'No users found',
   },
 }

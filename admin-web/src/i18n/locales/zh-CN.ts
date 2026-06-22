@@ -1082,11 +1082,36 @@ export default {
     healthOk: '后端服务正常',
     healthFail: '后端服务异常',
   },
+  mobile: {
+    nav: {
+      home: '首页',
+      notebook: '笔记',
+      todos: '待办',
+      pomodoro: '番茄',
+      more: '更多',
+    },
+    notebook: {
+      pinned: '置顶笔记',
+      allNotes: '全部笔记',
+    },
+    more: {
+      functions: '功能列表',
+      ecommerce: '电商平台',
+      settings: '全局设置',
+      users: '权限中心',
+      openDesktop: '打开桌面版',
+      resetShell: '恢复自动识别',
+    },
+    header: {
+      todoEntry: '今日待办',
+    },
+  },
   user: {
     id: 'ID',
     username: '用户名',
     nickname: '昵称',
     status: '状态',
     refresh: '刷新',
+    empty: '暂无用户数据',
   },
 }

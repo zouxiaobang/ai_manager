@@ -1,0 +1,225 @@
+.mobile-app {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  color: var(--el-text-color-primary);
+  --mobile-header-title-color: #0a3b73;
+  --mobile-header-date-color: #4c4c4c;
+  --mobile-header-icon-color: #0a3b73;
+  --mobile-header-border-color: #e0e0e0;
+  --mobile-page-bg: #fafafa;
+  background: var(--mobile-page-bg);
+}
+
+html.dark .mobile-app {
+  --mobile-header-border-color: #4c4d4f;
+  --mobile-page-bg: var(--el-bg-color-page);
+}
+
+.mobile-app__header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 10px 12px;
+  padding-top: max(10px, env(safe-area-inset-top));
+  background: var(--el-bg-color);
+  border-bottom: 1px solid var(--mobile-header-border-color);
+  box-sizing: border-box;
+}
+
+.mobile-app__back {
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.mobile-app__heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-app__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--mobile-header-title-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-app__date {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--mobile-header-date-color);
+}
+
+.mobile-app__header-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  flex-shrink: 0;
+  padding-top: 2px;
+
+  .el-badge__content {
+    border: none;
+  }
+}
+
+.mobile-app__todo-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--mobile-header-icon-color);
+  cursor: pointer;
+
+  &:active {
+    opacity: 0.75;
+  }
+}
+
+.mobile-app__main {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  background: var(--mobile-page-bg);
+}
+
+.mobile-app__main--with-tabbar {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+}
+
+.mobile-app__tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  display: flex;
+  align-items: stretch;
+  min-height: 56px;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--el-bg-color);
+  border-top: 1px solid var(--el-border-color-lighter);
+  box-sizing: content-box;
+}
+
+.mobile-app__tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border: none;
+  background: transparent;
+  color: var(--el-text-color-secondary);
+  font-size: 11px;
+  cursor: pointer;
+
+  &.is-active {
+    color: var(--el-color-primary);
+  }
+
+  .el-icon {
+    font-size: 22px;
+  }
+}
+
+.mobile-app__tab-badge {
+  position: relative;
+
+  &::after {
+    content: attr(data-count);
+    position: absolute;
+    top: -4px;
+    right: -10px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: var(--el-color-danger);
+    color: #fff;
+    font-size: 10px;
+    line-height: 16px;
+    text-align: center;
+  }
+}
+
+.mobile-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mobile-card {
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+.mobile-list-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  &:first-child {
+    padding-top: 0;
+  }
+}
+
+.mobile-list-item__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-list-item__title {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.mobile-list-item__meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.mobile-section-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.mobile-empty-hint {
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
+}
