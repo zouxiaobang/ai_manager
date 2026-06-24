@@ -13,7 +13,7 @@
 
 ## 管理后台快速开始
 
-1. MySQL 执行 `admin-backend/sql/schema.sql`
+1. MySQL 执行 `admin-backend/sql/deploy-all.sql`（全量建表+演示数据，推荐新环境）
 2. 启动 Redis
 3. 后端：`cd admin-backend && mvn -pl admin-server -am spring-boot:run`
 4. 前端：`cd admin-web && npm install && npm run dev`

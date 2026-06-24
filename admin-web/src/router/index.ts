@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 
 import AdminLayout from '@/layouts/AdminLayout.vue'
 
@@ -6,7 +6,8 @@ import AdminLayout from '@/layouts/AdminLayout.vue'
 
 const router = createRouter({
 
-  history: createWebHistory(import.meta.env.BASE_URL),
+  // 与移动端一致使用 Hash，避免 Nginx 静态部署下 /home 等直链导致 PC 端白屏
+  history: createWebHashHistory(import.meta.env.BASE_URL),
 
   routes: [
 

@@ -531,7 +531,6 @@ const editForm = reactive({
 
 const saveState = ref<'idle' | 'saving' | 'saved'>('idle')
 let saveTimer: ReturnType<typeof setTimeout> | null = null
-let flushPromise: Promise<void> | null = null
 
 type NoteSnapshot = { title: string; content: string; tagIds: string }
 
@@ -1350,22 +1349,6 @@ async function saveCurrentNote(options: { reloadTree?: boolean } = {}) {
   }
 }
 
-async function flushSave(options: { reloadTree?: boolean } = {}) {
-  if (flushPromise) {
-    await flushPromise
-    if (!isDirty()) return
-  }
-  clearSaveTimer()
-  if (!currentNote.value?.id || !isDirty()) return
-
-  flushPromise = saveCurrentNote(options)
-  try {
-    await flushPromise
-  } finally {
-    flushPromise = null
-  }
-}
-
 function flushSaveOnUnload() {
   clearSaveTimer()
   if (contentLoadBlocked.value || contentLoading.value) return
@@ -1565,25 +1548,6 @@ async function onDeleteTag(id: number) {
     editForm.tagIds = editForm.tagIds.filter((tagId) => tagId !== id)
     scheduleSave()
   }
-}
-
-function openRenameFolder() {
-  if (!selectedFolderNode.value?.notebookId) return
-  folderDialogMode.value = 'rename'
-  editingFolderId.value = selectedFolderNode.value.notebookId
-  folderForm.name = selectedFolderNode.value.name
-  folderDialogVisible.value = true
-}
-
-async function onDeleteFolder() {
-  const folderId = selectedFolderNode.value?.notebookId
-  if (!folderId) return
-  await ElMessageBox.confirm(t('notebook.deleteFolderConfirm'), { type: 'warning' })
-  await removeNotebook(folderId)
-  selectedFolderId.value = null
-  activeNodeKey.value = ''
-  ElMessage.success(t('pomodoro.common.deleted'))
-  await loadTree(false)
 }
 
 function onPageHide() {

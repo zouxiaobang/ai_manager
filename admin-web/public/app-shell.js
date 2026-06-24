@@ -56,27 +56,18 @@
     return readQuery() !== null || readSession() !== null;
   }
 
-  function prepareMobileUrl() {
-    if (location.hash.length > 2) return;
+  function ensureHashUrl() {
+    if (location.hash && location.hash.indexOf('#/') === 0) return;
     var path = location.pathname.replace(/^\//, '') || 'home';
+    if (path === 'index.html') path = 'home';
     history.replaceState(null, '', '/#/' + path + location.search);
-  }
-
-  function preparePcUrl() {
-    if (!location.hash || location.hash.indexOf('#/') !== 0) return;
-    var path = location.hash.slice(2) || 'home';
-    history.replaceState(null, '', '/' + path + location.search);
   }
 
   var shell = resolveShell();
   document.documentElement.classList.toggle('is-mobile-shell', shell === 'mobile');
   document.documentElement.dataset.appShell = shell;
 
-  if (shell === 'mobile') {
-    prepareMobileUrl();
-  } else {
-    preparePcUrl();
-  }
+  ensureHashUrl();
 
   if (hasManualOverride()) {
     return;
@@ -90,10 +81,8 @@
     var next = autoShell();
     if (next === activeShell) return;
     reloading = true;
-    if (next === 'mobile') {
-      prepareMobileUrl();
-    } else {
-      preparePcUrl();
+    if (next === 'mobile' || next === 'pc') {
+      ensureHashUrl();
     }
     location.reload();
   }

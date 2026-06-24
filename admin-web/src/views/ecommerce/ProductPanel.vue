@@ -620,10 +620,10 @@ async function openEdit(id: number) {
 
 function createListingFromProduct() {
   if (!editingId.value) return
-  const skuCodes = form.skus.map((s) => s.skuCode?.trim()).filter(Boolean).join(',')
+  const skuCodes = form.skus.map((s) => s.skuCode?.trim()).filter((code): code is string => Boolean(code))
   innerTab.value = 'listing'
   drawerVisible.value = false
-  listingRef.value?.openCreateFromProduct(editingId.value, form.name, skuCodes || undefined)
+  listingRef.value?.openCreateFromProduct(editingId.value, form.name, skuCodes.length ? skuCodes : undefined)
 }
 
 function addSkuRow() {

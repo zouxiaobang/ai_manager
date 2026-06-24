@@ -275,7 +275,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import type { SummaryMethodProps } from 'element-plus'
+import type { TableColumnCtx } from 'element-plus'
 import { Delete, Document, Edit, Sort, View } from '@element-plus/icons-vue'
 import {
   adjustInventory,
@@ -387,11 +387,11 @@ function formatPrice(value: number | null | undefined) {
   return `¥${Number(value).toFixed(2)}`
 }
 
-function inventorySummary({ columns }: SummaryMethodProps) {
+function inventorySummary({ columns }: { columns: TableColumnCtx<EcInventory>[] }) {
   const totalQuantity = Number(extra.value?.totalQuantity ?? 0)
   const totalStockValue = Number(extra.value?.totalStockValue ?? 0)
   const sums: string[] = []
-  columns.forEach((column, index) => {
+  columns.forEach((column: TableColumnCtx<EcInventory>, index: number) => {
     if (index === 0) {
       sums[index] = t('ecommerce.inventory.total')
       return

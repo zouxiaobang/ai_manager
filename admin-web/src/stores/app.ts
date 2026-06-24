@@ -1,9 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
-import type { I18n } from 'vue-i18n'
 
 export type ThemeMode = 'light' | 'dark'
 export type LocaleCode = 'zh-CN' | 'en-US'
+
+type AppI18n = {
+  global: {
+    locale: { value: LocaleCode }
+  }
+}
 
 const THEME_KEY = 'admin-theme'
 const LOCALE_KEY = 'admin-locale'
@@ -37,7 +42,7 @@ export const useAppStore = defineStore('app', () => {
     applyTheme(prefersDark ? 'dark' : 'light')
   }
 
-  function setLocale(code: LocaleCode, i18n?: I18n) {
+  function setLocale(code: LocaleCode, i18n?: AppI18n) {
     locale.value = code
     localStorage.setItem(LOCALE_KEY, code)
     if (i18n) {
@@ -45,7 +50,7 @@ export const useAppStore = defineStore('app', () => {
     }
   }
 
-  function initLocale(i18n: I18n) {
+  function initLocale(i18n: AppI18n) {
     const saved = localStorage.getItem(LOCALE_KEY) as LocaleCode | null
     const code = saved === 'en-US' || saved === 'zh-CN' ? saved : 'zh-CN'
     setLocale(code, i18n)

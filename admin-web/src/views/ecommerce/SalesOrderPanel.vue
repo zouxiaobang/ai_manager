@@ -676,30 +676,6 @@ async function copyPlatformOrderNo(text: string) {
   }
 }
 
-async function openEdit(id: number) {
-  editingId.value = id
-  const d = await fetchSalesOrder(id)
-  form.shopId = d.shopId
-  form.expressStationId = d.expressStationId ?? undefined
-  form.orderTime = d.orderTime?.slice(0, 19) ?? ''
-  form.platformOrderNo = d.platformOrderNo ?? ''
-  form.receivedAmount = d.receivedAmount ?? undefined
-  form.trackingNumber = d.trackingNumber ?? ''
-  form.receiveAddress = d.receiveAddress ?? ''
-  form.receiveProvince = d.receiveProvince ?? parseProvinceFromAddress(d.receiveAddress ?? '') ?? ''
-  await loadLinkSkuOptions(d.shopId)
-  form.lines = (d.lines ?? []).map((l) => ({
-    listingLinkSkuId: l.listingLinkSkuId ?? undefined,
-    linkName: l.linkName ?? '',
-    skuSpecName: l.skuSpecName ?? '',
-    skuQuantity: l.skuQuantity ?? 1,
-    lineReceivedAmount: l.lineReceivedAmount ?? undefined,
-    _pickerKey: l.linkName && l.skuSpecName ? `${l.linkName}|||${l.skuSpecName}` : undefined,
-  }))
-  if (!form.lines.length) form.lines = [emptyLine()]
-  dialogVisible.value = true
-}
-
 function openDetail(id: number) {
   detailId.value = id
   detailVisible.value = true

@@ -102,7 +102,8 @@ function optionLabel(opt: EcInventorySkuOption) {
 
   const stock = opt.quantity ?? 0
 
-  const alert = opt.alertActive ? ' ⚠' : ''
+  const alert =
+    !opt.ignoreAlert && opt.alertThreshold != null && stock <= opt.alertThreshold ? ' ⚠' : ''
 
   const name = opt.specName ? `${opt.skuCode} · ${opt.specName}` : opt.skuCode
 

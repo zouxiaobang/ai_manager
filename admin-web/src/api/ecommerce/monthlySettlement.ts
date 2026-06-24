@@ -1,4 +1,4 @@
-import { deleteData, getData, postData, putData } from '../request'
+import { deleteData, getData, postData } from '../request'
 import request from '../request'
 import type { ApiResult } from '../types'
 

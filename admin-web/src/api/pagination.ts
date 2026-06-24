@@ -1,4 +1,4 @@
-export interface PageQuery {
+export interface PageQuery extends Record<string, unknown> {
   page?: number
   pageSize?: number
 }

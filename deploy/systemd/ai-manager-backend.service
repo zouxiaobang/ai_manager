@@ -1,0 +1,21 @@
+[Unit]
+Description=AI Manager Admin Backend
+After=network.target
+
+[Service]
+Type=simple
+User=aimanager
+Group=aimanager
+WorkingDirectory=/opt/ai-manager/backend
+EnvironmentFile=/opt/ai-manager/backend/backend.env
+ExecStart=/usr/bin/java -Xms256m -Xmx512m -jar /opt/ai-manager/backend/admin-server.jar
+Restart=on-failure
+RestartSec=10
+
+# 上传目录与日志
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-manager-backend
+
+[Install]
+WantedBy=multi-user.target

@@ -116,23 +116,24 @@ export function applyShellDocumentClass(shell: AppShell) {
 }
 
 export function prepareMobileEntryUrl() {
-  if (typeof window === 'undefined') return
-  if (window.location.hash.length > 2) {
-    return
-  }
-
-  const path = window.location.pathname.replace(/^\//, '') || 'home'
-  window.history.replaceState(null, '', `/#/${path}${window.location.search}`)
+  ensureHashEntryUrl()
 }
 
+/** PC / 移动统一：始终使用 Hash URL（Nginx 静态部署） */
 export function preparePcEntryUrl() {
+  ensureHashEntryUrl()
+}
+
+function ensureHashEntryUrl() {
   if (typeof window === 'undefined') return
-  if (!window.location.hash.startsWith('#/')) {
+  if (window.location.hash.startsWith('#/')) {
     return
   }
-
-  const path = window.location.hash.slice(2) || 'home'
-  window.history.replaceState(null, '', `/${path}${window.location.search}`)
+  let path = window.location.pathname.replace(/^\//, '') || 'home'
+  if (path === 'index.html') {
+    path = 'home'
+  }
+  window.history.replaceState(null, '', `/#/${path}${window.location.search}`)
 }
 
 /**
@@ -155,10 +156,8 @@ export function watchAppShellAutoSwitch(activeShell: AppShell) {
       return
     }
     reloading = true
-    if (next === 'mobile') {
-      prepareMobileEntryUrl()
-    } else {
-      preparePcEntryUrl()
+    if (next === 'mobile' || next === 'pc') {
+      ensureHashEntryUrl()
     }
     window.location.reload()
   }
