@@ -1,5 +1,8 @@
+-- 系统库初始化（文件编码：UTF-8 无 BOM）
 CREATE DATABASE IF NOT EXISTS ai_manager_admin DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE ai_manager_admin;
+
+SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS sys_user (
     id          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',

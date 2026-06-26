@@ -19,3 +19,5 @@ kyle ALL=(ALL) NOPASSWD: /usr/bin/chown
 kyle ALL=(ALL) NOPASSWD: /usr/bin/rsync
 kyle ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart ai-manager-backend
 kyle ALL=(ALL) NOPASSWD: /usr/bin/systemctl status ai-manager-backend
+# 部署检查清单：aimanager 读取本服务 journal（无权限时 journalctl 退出码 1）
+aimanager ALL=(ALL) NOPASSWD: /usr/bin/journalctl

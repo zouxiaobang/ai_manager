@@ -1,6 +1,7 @@
 package com.ai.manager.system.controller;
 
 import com.ai.manager.common.result.ApiResult;
+import com.ai.manager.system.service.DeployHistoryService;
 import com.ai.manager.system.service.DeployRunnerService;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -9,6 +10,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import com.ai.manager.system.domain.vo.DeployVersionVO;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -16,9 +19,12 @@ import java.util.Map;
 public class DeployRunController {
 
     private final DeployRunnerService deployRunnerService;
+    private final DeployHistoryService deployHistoryService;
 
-    public DeployRunController(DeployRunnerService deployRunnerService) {
+    public DeployRunController(
+            DeployRunnerService deployRunnerService, DeployHistoryService deployHistoryService) {
         this.deployRunnerService = deployRunnerService;
+        this.deployHistoryService = deployHistoryService;
     }
 
     @GetMapping("/runner/status")
@@ -34,5 +40,11 @@ public class DeployRunController {
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream(@RequestParam("target") String target) {
         return deployRunnerService.startStream(target);
+    }
+
+    @GetMapping("/versions")
+    public ApiResult<List<DeployVersionVO>> versions(
+            @RequestParam(value = "limit", defaultValue = "50") int limit) {
+        return ApiResult.ok(deployHistoryService.list(limit));
     }
 }

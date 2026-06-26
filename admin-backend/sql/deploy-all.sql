@@ -3,15 +3,23 @@
 -- 生成方式：按模块依赖顺序合并 admin-backend/sql/*.sql
 -- 适用：全新空库一次性部署（MySQL 8 / MariaDB）
 --
+-- 编码规范：
+--   本文件须保存为 UTF-8（无 BOM）
+--   库/表字符集：utf8mb4 + utf8mb4_unicode_ci
+--   执行时必须指定客户端编码，否则中文 COMMENT 会乱码
+--
 -- 未包含（仅旧库升级用）：
 --   sys_import_migrate_from_ec_order.sql
 --   ecommerce_seed.sql（演示数据已含在 ecommerce_product.sql 等）
 --
 -- 部署示例：
---   docker exec -i ai-manager-mysql mysql -uroot -p < deploy-all.sql
---   mysql -h 192.168.0.118 -u ai_manager -p < deploy-all.sql
+--   docker exec -i ai-manager-mysql mysql -uroot -p --default-character-set=utf8mb4 < deploy-all.sql
+--   mysql -h 192.168.0.118 -u ai_manager -p --default-character-set=utf8mb4 ai_manager_admin < deploy-all.sql
+--
+-- 已有库修复乱码 COMMENT：执行 all_table_comment_fix.sql（见 sql/tools/generate_comment_fix.mjs）
 -- =============================================================================
 
+SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- ########## FILE: schema.sql ##########
 

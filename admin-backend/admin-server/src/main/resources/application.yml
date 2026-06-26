@@ -2,6 +2,11 @@ server:
   port: 8080
   # 允许局域网设备（ESP 副屏、手机）访问
   address: 0.0.0.0
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
 
 spring:
   application:
@@ -19,9 +24,11 @@ spring:
       max-request-size: 10MB
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:ai_manager_admin}?useSSL=false&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:ai_manager_admin}?useSSL=false&allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci&serverTimezone=Asia/Shanghai
     username: ${MYSQL_USER:root}
     password: ${MYSQL_PASSWORD:123456}
+    hikari:
+      connection-init-sql: SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
@@ -50,6 +57,13 @@ ai-manager:
       project-root: ${AI_MANAGER_ROOT:}
       run-as-user: ${DEPLOY_RUN_AS_USER:}
       git-pull-enabled: ${DEPLOY_GIT_PULL:true}
+    sql-terminal:
+      node118:
+        host: ${DEPLOY_SQL_NODE118_HOST:192.168.0.118}
+        port: ${DEPLOY_SQL_NODE118_PORT:3306}
+        database: ${DEPLOY_SQL_NODE118_DATABASE:ai_manager_admin}
+        username: ${DEPLOY_SQL_NODE118_USER:ai_manager}
+        password: ${DEPLOY_SQL_NODE118_PASSWORD:123456}
   baidu-pan:
     app-key: ${BAIDU_APP_KEY:0FzEpqFsRX50bkxhGls0WUZfXvnDLL59}
     secret-key: ${BAIDU_SECRET_KEY:mgOo20RU4AzgH8VBzKYV3aIH3CjVtxco}

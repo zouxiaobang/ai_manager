@@ -139,6 +139,10 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
+
+const emit = defineEmits<{
+  deployFinished: [success: boolean]
+}>()
 import {
   ArrowRight,
   Check,
@@ -410,6 +414,7 @@ async function startDeploy(target: 'backend' | 'frontend') {
 
 function onDeployFinished(success: boolean) {
   deployRunning.value = false
+  emit('deployFinished', success)
   if (success) {
     void refreshHealth(true).then(() => runAutoChecklist(false))
   }

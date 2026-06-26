@@ -1,5 +1,5 @@
 <template>
-  <div class="deploy-center war-room-page war-room-page--fill">
+  <div class="deploy-center war-room-page">
     <div class="deploy-center__shell">
       <section class="deploy-center__main">
         <header class="deploy-center__header">
@@ -50,16 +50,16 @@
 
           <el-tab-pane :label="t('deployCenter.tabs.steps')" name="steps">
             <div class="deploy-center__panel">
-              <DeployStepsWorkbench />
+              <DeployStepsWorkbench @deploy-finished="onDeployFinished" />
 
               <section class="deploy-panel-card deploy-panel-card--docs">
                 <h2 class="deploy-panel-card__title">{{ t('deployCenter.stepsWorkbench.docsTitle') }}</h2>
                 <el-collapse v-model="expandedSteps" class="deploy-steps">
                   <el-collapse-item
-                    v-for="section in deployStepSections"
+                    v-for="(section, index) in deployStepSections"
                     :key="section.id"
                     :name="section.id"
-                    :title="section.title"
+                    :title="`${index + 1}. ${section.title}`"
                   >
                     <p class="deploy-steps__summary">{{ section.summary }}</p>
                     <DeployCodeBlock
@@ -75,19 +75,15 @@
             </div>
           </el-tab-pane>
 
-          <el-tab-pane :label="t('deployCenter.tabs.daily')" name="daily">
+          <el-tab-pane :label="t('deployCenter.tabs.database')" name="database">
             <div class="deploy-center__panel">
-              <section class="deploy-panel-card">
-                <h2 class="deploy-panel-card__title">{{ t('deployCenter.dailyTitle') }}</h2>
-                <p class="deploy-panel-card__desc">{{ t('deployCenter.dailyDesc') }}</p>
-                <DeployCodeBlock
-                  v-for="(block, index) in deployDailyCommands"
-                  :key="index"
-                  :title="block.title"
-                  :commands="block.commands"
-                  class="deploy-daily__block"
-                />
-              </section>
+              <DeployDatabasePanel :active="activeTab === 'database'" />
+            </div>
+          </el-tab-pane>
+
+          <el-tab-pane :label="t('deployCenter.tabs.versions')" name="versions">
+            <div class="deploy-center__panel">
+              <DeployVersionPanel ref="versionPanelRef" :active="activeTab === 'versions'" />
             </div>
           </el-tab-pane>
 
@@ -125,11 +121,12 @@ import DeployArchitectureDiagram from '@/components/deploy/DeployArchitectureDia
 import DeployCodeBlock from '@/components/deploy/DeployCodeBlock.vue'
 import DeployOverviewCard from '@/components/deploy/DeployOverviewCard.vue'
 import DeployQuickVerifyPanel from '@/components/deploy/DeployQuickVerifyPanel.vue'
+import DeployDatabasePanel from '@/components/deploy/DeployDatabasePanel.vue'
 import DeployStepsWorkbench from '@/components/deploy/DeployStepsWorkbench.vue'
+import DeployVersionPanel from '@/components/deploy/DeployVersionPanel.vue'
 import { useSystemHealth } from '@/composables/useSystemHealth'
 import {
   deployArchitectureFlow,
-  deployDailyCommands,
   deployImportantNotes,
   deployQuickVerify,
   deployStepSections,
@@ -143,6 +140,11 @@ const { healthData, healthLoading, refreshHealth } = useSystemHealth()
 
 const activeTab = ref<DeployCenterTab>('overview')
 const expandedSteps = ref<string[]>([])
+const versionPanelRef = ref<InstanceType<typeof DeployVersionPanel> | null>(null)
+
+function onDeployFinished() {
+  versionPanelRef.value?.reload()
+}
 
 const overviewNodes = computed(() =>
   buildDeployOverviewNodes(healthData.value, healthLoading.value, t),
@@ -169,21 +171,18 @@ onMounted(() => {
 <style scoped lang="scss">
 .deploy-center {
   padding: 0;
-  height: 100%;
+  min-height: 100%;
 
   &__shell {
-    height: 100%;
-    min-height: 0;
+    min-height: 100%;
     background: #f3f5f9;
   }
 
   &__main {
     flex: 1;
     min-width: 0;
-    min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
   }
 
   &__header {
@@ -207,10 +206,9 @@ onMounted(() => {
 
   &__tabs {
     flex: 1;
-    min-height: 0;
     display: flex;
     flex-direction: column;
-    padding: 0 28px 24px;
+    padding: 0 28px 32px;
 
     :deep(.el-tabs__header) {
       margin: 12px 0 0;
@@ -239,8 +237,6 @@ onMounted(() => {
 
     :deep(.el-tabs__content) {
       flex: 1;
-      min-height: 0;
-      overflow: auto;
       padding-top: 20px;
     }
   }
@@ -249,7 +245,7 @@ onMounted(() => {
     display: flex;
     flex-direction: column;
     gap: 18px;
-    padding-bottom: 8px;
+    padding-bottom: 24px;
   }
 }
 
@@ -349,14 +345,6 @@ onMounted(() => {
     &:last-child {
       margin-bottom: 0;
     }
-  }
-}
-
-.deploy-daily__block {
-  margin-bottom: 16px;
-
-  &:last-child {
-    margin-bottom: 0;
   }
 }
 

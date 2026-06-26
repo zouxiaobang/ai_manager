@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 向 Docker MySQL 导入 SQL 文件
+# 向 Docker MySQL 导入 SQL 文件（客户端 UTF-8 → utf8mb4，避免中文 COMMENT 乱码）
 # 用法：
 #   bash deploy/scripts/import-sql-to-docker-mysql.sh admin-backend/sql/schema.sql
 #   bash deploy/scripts/import-sql-to-docker-mysql.sh admin-backend/sql/*.sql
@@ -36,6 +36,7 @@ for sql in "$@"; do
   fi
   echo ">>> 导入 $sql"
   docker exec -i "${CONTAINER}" mysql \
+    --default-character-set=utf8mb4 \
     -u"${MYSQL_USER}" -p"${MYSQL_PASSWORD}" \
     "${MYSQL_DATABASE}" < "$sql"
 done

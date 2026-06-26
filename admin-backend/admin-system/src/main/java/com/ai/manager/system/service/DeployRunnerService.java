@@ -45,6 +45,7 @@ public class DeployRunnerService {
     private final String runAsUser;
     private final boolean gitPullEnabled;
     private final DeployPiSshClient piSshClient;
+    private final DeployHistoryService deployHistoryService;
     private final AtomicReference<String> runningTarget = new AtomicReference<>();
     private final AtomicReference<DeployRunSnapshot> lastSnapshot = new AtomicReference<>();
 
@@ -91,7 +92,8 @@ public class DeployRunnerService {
             @Value("${ai-manager.deploy.runner.mode:auto}") String modeConfig,
             @Value("${ai-manager.deploy.runner.run-as-user:}") String runAsUser,
             @Value("${ai-manager.deploy.runner.git-pull-enabled:true}") boolean gitPullEnabled,
-            DeployPiSshClient piSshClient) {
+            DeployPiSshClient piSshClient,
+            DeployHistoryService deployHistoryService) {
         this.enabled = enabled;
         this.projectRootConfig = projectRootConfig == null ? "" : projectRootConfig.trim();
         this.backendDir = backendDir == null ? "/opt/ai-manager/backend" : backendDir.trim();
@@ -100,6 +102,7 @@ public class DeployRunnerService {
         this.runAsUser = runAsUser == null ? "" : runAsUser.trim();
         this.gitPullEnabled = gitPullEnabled;
         this.piSshClient = piSshClient;
+        this.deployHistoryService = deployHistoryService;
     }
 
     public Map<String, Object> status() {
@@ -484,8 +487,9 @@ public class DeployRunnerService {
                 emitter.completeWithError(ex);
             }
         } finally {
-            lastSnapshot.set(
-                    new DeployRunSnapshot(targetKey, false, success, exitCode, startedAt, System.currentTimeMillis()));
+            long finishedAt = System.currentTimeMillis();
+            lastSnapshot.set(new DeployRunSnapshot(targetKey, false, success, exitCode, startedAt, finishedAt));
+            recordDeployHistory(targetKey, success, exitCode, startedAt, finishedAt, projectRoot);
             releaseLock.run();
         }
     }
@@ -673,8 +677,9 @@ public class DeployRunnerService {
                 emitter.completeWithError(ex);
             }
         } finally {
-            lastSnapshot.set(
-                    new DeployRunSnapshot(targetKey, false, success, exitCode, startedAt, System.currentTimeMillis()));
+            long finishedAt = System.currentTimeMillis();
+            lastSnapshot.set(new DeployRunSnapshot(targetKey, false, success, exitCode, startedAt, finishedAt));
+            recordDeployHistory(targetKey, success, exitCode, startedAt, finishedAt, projectRoot);
             releaseLock.run();
         }
     }
@@ -687,6 +692,27 @@ public class DeployRunnerService {
         env.put("GIT_PULL", gitPullEnabled ? "true" : "false");
         env.put("BACKEND_DIR", backendDir);
         env.put("WEB_ROOT", webRoot);
+    }
+
+    private void recordDeployHistory(
+            String targetKey,
+            boolean success,
+            int exitCode,
+            long startedAt,
+            long finishedAt,
+            Path projectRoot) {
+        try {
+            deployHistoryService.record(
+                    targetKey,
+                    success,
+                    exitCode,
+                    resolveMode().name().toLowerCase(),
+                    startedAt,
+                    finishedAt,
+                    projectRoot);
+        } catch (Exception ex) {
+            log.debug("Record deploy history skipped: {}", ex.getMessage());
+        }
     }
 
     private void sendEvent(SseEmitter emitter, String name, String data) {

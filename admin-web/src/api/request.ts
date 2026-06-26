@@ -37,8 +37,12 @@ export async function getData<T>(
   return response.data.data
 }
 
-export async function postData<T>(url: string, data?: unknown): Promise<T> {
-  const response = await request.post<ApiResult<T>>(url, data)
+export async function postData<T>(
+  url: string,
+  data?: unknown,
+  options?: { timeout?: number },
+): Promise<T> {
+  const response = await request.post<ApiResult<T>>(url, data, { timeout: options?.timeout })
   return response.data.data
 }
 

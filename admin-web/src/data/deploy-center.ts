@@ -1,4 +1,4 @@
-export type DeployCenterTab = 'overview' | 'steps' | 'daily' | 'troubleshooting'
+export type DeployCenterTab = 'overview' | 'steps' | 'database' | 'versions' | 'troubleshooting'
 
 export interface DeployNodeCard {
   key: string
@@ -370,7 +370,7 @@ export const deployStepsChecklist: DeployStepsChecklistItem[] = [
     ],
     commands: [
       'mysql -h 192.168.0.118 -u ai_manager -p123456 ai_manager_admin -e "SELECT 1;"',
-      'grep -E "DATASOURCE|JDBC" /opt/ai-manager/backend/backend.env',
+      'grep MYSQL_HOST /opt/ai-manager/backend/backend.env',
     ],
     autoComplete: 'mysql',
   },
@@ -442,32 +442,60 @@ export const deployCredentialGroups: DeployCredentialGroup[] = [
 export const deployStepSections: DeployStepSection[] = [
   {
     id: 'data-node',
-    title: '4.1 数据节点 — Docker MySQL + Redis',
-    summary: '在数据节点树莓派上安装 Docker，启动 MySQL 与 Redis，并导入全量 SQL。',
+    title: '数据节点 — Docker MySQL + Redis',
+    summary:
+      '在数据节点树莓派（116 或 118，同一台机器双网卡）上安装 Docker，启动 MySQL 与 Redis，并导入全量 SQL。后端优先连接有线 IP 192.168.0.118。',
     blocks: [
+      {
+        title: '（可选）卸载原生 MariaDB / Redis',
+        commands: [
+          'cd ~/ai_manager',
+          'sudo bash deploy/scripts/uninstall-native-db-on-116.sh',
+        ],
+        platform: 'linux',
+      },
       {
         title: '安装 Docker 并启动',
         commands: [
           'cd ~/ai_manager',
           'bash deploy/scripts/setup-data-node-docker.sh',
           'nano /opt/ai-manager/data-node/.env',
+          '# .env 示例：MYSQL_ROOT_PASSWORD=123456',
+          '#          MYSQL_DATABASE=ai_manager_admin',
+          '#          MYSQL_USER=ai_manager',
+          '#          MYSQL_PASSWORD=123456',
           'bash deploy/scripts/setup-data-node-docker.sh',
         ],
         platform: 'linux',
       },
       {
-        title: '导入全量 SQL',
+        title: '验证 Docker 服务',
         commands: [
-          'cd ~/ai_manager',
-          'sudo docker exec -i ai-manager-mysql mysql -uroot -p123456 < admin-backend/sql/deploy-all.sql',
+          'cd /opt/ai-manager/data-node',
+          'docker compose ps',
+          'docker exec ai-manager-mysql mysql -u ai_manager -p123456 ai_manager_admin -e "SELECT 1;"',
+          'docker exec ai-manager-redis redis-cli ping',
         ],
         platform: 'linux',
       },
       {
-        title: '从应用节点测试连通',
+        title: '导入全量 SQL（新环境一次）',
+        commands: [
+          'cd ~/ai_manager',
+          'sudo docker exec -i ai-manager-mysql mysql -uroot -p123456 --default-character-set=utf8mb4 < admin-backend/sql/deploy-all.sql',
+          '# 或（自动读取 .env 密码，已带 utf8mb4 客户端编码）：',
+          'bash deploy/scripts/import-sql-to-docker-mysql.sh admin-backend/sql/deploy-all.sql',
+          '# 已有库修复乱码 COMMENT：',
+          'mysql -h 192.168.0.118 -u ai_manager -p123456 --default-character-set=utf8mb4 ai_manager_admin < admin-backend/sql/all_table_comment_fix.sql',
+        ],
+        platform: 'linux',
+      },
+      {
+        title: '从应用节点 114 测试连通',
         commands: [
           'mysql -h 192.168.0.118 -u ai_manager -p123456 ai_manager_admin -e "SELECT 1;"',
           'redis-cli -h 192.168.0.118 ping',
+          '# 若 118 不通可试无线 192.168.0.116',
         ],
         platform: 'linux',
       },
@@ -475,24 +503,63 @@ export const deployStepSections: DeployStepSection[] = [
   },
   {
     id: 'app-env',
-    title: '4.2 应用节点 — 运行环境',
-    summary: '在 114 上安装 JDK 17、Nginx，创建 aimanager 用户与目录。',
+    title: '应用节点 — 运行环境',
+    summary:
+      '在 114 上安装 JDK 17、Nginx、构建工具与数据库客户端，克隆仓库，创建 aimanager 用户与目录，并配置本机一键部署所需 sudo 权限。',
     blocks: [
       {
-        title: '安装依赖',
+        title: '安装系统依赖',
         commands: [
           'sudo apt update',
-          'sudo apt install -y openjdk-17-jdk nginx',
+          'sudo apt install -y openjdk-17-jdk nginx maven nodejs npm git mysql-client redis-tools rsync',
           'java -version',
+          'node -v && npm -v',
         ],
         platform: 'linux',
       },
       {
-        title: '创建目录与用户',
+        title: '同步时区（建议）',
+        commands: [
+          'sudo timedatectl set-timezone Asia/Shanghai',
+          'sudo timedatectl set-ntp true',
+          'timedatectl status',
+        ],
+        platform: 'linux',
+      },
+      {
+        title: '克隆仓库',
+        commands: [
+          'git clone <你的仓库地址> ~/ai_manager',
+          'cd ~/ai_manager && git pull --ff-only',
+        ],
+        platform: 'linux',
+      },
+      {
+        title: '创建运行用户与目录',
         commands: [
           'sudo useradd -r -m -d /opt/ai-manager -s /bin/bash aimanager 2>/dev/null || true',
           'sudo mkdir -p /opt/ai-manager/backend /opt/ai-manager/backend/uploads',
           'sudo mkdir -p /var/www/ai-manager',
+          'sudo chown -R aimanager:aimanager /opt/ai-manager',
+          'sudo chown -R www-data:www-data /var/www/ai-manager',
+        ],
+        platform: 'linux',
+      },
+      {
+        title: '确认能连数据节点',
+        commands: [
+          'mysql -h 192.168.0.118 -u ai_manager -p123456 ai_manager_admin -e "SELECT 1;"',
+          'redis-cli -h 192.168.0.118 ping',
+        ],
+        platform: 'linux',
+      },
+      {
+        title: '本机一键部署 sudo 权限（Web 部署必需）',
+        commands: [
+          'sudo cp ~/ai_manager/deploy/sudoers/ai-manager-deploy.example /etc/sudoers.d/ai-manager-deploy',
+          'sudo chmod 440 /etc/sudoers.d/ai-manager-deploy',
+          'sudo visudo -c',
+          'sudo -u aimanager sudo -n -u kyle test -d ~/ai_manager/deploy/scripts && echo OK',
         ],
         platform: 'linux',
       },
@@ -500,51 +567,102 @@ export const deployStepSections: DeployStepSection[] = [
   },
   {
     id: 'backend',
-    title: '4.3 后端部署',
-    summary: 'Windows 构建 JAR 上传至 114，配置 backend.env 并注册 systemd。',
+    title: '后端部署',
+    summary:
+      '方式 A：Windows 构建 JAR 上传至 114。方式 B：114 Web 界面「一键部署后端」（需已完成上一节环境准备）。均需配置 backend.env 与 systemd。',
     blocks: [
       {
-        title: 'Windows 构建并上传',
+        title: '方式 A — Windows 构建并上传',
         commands: [
-          'cd G:\\projects\\ai_project\\ai_manager\\admin-backend',
-          'mvn clean package -DskipTests -pl admin-server -am',
+          'cd G:\\projects\\ai_project\\ai_manager',
+          'mvn clean package -DskipTests -pl admin-server -am -f admin-backend\\pom.xml',
           'scp admin-backend\\admin-server\\target\\admin-server-1.0.0-SNAPSHOT.jar kyle@192.168.0.114:/tmp/admin-server.jar',
+          'scp deploy\\env\\backend.env.example kyle@192.168.0.114:/tmp/backend.env',
         ],
         platform: 'windows',
       },
       {
-        title: '114 上启动服务',
+        title: '方式 A — 114 上安装 JAR 与 systemd',
         commands: [
+          'sudo mv /tmp/admin-server.jar /opt/ai-manager/backend/admin-server.jar',
+          'sudo mv /tmp/backend.env /opt/ai-manager/backend/backend.env',
+          'sudo chown aimanager:aimanager /opt/ai-manager/backend/admin-server.jar /opt/ai-manager/backend/backend.env',
+          'grep -E "MYSQL_HOST|REDIS_HOST|SPRING_PROFILES" /opt/ai-manager/backend/backend.env',
+          'cd ~/ai_manager',
           'sudo cp deploy/systemd/ai-manager-backend.service /etc/systemd/system/',
           'sudo systemctl daemon-reload',
-          'sudo systemctl enable ai-manager-backend',
-          'sudo systemctl start ai-manager-backend',
+          'sudo systemctl enable --now ai-manager-backend',
           'curl -s http://127.0.0.1:8080/api/health',
         ],
         platform: 'linux',
+      },
+      {
+        title: '方式 B — 114 Web 一键部署后端',
+        commands: [
+          '# 浏览器打开 http://192.168.0.114/#/deploy → 部署步骤',
+          '# 点击「一键部署后端」',
+          '# 脚本：deploy/scripts/deploy-on-pi-backend.sh（git pull + mvn + 安装 JAR + 延迟重启）',
+          '# 首次需先按上一节安装 Maven、sudoers，并部署含 runner 的新版 JAR',
+        ],
+        platform: 'linux',
+      },
+      {
+        title: '方式 C — Windows Web 一键部署后端',
+        commands: [
+          '# 开发机启动后端（dev profile，runner.mode=remote）',
+          '# application-dev.yml 配置 ai-manager.deploy.pi.password',
+          '# 浏览器本地 http://127.0.0.1:5173 → 部署中心 → 一键部署后端',
+          '# 或执行：powershell -File deploy/scripts/deploy-backend.ps1',
+        ],
+        platform: 'windows',
       },
     ],
   },
   {
     id: 'frontend',
-    title: '4.4 前端部署',
-    summary: '构建 dist 后 rsync 到 Nginx 目录，勿产生双层 dist 目录。',
+    title: '前端部署与 Nginx',
+    summary:
+      '构建 dist 后同步到 /var/www/ai-manager，配置 Nginx 反代 /api、/oauth、/uploads 及部署 SSE 长连接。勿产生双层 dist 目录。',
     blocks: [
       {
-        title: 'Windows 构建',
+        title: '方式 A — Windows 构建并上传',
         commands: [
           'cd G:\\projects\\ai_project\\ai_manager\\admin-web',
           'npm install',
           'npm run build',
+          'ssh kyle@192.168.0.114 "mkdir -p /tmp/ai-manager-new"',
+          'scp -r G:\\projects\\ai_project\\ai_manager\\admin-web\\dist\\* kyle@192.168.0.114:/tmp/ai-manager-new/',
+          'ssh kyle@192.168.0.114 "sudo rsync -av --delete /tmp/ai-manager-new/ /var/www/ai-manager/ && sudo chown -R www-data:www-data /var/www/ai-manager"',
         ],
         platform: 'windows',
       },
       {
-        title: '上传与同步',
+        title: '配置 Nginx（首次必做，更新配置后 reload）',
         commands: [
-          'ssh kyle@192.168.0.114 "mkdir -p /tmp/ai-manager-new"',
-          'scp -r G:\\projects\\ai_project\\ai_manager\\admin-web\\dist\\* kyle@192.168.0.114:/tmp/ai-manager-new/',
-          'sudo rsync -av --delete /tmp/ai-manager-new/ /var/www/ai-manager/',
+          'cd ~/ai_manager',
+          'sudo cp deploy/nginx/ai-manager.conf /etc/nginx/sites-available/ai-manager',
+          'sudo ln -sf /etc/nginx/sites-available/ai-manager /etc/nginx/sites-enabled/',
+          'sudo rm -f /etc/nginx/sites-enabled/default',
+          'sudo nginx -t',
+          'sudo systemctl reload nginx',
+        ],
+        platform: 'linux',
+      },
+      {
+        title: '方式 B — 114 Web 一键部署前端',
+        commands: [
+          '# 浏览器 http://192.168.0.114/#/deploy → 一键部署前端',
+          '# 脚本：deploy/scripts/deploy-on-pi-frontend.sh（git pull + npm build + rsync）',
+          '# Pi 上构建较慢（5～15 分钟），日志中断后可能仍在后台执行',
+        ],
+        platform: 'linux',
+      },
+      {
+        title: '方式 C — Windows 脚本或 Web 一键',
+        commands: [
+          'cd G:\\projects\\ai_project\\ai_manager',
+          'powershell -ExecutionPolicy Bypass -File deploy/scripts/deploy-frontend.ps1',
+          '# 或在部署中心点击「一键部署前端」（Java SSH 密码上传）',
         ],
         platform: 'windows',
       },
@@ -552,47 +670,21 @@ export const deployStepSections: DeployStepSection[] = [
   },
   {
     id: 'checklist',
-    title: '4.5 部署完成检查清单',
-    summary: '确认健康检查、待办 API、前端页面与后端日志均正常。',
+    title: '部署完成检查清单',
+    summary:
+      '确认健康检查、待办 API、前端页面与后端日志均正常。部署中心「部署步骤」页可自动按 1～7 项顺序检查。',
     blocks: [
       {
-        title: '验证命令',
+        title: '命令行验证',
         commands: [
           'curl http://192.168.0.114/api/health',
           'curl http://192.168.0.114/api/todos/today',
           'journalctl -u ai-manager-backend -n 50 --no-pager',
+          '# 浏览器：http://192.168.0.114/#/home（Ctrl+F5 强制刷新）',
         ],
         platform: 'linux',
       },
     ],
-  },
-]
-
-export const deployDailyCommands: DeployCommandBlock[] = [
-  {
-    title: '仅更新后端',
-    commands: [
-      'cd G:\\projects\\ai_project\\ai_manager',
-      'powershell -ExecutionPolicy Bypass -File deploy/scripts/deploy-backend.ps1',
-    ],
-    platform: 'windows',
-  },
-  {
-    title: '仅更新前端',
-    commands: [
-      'cd G:\\projects\\ai_project\\ai_manager',
-      'powershell -ExecutionPolicy Bypass -File deploy/scripts/deploy-frontend.ps1',
-    ],
-    platform: 'windows',
-  },
-  {
-    title: '前后端都更新',
-    commands: [
-      'powershell -ExecutionPolicy Bypass -File deploy/scripts/deploy-backend.ps1',
-      'powershell -ExecutionPolicy Bypass -File deploy/scripts/deploy-frontend.ps1',
-      'powershell -ExecutionPolicy Bypass -File deploy/scripts/health-check.ps1',
-    ],
-    platform: 'windows',
   },
 ]
 
@@ -608,15 +700,18 @@ export const deployTroubleshooting: DeployTroubleRow[] = [
   { symptom: 'scp -r dist 后页面异常', action: '会变成双层目录；用 dist\\* 传到 /tmp/ai-manager-new/' },
   { symptom: '百度网盘授权失败', action: '回调须为 http://192.168.0.114/oauth/baidu/callback，Nginx 须反代 /oauth/' },
   {
-    symptom: '服务器时间与本地不一致',
+    symptom: '检查清单第 7 项 journalctl 失败',
     action:
-      '114 上执行：sudo timedatectl set-timezone Asia/Shanghai && sudo timedatectl set-ntp true && timedatectl status',
+      '114 上：sudo usermod -aG systemd-journal aimanager && sudo systemctl restart ai-manager-backend；或更新 sudoers 加入 aimanager 的 journalctl 权限后重启后端',
   },
 ]
 
 export const deployImportantNotes = [
   '生产环境请使用 index.html + Hash 路由（/#/home），不要使用 index_pc.html。',
-  '后端优先连接数据节点有线 IP：192.168.0.118。',
-  '上传前端时勿 scp -r dist 到已有目录，应使用 rsync 同步到空目录。',
-  '全量 deploy-all.sql 仅用于新环境；日常结构变更请执行增量 SQL 脚本。',
+  '后端连接数据节点优先使用有线 IP：192.168.0.118（backend.env 中 MYSQL_HOST / REDIS_HOST）。',
+  '首次部署必须配置 Nginx（deploy/nginx/ai-manager.conf）并安装 backend.env、systemd 服务。',
+  '上传前端时勿 scp -r dist 到已有目录，应使用 dist\\* 传到 /tmp/ai-manager-new/ 再 rsync。',
+  '114 本机一键部署需安装 deploy/sudoers/ai-manager-deploy.example，且仓库 clone 到 ~/ai_manager。',
+  '全量 deploy-all.sql 仅用于新环境；日常结构变更请执行 admin-backend/sql/ 下增量脚本。',
+  '更新 Nginx 或 systemd 后执行：sudo nginx -t && sudo systemctl reload nginx / daemon-reload。',
 ]

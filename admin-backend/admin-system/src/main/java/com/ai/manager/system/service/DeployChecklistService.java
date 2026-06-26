@@ -12,6 +12,10 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class DeployChecklistService {
 
+    private static final String[] JOURNALCTL_ARGS = {
+        "-u", "ai-manager-backend", "-n", "50", "--no-pager", "-o", "cat"
+    };
+
     public Map<String, Object> checkLogs() {
         Map<String, Object> result = new HashMap<>();
         String os = System.getProperty("os.name", "").toLowerCase();
@@ -23,31 +27,25 @@ public class DeployChecklistService {
         }
 
         try {
-            Process process = new ProcessBuilder(
-                            "journalctl",
-                            "-u",
-                            "ai-manager-backend",
-                            "-n",
-                            "50",
-                            "--no-pager")
-                    .redirectErrorStream(true)
-                    .start();
-            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            boolean finished = process.waitFor(15, TimeUnit.SECONDS);
-            if (!finished) {
-                process.destroyForcibly();
-                result.put("ok", false);
-                result.put("skipped", false);
-                result.put("message", "读取 journalctl 超时");
-                return result;
+            JournalRun direct = runJournalctl(false);
+            JournalRun journalRun = direct;
+            if (!direct.success()) {
+                JournalRun withSudo = runJournalctl(true);
+                if (withSudo.success()) {
+                    journalRun = withSudo;
+                }
             }
-            if (process.exitValue() != 0) {
+
+            if (!journalRun.success()) {
                 result.put("ok", false);
                 result.put("skipped", false);
-                result.put("message", "journalctl 执行失败，退出码 " + process.exitValue());
+                result.put(
+                        "message",
+                        buildJournalFailureMessage(journalRun.exitCode(), journalRun.output()));
                 return result;
             }
 
+            String output = journalRun.output();
             List<String> issues = detectLogIssues(output);
             boolean ok = issues.isEmpty();
             result.put("ok", ok);
@@ -62,6 +60,45 @@ public class DeployChecklistService {
             result.put("message", "日志检查失败: " + ex.getMessage());
             return result;
         }
+    }
+
+    private JournalRun runJournalctl(boolean useSudo) throws Exception {
+        List<String> command = new ArrayList<>();
+        if (useSudo) {
+            command.add("/usr/bin/sudo");
+            command.add("-n");
+        }
+        command.add("/usr/bin/journalctl");
+        for (String arg : JOURNALCTL_ARGS) {
+            command.add(arg);
+        }
+
+        ProcessBuilder builder = new ProcessBuilder(command);
+        builder.redirectErrorStream(true);
+        Process process = builder.start();
+        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        boolean finished = process.waitFor(15, TimeUnit.SECONDS);
+        if (!finished) {
+            process.destroyForcibly();
+            return new JournalRun(-1, "读取 journalctl 超时");
+        }
+        return new JournalRun(process.exitValue(), output);
+    }
+
+    private String buildJournalFailureMessage(int exitCode, String output) {
+        String hint =
+                "aimanager 用户无法读取 systemd 日志。请在 114 上执行其一："
+                        + "① sudo usermod -aG systemd-journal aimanager 后重启服务；"
+                        + "② 更新 sudoers 允许 journalctl（见 deploy/sudoers/ai-manager-deploy.example）后 systemctl restart ai-manager-backend";
+        String trimmed = output == null ? "" : output.trim();
+        if (trimmed.isEmpty()) {
+            return "journalctl 执行失败，退出码 " + exitCode + "。" + hint;
+        }
+        String firstLine = trimmed.lines().findFirst().orElse(trimmed);
+        if (firstLine.length() > 120) {
+            firstLine = firstLine.substring(0, 120) + "…";
+        }
+        return "journalctl 执行失败，退出码 " + exitCode + "（" + firstLine + "）。" + hint;
     }
 
     private List<String> detectLogIssues(String output) {
@@ -92,5 +129,11 @@ public class DeployChecklistService {
             }
         }
         return issues.stream().distinct().toList();
+    }
+
+    private record JournalRun(int exitCode, String output) {
+        boolean success() {
+            return exitCode == 0;
+        }
     }
 }
