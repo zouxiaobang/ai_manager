@@ -65,28 +65,41 @@
 
     <div class="deploy-steps-workbench__split">
       <section class="deploy-steps-workbench__checklist">
-        <h3 class="deploy-steps-workbench__checklist-title">
-          {{ t('deployCenter.stepsWorkbench.checklistTitle') }}
-        </h3>
+        <div class="deploy-steps-workbench__checklist-head">
+          <h3 class="deploy-steps-workbench__checklist-title">
+            {{ t('deployCenter.stepsWorkbench.checklistTitle') }}
+          </h3>
+          <button
+            type="button"
+            class="deploy-steps-workbench__checklist-run"
+            :disabled="checklistRunning"
+            @click="runAutoChecklist(true)"
+          >
+            <el-icon v-if="checklistRunning" class="is-loading"><Loading /></el-icon>
+            {{ checklistRunning ? t('deployCenter.stepsWorkbench.checklistRunning') : t('deployCenter.stepsWorkbench.checklistRunAll') }}
+          </button>
+        </div>
+        <p v-if="checklistSummary" class="deploy-steps-workbench__checklist-summary" :class="checklistSummaryClass">
+          {{ checklistSummary }}
+        </p>
         <div class="deploy-steps-workbench__checklist-list">
           <button
             v-for="(item, index) in checklist"
             :key="item.id"
             type="button"
             class="deploy-steps-workbench__checklist-row"
-            :class="{ 'is-active': selectedId === item.id, 'is-done': isItemDone(item) }"
+            :class="rowClass(item)"
             @click="selectedId = item.id"
           >
-            <span class="deploy-steps-workbench__check-box" :class="{ 'is-done': isItemDone(item) }">
-              <el-icon v-if="isItemDone(item)"><Check /></el-icon>
+            <span class="deploy-steps-workbench__check-box" :class="boxClass(item)">
+              <el-icon v-if="getItemStatus(item) === 'passed'"><Check /></el-icon>
+              <el-icon v-else-if="getItemStatus(item) === 'failed'" class="is-fail"><Close /></el-icon>
+              <el-icon v-else-if="getItemStatus(item) === 'running'" class="is-loading"><Loading /></el-icon>
             </span>
             <span class="deploy-steps-workbench__check-order">{{ index + 1 }}.</span>
             <span class="deploy-steps-workbench__check-label">{{ item.title }}</span>
-            <span
-              class="deploy-steps-workbench__check-badge"
-              :class="isItemDone(item) ? 'is-done' : 'is-pending'"
-            >
-              {{ isItemDone(item) ? t('deployCenter.stepsWorkbench.done') : t('deployCenter.stepsWorkbench.pending') }}
+            <span class="deploy-steps-workbench__check-badge" :class="badgeClass(item)">
+              {{ statusLabel(item) }}
             </span>
             <el-icon class="deploy-steps-workbench__check-chevron"><ArrowRight /></el-icon>
           </button>
@@ -96,6 +109,15 @@
       <section v-if="selectedItem" class="deploy-steps-workbench__detail">
         <h3 class="deploy-steps-workbench__detail-title">{{ selectedItem.detailTitle }}</h3>
         <p class="deploy-steps-workbench__detail-desc">{{ selectedItem.detailDesc }}</p>
+
+        <div
+          v-if="checkResults[selectedItem.id]"
+          class="deploy-steps-workbench__check-result"
+          :class="`is-${checkResults[selectedItem.id]?.status}`"
+        >
+          <strong>{{ t('deployCenter.stepsWorkbench.checkResult') }}：</strong>
+          {{ checkResults[selectedItem.id]?.message }}
+        </div>
 
         <h4 class="deploy-steps-workbench__detail-sub">{{ t('deployCenter.stepsWorkbench.inspectSteps') }}</h4>
         <ol class="deploy-steps-workbench__steps">
@@ -118,12 +140,19 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowRight,
   Check,
+  Close,
   FirstAidKit,
   Link,
   Loading,
   Monitor,
   Promotion,
 } from '@element-plus/icons-vue'
+import {
+  runDeployChecklistSequential,
+  summarizeChecklistResults,
+  type DeployCheckResult,
+  type DeployCheckStatus,
+} from '@/utils/deployChecklistRunner'
 import { useSystemHealth } from '@/composables/useSystemHealth'
 import DeployCodeBlock from '@/components/deploy/DeployCodeBlock.vue'
 import DeployRunDialog from '@/components/deploy/DeployRunDialog.vue'
@@ -146,6 +175,10 @@ const selectedId = ref(checklist[0]?.id ?? '')
 const deployDialogVisible = ref(false)
 const deployTarget = ref<'backend' | 'frontend'>('backend')
 const deployRunning = ref(false)
+const checklistRunning = ref(false)
+const checkResults = ref<Record<string, DeployCheckResult>>({})
+const checklistSummary = ref('')
+const checklistSummaryClass = ref('')
 
 const selectedItem = computed(() => checklist.find((item) => item.id === selectedId.value))
 
@@ -221,12 +254,93 @@ const statusCards = computed(() => {
   ]
 })
 
-function isItemDone(item: DeployStepsChecklistItem): boolean {
+function legacyItemDone(item: DeployStepsChecklistItem): boolean {
   if (item.id === 'node-status') return healthUp.value && mysqlStatus.value === 'UP'
   if (item.autoComplete === 'health') return healthUp.value
   if (item.autoComplete === 'redis') return redisStatus.value === 'UP'
   if (item.autoComplete === 'mysql') return mysqlStatus.value === 'UP'
   return false
+}
+
+function getItemStatus(item: DeployStepsChecklistItem): DeployCheckStatus {
+  const result = checkResults.value[item.id]
+  if (result) return result.status
+  return legacyItemDone(item) ? 'passed' : 'pending'
+}
+
+function rowClass(item: DeployStepsChecklistItem) {
+  const status = getItemStatus(item)
+  return {
+    'is-active': selectedId.value === item.id,
+    'is-done': status === 'passed',
+    'is-failed': status === 'failed',
+    'is-running': status === 'running',
+  }
+}
+
+function boxClass(item: DeployStepsChecklistItem) {
+  const status = getItemStatus(item)
+  return {
+    'is-done': status === 'passed',
+    'is-failed': status === 'failed',
+    'is-running': status === 'running',
+  }
+}
+
+function badgeClass(item: DeployStepsChecklistItem) {
+  const status = getItemStatus(item)
+  return {
+    'is-done': status === 'passed',
+    'is-pending': status === 'pending',
+    'is-failed': status === 'failed',
+    'is-running': status === 'running',
+    'is-skipped': status === 'skipped',
+  }
+}
+
+function statusLabel(item: DeployStepsChecklistItem) {
+  const status = getItemStatus(item)
+  switch (status) {
+    case 'passed':
+      return t('deployCenter.stepsWorkbench.checkPassed')
+    case 'failed':
+      return t('deployCenter.stepsWorkbench.checkFailed')
+    case 'running':
+      return t('deployCenter.stepsWorkbench.checkRunning')
+    case 'skipped':
+      return t('deployCenter.stepsWorkbench.checkSkipped')
+    default:
+      return t('deployCenter.stepsWorkbench.pending')
+  }
+}
+
+async function runAutoChecklist(showToast: boolean) {
+  if (checklistRunning.value) return
+  checklistRunning.value = true
+  checklistSummary.value = ''
+  checkResults.value = {}
+  await refreshHealth(false)
+
+  try {
+    const results = await runDeployChecklistSequential((result) => {
+      checkResults.value = { ...checkResults.value, [result.id]: result }
+      selectedId.value = result.id
+    })
+    await refreshHealth(false)
+
+    const summary = summarizeChecklistResults(results)
+    if (summary.failed === 0) {
+      checklistSummary.value = t('deployCenter.stepsWorkbench.checklistSummaryOk', summary)
+      checklistSummaryClass.value = 'is-ok'
+      if (showToast) ElMessage.success(t('deployCenter.stepsWorkbench.checklistAllOk'))
+    } else {
+      checklistSummary.value = t('deployCenter.stepsWorkbench.checklistSummaryFail', summary)
+      checklistSummaryClass.value = 'is-fail'
+      if (showToast) ElMessage.warning(t('deployCenter.stepsWorkbench.checklistHasFail', summary))
+    }
+  } finally {
+    checklistRunning.value = false
+  }
 }
 
 async function runHealthCheck(showToast: boolean) {
@@ -279,7 +393,9 @@ async function startDeploy(target: 'backend' | 'frontend') {
 
 function onDeployFinished(success: boolean) {
   deployRunning.value = false
-  if (success) void refreshHealth(true)
+  if (success) {
+    void refreshHealth(true).then(() => runAutoChecklist(false))
+  }
 }
 
 function openAdminUrl() {
@@ -287,7 +403,7 @@ function openAdminUrl() {
 }
 
 onMounted(() => {
-  void refreshHealth()
+  void refreshHealth().then(() => runAutoChecklist(false))
 })
 
 watch(deployDialogVisible, (open) => {
@@ -460,12 +576,98 @@ watch(deployDialogVisible, (open) => {
     border: 1px solid #e8ecf2;
   }
 
-  &__checklist-title,
+  &__checklist-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #111827;
+  }
+
+  &__checklist-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  &__checklist-run {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid #bfdbfe;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+
+    &:disabled {
+      opacity: 0.7;
+      cursor: wait;
+    }
+  }
+
+  &__checklist-summary {
+    margin: 0 0 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+
+    &.is-ok {
+      color: #15803d;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+    }
+
+    &.is-fail {
+      color: #b45309;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+    }
+  }
+
   &__detail-title {
     margin: 0 0 14px;
     font-size: 15px;
     font-weight: 700;
     color: #111827;
+  }
+
+  &__check-result {
+    margin: 0 0 16px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.6;
+
+    &.is-passed {
+      color: #15803d;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+    }
+
+    &.is-failed {
+      color: #b91c1c;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+    }
+
+    &.is-skipped {
+      color: #6b7280;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+    }
+
+    &.is-running {
+      color: #1d4ed8;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+    }
   }
 
   &__checklist-list {
@@ -497,6 +699,16 @@ watch(deployDialogVisible, (open) => {
     &.is-done .deploy-steps-workbench__check-label {
       color: #1d4ed8;
     }
+
+    &.is-failed {
+      border-color: #fecaca;
+      background: #fef2f2;
+    }
+
+    &.is-running {
+      border-color: #bfdbfe;
+      background: #eff6ff;
+    }
   }
 
   &__check-box {
@@ -513,6 +725,21 @@ watch(deployDialogVisible, (open) => {
     &.is-done {
       border-color: #2563eb;
       background: #2563eb;
+    }
+
+    &.is-failed {
+      border-color: #ef4444;
+      background: #ef4444;
+    }
+
+    &.is-running {
+      border-color: #3b82f6;
+      background: #fff;
+      color: #3b82f6;
+    }
+
+    .is-fail {
+      font-size: 11px;
     }
   }
 
@@ -541,6 +768,21 @@ watch(deployDialogVisible, (open) => {
     }
 
     &.is-pending {
+      color: #6b7280;
+      background: #f3f4f6;
+    }
+
+    &.is-failed {
+      color: #b91c1c;
+      background: #fee2e2;
+    }
+
+    &.is-running {
+      color: #1d4ed8;
+      background: #dbeafe;
+    }
+
+    &.is-skipped {
       color: #6b7280;
       background: #f3f4f6;
     }

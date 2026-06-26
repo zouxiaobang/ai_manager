@@ -17,13 +17,23 @@ request.interceptors.response.use(
     return response
   },
   (error) => {
-    ElMessage.error(error.message || '网络错误')
+    const silent = Boolean(error.config?.headers?.['X-Silent-Error'])
+    if (!silent) {
+      ElMessage.error(error.message || '网络错误')
+    }
     return Promise.reject(error)
   },
 )
 
-export async function getData<T>(url: string, params?: Record<string, unknown>): Promise<T> {
-  const response = await request.get<ApiResult<T>>(url, { params })
+export async function getData<T>(
+  url: string,
+  params?: Record<string, unknown>,
+  options?: { silent?: boolean },
+): Promise<T> {
+  const response = await request.get<ApiResult<T>>(url, {
+    params,
+    headers: options?.silent ? { 'X-Silent-Error': '1' } : undefined,
+  })
   return response.data.data
 }
 
