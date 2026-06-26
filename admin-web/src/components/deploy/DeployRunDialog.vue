@@ -183,7 +183,8 @@ async function prepareAndStart() {
       if (phase.value === 'running') {
         phase.value = 'failed'
         appendLog(message)
-        ElMessage.error(message)
+        appendLog(t('deployCenter.deployRun.streamDisconnectedHint'))
+        ElMessage.warning(t('deployCenter.deployRun.streamDisconnectedToast'))
       }
     },
   })

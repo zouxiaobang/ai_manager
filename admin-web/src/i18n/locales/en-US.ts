@@ -245,6 +245,9 @@ export default {
       doneFailed: 'Deploy failed, exit code: {code}',
       doneToast: 'Deploy succeeded',
       failToast: 'Deploy failed — see log',
+      streamDisconnectedHint:
+        'Log stream disconnected; the build may still be running on 114. Wait 5–10 minutes and refresh; or SSH in and run: ps aux | grep -E "vite|vue-tsc|mvn"',
+      streamDisconnectedToast: 'Log stream disconnected — build may still be running',
       phaseIdle: 'Idle',
       phaseChecking: 'Checking',
       phaseRunning: 'Running',

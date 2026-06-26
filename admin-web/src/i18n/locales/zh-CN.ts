@@ -245,6 +245,9 @@ export default {
       doneFailed: '部署失败，退出码：{code}',
       doneToast: '部署成功',
       failToast: '部署失败，请查看日志',
+      streamDisconnectedHint:
+        '日志连接已断开，但 114 上的构建可能仍在后台继续。请等待 5～10 分钟后刷新页面检查；若前端未更新，可 SSH 登录查看进程：ps aux | grep -E "vite|vue-tsc|mvn"',
+      streamDisconnectedToast: '日志连接中断，构建可能仍在进行',
       phaseIdle: '待命',
       phaseChecking: '检查环境',
       phaseRunning: '部署中',

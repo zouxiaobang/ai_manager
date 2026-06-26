@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
@@ -531,15 +532,54 @@ public class DeployRunnerService {
         builder.redirectErrorStream(true);
         applyProcessEnvironment(builder);
         Process process = builder.start();
+        return streamProcessOutput(emitter, process, resolveConsoleCharset());
+    }
 
-        Charset charset = resolveConsoleCharset();
+    private int streamProcessOutput(SseEmitter emitter, Process process, Charset charset) throws Exception {
+        AtomicBoolean reading = new AtomicBoolean(true);
+        AtomicReference<Exception> readError = new AtomicReference<>();
+        Thread heartbeatThread = new Thread(
+                () -> heartbeatWhileRunning(emitter, process, reading),
+                "deploy-sse-heartbeat");
+        heartbeatThread.setDaemon(true);
+        heartbeatThread.start();
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), charset))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 sendEvent(emitter, "log", line);
             }
+        } catch (Exception ex) {
+            readError.set(ex);
+        } finally {
+            reading.set(false);
+            heartbeatThread.interrupt();
+        }
+        if (readError.get() != null) {
+            throw readError.get();
         }
         return process.waitFor();
+    }
+
+    private void heartbeatWhileRunning(SseEmitter emitter, Process process, AtomicBoolean reading) {
+        int tick = 0;
+        while (reading.get() && process.isAlive()) {
+            try {
+                Thread.sleep(20_000L);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+            if (!reading.get() || !process.isAlive()) {
+                return;
+            }
+            tick++;
+            try {
+                sendEvent(emitter, "log", "… 仍在执行中（已 " + (tick * 20) + " 秒，Pi 上编译较慢请耐心等待）…");
+            } catch (Exception ex) {
+                log.debug("Deploy heartbeat skipped: {}", ex.getMessage());
+                return;
+            }
+        }
     }
 
     private void runScriptDeploy(
@@ -563,16 +603,7 @@ public class DeployRunnerService {
             applyProcessEnvironment(builder);
             applyDeployEnvironment(builder, localMode);
             Process process = builder.start();
-
-            Charset charset = resolveConsoleCharset();
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), charset))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    sendEvent(emitter, "log", line);
-                }
-            }
-
-            int exitCode = process.waitFor();
+            int exitCode = streamProcessOutput(emitter, process, resolveConsoleCharset());
             boolean success = exitCode == 0;
             sendEvent(emitter, "done", "{\"success\":" + success + ",\"exitCode\":" + exitCode + "}");
             emitter.complete();
