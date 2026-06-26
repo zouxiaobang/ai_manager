@@ -210,6 +210,12 @@ const deployTimeDisplay = computed(() => {
   return formatDeployTime(lastDeployAt.value, locale.value)
 })
 
+const serverClockLabel = computed(() => {
+  const serverTime = healthData.value?.serverTime
+  if (!serverTime) return ''
+  return t('deployCenter.stepsWorkbench.serverClock', { time: serverTime })
+})
+
 const statusCards = computed(() => {
   const checking = healthLoading.value
   const redisUp = redisStatus.value === 'UP'
@@ -255,7 +261,9 @@ const statusCards = computed(() => {
       key: 'deploy',
       label: t('deployCenter.stepsWorkbench.recentDeploy'),
       value: deployTimeDisplay.value.relative,
-      foot: deployTimeDisplay.value.absolute,
+      foot: lastDeployAt.value
+        ? `${deployTimeDisplay.value.absolute}${serverClockLabel.value ? ` · ${serverClockLabel.value}` : ''}`
+        : serverClockLabel.value || deployTimeDisplay.value.absolute,
       tone: lastDeployAt.value ? 'blue' : 'gray',
       valueClass: lastDeployAt.value ? 'is-info' : '',
       dotClass: lastDeployAt.value ? 'is-info' : 'is-down',

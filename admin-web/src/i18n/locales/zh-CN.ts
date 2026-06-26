@@ -208,6 +208,7 @@ export default {
       checking: '检测中',
       recentDeployUnknown: '暂无记录',
       recentDeployHint: '取自 JAR / 前端 index / 服务启动时间',
+      serverClock: '服务器 {time}',
       deployBackend: '一键部署后端',
       deployFrontend: '一键部署前端',
       healthCheck: '健康检查',

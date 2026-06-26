@@ -607,6 +607,11 @@ export const deployTroubleshooting: DeployTroubleRow[] = [
   },
   { symptom: 'scp -r dist 后页面异常', action: '会变成双层目录；用 dist\\* 传到 /tmp/ai-manager-new/' },
   { symptom: '百度网盘授权失败', action: '回调须为 http://192.168.0.114/oauth/baidu/callback，Nginx 须反代 /oauth/' },
+  {
+    symptom: '服务器时间与本地不一致',
+    action:
+      '114 上执行：sudo timedatectl set-timezone Asia/Shanghai && sudo timedatectl set-ntp true && timedatectl status',
+  },
 ]
 
 export const deployImportantNotes = [

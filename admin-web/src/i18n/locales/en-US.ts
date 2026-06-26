@@ -208,6 +208,7 @@ export default {
       checking: 'Checking',
       recentDeployUnknown: 'No record',
       recentDeployHint: 'From JAR / frontend index / service start time',
+      serverClock: 'Server {time}',
       deployBackend: 'Deploy backend',
       deployFrontend: 'Deploy frontend',
       healthCheck: 'Health check',
