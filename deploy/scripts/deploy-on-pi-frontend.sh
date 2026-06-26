@@ -3,6 +3,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=git-sync-repo.sh
+source "${SCRIPT_DIR}/git-sync-repo.sh"
 WEB_ROOT="${WEB_ROOT:-/var/www/ai-manager}"
 GIT_PULL="${GIT_PULL:-true}"
 
@@ -10,10 +13,8 @@ GIT_PULL="${GIT_PULL:-true}"
 export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1536}"
 export npm_config_jobs="${npm_config_jobs:-1}"
 
-if [[ "${GIT_PULL}" == "true" ]] && [[ -d "${ROOT}/.git" ]]; then
-  echo "==> 拉取最新代码..."
-  git -C "${ROOT}" pull --ff-only
-  echo "==> 当前 commit: $(git -C "${ROOT}" rev-parse --short HEAD)"
+if [[ "${GIT_PULL}" == "true" ]]; then
+  git_sync_repo "${ROOT}"
 fi
 
 echo "==> 构建前端（Pi 上可能需要 5～15 分钟，日志长时间无输出属正常）..."

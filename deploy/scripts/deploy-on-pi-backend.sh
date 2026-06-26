@@ -3,13 +3,15 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=git-sync-repo.sh
+source "${SCRIPT_DIR}/git-sync-repo.sh"
 BACKEND_DIR="${BACKEND_DIR:-/opt/ai-manager/backend}"
 GIT_PULL="${GIT_PULL:-true}"
 RESTART_DELAY_SEC="${RESTART_DELAY_SEC:-5}"
 
-if [[ "${GIT_PULL}" == "true" ]] && [[ -d "${ROOT}/.git" ]]; then
-  echo "==> 拉取最新代码..."
-  git -C "${ROOT}" pull --ff-only
+if [[ "${GIT_PULL}" == "true" ]]; then
+  git_sync_repo "${ROOT}"
 fi
 
 echo "==> 构建后端..."
