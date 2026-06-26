@@ -1,7 +1,23 @@
-# 允许 aimanager（后端 systemd 用户）以 kyle 身份执行本机部署脚本
-# 安装：sudo cp deploy/sudoers/ai-manager-deploy.example /etc/sudoers.d/ai-manager-deploy
-#       sudo chmod 440 /etc/sudoers.d/ai-manager-deploy
-#       sudo visudo -c
+# 114 本机一键部署 sudo 权限
+# 安装（在 114 上，仓库路径默认 /home/kyle/ai_manager）：
+#   sudo cp /home/kyle/ai_manager/deploy/sudoers/ai-manager-deploy.example /etc/sudoers.d/ai-manager-deploy
+#   sudo chmod 440 /etc/sudoers.d/ai-manager-deploy
+#   sudo visudo -c
+# 验证：
+#   sudo -u aimanager sudo -n -u kyle test -d /home/kyle/ai_manager/deploy/scripts && echo OK
 
+# aimanager（后端 systemd 用户）→ 以 kyle 身份预检与执行部署脚本
+aimanager ALL=(kyle) NOPASSWD: /usr/bin/test
+aimanager ALL=(kyle) NOPASSWD: /usr/bin/true
 aimanager ALL=(kyle) NOPASSWD: /usr/bin/bash /home/kyle/ai_manager/deploy/scripts/deploy-on-pi-backend.sh
 aimanager ALL=(kyle) NOPASSWD: /usr/bin/bash /home/kyle/ai_manager/deploy/scripts/deploy-on-pi-frontend.sh
+
+# kyle 执行部署脚本内的 sudo 安装命令（免密）
+kyle ALL=(ALL) NOPASSWD: /usr/bin/mv
+kyle ALL=(ALL) NOPASSWD: /bin/mv
+kyle ALL=(ALL) NOPASSWD: /usr/bin/cp
+kyle ALL=(ALL) NOPASSWD: /bin/cp
+kyle ALL=(ALL) NOPASSWD: /usr/bin/chown
+kyle ALL=(ALL) NOPASSWD: /usr/bin/rsync
+kyle ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart ai-manager-backend
+kyle ALL=(ALL) NOPASSWD: /usr/bin/systemctl status ai-manager-backend

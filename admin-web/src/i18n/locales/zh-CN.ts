@@ -260,7 +260,7 @@ export default {
         '请检查 application-dev.yml 中 ai-manager.deploy.pi.password 是否与部署中心凭据一致，并确认 114 在线。',
       localNotReady: '本机部署环境未就绪。',
       localSetupHint:
-        '请确认 114 上已 clone 仓库到 /home/kyle/ai_manager，已安装 Maven/Node，并已配置 sudoers（见 deploy/sudoers/ai-manager-deploy.example）。',
+        '请确认 114 上已 git clone 到 /home/kyle/ai_manager，已安装 Maven/Node，并安装 sudoers：\n  sudo cp ~/ai_manager/deploy/sudoers/ai-manager-deploy.example /etc/sudoers.d/ai-manager-deploy\n  sudo chmod 440 /etc/sudoers.d/ai-manager-deploy && sudo visudo -c\n验证：sudo -u aimanager sudo -n -u kyle test -d /home/kyle/ai_manager/deploy/scripts && echo OK',
     },
     overviewTags: {
       running: '运行中',
