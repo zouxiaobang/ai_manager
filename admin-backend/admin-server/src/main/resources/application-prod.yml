@@ -5,6 +5,8 @@
 logging:
   level:
     com.ai.manager: info
+  file:
+    name: /opt/ai-manager/backend/logs/spring.log
   pattern:
     dateformat: yyyy-MM-dd HH:mm:ss.SSS
 

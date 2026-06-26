@@ -2,6 +2,12 @@
 logging:
   level:
     com.ai.manager: debug
+  charset:
+    console: UTF-8
+    file: UTF-8
+  file:
+    # 默认相对当前工作目录；从 admin-backend 启动时用 .deploy，从仓库根目录启动时设 DEPLOY_BACKEND_DIR=admin-backend/.deploy
+    name: ${DEPLOY_BACKEND_DIR:.deploy}/logs/spring.log
 
 ai-manager:
   deploy:
@@ -10,7 +16,7 @@ ai-manager:
       user: ${PI_USER:kyle}
       host: ${PI_HOST:192.168.0.114}
       password: ${PI_PASSWORD:Asd123456}
-    backend-dir: ${DEPLOY_BACKEND_DIR:admin-backend/.deploy}
+    backend-dir: ${DEPLOY_BACKEND_DIR:.deploy}
     web-root: ${DEPLOY_WEB_ROOT:/var/www/ai-manager}
     runner:
       enabled: true

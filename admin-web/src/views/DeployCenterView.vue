@@ -87,25 +87,9 @@
             </div>
           </el-tab-pane>
 
-          <el-tab-pane :label="t('deployCenter.tabs.troubleshooting')" name="troubleshooting">
+          <el-tab-pane :label="t('deployCenter.tabs.logs')" name="logs" lazy>
             <div class="deploy-center__panel">
-              <section class="deploy-panel-card">
-                <h2 class="deploy-panel-card__title">{{ t('deployCenter.troubleTitle') }}</h2>
-                <div class="deploy-trouble-table">
-                  <div class="deploy-trouble-table__head">
-                    <span>{{ t('deployCenter.troubleSymptom') }}</span>
-                    <span>{{ t('deployCenter.troubleAction') }}</span>
-                  </div>
-                  <div
-                    v-for="(row, index) in deployTroubleshooting"
-                    :key="index"
-                    class="deploy-trouble-table__row"
-                  >
-                    <span class="deploy-trouble-table__symptom">{{ row.symptom }}</span>
-                    <span class="deploy-trouble-table__action">{{ row.action }}</span>
-                  </div>
-                </div>
-              </section>
+              <DeploySystemLogsPanel :active="activeTab === 'logs'" />
             </div>
           </el-tab-pane>
         </el-tabs>
@@ -123,6 +107,7 @@ import DeployOverviewCard from '@/components/deploy/DeployOverviewCard.vue'
 import DeployQuickVerifyPanel from '@/components/deploy/DeployQuickVerifyPanel.vue'
 import DeployDatabasePanel from '@/components/deploy/DeployDatabasePanel.vue'
 import DeployStepsWorkbench from '@/components/deploy/DeployStepsWorkbench.vue'
+import DeploySystemLogsPanel from '@/components/deploy/DeploySystemLogsPanel.vue'
 import DeployVersionPanel from '@/components/deploy/DeployVersionPanel.vue'
 import { useSystemHealth } from '@/composables/useSystemHealth'
 import {
@@ -130,7 +115,6 @@ import {
   deployImportantNotes,
   deployQuickVerify,
   deployStepSections,
-  deployTroubleshooting,
   type DeployCenterTab,
 } from '@/data/deploy-center'
 import { buildDeployOverviewNodes } from '@/utils/deployOverviewStatus'

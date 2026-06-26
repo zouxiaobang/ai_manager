@@ -1,4 +1,4 @@
-export type DeployCenterTab = 'overview' | 'steps' | 'database' | 'versions' | 'troubleshooting'
+export type DeployCenterTab = 'overview' | 'steps' | 'database' | 'versions' | 'logs'
 
 export interface DeployNodeCard {
   key: string

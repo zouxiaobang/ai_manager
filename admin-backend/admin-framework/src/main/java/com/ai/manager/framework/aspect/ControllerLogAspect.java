@@ -34,19 +34,36 @@ public class ControllerLogAspect {
     @Around("restControllerPointcut()")
     public Object around(ProceedingJoinPoint joinPoint) throws Throwable {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
-        String methodName = signature.getDeclaringType().getSimpleName() + "." + signature.getName();
+        String className = signature.getDeclaringType().getSimpleName();
+        String methodName = signature.getName();
+        if (shouldSkipLog(className, methodName)) {
+            return joinPoint.proceed();
+        }
+
+        String fullMethodName = className + "." + methodName;
         Map<String, Object> params = buildParamMap(signature.getParameterNames(), joinPoint.getArgs());
-        log.info("接口请求 ==> {} IP: {} 入参: {}", methodName, resolveClientIp(), toJson(params));
+        log.info("接口请求 ==> {} IP: {} 入参: {}", fullMethodName, resolveClientIp(), toJson(params));
 
         long start = System.currentTimeMillis();
         try {
             Object result = joinPoint.proceed();
-            log.info("接口响应 <== {} 出参: {} 耗时: {}ms", methodName, toJson(result), System.currentTimeMillis() - start);
+            log.info("接口响应 <== {} 出参: {} 耗时: {}ms", fullMethodName, toJson(result), System.currentTimeMillis() - start);
             return result;
         } catch (Throwable ex) {
-            log.warn("接口异常 <== {} 耗时: {}ms 异常: {}", methodName, System.currentTimeMillis() - start, ex.getMessage());
+            log.warn("接口异常 <== {} 耗时: {}ms 异常: {}", fullMethodName, System.currentTimeMillis() - start, ex.getMessage());
             throw ex;
         }
+    }
+
+    /** 日志查看类接口会污染业务日志，跳过 AOP 记录 */
+    private static boolean shouldSkipLog(String className, String methodName) {
+        if (!"DeployLogController".equals(className)) {
+            return false;
+        }
+        return switch (methodName) {
+            case "tail", "stats", "stream", "analyze" -> true;
+            default -> false;
+        };
     }
 
     private Map<String, Object> buildParamMap(String[] names, Object[] args) {

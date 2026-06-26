@@ -64,6 +64,7 @@ ai-manager:
         database: ${DEPLOY_SQL_NODE118_DATABASE:ai_manager_admin}
         username: ${DEPLOY_SQL_NODE118_USER:ai_manager}
         password: ${DEPLOY_SQL_NODE118_PASSWORD:123456}
+    log-file: ${DEPLOY_LOG_FILE:}
   baidu-pan:
     app-key: ${BAIDU_APP_KEY:0FzEpqFsRX50bkxhGls0WUZfXvnDLL59}
     secret-key: ${BAIDU_SECRET_KEY:mgOo20RU4AzgH8VBzKYV3aIH3CjVtxco}
