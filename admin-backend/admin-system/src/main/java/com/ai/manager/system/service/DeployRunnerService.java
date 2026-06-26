@@ -242,7 +242,8 @@ public class DeployRunnerService {
 
     private boolean canRunAsUser(String user) {
         try {
-            ProcessBuilder builder = new ProcessBuilder("sudo", "-n", "-u", user, "true");
+            ProcessBuilder builder = new ProcessBuilder("/usr/bin/sudo", "-n", "-u", user, "/usr/bin/true");
+            builder.directory(resolveProcessWorkDir(true, Path.of(backendDir)).toFile());
             applyProcessEnvironment(builder);
             builder.redirectErrorStream(true);
             Process process = builder.start();
@@ -317,7 +318,9 @@ public class DeployRunnerService {
 
     private boolean runUserTest(String flag, String path) {
         try {
-            ProcessBuilder builder = new ProcessBuilder("sudo", "-n", "-u", runAsUser, "test", flag, path);
+            ProcessBuilder builder = new ProcessBuilder(
+                    "/usr/bin/sudo", "-n", "-u", runAsUser, "/usr/bin/test", flag, path);
+            builder.directory(resolveProcessWorkDir(true, Path.of(backendDir)).toFile());
             applyProcessEnvironment(builder);
             builder.redirectErrorStream(true);
             Process process = builder.start();
@@ -341,7 +344,7 @@ public class DeployRunnerService {
         if (!isDeployScript(script)) {
             throw new BusinessException(500, "本机部署脚本不存在: " + script);
         }
-        return wrapRunAsUser("bash", script.toString());
+        return wrapRunAsUser("/usr/bin/bash", script.toString());
     }
 
     private List<String> buildRemoteScriptCommand(Path projectRoot, DeployTarget target) {
@@ -380,12 +383,23 @@ public class DeployRunnerService {
             return List.of(command);
         }
         List<String> wrapped = new ArrayList<>();
-        wrapped.add("sudo");
+        wrapped.add("/usr/bin/sudo");
         wrapped.add("-n");
         wrapped.add("-u");
         wrapped.add(runAsUser);
         wrapped.addAll(List.of(command));
         return wrapped;
+    }
+
+    private Path resolveProcessWorkDir(boolean localMode, Path projectRoot) {
+        if (!localMode) {
+            return projectRoot;
+        }
+        Path backend = Path.of(backendDir);
+        if (Files.isDirectory(backend)) {
+            return backend;
+        }
+        return Path.of("/tmp");
     }
 
     private void runPasswordDeploy(
@@ -536,13 +550,15 @@ public class DeployRunnerService {
             boolean localMode) {
         try {
             sendEvent(emitter, "log", "执行命令: " + String.join(" ", command));
-            sendEvent(emitter, "log", "工作目录: " + projectRoot);
+            sendEvent(emitter, "log", "项目目录: " + projectRoot);
+            Path workDir = resolveProcessWorkDir(localMode, projectRoot);
+            sendEvent(emitter, "log", "进程工作目录: " + workDir);
             if (localMode) {
                 sendEvent(emitter, "log", "部署模式: 本机（114）");
             }
 
             ProcessBuilder builder = new ProcessBuilder(command);
-            builder.directory(projectRoot.toFile());
+            builder.directory(workDir.toFile());
             builder.redirectErrorStream(true);
             applyProcessEnvironment(builder);
             applyDeployEnvironment(builder, localMode);

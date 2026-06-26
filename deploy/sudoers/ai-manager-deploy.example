@@ -11,8 +11,6 @@ aimanager ALL=(kyle) NOPASSWD: /usr/bin/test
 aimanager ALL=(kyle) NOPASSWD: /usr/bin/true
 aimanager ALL=(kyle) NOPASSWD: /usr/bin/bash /home/kyle/ai_manager/deploy/scripts/deploy-on-pi-backend.sh
 aimanager ALL=(kyle) NOPASSWD: /usr/bin/bash /home/kyle/ai_manager/deploy/scripts/deploy-on-pi-frontend.sh
-
-# kyle 执行部署脚本内的 sudo 安装命令（免密）
 kyle ALL=(ALL) NOPASSWD: /usr/bin/mv
 kyle ALL=(ALL) NOPASSWD: /bin/mv
 kyle ALL=(ALL) NOPASSWD: /usr/bin/cp

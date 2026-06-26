@@ -12,6 +12,9 @@ ExecStart=/usr/bin/java -Xms256m -Xmx512m -jar /opt/ai-manager/backend/admin-ser
 Restart=on-failure
 RestartSec=10
 
+# 本机一键部署需 aimanager 调用 sudo（setuid），不可开启 NoNewPrivileges
+NoNewPrivileges=no
+
 # 上传目录与日志
 StandardOutput=journal
 StandardError=journal
