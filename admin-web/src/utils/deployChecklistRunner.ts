@@ -2,6 +2,7 @@ import { fetchHealth } from '@/api/health'
 import { fetchDeployLogsCheck } from '@/api/deployChecklist'
 import type { HealthData } from '@/api/types'
 import { deployDataNodeId, deployStepsChecklist } from '@/data/deploy-center'
+import { formatServerDateTime, parseServerTime } from '@/utils/deployTimeFormat'
 
 export type DeployCheckStatus = 'pending' | 'running' | 'passed' | 'failed' | 'skipped'
 
@@ -57,10 +58,13 @@ async function runSingleCheck(
     }
     case 'service-health': {
       const ok = health.status === 'UP'
+      const startedLabel = health.startedAt
+        ? formatServerDateTime(parseServerTime(health.startedAt), 'zh-CN')
+        : ''
       return {
         status: ok ? 'passed' : 'failed',
         message: ok
-          ? `Spring Boot 服务 UP${health.startedAt ? `，启动于 ${health.startedAt}` : ''}`
+          ? `Spring Boot 服务 UP${startedLabel ? `，启动于 ${startedLabel}` : ''}`
           : `服务状态异常：${health.status ?? '—'}`,
       }
     }

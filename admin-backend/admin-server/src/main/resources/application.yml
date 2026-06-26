@@ -8,6 +8,11 @@ spring:
     name: ai-manager-admin
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
+  mvc:
+    async:
+      request-timeout: 3600000
+  jackson:
+    time-zone: Asia/Shanghai
   servlet:
     multipart:
       max-file-size: 10MB

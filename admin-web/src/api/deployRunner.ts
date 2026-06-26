@@ -10,6 +10,14 @@ export interface DeployRunnerStatus {
   message?: string
   deployMode?: 'local' | 'remote'
   runAsUser?: string
+  lastDeploy?: {
+    target?: string
+    running?: boolean
+    success?: boolean
+    exitCode?: number
+    startedAt?: number
+    finishedAt?: number
+  }
 }
 
 export interface DeployPreflightStatus {
@@ -23,7 +31,7 @@ export interface DeployPreflightStatus {
 export interface DeployStreamHandlers {
   onLog: (line: string) => void
   onDone: (success: boolean, exitCode: number) => void
-  onError: (message: string) => void
+  onDisconnect: () => void
 }
 
 export function fetchDeployRunnerStatus() {
@@ -45,12 +53,15 @@ export function streamDeploy(
 ): () => void {
   const url = `${apiBase()}/api/deploy/stream?target=${target}`
   const source = new EventSource(url)
+  let doneReceived = false
+  let disconnectNotified = false
 
   source.addEventListener('log', (event) => {
     handlers.onLog((event as MessageEvent<string>).data)
   })
 
   source.addEventListener('done', (event) => {
+    doneReceived = true
     try {
       const payload = JSON.parse((event as MessageEvent<string>).data) as {
         success?: boolean
@@ -64,10 +75,44 @@ export function streamDeploy(
   })
 
   source.onerror = () => {
-    if (source.readyState === EventSource.CLOSED) return
-    handlers.onError('部署日志连接中断')
-    source.close()
+    if (doneReceived || disconnectNotified) return
+    if (source.readyState === EventSource.CONNECTING) {
+      return
+    }
+    disconnectNotified = true
+    handlers.onDisconnect()
   }
 
   return () => source.close()
+}
+
+export async function pollDeployUntilFinished(
+  target: 'backend' | 'frontend',
+  onTick: (elapsedSeconds: number, running: boolean) => void,
+  deployStartedAt: number,
+  intervalMs = 5000,
+  maxWaitMs = 60 * 60 * 1000,
+): Promise<{ success: boolean; exitCode: number; timedOut: boolean; unknown?: boolean }> {
+  const startedAt = Date.now()
+  while (Date.now() - startedAt < maxWaitMs) {
+    await new Promise((resolve) => setTimeout(resolve, intervalMs))
+    const status = await fetchDeployRunnerStatus()
+    const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000)
+    onTick(elapsedSeconds, Boolean(status.running))
+
+    if (status.running) {
+      continue
+    }
+
+    const last = status.lastDeploy
+    if (last?.finishedAt && last.finishedAt >= deployStartedAt - 2000) {
+      return {
+        success: Boolean(last.success),
+        exitCode: last.exitCode ?? -1,
+        timedOut: false,
+      }
+    }
+    return { success: false, exitCode: -1, timedOut: false, unknown: true }
+  }
+  return { success: false, exitCode: -1, timedOut: true }
 }

@@ -46,6 +46,42 @@ public class DeployRunnerService {
     private final boolean gitPullEnabled;
     private final DeployPiSshClient piSshClient;
     private final AtomicReference<String> runningTarget = new AtomicReference<>();
+    private final AtomicReference<DeployRunSnapshot> lastSnapshot = new AtomicReference<>();
+
+    private static final class DeployRunSnapshot {
+        private final String target;
+        private final boolean running;
+        private final boolean success;
+        private final int exitCode;
+        private final long startedAtEpochMs;
+        private final long finishedAtEpochMs;
+
+        private DeployRunSnapshot(
+                String target,
+                boolean running,
+                boolean success,
+                int exitCode,
+                long startedAtEpochMs,
+                long finishedAtEpochMs) {
+            this.target = target;
+            this.running = running;
+            this.success = success;
+            this.exitCode = exitCode;
+            this.startedAtEpochMs = startedAtEpochMs;
+            this.finishedAtEpochMs = finishedAtEpochMs;
+        }
+
+        private Map<String, Object> toMap() {
+            Map<String, Object> map = new HashMap<>();
+            map.put("target", target);
+            map.put("running", running);
+            map.put("success", success);
+            map.put("exitCode", exitCode);
+            map.put("startedAt", startedAtEpochMs);
+            map.put("finishedAt", finishedAtEpochMs);
+            return map;
+        }
+    }
 
     public DeployRunnerService(
             @Value("${ai-manager.deploy.runner.enabled:false}") boolean enabled,
@@ -73,6 +109,10 @@ public class DeployRunnerService {
         data.put("deployMode", mode.name().toLowerCase());
         data.put("running", runningTarget.get() != null);
         data.put("runningTarget", runningTarget.get());
+        DeployRunSnapshot snapshot = lastSnapshot.get();
+        if (snapshot != null) {
+            data.put("lastDeploy", snapshot.toMap());
+        }
         data.put("platform", System.getProperty("os.name"));
         data.put("runAsUser", runAsUser);
         if (mode == DeployRunnerMode.REMOTE) {
@@ -131,7 +171,9 @@ public class DeployRunnerService {
         Path projectRoot = resolveProjectRoot();
         DeployRunnerMode mode = resolveMode();
 
-        SseEmitter emitter = new SseEmitter(30L * 60L * 1000L);
+        SseEmitter emitter = new SseEmitter(60L * 60L * 1000L);
+        long startedAt = System.currentTimeMillis();
+        lastSnapshot.set(new DeployRunSnapshot(targetKey, true, false, -1, startedAt, 0L));
         Runnable releaseLock = () -> runningTarget.compareAndSet(targetKey, null);
         emitter.onCompletion(releaseLock);
         emitter.onTimeout(releaseLock);
@@ -139,12 +181,15 @@ public class DeployRunnerService {
 
         if (mode == DeployRunnerMode.LOCAL) {
             List<String> command = buildLocalScriptCommand(projectRoot, target);
-            CompletableFuture.runAsync(() -> runScriptDeploy(emitter, projectRoot, command, releaseLock, true));
+            CompletableFuture.runAsync(
+                    () -> runScriptDeploy(emitter, projectRoot, command, releaseLock, true, targetKey, startedAt));
         } else if (piSshClient.isPasswordAuthEnabled()) {
-            CompletableFuture.runAsync(() -> runPasswordDeploy(emitter, projectRoot, target, releaseLock));
+            CompletableFuture.runAsync(
+                    () -> runPasswordDeploy(emitter, projectRoot, target, releaseLock, targetKey, startedAt));
         } else {
             List<String> command = buildRemoteScriptCommand(projectRoot, target);
-            CompletableFuture.runAsync(() -> runScriptDeploy(emitter, projectRoot, command, releaseLock, false));
+            CompletableFuture.runAsync(
+                    () -> runScriptDeploy(emitter, projectRoot, command, releaseLock, false, targetKey, startedAt));
         }
         return emitter;
     }
@@ -407,7 +452,11 @@ public class DeployRunnerService {
             SseEmitter emitter,
             Path projectRoot,
             DeployTarget target,
-            Runnable releaseLock) {
+            Runnable releaseLock,
+            String targetKey,
+            long startedAt) {
+        boolean success = false;
+        int exitCode = -1;
         try {
             sendEvent(emitter, "log", "工作目录: " + projectRoot);
             sendEvent(emitter, "log", "SSH 目标: " + piSshClient.targetLabel() + "（密码登录）");
@@ -421,18 +470,22 @@ public class DeployRunnerService {
                 deployFrontendWithPassword(emitter, projectRoot);
             }
 
+            success = true;
+            exitCode = 0;
             sendEvent(emitter, "done", "{\"success\":true,\"exitCode\":0}");
             emitter.complete();
         } catch (Exception ex) {
             log.error("Password deploy failed", ex);
+            sendEvent(emitter, "log", "错误: " + ex.getMessage());
+            sendEvent(emitter, "done", "{\"success\":false,\"exitCode\":-1}");
             try {
-                sendEvent(emitter, "log", "错误: " + ex.getMessage());
-                sendEvent(emitter, "done", "{\"success\":false,\"exitCode\":-1}");
                 emitter.complete();
             } catch (Exception ignored) {
                 emitter.completeWithError(ex);
             }
         } finally {
+            lastSnapshot.set(
+                    new DeployRunSnapshot(targetKey, false, success, exitCode, startedAt, System.currentTimeMillis()));
             releaseLock.run();
         }
     }
@@ -577,7 +630,6 @@ public class DeployRunnerService {
                 sendEvent(emitter, "log", "… 仍在执行中（已 " + (tick * 20) + " 秒，Pi 上编译较慢请耐心等待）…");
             } catch (Exception ex) {
                 log.debug("Deploy heartbeat skipped: {}", ex.getMessage());
-                return;
             }
         }
     }
@@ -587,7 +639,11 @@ public class DeployRunnerService {
             Path projectRoot,
             List<String> command,
             Runnable releaseLock,
-            boolean localMode) {
+            boolean localMode,
+            String targetKey,
+            long startedAt) {
+        boolean success = false;
+        int exitCode = -1;
         try {
             sendEvent(emitter, "log", "执行命令: " + String.join(" ", command));
             sendEvent(emitter, "log", "项目目录: " + projectRoot);
@@ -603,20 +659,22 @@ public class DeployRunnerService {
             applyProcessEnvironment(builder);
             applyDeployEnvironment(builder, localMode);
             Process process = builder.start();
-            int exitCode = streamProcessOutput(emitter, process, resolveConsoleCharset());
-            boolean success = exitCode == 0;
+            exitCode = streamProcessOutput(emitter, process, resolveConsoleCharset());
+            success = exitCode == 0;
             sendEvent(emitter, "done", "{\"success\":" + success + ",\"exitCode\":" + exitCode + "}");
             emitter.complete();
         } catch (Exception ex) {
             log.error("Deploy run failed", ex);
+            sendEvent(emitter, "log", "错误: " + ex.getMessage());
+            sendEvent(emitter, "done", "{\"success\":false,\"exitCode\":-1}");
             try {
-                sendEvent(emitter, "log", "错误: " + ex.getMessage());
-                sendEvent(emitter, "done", "{\"success\":false,\"exitCode\":-1}");
                 emitter.complete();
             } catch (Exception ignored) {
                 emitter.completeWithError(ex);
             }
         } finally {
+            lastSnapshot.set(
+                    new DeployRunSnapshot(targetKey, false, success, exitCode, startedAt, System.currentTimeMillis()));
             releaseLock.run();
         }
     }
@@ -631,8 +689,12 @@ public class DeployRunnerService {
         env.put("WEB_ROOT", webRoot);
     }
 
-    private void sendEvent(SseEmitter emitter, String name, String data) throws Exception {
-        emitter.send(SseEmitter.event().name(name).data(data));
+    private void sendEvent(SseEmitter emitter, String name, String data) {
+        try {
+            emitter.send(SseEmitter.event().name(name).data(data));
+        } catch (Exception ex) {
+            log.debug("SSE client disconnected, deploy continues: {}", ex.getMessage());
+        }
     }
 
     private void applyProcessEnvironment(ProcessBuilder builder) {

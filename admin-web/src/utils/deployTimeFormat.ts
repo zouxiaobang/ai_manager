@@ -3,20 +3,22 @@ export interface DeployTimeDisplay {
   absolute: string
 }
 
-function pad(n: number): string {
-  return String(n).padStart(2, '0')
-}
+const SERVER_TIME_ZONE = 'Asia/Shanghai'
 
-function formatAbsolute(date: Date, locale: string): string {
-  const y = date.getFullYear()
-  const m = pad(date.getMonth() + 1)
-  const d = pad(date.getDate())
-  const h = pad(date.getHours())
-  const min = pad(date.getMinutes())
-  if (locale.startsWith('zh')) {
-    return `${y}-${m}-${d} ${h}:${min}`
+/** 解析后端返回的部署/健康检查时间（支持 ISO 与 yyyy-MM-dd HH:mm:ss） */
+export function parseServerTime(value: string): Date {
+  if (!value) {
+    return new Date(Number.NaN)
   }
-  return `${y}-${m}-${d} ${h}:${min}`
+  const trimmed = value.trim()
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(trimmed)) {
+    return new Date(trimmed.replace(' ', 'T') + '+08:00')
+  }
+  if (/^\d{4}\/\d{2}\/\d{2} \d{2}:\d{2}/.test(trimmed)) {
+    const normalized = trimmed.replace(/\//g, '-').replace(' ', 'T') + '+08:00'
+    return new Date(normalized)
+  }
+  return new Date(trimmed)
 }
 
 function formatRelativeMinutes(diffMinutes: number, locale: string): string {
@@ -38,8 +40,34 @@ function formatRelativeMinutes(diffMinutes: number, locale: string): string {
   return locale.startsWith('zh') ? `${months} 个月前` : `${months} mo ago`
 }
 
+/** 格式化为东八区时间，如 2026/06/26 13:53 */
+export function formatServerDateTime(date: Date, locale: string): string {
+  if (Number.isNaN(date.getTime())) {
+    return locale.startsWith('zh') ? '时间无效' : 'Invalid time'
+  }
+  const parts = new Intl.DateTimeFormat(locale.startsWith('zh') ? 'zh-CN' : 'en-GB', {
+    timeZone: SERVER_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date)
+
+  const pick = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? ''
+
+  const year = pick('year')
+  const month = pick('month')
+  const day = pick('day')
+  const hour = pick('hour')
+  const minute = pick('minute')
+  return `${year}/${month}/${day} ${hour}:${minute}`
+}
+
 export function formatDeployTime(iso: string, locale: string): DeployTimeDisplay {
-  const date = new Date(iso)
+  const date = parseServerTime(iso)
   if (Number.isNaN(date.getTime())) {
     return {
       relative: '—',
@@ -49,6 +77,6 @@ export function formatDeployTime(iso: string, locale: string): DeployTimeDisplay
   const diffMinutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60_000))
   return {
     relative: formatRelativeMinutes(diffMinutes, locale),
-    absolute: formatAbsolute(date, locale),
+    absolute: formatServerDateTime(date, locale),
   }
 }

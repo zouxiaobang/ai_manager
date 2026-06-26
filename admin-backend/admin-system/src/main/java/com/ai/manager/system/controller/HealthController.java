@@ -1,6 +1,7 @@
 package com.ai.manager.system.controller;
 
 import com.ai.manager.common.result.ApiResult;
+import com.ai.manager.common.time.DisplayTime;
 import com.ai.manager.system.service.DeployStatusService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.Statement;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -36,11 +38,15 @@ public class HealthController {
         Map<String, Object> data = new HashMap<>();
         data.put("status", "UP");
         data.put("service", "ai-manager-admin");
-        data.put("startedAt", deployStatusService.applicationStartedAt().toString());
+        data.put("serverTime", DisplayTime.formatMinute(Instant.now()));
+        data.put("serverTimeZone", DisplayTime.ZONE.getId());
+        data.put("startedAt", DisplayTime.formatMinute(deployStatusService.applicationStartedAt()));
 
         checkRedis(data);
         checkMysql(data);
-        deployStatusService.resolveLastDeployAt().ifPresent(instant -> data.put("lastDeployAt", instant.toString()));
+        deployStatusService
+                .resolveLastDeployAt()
+                .ifPresent(instant -> data.put("lastDeployAt", DisplayTime.formatMinute(instant)));
 
         boolean appUp = true;
         boolean dataUp = "UP".equals(data.get("mysql")) && "UP".equals(data.get("redis"));

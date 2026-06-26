@@ -7,8 +7,9 @@ Type=simple
 User=aimanager
 Group=aimanager
 WorkingDirectory=/opt/ai-manager/backend
+Environment=TZ=Asia/Shanghai
 EnvironmentFile=/opt/ai-manager/backend/backend.env
-ExecStart=/usr/bin/java -Xms256m -Xmx512m -jar /opt/ai-manager/backend/admin-server.jar
+ExecStart=/usr/bin/java -Duser.timezone=Asia/Shanghai -Xms256m -Xmx512m -jar /opt/ai-manager/backend/admin-server.jar
 Restart=on-failure
 RestartSec=10
 

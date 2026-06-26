@@ -23,7 +23,9 @@ export interface HealthData {
   mysqlError?: string
   appNodeStatus?: string
   dataNodeStatus?: string
-  /** 服务器部署产物最近修改时间或进程启动时间（ISO-8601） */
+  /** 服务器东八区时间，如 2026/06/26 13:53 */
   lastDeployAt?: string
   startedAt?: string
+  serverTime?: string
+  serverTimeZone?: string
 }

@@ -6,23 +6,33 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 WEB_ROOT="${WEB_ROOT:-/var/www/ai-manager}"
 GIT_PULL="${GIT_PULL:-true}"
 
+# Pi 上 Vite 构建较吃内存，限制堆大小并降低对后端 JVM 的 CPU 抢占
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1536}"
+export npm_config_jobs="${npm_config_jobs:-1}"
+
 if [[ "${GIT_PULL}" == "true" ]] && [[ -d "${ROOT}/.git" ]]; then
   echo "==> 拉取最新代码..."
   git -C "${ROOT}" pull --ff-only
+  echo "==> 当前 commit: $(git -C "${ROOT}" rev-parse --short HEAD)"
 fi
 
-echo "==> 构建前端..."
+echo "==> 构建前端（Pi 上可能需要 5～15 分钟，日志长时间无输出属正常）..."
 cd "${ROOT}/admin-web"
 npm install
-npm run build
+nice -n 10 npm run build
 
 if [[ ! -d "${ROOT}/admin-web/dist" ]]; then
   echo "未找到 dist 目录" >&2
   exit 1
 fi
 
+STAGING_DIR="$(mktemp -d /tmp/ai-manager-web.XXXXXX)"
+trap 'rm -rf "${STAGING_DIR}"' EXIT
+rsync -a "${ROOT}/admin-web/dist/" "${STAGING_DIR}/"
+
 echo "==> 安装到 Nginx 目录 ${WEB_ROOT} ..."
-sudo rsync -av --delete "${ROOT}/admin-web/dist/" "${WEB_ROOT}/"
+sudo rsync -av --delete "${STAGING_DIR}/" "${WEB_ROOT}/"
 sudo chown -R www-data:www-data "${WEB_ROOT}"
 
+echo "==> 前端部署完成"
 echo "完成。访问 http://127.0.0.1/#/home"

@@ -42,6 +42,7 @@ import { ElMessage } from 'element-plus'
 import {
   fetchDeployRunnerStatus,
   fetchDeployPreflight,
+  pollDeployUntilFinished,
   streamDeploy,
   type DeployRunnerStatus,
 } from '@/api/deployRunner'
@@ -64,7 +65,9 @@ const phase = ref<Phase>('idle')
 const logs = ref<string[]>([])
 const projectRoot = ref('')
 const logViewportRef = ref<HTMLElement | null>(null)
+const deployStartedAt = ref(0)
 let stopStream: (() => void) | null = null
+let polling = false
 
 const running = computed(() => phase.value === 'running' || phase.value === 'checking')
 
@@ -110,6 +113,58 @@ function appendLog(line: string) {
 function cleanupStream() {
   stopStream?.()
   stopStream = null
+  polling = false
+}
+
+function finishDeploy(success: boolean, exitCode: number) {
+  phase.value = success ? 'success' : 'failed'
+  if (success) {
+    appendLog(t('deployCenter.deployRun.doneSuccess'))
+    ElMessage.success(t('deployCenter.deployRun.doneToast'))
+  } else {
+    appendLog(t('deployCenter.deployRun.doneFailed', { code: exitCode }))
+    ElMessage.error(t('deployCenter.deployRun.failToast'))
+  }
+  emit('finished', success)
+}
+
+async function pollAfterDisconnect() {
+  if (polling) return
+  polling = true
+  appendLog(t('deployCenter.deployRun.streamDisconnectedHint'))
+  ElMessage.warning(t('deployCenter.deployRun.streamDisconnectedToast'))
+
+  try {
+    const result = await pollDeployUntilFinished(
+      props.target,
+      (elapsed, running) => {
+        if (running) {
+          appendLog(t('deployCenter.deployRun.pollStillRunning', { seconds: elapsed }))
+        }
+      },
+      deployStartedAt.value,
+    )
+    if (result.timedOut) {
+      phase.value = 'failed'
+      appendLog(t('deployCenter.deployRun.pollTimedOut'))
+      emit('finished', false)
+      return
+    }
+    if (result.unknown) {
+      phase.value = 'failed'
+      appendLog(t('deployCenter.deployRun.pollUnknown'))
+      ElMessage.warning(t('deployCenter.deployRun.pollUnknownToast'))
+      emit('finished', false)
+      return
+    }
+    finishDeploy(result.success, result.exitCode)
+  } catch (err) {
+    phase.value = 'failed'
+    appendLog(err instanceof Error ? err.message : t('deployCenter.deployRun.pollFailed'))
+    emit('finished', false)
+  } finally {
+    polling = false
+  }
 }
 
 async function prepareAndStart() {
@@ -164,27 +219,18 @@ async function prepareAndStart() {
 
   projectRoot.value = status.projectRoot || ''
   phase.value = 'running'
+  deployStartedAt.value = Date.now()
   appendLog(t('deployCenter.deployRun.started'))
 
   stopStream = streamDeploy(props.target, {
     onLog: appendLog,
     onDone: (success, exitCode) => {
-      phase.value = success ? 'success' : 'failed'
-      if (success) {
-        appendLog(t('deployCenter.deployRun.doneSuccess'))
-        ElMessage.success(t('deployCenter.deployRun.doneToast'))
-      } else {
-        appendLog(t('deployCenter.deployRun.doneFailed', { code: exitCode }))
-        ElMessage.error(t('deployCenter.deployRun.failToast'))
-      }
-      emit('finished', success)
+      finishDeploy(success, exitCode)
     },
-    onError: (message) => {
+    onDisconnect: () => {
       if (phase.value === 'running') {
-        phase.value = 'failed'
-        appendLog(message)
-        appendLog(t('deployCenter.deployRun.streamDisconnectedHint'))
-        ElMessage.warning(t('deployCenter.deployRun.streamDisconnectedToast'))
+        cleanupStream()
+        void pollAfterDisconnect()
       }
     },
   })

@@ -44,7 +44,6 @@ export interface DeployTroubleRow {
 export interface DeployStepsChecklistItem {
   id: string
   title: string
-  detailTitle: string
   detailDesc: string
   inspectSteps: string[]
   commands: string[]
@@ -297,7 +296,6 @@ export const deployStepsChecklist: DeployStepsChecklistItem[] = [
   {
     id: 'node-status',
     title: '节点状态检查',
-    detailTitle: '4.1 数据节点',
     detailDesc:
       '数据节点是存储与处理的基础组件，部署前需确认 Docker、MySQL 与 Redis 容器均已启动并可从应用节点访问。',
     inspectSteps: [
@@ -316,7 +314,6 @@ export const deployStepsChecklist: DeployStepsChecklistItem[] = [
   {
     id: 'service-health',
     title: '服务健康检查',
-    detailTitle: '应用节点服务',
     detailDesc: '确认 114 上 Nginx 与 Spring Boot 后端均已启动，systemd 服务无异常重启。',
     inspectSteps: [
       'SSH 登录应用节点 192.168.0.114',
@@ -335,7 +332,6 @@ export const deployStepsChecklist: DeployStepsChecklistItem[] = [
   {
     id: 'api-check',
     title: 'API 接口检查',
-    detailTitle: '对外 API 健康',
     detailDesc: '从开发机或任意局域网终端访问 /api/health，确认 Nginx 反代与后端响应正常。',
     inspectSteps: [
       '在 Windows 开发机执行 curl 健康检查',
@@ -351,7 +347,6 @@ export const deployStepsChecklist: DeployStepsChecklistItem[] = [
   {
     id: 'frontend-access',
     title: '前端访问检查',
-    detailTitle: '4.4 前端部署',
     detailDesc: '浏览器打开管理后台 Hash 地址，确认静态资源加载正常，勿使用 index_pc.html。',
     inspectSteps: [
       '访问 http://192.168.0.114/#/home',
@@ -367,7 +362,6 @@ export const deployStepsChecklist: DeployStepsChecklistItem[] = [
   {
     id: 'database',
     title: '数据库连接检查',
-    detailTitle: 'MySQL 连通性',
     detailDesc: '从应用节点测试连接数据节点 MySQL，确认账号与库名配置正确。',
     inspectSteps: [
       '在 114 上执行 mysql 客户端连接 118',
@@ -383,7 +377,6 @@ export const deployStepsChecklist: DeployStepsChecklistItem[] = [
   {
     id: 'redis-cache',
     title: 'Redis 缓存检查',
-    detailTitle: 'Redis 连通性',
     detailDesc: '确认 Redis 可 ping 通，健康检查接口中 redis 字段为 UP。',
     inspectSteps: [
       'redis-cli 连接 118 执行 PING',
@@ -400,7 +393,6 @@ export const deployStepsChecklist: DeployStepsChecklistItem[] = [
   {
     id: 'logs-alerts',
     title: '日志与告警检查',
-    detailTitle: '后端日志',
     detailDesc: '查看 systemd 日志，确认无持续报错；必要时配置 journal 持久化与告警。',
     inspectSteps: [
       '查看最近 50 行后端日志',

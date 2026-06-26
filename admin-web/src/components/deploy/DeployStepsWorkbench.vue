@@ -107,7 +107,9 @@
       </section>
 
       <section v-if="selectedItem" class="deploy-steps-workbench__detail">
-        <h3 class="deploy-steps-workbench__detail-title">{{ selectedItem.detailTitle }}</h3>
+        <h3 class="deploy-steps-workbench__detail-title">
+          {{ selectedCheckIndex + 1 }}. {{ selectedItem.title }}
+        </h3>
         <p class="deploy-steps-workbench__detail-desc">{{ selectedItem.detailDesc }}</p>
 
         <div
@@ -181,6 +183,13 @@ const checklistSummary = ref('')
 const checklistSummaryClass = ref('')
 
 const selectedItem = computed(() => checklist.find((item) => item.id === selectedId.value))
+
+const selectedCheckIndex = computed(() =>
+  Math.max(
+    0,
+    checklist.findIndex((item) => item.id === selectedId.value),
+  ),
+)
 
 const healthUp = computed(() => healthData.value?.status === 'UP')
 const redisStatus = computed(() => healthData.value?.redis ?? '')
