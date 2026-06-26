@@ -54,8 +54,10 @@
     </div>
 
     <template v-else>
-      <section v-if="showFolderSection && childFolders.length" class="notebook-folder-view__section">
-        <h4 class="notebook-folder-view__section-title">{{ t('notebook.folderSection') }}</h4>
+      <section v-if="showFolderSection" class="notebook-folder-view__section">
+        <h4 class="notebook-folder-view__section-title">
+          {{ t('notebook.folderSectionWithCount', { count: childFolders.length }) }}
+        </h4>
 
         <div class="notebook-folder-view__folder-grid">
           <button
@@ -74,9 +76,9 @@
         </div>
       </section>
 
-      <section v-if="showNoteSection && childNotes.length" class="notebook-folder-view__section">
-        <h4 v-if="showFolderSection" class="notebook-folder-view__section-title">
-          {{ t('notebook.noteSection') }}
+      <section v-if="showNoteSection" class="notebook-folder-view__section">
+        <h4 class="notebook-folder-view__section-title">
+          {{ t('notebook.noteSectionWithCount', { count: childNotes.length }) }}
         </h4>
 
         <div v-if="noteDisplay === 'card'" class="notebook-folder-view__note-grid">
@@ -181,8 +183,8 @@ const childNotes = computed(() =>
   (props.folderNode.children ?? []).filter((node) => node.nodeType === 'NOTE'),
 )
 
-const showFolderSection = computed(() => viewMode.value.startsWith('folder-'))
-const showNoteSection = computed(() => true)
+const showFolderSection = computed(() => childFolders.value.length > 0)
+const showNoteSection = computed(() => childNotes.value.length > 0)
 
 const noteDisplay = computed<'card' | 'detail-list' | 'title-list'>(() => {
   switch (viewMode.value) {
@@ -197,26 +199,13 @@ const noteDisplay = computed<'card' | 'detail-list' | 'title-list'>(() => {
   }
 })
 
-const displayCount = computed(() => {
-  if (showFolderSection.value) {
-    return childFolders.value.length + childNotes.value.length
-  }
-  return childNotes.value.length
-})
+const displayCount = computed(() => childFolders.value.length + childNotes.value.length)
 
-const isContentEmpty = computed(() => {
-  if (showFolderSection.value) {
-    return childFolders.value.length === 0 && childNotes.value.length === 0
-  }
-  return childNotes.value.length === 0
-})
+const isContentEmpty = computed(
+  () => childFolders.value.length === 0 && childNotes.value.length === 0,
+)
 
-const emptyDescription = computed(() => {
-  if (!showFolderSection.value && childFolders.value.length > 0 && childNotes.value.length === 0) {
-    return t('notebook.folderNotesEmpty')
-  }
-  return t('notebook.folderEmpty')
-})
+const emptyDescription = computed(() => t('notebook.folderEmpty'))
 
 function onViewModeChange(mode: FolderContentViewMode) {
   viewMode.value = mode

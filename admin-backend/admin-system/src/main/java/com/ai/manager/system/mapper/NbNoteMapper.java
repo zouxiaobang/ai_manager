@@ -18,7 +18,8 @@ public interface NbNoteMapper extends BaseMapper<NbNote> {
     int restoreById(@Param("id") Long id);
 
     @Select("""
-            SELECT n.id, n.title, n.notebook_id AS notebookId, b.name AS notebookName, n.update_time AS updateTime
+            SELECT n.id, n.title, n.notebook_id AS notebookId, b.name AS notebookName,
+                   n.content_excerpt AS contentExcerpt, n.update_time AS updateTime
             FROM nb_note n
             LEFT JOIN nb_notebook b ON n.notebook_id = b.id
             WHERE n.deleted = 1

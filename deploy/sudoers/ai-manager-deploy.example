@@ -1,0 +1,7 @@
+# 允许 aimanager（后端 systemd 用户）以 kyle 身份执行本机部署脚本
+# 安装：sudo cp deploy/sudoers/ai-manager-deploy.example /etc/sudoers.d/ai-manager-deploy
+#       sudo chmod 440 /etc/sudoers.d/ai-manager-deploy
+#       sudo visudo -c
+
+aimanager ALL=(kyle) NOPASSWD: /usr/bin/bash /home/kyle/ai_manager/deploy/scripts/deploy-on-pi-backend.sh
+aimanager ALL=(kyle) NOPASSWD: /usr/bin/bash /home/kyle/ai_manager/deploy/scripts/deploy-on-pi-frontend.sh

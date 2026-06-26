@@ -31,18 +31,31 @@ public class BaiduPanAuthServiceImpl implements BaiduPanAuthService {
     @Override
     public BaiduPanAuthStatusVO getStatus() {
         BaiduPanAuthStatusVO vo = new BaiduPanAuthStatusVO();
-        NbBaiduPanAuth auth = findAuth();
-        vo.setAuthorized(auth != null);
         vo.setAuthorizeUrl(buildAuthorizeUrl());
-        if (auth != null) {
+        NbBaiduPanAuth auth = findAuth();
+        if (auth == null) {
+            vo.setAuthorized(false);
+            return vo;
+        }
+        try {
+            requireAccessToken();
+            auth = findAuth();
+            vo.setAuthorized(true);
             vo.setBaiduUid(auth.getBaiduUid());
             vo.setExpiresAt(auth.getExpiresAt() == null ? null : auth.getExpiresAt().toString());
+        } catch (BusinessException ex) {
+            vo.setAuthorized(false);
+            log.warn("百度网盘授权不可用: {}", ex.getMessage());
         }
         return vo;
     }
 
     @Override
     public String buildAuthorizeUrl() {
+        return buildAuthorizeUrl(null);
+    }
+
+    public String buildAuthorizeUrl(String state) {
         if (!StringUtils.hasText(baiduPanProperties.getAppKey())) {
             return "";
         }
@@ -50,7 +63,8 @@ public class BaiduPanAuthServiceImpl implements BaiduPanAuthService {
         return "https://openapi.baidu.com/oauth/2.0/authorize?response_type=code&client_id="
                 + url(baiduPanProperties.getAppKey())
                 + "&redirect_uri=" + redirect
-                + "&scope=basic,netdisk&display=popup";
+                + "&scope=basic,netdisk&display=page"
+                + (StringUtils.hasText(state) ? "&state=" + url(state) : "");
     }
 
     @Override

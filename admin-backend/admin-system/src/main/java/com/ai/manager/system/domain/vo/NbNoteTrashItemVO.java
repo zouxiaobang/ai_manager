@@ -15,5 +15,7 @@ public class NbNoteTrashItemVO {
 
     private String notebookName;
 
+    private String contentExcerpt;
+
     private LocalDateTime updateTime;
 }

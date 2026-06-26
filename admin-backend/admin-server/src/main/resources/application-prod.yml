@@ -7,6 +7,15 @@ logging:
     com.ai.manager: info
 
 ai-manager:
+  deploy:
+    runner:
+      enabled: true
+      mode: local
+      project-root: ${AI_MANAGER_ROOT:/home/kyle/ai_manager}
+      run-as-user: ${DEPLOY_RUN_AS_USER:kyle}
+      git-pull-enabled: ${DEPLOY_GIT_PULL:true}
+    backend-dir: /opt/ai-manager/backend
+    web-root: /var/www/ai-manager
   baidu-pan:
     # 经 Nginx 80 端口反代；百度开放平台需登记相同回调地址
     redirect-uri: http://192.168.0.114/oauth/baidu/callback

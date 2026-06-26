@@ -29,11 +29,15 @@ public class NbTodoItem {
 
     private LocalDateTime repeatUntil;
 
+    private String repeatDays;
+
     private Integer remindNotified;
 
     private Long seriesId;
 
     private Integer sortOrder;
+
+    private Integer pinned;
 
     @TableLogic
     private Integer deleted;

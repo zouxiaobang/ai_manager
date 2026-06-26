@@ -79,6 +79,36 @@ const router = createRouter({
 
           meta: { titleKey: 'portal.menu.notebook' },
 
+          beforeEnter: (to) => {
+
+            if (to.query.tab === 'todos') {
+
+              const filter = to.query.filter
+
+              return {
+
+                path: '/todos',
+
+                query: typeof filter === 'string' ? { filter } : undefined,
+
+              }
+
+            }
+
+          },
+
+        },
+
+        {
+
+          path: 'todos',
+
+          name: 'todos',
+
+          component: () => import('@/views/TodosView.vue'),
+
+          meta: { titleKey: 'portal.menu.todos' },
+
         },
 
         {
@@ -111,9 +141,9 @@ const router = createRouter({
 
           name: 'deploy-docs',
 
-          component: () => import('@/views/PlaceholderView.vue'),
+          component: () => import('@/views/DeployCenterView.vue'),
 
-          meta: { titleKey: 'portal.menu.deployDocs' },
+          meta: { titleKey: 'portal.menu.deployCenter' },
 
         },
 

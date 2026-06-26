@@ -26,19 +26,38 @@ public class BaiduPanOAuthCallbackController {
     @GetMapping("/oauth/baidu/callback")
     public void oauthCallback(@RequestParam(required = false) String code,
                               @RequestParam(required = false) String error,
+                              @RequestParam(required = false) String state,
                               HttpServletResponse response) throws IOException {
         if (StringUtils.hasText(error)) {
-            redirect(response, "error=" + url(error));
+            redirect(response, state, "baidu=error&error=" + url(error));
             return;
         }
         baiduPanAuthService.exchangeCode(code);
-        redirect(response, "baidu=connected");
+        redirect(response, state, "baidu=connected");
     }
 
-    private void redirect(HttpServletResponse response, String query) throws IOException {
-        String base = baiduPanProperties.getFrontendRedirectUri();
-        String target = base + (base.contains("?") ? "&" : "?") + query;
-        response.sendRedirect(target);
+    private void redirect(HttpServletResponse response, String state, String query) throws IOException {
+        response.sendRedirect(resolveFrontendRedirect(state, query));
+    }
+
+    private String resolveFrontendRedirect(String state, String query) {
+        String configured = baiduPanProperties.getFrontendRedirectUri();
+        int hashPos = configured.indexOf("/#");
+        String siteOrigin = hashPos >= 0 ? configured.substring(0, hashPos) : configured;
+        String hashPath = "/home";
+        if (StringUtils.hasText(state)) {
+            hashPath = state.startsWith("/") ? state : "/" + state;
+        } else if (hashPos >= 0) {
+            hashPath = configured.substring(hashPos + 1);
+            int queryPos = hashPath.indexOf('?');
+            if (queryPos >= 0) {
+                hashPath = hashPath.substring(0, queryPos);
+            }
+        }
+        if (!hashPath.startsWith("/")) {
+            hashPath = "/" + hashPath;
+        }
+        return siteOrigin + "/#" + hashPath + "?" + query;
     }
 
     private String url(String value) {

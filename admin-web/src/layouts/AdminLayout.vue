@@ -1,145 +1,48 @@
 <template>
-  <div class="portal">
-    <header class="portal-header">
-      <div class="portal-header__brand">
-        <div class="portal-header__logo">AI</div>
-        <span class="portal-header__title">{{ t('portal.title') }}</span>
-      </div>
-      <el-input
-        v-model="searchKeyword"
-        class="portal-header__search"
-        :placeholder="t('portal.searchPlaceholder')"
-        clearable
-        :prefix-icon="Search"
-      />
-      <div class="portal-header__actions">
-        <el-badge
-          :value="todayTodoCount"
-          :max="99"
-          :hidden="todayTodoCount === 0"
-          class="portal-badge"
+  <div class="portal portal--war-room">
+    <div class="portal-war-shell">
+      <aside class="portal-rail">
+        <router-link
+          to="/settings"
+          class="portal-rail__gear"
+          :class="{ 'portal-rail__gear--active': isSettingsActive }"
+          :title="t('portal.menu.settings')"
         >
-          <el-button
-            :icon="Bell"
-            circle
-            :title="t('portal.dashboard.todayTodos')"
-            @click="goTodayTodos"
-          />
-        </el-badge>
-        <el-select
-          :model-value="appStore.locale"
-          size="small"
-          style="width: 100px"
-          @change="onLocaleChange"
-        >
-          <el-option label="中文" value="zh-CN" />
-          <el-option label="EN" value="en-US" />
-        </el-select>
-        <el-button size="small" @click="appStore.toggleTheme()">
-          {{ appStore.theme === 'dark' ? t('app.themeLight') : t('app.themeDark') }}
-        </el-button>
-        <el-avatar :size="32">{{ t('portal.adminShort') }}</el-avatar>
-      </div>
-    </header>
-
-    <div class="portal-quick-nav">
-      <span class="portal-quick-nav__label">{{ t('portal.quickNav') }}</span>
-      <el-button
-        v-for="item in quickNavItems"
-        :key="item.key"
-        size="small"
-        text
-        @click="onQuickNav(item.key)"
-      >
-        {{ item.icon }} {{ t(`portal.quick.${item.key}`) }}
-      </el-button>
-      <el-button size="small" text type="primary" :icon="Plus">
-        {{ t('portal.quick.custom') }}
-      </el-button>
-    </div>
-
-    <div class="portal-body">
-      <aside class="portal-aside">
-        <el-menu :default-active="activeMenu" router>
-          <el-menu-item index="/home">
-            <el-icon><HomeFilled /></el-icon>
-            <span>{{ t('portal.menu.home') }}</span>
-          </el-menu-item>
-          <el-menu-item index="/functions">
-            <el-icon><Grid /></el-icon>
-            <span>{{ t('portal.menu.functions') }}</span>
-          </el-menu-item>
-          <el-menu-item index="/notebook">
-            <el-icon><Notebook /></el-icon>
-            <span>{{ t('portal.menu.notebook') }}</span>
-          </el-menu-item>
-          <el-menu-item index="/user-center">
-            <el-icon><Avatar /></el-icon>
-            <span>{{ t('portal.menu.userCenter') }}</span>
-          </el-menu-item>
-          <el-menu-item index="/users">
-            <el-icon><Lock /></el-icon>
-            <span>{{ t('portal.menu.permission') }}</span>
-          </el-menu-item>
-          <el-menu-item index="/deploy-docs">
-            <el-icon><Document /></el-icon>
-            <span>{{ t('portal.menu.deployDocs') }}</span>
-          </el-menu-item>
-          <el-menu-item index="/storage">
-            <el-icon><FolderOpened /></el-icon>
-            <span>{{ t('portal.menu.storage') }}</span>
-          </el-menu-item>
-          <el-menu-item index="/settings">
-            <el-icon><Setting /></el-icon>
-            <span>{{ t('portal.menu.settings') }}</span>
-          </el-menu-item>
-        </el-menu>
+          <WarRoomGearIcon />
+        </router-link>
+        <nav class="portal-rail__nav">
+          <router-link
+            v-for="item in railItems"
+            :key="item.path"
+            :to="item.path"
+            class="portal-rail__item"
+            :class="{ 'portal-rail__item--active': isRailActive(item.path) }"
+          >
+            <span class="portal-rail__item-icon">
+              <WarRoomNavIcon :name="item.iconKey" />
+            </span>
+            <span class="portal-rail__item-label">{{ item.label }}</span>
+          </router-link>
+        </nav>
       </aside>
-
-      <div class="portal-content">
-        <main class="portal-main">
-          <router-view />
-        </main>
-        <footer class="portal-footer">
-          <span>{{ t('portal.footer.support') }}</span>
-          <span>{{ t('portal.footer.email') }}</span>
-          <span>{{ t('portal.footer.version') }}</span>
-        </footer>
-      </div>
+      <main class="portal-war-main">
+        <router-view />
+      </main>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
-import {
-  Avatar,
-  Bell,
-  Document,
-  FolderOpened,
-  Grid,
-  HomeFilled,
-  Lock,
-  Notebook,
-  Plus,
-  Search,
-  Setting,
-} from '@element-plus/icons-vue'
-import { useAppStore, type LocaleCode } from '@/stores/app'
 import { useTodoReminders } from '@/composables/useTodoReminders'
-import i18n from '@/i18n'
+import WarRoomGearIcon from '@/components/war-room/WarRoomGearIcon.vue'
+import WarRoomNavIcon, { type WarRoomNavIconName } from '@/components/war-room/WarRoomNavIcon.vue'
 
 const route = useRoute()
-const router = useRouter()
 const { t } = useI18n()
-const appStore = useAppStore()
-const { todayTodoCount, refreshTodayCount } = useTodoReminders()
-const searchKeyword = ref('')
-
-const activeMenu = computed(() => route.path)
+const { refreshTodayCount } = useTodoReminders()
 
 watch(
   () => route.fullPath,
@@ -148,31 +51,25 @@ watch(
   },
 )
 
-function goTodayTodos() {
-  router.push({ path: '/notebook', query: { tab: 'todos', filter: 'today' } })
-}
+const railItems = computed(() => [
+  { path: '/home', iconKey: 'home' as WarRoomNavIconName, label: t('portal.menu.home') },
+  { path: '/functions', iconKey: 'functions' as WarRoomNavIconName, label: t('portal.menu.functions') },
+  { path: '/notebook', iconKey: 'notebook' as WarRoomNavIconName, label: t('portal.menu.notebook') },
+  { path: '/todos', iconKey: 'todos' as WarRoomNavIconName, label: t('portal.menu.todos') },
+  { path: '/user-center', iconKey: 'user-center' as WarRoomNavIconName, label: t('portal.menu.userCenter') },
+  { path: '/users', iconKey: 'permission' as WarRoomNavIconName, label: t('portal.menu.permission') },
+  { path: '/deploy-docs', iconKey: 'deploy-docs' as WarRoomNavIconName, label: t('portal.menu.deployCenter') },
+  { path: '/storage', iconKey: 'storage' as WarRoomNavIconName, label: t('portal.menu.storage') },
+])
 
-const quickNavItems = [
-  { key: 'finance', icon: '⭐' },
-  { key: 'crm', icon: '📈' },
-  { key: 'oa', icon: '🛠️' },
-  { key: 'assets', icon: '📁' },
-] as const
+const isSettingsActive = computed(() => route.path === '/settings')
 
-function onLocaleChange(code: LocaleCode) {
-  appStore.setLocale(code, i18n)
-}
-
-function onQuickNav(key: string) {
-  ElMessage.info(t('portal.quickNavHint', { name: t(`portal.quick.${key}`) }))
+function isRailActive(path: string) {
+  const current = route.path
+  if (path === '/functions') {
+    return current === '/functions' || current === '/pomodoro' || current === '/ecommerce'
+  }
+  if (path === '/home') return current === '/home'
+  return current === path
 }
 </script>
-
-<style scoped lang="scss">
-.portal-badge :deep(.el-badge__content) {
-  top: 0;
-  right: 0;
-  left: auto;
-  transform: translate(50%, -50%);
-}
-</style>

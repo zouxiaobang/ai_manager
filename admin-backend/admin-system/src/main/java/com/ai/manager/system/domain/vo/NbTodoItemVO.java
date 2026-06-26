@@ -23,9 +23,13 @@ public class NbTodoItemVO {
 
     private LocalDateTime repeatUntil;
 
+    private String repeatDays;
+
     private Long seriesId;
 
     private Integer sortOrder;
+
+    private Integer pinned;
 
     private LocalDateTime createTime;
 

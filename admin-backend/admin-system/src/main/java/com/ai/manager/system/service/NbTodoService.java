@@ -8,7 +8,7 @@ import java.util.List;
 
 public interface NbTodoService {
 
-    List<NbTodoItemVO> list(Boolean completed, Boolean today);
+    List<NbTodoItemVO> list(Boolean completed, Boolean today, Boolean pinned);
 
     List<NbTodoItemVO> listToday();
 

@@ -28,4 +28,6 @@ public interface NbNoteService extends IService<NbNote> {
     void restoreNote(Long id);
 
     void purgeNote(Long id);
+
+    void purgeAllTrash();
 }

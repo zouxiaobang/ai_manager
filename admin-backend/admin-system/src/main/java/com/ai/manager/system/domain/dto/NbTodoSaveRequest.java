@@ -27,5 +27,11 @@ public class NbTodoSaveRequest {
 
     private Boolean clearRepeatUntil;
 
+    private String repeatDays;
+
+    private Boolean clearRepeatDays;
+
     private Integer sortOrder;
+
+    private Boolean pinned;
 }

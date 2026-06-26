@@ -59,6 +59,7 @@ export interface NbNoteTrashItem {
   title: string
   notebookId?: number
   notebookName?: string
+  contentExcerpt?: string
   updateTime?: string
 }
 
@@ -156,6 +157,10 @@ export function restoreNote(id: number) {
 
 export function purgeNote(id: number) {
   return deleteData(`/api/notes/${id}/purge`)
+}
+
+export function purgeAllTrashNotes() {
+  return deleteData('/api/notes/trash')
 }
 
 export function fetchNoteTags() {

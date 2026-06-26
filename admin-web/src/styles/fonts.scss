@@ -1,0 +1,26 @@
+$ph-font-path: '@fontpkg/alibaba-pu-hui-ti-2-0';
+
+@mixin ph-face($file, $weight) {
+  @font-face {
+    font-family: 'Alibaba PuHuiTi';
+    src: url('#{$ph-font-path}/#{$file}') format('truetype');
+    font-weight: $weight;
+    font-style: normal;
+    font-display: swap;
+  }
+}
+
+@include ph-face('AlibabaPuHuiTi-2-35-Thin.ttf', 100);
+@include ph-face('AlibabaPuHuiTi-2-45-Light.ttf', 300);
+@include ph-face('AlibabaPuHuiTi-2-55-Regular.ttf', 400);
+@include ph-face('AlibabaPuHuiTi-2-65-Medium.ttf', 500);
+@include ph-face('AlibabaPuHuiTi-2-75-SemiBold.ttf', 600);
+@include ph-face('AlibabaPuHuiTi-2-85-Bold.ttf', 700);
+@include ph-face('AlibabaPuHuiTi-2-95-ExtraBold.ttf', 800);
+@include ph-face('AlibabaPuHuiTi-2-105-Heavy.ttf', 900);
+@include ph-face('AlibabaPuHuiTi-2-115-Black.ttf', 950);
+
+:root {
+  --app-font-family: 'Alibaba PuHuiTi', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --el-font-family: var(--app-font-family);
+}

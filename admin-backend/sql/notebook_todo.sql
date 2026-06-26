@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS nb_todo_item (
     remind_notified TINYINT      NOT NULL DEFAULT 0 COMMENT '提醒是否已推送 0/1',
     series_id       BIGINT       DEFAULT NULL COMMENT '重复系列 ID',
     sort_order      INT          NOT NULL DEFAULT 0 COMMENT '排序',
+    pinned          TINYINT      NOT NULL DEFAULT 0 COMMENT '特别提醒 0/1',
     deleted         TINYINT      NOT NULL DEFAULT 0,
     create_time     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_time     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -22,5 +23,6 @@ CREATE TABLE IF NOT EXISTS nb_todo_item (
     KEY idx_completed (completed),
     KEY idx_due_time (due_time),
     KEY idx_remind_time (remind_time),
-    KEY idx_series_id (series_id)
+    KEY idx_series_id (series_id),
+    KEY idx_pinned (pinned)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='笔记本待办';

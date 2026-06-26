@@ -31,7 +31,7 @@ const router = createRouter({
           path: 'todos',
           name: 'mobile-todos',
           component: () => import('@/mobile/views/MobileTodosView.vue'),
-          meta: { titleKey: 'notebook.tabs.todos', tab: 'todos' },
+          meta: { titleKey: 'portal.menu.todos', tab: 'todos' },
         },
         {
           path: 'pomodoro',

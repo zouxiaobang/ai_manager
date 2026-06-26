@@ -67,4 +67,10 @@ public class NbNoteController {
         nbNoteService.purgeNote(id);
         return ApiResult.ok();
     }
+
+    @DeleteMapping("/trash")
+    public ApiResult<Void> purgeAll() {
+        nbNoteService.purgeAllTrash();
+        return ApiResult.ok();
+    }
 }

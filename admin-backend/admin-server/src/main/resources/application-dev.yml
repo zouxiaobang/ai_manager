@@ -4,9 +4,20 @@ logging:
     com.ai.manager: debug
 
 ai-manager:
+  deploy:
+    marker-path: admin-server/target/.last-deploy-at
+    pi:
+      user: ${PI_USER:kyle}
+      host: ${PI_HOST:192.168.0.114}
+      password: ${PI_PASSWORD:Asd123456}
+    backend-dir: ${DEPLOY_BACKEND_DIR:/opt/ai-manager/backend}
+    web-root: ${DEPLOY_WEB_ROOT:/var/www/ai-manager}
+    runner:
+      enabled: true
+      mode: remote
   baidu-pan:
-    redirect-uri: http://127.0.0.1:8080/oauth/baidu/callback
-    frontend-redirect-uri: http://127.0.0.1:5173/notebook
+    redirect-uri: http://192.168.0.114/oauth/baidu/callback
+    frontend-redirect-uri: http://192.168.0.114/#/notebook
   note-storage:
     # 本地未绑定百度网盘时可先用 LOCAL；绑定后改回 BAIDU_PAN
     type: LOCAL

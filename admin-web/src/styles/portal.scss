@@ -6,6 +6,144 @@
   background: var(--el-bg-color-page);
 }
 
+.portal--war-room {
+  background: #f9f9fa;
+}
+
+.portal-war-shell {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.portal-rail {
+  width: 148px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 14px 10px 16px;
+  background: #f0f2f5;
+  border-right: 1px solid var(--wr-rail-border, #e8ecef);
+}
+
+/* 图一：白底浮动按钮 + 深色图标 */
+.portal-rail__gear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: flex-start;
+  width: 44px;
+  height: 44px;
+  margin: 0 0 14px 4px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  box-shadow: 3px 4px 10px rgb(0 0 0 / 10%);
+  color: #4a4a4a;
+  text-decoration: none;
+  transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: #cfcfcf;
+    box-shadow: 4px 6px 14px rgb(0 0 0 / 12%);
+    color: #333333;
+    background: #ffffff;
+  }
+
+  &--active {
+    border-color: #bdbdbd;
+    box-shadow: 4px 5px 12px rgb(0 0 0 / 14%);
+    color: #1a1a1a;
+    background: #ffffff;
+  }
+}
+
+.portal-rail__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  flex: 1;
+  overflow-y: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* 图一：图标左 + 文字右；激活时图标高饱和蓝、文字深灰 */
+.portal-rail__item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: background 0.15s ease;
+
+  .portal-rail__item-icon {
+    display: flex;
+    flex-shrink: 0;
+    color: #454545;
+    transition: color 0.15s ease;
+  }
+
+  .portal-rail__item-label {
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: #3a3a3a;
+    transition: color 0.15s ease;
+  }
+
+  &:hover {
+    background: rgb(0 0 0 / 4%);
+
+    .portal-rail__item-icon {
+      color: #383838;
+    }
+
+    .portal-rail__item-label {
+      color: #2e2e2e;
+    }
+  }
+
+  &--active {
+    background: #d4e0fc;
+
+    .portal-rail__item-icon {
+      color: #0b21c7;
+    }
+
+    .portal-rail__item-label {
+      color: #2d2d2d;
+      font-weight: 600;
+    }
+  }
+}
+
+.portal-war-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+
+  &:has(.war-room-page--fill) {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
 .portal-header {
   display: flex;
   align-items: center;

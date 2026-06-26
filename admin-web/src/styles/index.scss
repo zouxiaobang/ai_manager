@@ -1,4 +1,6 @@
+@use './fonts' as *;
 @use './portal' as *;
+@use './war-room' as *;
 
 * {
   box-sizing: border-box;
@@ -10,12 +12,19 @@ body,
   margin: 0;
   padding: 0;
   height: 100%;
+  font-family: var(--app-font-family);
 }
 
 body {
-  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   background: var(--el-bg-color-page);
   color: var(--el-text-color-primary);
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
 }
 
 /* 列表操作列：悬停/点击时不参与整行高亮，且不可文本选中 */

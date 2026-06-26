@@ -1,18 +1,12 @@
 <template>
   <div ref="rootRef" class="note-rich-editor">
     <div
+      ref="toolbarRef"
       class="note-rich-editor__toolbar-wrap"
       @mousedown="onToolbarMouseDown"
       @click="schedulePatchDropPanel"
       @mouseover="schedulePatchDropPanel"
-    >
-      <Toolbar
-        class="note-rich-editor__toolbar"
-        :editor="editorRef"
-        :default-config="toolbarConfig"
-        mode="default"
-      />
-    </div>
+    />
     <Editor
       class="note-rich-editor__body"
       :model-value="html"
@@ -26,17 +20,70 @@
 
 <script setup lang="ts">
 import '@wangeditor/editor/dist/css/style.css'
-import { computed, nextTick, onBeforeUnmount, shallowRef, watch } from 'vue'
+import { nextTick, onBeforeUnmount, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
-import { i18nAddResources, i18nChangeLanguage } from '@wangeditor/editor'
+import { Editor } from '@wangeditor/editor-for-vue'
+import { createToolbar, DomEditor, i18nAddResources, i18nChangeLanguage } from '@wangeditor/editor'
 import type { IDomEditor, IEditorConfig, IToolbarConfig } from '@wangeditor/editor'
 import { getNotebookImageUrl, uploadNotebookImage } from '@/api/notebook/image'
 import { HEADING_SELECTOR } from './noteToc'
+import { APP_FONT_FAMILY_VALUE } from '@/constants/font-family'
 
-const { t, locale } = useI18n()
+const { locale, t } = useI18n()
 
-const insertLinkLabel = computed(() => t('notebook.insertLink'))
+const MORE_TOOLS_ICON_SVG =
+  '<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><path d="M192 512m64 0a64 64 0 1 0-128 0 64 64 0 1 0 128 0Zm320 0a64 64 0 1 0-128 0 64 64 0 1 0 128 0Zm320 0a64 64 0 1 0-128 0 64 64 0 1 0 128 0Z"></path></svg>'
+
+function buildToolbarConfig(): Partial<IToolbarConfig> {
+  return {
+    toolbarKeys: [
+      'undo',
+      'redo',
+      '|',
+      'headerSelect',
+      '|',
+      'bold',
+      'italic',
+      'through',
+      'code',
+      'insertLink',
+      '|',
+      'bulletedList',
+      'numberedList',
+      'todo',
+      '|',
+      'codeBlock',
+      'blockquote',
+      '|',
+      'insertTable',
+      '|',
+      {
+        key: 'group-more',
+        title: t('notebook.moreTools'),
+        iconSvg: MORE_TOOLS_ICON_SVG,
+        menuKeys: [
+          'clearStyle',
+          'fontFamily',
+          'fontSize',
+          'underline',
+          'color',
+          'justifyLeft',
+          'justifyCenter',
+          'justifyRight',
+          'justifyJustify',
+          'divider',
+        ],
+      },
+      '|',
+      'fullScreen',
+    ],
+  }
+}
+
+let scrollRoot: HTMLElement | null = null
+let scrollRaf: number | null = null
+let onWindowReflow: (() => void) | null = null
+let patchTimer: ReturnType<typeof setTimeout> | null = null
 
 watch(
   locale,
@@ -51,6 +98,7 @@ watch(
       },
     })
     i18nChangeLanguage(editorLocale)
+    schedulePatchDropPanel()
   },
   { immediate: true },
 )
@@ -63,16 +111,107 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   change: []
+  'heading-active': [index: number]
 }>()
 
 const editorRef = shallowRef<IDomEditor>()
 const rootRef = shallowRef<HTMLElement | null>(null)
+const toolbarRef = shallowRef<HTMLElement | null>(null)
 const html = shallowRef(normalizeHtmlContent(props.modelValue))
 
 let dropPanelObserver: MutationObserver | null = null
-let patchTimer: ReturnType<typeof setTimeout> | null = null
 let suppressChange = false
 let suppressChangeTimer: ReturnType<typeof setTimeout> | null = null
+let toolbarTooltipEl: HTMLElement | null = null
+let toolbarTooltipAnchor: HTMLElement | null = null
+
+function formatTooltipText(raw: string): string {
+  const parts = raw
+    .split('\n')
+    .map((part) => part.trim())
+    .filter(Boolean)
+  if (!parts.length) return ''
+  if (parts.length === 1) return parts[0]
+  return `${parts[0]} (${parts.slice(1).join(', ')})`
+}
+
+function getToolbarButtonTip(button: HTMLElement): string {
+  const dataTip = button.getAttribute('data-tooltip')?.trim()
+  if (dataTip) return formatTooltipText(dataTip)
+  const titleText = button.querySelector('.title')?.textContent?.trim()
+  if (titleText) return titleText
+  return button.getAttribute('aria-label')?.trim() ?? ''
+}
+
+function ensureToolbarTooltipEl(): HTMLElement {
+  if (!toolbarTooltipEl) {
+    toolbarTooltipEl = document.createElement('div')
+    toolbarTooltipEl.className = 'note-editor-toolbar-tooltip'
+    toolbarTooltipEl.setAttribute('role', 'tooltip')
+    document.body.appendChild(toolbarTooltipEl)
+  }
+  return toolbarTooltipEl
+}
+
+function positionToolbarTooltip(tip: HTMLElement, anchor: HTMLElement) {
+  const rect = anchor.getBoundingClientRect()
+  tip.style.display = 'block'
+  tip.style.visibility = 'hidden'
+  tip.style.left = '0'
+  tip.style.top = '0'
+
+  const tipRect = tip.getBoundingClientRect()
+  let left = rect.left + rect.width / 2 - tipRect.width / 2
+  left = Math.max(8, Math.min(left, window.innerWidth - tipRect.width - 8))
+
+  let top = rect.bottom + 8
+  if (top + tipRect.height > window.innerHeight - 8) {
+    top = rect.top - tipRect.height - 8
+  }
+
+  tip.style.left = `${left}px`
+  tip.style.top = `${top}px`
+  tip.style.visibility = 'visible'
+}
+
+function showToolbarTooltip(event: Event) {
+  const anchor = event.currentTarget as HTMLElement | null
+  if (!anchor) return
+  const text = getToolbarButtonTip(anchor)
+  if (!text) return
+
+  const tip = ensureToolbarTooltipEl()
+  tip.textContent = text
+  toolbarTooltipAnchor = anchor
+  positionToolbarTooltip(tip, anchor)
+}
+
+function hideToolbarTooltip() {
+  toolbarTooltipAnchor = null
+  if (toolbarTooltipEl) toolbarTooltipEl.style.display = 'none'
+}
+
+function patchToolbarTooltips() {
+  const root = rootRef.value
+  if (!root) return
+
+  const moreButton = root.querySelector<HTMLElement>('.w-e-toolbar button[data-menu-key="group-more"]')
+  if (moreButton) {
+    moreButton.setAttribute('data-tooltip', t('notebook.moreTools'))
+  }
+
+  const buttons = root.querySelectorAll<HTMLElement>(
+    '.w-e-toolbar .w-e-bar-item > button, .w-e-toolbar .select-button, .w-e-bar-item-menus-container .w-e-bar-item > button',
+  )
+
+  buttons.forEach((button) => {
+    if (button.dataset.noteTipBound === '1') return
+    button.dataset.noteTipBound = '1'
+    button.addEventListener('mouseenter', showToolbarTooltip)
+    button.addEventListener('mouseleave', hideToolbarTooltip)
+    button.addEventListener('mousedown', hideToolbarTooltip)
+  })
+}
 
 function hasVisibleHtml(html: string): boolean {
   const el = document.createElement('div')
@@ -92,11 +231,19 @@ function runWithSuppressedChange(run: () => void, releaseMs = 120) {
   })
 }
 
+function bindFloatingPanelReflow() {
+  if (onWindowReflow) return
+  onWindowReflow = () => schedulePatchDropPanel()
+  window.addEventListener('scroll', onWindowReflow, true)
+  window.addEventListener('resize', onWindowReflow)
+}
+
 function setupDropPanelObserver() {
   const root = rootRef.value
   if (!root || dropPanelObserver) return
   dropPanelObserver = new MutationObserver(() => schedulePatchDropPanel())
   dropPanelObserver.observe(root, { childList: true, subtree: true })
+  bindFloatingPanelReflow()
 }
 
 function schedulePatchDropPanel() {
@@ -104,6 +251,10 @@ function schedulePatchDropPanel() {
   patchTimer = setTimeout(() => {
     patchDropPanelMenus()
     patchToolbarPointer()
+    patchToolbarTooltips()
+    if (toolbarTooltipAnchor && toolbarTooltipEl?.style.display === 'block') {
+      positionToolbarTooltip(toolbarTooltipEl, toolbarTooltipAnchor)
+    }
   }, 0)
 }
 
@@ -120,6 +271,40 @@ function patchToolbarPointer() {
     const btn = button as HTMLButtonElement
     btn.style.cursor = 'pointer'
   })
+  root.querySelectorAll('.w-e-toolbar .w-e-bar-item').forEach((item) => {
+    item.classList.remove('is-fullscreen', 'is-more-tools')
+  })
+  root.querySelector('.w-e-toolbar button[data-menu-key="group-more"]')
+    ?.closest('.w-e-bar-item')
+    ?.classList.add('is-more-tools')
+  root.querySelector('.w-e-toolbar button[data-menu-key="fullScreen"]')
+    ?.closest('.w-e-bar-item')
+    ?.classList.add('is-fullscreen')
+}
+
+function initToolbar(editor: IDomEditor) {
+  const container = toolbarRef.value
+  if (!container || DomEditor.getToolbar(editor)) return
+  try {
+    createToolbar({
+      editor,
+      selector: container,
+      config: buildToolbarConfig(),
+      mode: 'default',
+    })
+    schedulePatchDropPanel()
+  } catch (error) {
+    console.error('[NoteRichEditor] toolbar init failed', error)
+  }
+}
+
+async function ensureToolbar(editor: IDomEditor) {
+  await nextTick()
+  initToolbar(editor)
+  if (!DomEditor.getToolbar(editor)) {
+    window.setTimeout(() => initToolbar(editor), 0)
+  }
+  patchToolbarPointer()
 }
 
 watch(
@@ -136,53 +321,14 @@ watch(
   },
 )
 
-const toolbarConfig: Partial<IToolbarConfig> = {
-  toolbarKeys: [
-    'undo',
-    'redo',
-    '|',
-    'clearStyle',
-    '|',
-    'headerSelect',
-    'fontFamily',
-    'fontSize',
-    '|',
-    'bold',
-    'italic',
-    'underline',
-    'through',
-    '|',
-    'color',
-    '|',
-    'insertLink',
-    '|',
-    'bulletedList',
-    'numberedList',
-    'todo',
-    '|',
-    'justifyLeft',
-    'justifyCenter',
-    'justifyRight',
-    'justifyJustify',
-    '|',
-    {
-      key: 'group-insert',
-      title: '插入',
-      menuKeys: [
-        'insertImage',
-        'insertTable',
-        'insertLink',
-        'codeBlock',
-        'divider',
-        'blockquote',
-      ],
-    },
-  ],
-}
-
 const editorConfig: Partial<IEditorConfig> = {
   placeholder: props.placeholder ?? '开始记录…',
+  readOnly: false,
+  autoFocus: true,
   MENU_CONF: {
+    fontFamily: {
+      fontFamilyList: [{ name: '阿里巴巴普惠体', value: APP_FONT_FAMILY_VALUE }],
+    },
     fontSize: {
       fontSizeList: ['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px', '36px'],
     },
@@ -212,18 +358,72 @@ function normalizeHtmlContent(content?: string | null): string {
 
 async function handleCreated(editor: IDomEditor) {
   editorRef.value = editor
-  editor.setHtml(html.value)
   editor.on('modalOrPanelShow', schedulePatchDropPanel)
+  editor.on('modalOrPanelHide', schedulePatchDropPanel)
   editor.on('focus', patchToolbarPointer)
   editor.on('change', patchToolbarPointer)
-  await nextTick()
+  await ensureToolbar(editor)
+  runWithSuppressedChange(() => {
+    editor.setHtml(html.value)
+  })
   disableEditorSpellcheck()
   setupDropPanelObserver()
-  setTimeout(() => {
+  setupScrollSpy()
+  window.setTimeout(() => {
+    void ensureToolbar(editor)
     setupDropPanelObserver()
+    setupScrollSpy()
     patchToolbarPointer()
     disableEditorSpellcheck()
-  }, 300)
+    updateActiveHeading()
+  }, 120)
+}
+
+function getScrollRoot(): HTMLElement | null {
+  return (
+    rootRef.value?.querySelector<HTMLElement>('.note-rich-editor__body .w-e-scroll') ??
+    rootRef.value?.querySelector<HTMLElement>('.note-rich-editor__body') ??
+    null
+  )
+}
+
+function setupScrollSpy() {
+  const nextRoot = getScrollRoot()
+  if (scrollRoot === nextRoot) return
+  scrollRoot?.removeEventListener('scroll', onEditorScroll)
+  scrollRoot = nextRoot
+  scrollRoot?.addEventListener('scroll', onEditorScroll, { passive: true })
+}
+
+function onEditorScroll() {
+  if (scrollRaf != null) return
+  scrollRaf = window.requestAnimationFrame(() => {
+    scrollRaf = null
+    updateActiveHeading()
+  })
+}
+
+function updateActiveHeading() {
+  const container = getEditableContainer()
+  const root = getScrollRoot()
+  if (!container || !root) return
+
+  const headings = Array.from(container.querySelectorAll(HEADING_SELECTOR)) as HTMLElement[]
+  if (!headings.length) {
+    emit('heading-active', -1)
+    return
+  }
+
+  const anchor = root.getBoundingClientRect().top + 72
+  let activeIndex = 0
+  for (let i = 0; i < headings.length; i++) {
+    if (headings[i].getBoundingClientRect().top <= anchor) {
+      activeIndex = i
+    } else {
+      break
+    }
+  }
+  emit('heading-active', activeIndex)
 }
 
 function disableEditorSpellcheck() {
@@ -236,37 +436,67 @@ function disableEditorSpellcheck() {
   })
 }
 
+const FLOATING_PANEL_SELECTOR =
+  '.w-e-bar-item-menus-container, .w-e-select-list, .w-e-drop-panel, .w-e-modal'
+
+function isPanelVisible(panel: HTMLElement): boolean {
+  const style = window.getComputedStyle(panel)
+  if (style.display === 'none' || style.visibility === 'hidden') return false
+  return panel.getClientRects().length > 0
+}
+
+function resetFloatingPanel(panel: HTMLElement) {
+  panel.style.position = ''
+  panel.style.left = ''
+  panel.style.top = ''
+  panel.style.right = ''
+  panel.style.bottom = ''
+  panel.style.marginTop = ''
+  panel.style.marginBottom = ''
+  panel.style.minWidth = ''
+  panel.style.zIndex = ''
+  delete panel.dataset.floating
+}
+
 function patchDropPanelMenus() {
   requestAnimationFrame(() => {
     const root = rootRef.value
     if (!root) return
-    root.querySelectorAll('.w-e-bar-item-menus-container').forEach((panel) => {
-      panel.classList.add('nb-insert-menus')
-      panel.querySelectorAll('.w-e-bar-item').forEach((item) => {
-        const barItem = item as HTMLElement
-        barItem.style.display = 'block'
-        barItem.style.width = '100%'
-        barItem.style.height = 'auto'
-        barItem.style.padding = '0'
-        barItem.style.textAlign = 'left'
-      })
-      panel.querySelectorAll('.w-e-bar-item button').forEach((button) => {
-        const btn = button as HTMLButtonElement
-        btn.style.display = 'flex'
-        btn.style.alignItems = 'center'
-        btn.style.justifyContent = 'flex-start'
-        btn.style.width = '100%'
-        btn.style.height = '36px'
-        btn.style.padding = '0 16px'
-        btn.style.gap = '8px'
-        btn.removeAttribute('data-tooltip')
-        btn.classList.remove('w-e-menu-tooltip-v5')
-        if (btn.querySelector('.title') || btn.dataset.nbLinkPatched === '1') return
-        const title = document.createElement('span')
-        title.className = 'title'
-        title.textContent = insertLinkLabel.value
-        btn.appendChild(title)
-        btn.dataset.nbLinkPatched = '1'
+
+    root.querySelectorAll(FLOATING_PANEL_SELECTOR).forEach((node) => {
+      const panel = node as HTMLElement
+      if (!isPanelVisible(panel)) {
+        if (panel.dataset.floating === '1') resetFloatingPanel(panel)
+        return
+      }
+
+      const barItem = panel.closest('.w-e-bar-item')
+      const anchor = (barItem?.querySelector('button') ?? barItem ?? panel.parentElement) as HTMLElement | null
+      if (!anchor) return
+
+      const rect = anchor.getBoundingClientRect()
+      const useBottom = barItem?.closest('.w-e-bar-bottom') != null
+      panel.style.position = 'fixed'
+      panel.style.left = `${Math.max(8, rect.left)}px`
+      panel.style.marginTop = '0'
+      panel.style.marginBottom = '0'
+      panel.style.zIndex = '4000'
+      panel.dataset.floating = '1'
+
+      if (useBottom) {
+        panel.style.top = ''
+        panel.style.bottom = `${Math.max(8, window.innerHeight - rect.top)}px`
+      } else {
+        panel.style.bottom = ''
+        panel.style.top = `${rect.bottom + 4}px`
+      }
+
+      if (panel.classList.contains('w-e-select-list')) {
+        panel.style.minWidth = `${rect.width}px`
+      }
+
+      panel.querySelectorAll('button').forEach((button) => {
+        ;(button as HTMLButtonElement).style.cursor = 'pointer'
       })
     })
   })
@@ -284,6 +514,7 @@ function handleChange(editor: IDomEditor) {
   html.value = value
   emit('update:modelValue', value)
   emit('change')
+  void nextTick(() => updateActiveHeading())
 }
 
 function getEditableContainer(): HTMLElement | null {
@@ -301,7 +532,14 @@ function scrollToHeading(index: number) {
   const headings = container.querySelectorAll(HEADING_SELECTOR)
   const target = headings[index] as HTMLElement | undefined
   if (!target) return
-  target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const root = getScrollRoot()
+  if (root) {
+    const top = target.offsetTop - 12
+    root.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+  } else {
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+  emit('heading-active', index)
   editorRef.value?.focus()
 }
 
@@ -341,8 +579,20 @@ defineExpose({ scrollToHeading, getHtml, setHtml })
 onBeforeUnmount(() => {
   if (patchTimer) clearTimeout(patchTimer)
   if (suppressChangeTimer) clearTimeout(suppressChangeTimer)
+  if (scrollRaf != null) window.cancelAnimationFrame(scrollRaf)
+  scrollRoot?.removeEventListener('scroll', onEditorScroll)
+  scrollRoot = null
   dropPanelObserver?.disconnect()
   dropPanelObserver = null
+  if (onWindowReflow) {
+    window.removeEventListener('scroll', onWindowReflow, true)
+    window.removeEventListener('resize', onWindowReflow)
+    onWindowReflow = null
+  }
+  hideToolbarTooltip()
+  toolbarTooltipEl?.remove()
+  toolbarTooltipEl = null
+  toolbarTooltipAnchor = null
   editorRef.value?.destroy()
 })
 </script>
@@ -351,51 +601,77 @@ onBeforeUnmount(() => {
 .note-rich-editor {
   display: flex;
   flex-direction: column;
-  flex: 1 1 0;
-  height: 0;
-  min-height: 0;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 6px;
-  overflow: hidden;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+  border: 1px solid var(--wr-border, #e8ecef);
+  border-radius: 10px;
+  overflow: visible;
+  background: var(--wr-card, #fff);
+  position: relative;
+  z-index: 1;
+  font-family: var(--app-font-family);
 }
 
 .note-rich-editor__toolbar-wrap {
   flex-shrink: 0;
-}
+  padding: 0 12px;
+  background: transparent;
+  overflow: visible;
+  position: relative;
+  z-index: 20;
 
-.note-rich-editor__toolbar {
-  border-bottom: 1px solid var(--el-border-color-lighter);
-  background: var(--el-fill-color-blank);
+  :deep(.w-e-toolbar) {
+    flex-wrap: nowrap;
+    width: max-content;
+    min-width: 100%;
+    overflow: visible;
+  }
 }
 
 .note-rich-editor__body {
-  flex: 1 1 0;
-  height: 0;
-  min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  flex: 1 1 auto;
+  min-height: 260px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--wr-card, #fff);
+  position: relative;
+  z-index: 0;
+  border-radius: 0 0 10px 10px;
 }
 
 :deep(.note-rich-editor__body > div) {
-  height: auto !important;
-  min-height: 100% !important;
-  overflow: visible !important;
+  flex: 1 1 auto;
+  height: 100% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
 }
 
 :deep(.w-e-text-container) {
-  background: var(--el-bg-color);
-  color: var(--el-text-color-primary);
+  background: transparent;
+  color: var(--wr-text, #333);
   font-size: 14px;
-  height: auto !important;
-  min-height: 100% !important;
-  overflow: visible !important;
+  line-height: 1.75;
+  flex: 1 1 auto;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+:deep(.w-e-text-container [data-slate-editor]) {
+  padding: 12px 20px 24px !important;
+  min-height: 100%;
 }
 
 :deep(.w-e-scroll) {
-  height: auto !important;
-  min-height: 100% !important;
-  overflow: visible !important;
+  flex: 1 1 auto;
+  height: 100% !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
 }
 
 :deep(.w-e-text-container p),
@@ -403,23 +679,86 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 
+:deep(.w-e-text-placeholder) {
+  top: 12px;
+  left: 20px;
+  font-style: normal;
+  color: var(--wr-muted, #999);
+}
+
 :deep(.w-e-toolbar) {
-  background: var(--el-fill-color-blank);
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 0;
+  --w-e-toolbar-bg-color: transparent;
+  --w-e-toolbar-color: #595959;
+  --w-e-toolbar-active-color: #333;
+  --w-e-toolbar-active-bg-color: rgb(0 0 0 / 6%);
+  --w-e-toolbar-disabled-color: #bfbfbf;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
   cursor: default;
+}
+
+:deep(.w-e-text-container) {
+  border: none !important;
+  box-shadow: none !important;
+  font-family: var(--app-font-family);
 }
 
 :deep(.w-e-toolbar .w-e-bar-item) {
   cursor: pointer;
+  flex-shrink: 0;
+}
+
+:deep(.w-e-toolbar .w-e-bar-item.is-fullscreen) {
+  margin-left: auto;
+}
+
+:deep(.w-e-toolbar .w-e-bar-item.is-more-tools button) {
+  width: 28px;
+  min-width: 28px;
+  padding: 0;
+}
+
+:deep(.w-e-toolbar .w-e-bar-item) {
+  overflow: visible;
+}
+
+:deep(.w-e-toolbar .w-e-bar-item button) {
+  overflow: visible;
+}
+
+:deep(.w-e-toolbar button[data-menu-key='group-more'] svg:last-child) {
+  display: none;
+}
+
+:deep(.w-e-bar-item-menus-container),
+:deep(.w-e-select-list),
+:deep(.w-e-drop-panel) {
+  z-index: 4000 !important;
+  background: var(--wr-card, #fff) !important;
+  border: 1px solid var(--wr-border, #e8ecef) !important;
+  box-shadow: var(--wr-shadow, 0 4px 12px rgb(0 0 0 / 8%)) !important;
+}
+
+:deep(.w-e-bar-divider) {
+  width: 1px;
+  height: 16px;
+  margin: 0 6px;
+  background: var(--wr-border, #e8ecef);
+  flex-shrink: 0;
 }
 
 :deep(.w-e-bar-item button) {
-  color: var(--el-text-color-regular);
   cursor: pointer !important;
 }
 
 :deep(.w-e-bar-item button.disabled) {
-  cursor: pointer !important;
+  cursor: not-allowed !important;
 }
 
 :deep(.w-e-toolbar .select-button) {
@@ -427,55 +766,31 @@ onBeforeUnmount(() => {
 }
 </style>
 
-<!-- wangEditor「插入」菜单使用 bar-item-menus-container，insertLink 仅渲染图标 -->
+<!-- wangEditor 下拉菜单：避免被父级裁切 -->
 <style lang="scss">
-.note-rich-editor .nb-insert-menus,
 .note-rich-editor .w-e-bar-item-menus-container {
   min-width: 168px;
   padding: 6px 0 !important;
 }
 
-.note-rich-editor .nb-insert-menus .w-e-bar-item,
-.note-rich-editor .w-e-bar-item-menus-container .w-e-bar-item {
-  display: block !important;
-  width: 100% !important;
-  height: auto !important;
-  padding: 0 !important;
-  text-align: left !important;
-  cursor: pointer !important;
-}
-
-.note-rich-editor .nb-insert-menus .w-e-bar-item button,
-.note-rich-editor .w-e-bar-item-menus-container .w-e-bar-item button {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: flex-start !important;
-  width: 100% !important;
-  height: 36px !important;
-  padding: 0 16px !important;
-  gap: 8px;
-  cursor: pointer !important;
-}
-
-.note-rich-editor .nb-insert-menus .w-e-bar-item button.disabled,
-.note-rich-editor .w-e-bar-item-menus-container .w-e-bar-item button.disabled {
-  cursor: pointer !important;
-}
-
-.note-rich-editor .nb-insert-menus .w-e-bar-item button .title,
-.note-rich-editor .w-e-bar-item-menus-container .w-e-bar-item button .title {
-  display: inline-block !important;
-  margin-left: 8px;
-  font-size: 14px;
-}
-
-.note-rich-editor .nb-insert-menus .w-e-bar-item button::before,
-.note-rich-editor .nb-insert-menus .w-e-bar-item button::after,
-.note-rich-editor .w-e-bar-item-menus-container .w-e-bar-item button::before,
-.note-rich-editor .w-e-bar-item-menus-container .w-e-bar-item button::after {
+.note-rich-editor .w-e-menu-tooltip-v5::before,
+.note-rich-editor .w-e-menu-tooltip-v5::after {
   display: none !important;
-  content: none !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
+}
+
+.note-editor-toolbar-tooltip {
+  position: fixed;
+  z-index: 6000;
+  display: none;
+  max-width: 240px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: rgb(38 38 38 / 92%);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
 }
 </style>

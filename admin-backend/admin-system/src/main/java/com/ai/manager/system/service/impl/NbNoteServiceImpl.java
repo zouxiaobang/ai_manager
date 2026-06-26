@@ -354,6 +354,24 @@ public class NbNoteServiceImpl extends ServiceImpl<NbNoteMapper, NbNote> impleme
 
 
 
+    @Override
+
+    @Transactional(rollbackFor = Exception.class)
+
+    public void purgeAllTrash() {
+
+        List<NbNoteTrashItemVO> items = baseMapper.selectTrashList();
+
+        for (NbNoteTrashItemVO item : items) {
+
+            purgeNote(item.getId());
+
+        }
+
+    }
+
+
+
     private NbNoteDetailVO toDetailVO(NbNote note, boolean loadFullContent) {
 
         NbNoteDetailVO vo = new NbNoteDetailVO();

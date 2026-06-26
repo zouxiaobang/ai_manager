@@ -1,38 +1,40 @@
 <template>
-  <div class="ecommerce-page">
-    <h2 class="ecommerce-page__title">{{ t('ecommerce.title') }}</h2>
-    <el-tabs v-model="activeTab">
-      <el-tab-pane :label="t('ecommerce.tabs.product')" name="product">
-        <ProductPanel ref="productRef" />
-      </el-tab-pane>
-      <el-tab-pane :label="t('ecommerce.tabs.platformShop')" name="platformShop">
-        <PlatformShopPanel ref="platformShopRef" />
-      </el-tab-pane>
-      <el-tab-pane :label="t('ecommerce.tabs.inventory')" name="inventory">
-        <InventoryPanel ref="inventoryRef" @view-product="onViewProduct" />
-      </el-tab-pane>
-      <el-tab-pane :label="t('ecommerce.tabs.order')" name="order">
-        <SalesOrderPanel ref="salesOrderRef" />
-      </el-tab-pane>
-      <el-tab-pane :label="t('ecommerce.tabs.monthlySettlement')" name="monthlySettlement">
-        <MonthlySettlementPanel ref="monthlySettlementRef" />
-      </el-tab-pane>
-      <el-tab-pane :label="t('ecommerce.tabs.factory')" name="factory">
-        <FactoryPanel ref="factoryRef" />
-      </el-tab-pane>
-      <el-tab-pane :label="t('ecommerce.tabs.carton')" name="carton">
-        <CartonPanel ref="cartonRef" />
-      </el-tab-pane>
-      <el-tab-pane :label="t('ecommerce.tabs.express')" name="express">
-        <ExpressPanel ref="expressRef" />
-      </el-tab-pane>
-    </el-tabs>
-  </div>
+  <WarRoomPage :title="t('ecommerce.title')" fill>
+    <div class="war-room-panel war-room-panel--tabs">
+      <el-tabs v-model="activeTab">
+        <el-tab-pane :label="t('ecommerce.tabs.product')" name="product">
+          <ProductPanel ref="productRef" />
+        </el-tab-pane>
+        <el-tab-pane :label="t('ecommerce.tabs.platformShop')" name="platformShop">
+          <PlatformShopPanel ref="platformShopRef" />
+        </el-tab-pane>
+        <el-tab-pane :label="t('ecommerce.tabs.inventory')" name="inventory">
+          <InventoryPanel ref="inventoryRef" @view-product="onViewProduct" />
+        </el-tab-pane>
+        <el-tab-pane :label="t('ecommerce.tabs.order')" name="order">
+          <SalesOrderPanel ref="salesOrderRef" />
+        </el-tab-pane>
+        <el-tab-pane :label="t('ecommerce.tabs.monthlySettlement')" name="monthlySettlement">
+          <MonthlySettlementPanel ref="monthlySettlementRef" />
+        </el-tab-pane>
+        <el-tab-pane :label="t('ecommerce.tabs.factory')" name="factory">
+          <FactoryPanel ref="factoryRef" />
+        </el-tab-pane>
+        <el-tab-pane :label="t('ecommerce.tabs.carton')" name="carton">
+          <CartonPanel ref="cartonRef" />
+        </el-tab-pane>
+        <el-tab-pane :label="t('ecommerce.tabs.express')" name="express">
+          <ExpressPanel ref="expressRef" />
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+  </WarRoomPage>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import WarRoomPage from '@/components/war-room/WarRoomPage.vue'
 import ProductPanel from './ecommerce/ProductPanel.vue'
 import PlatformShopPanel from './ecommerce/PlatformShopPanel.vue'
 import FactoryPanel from './ecommerce/FactoryPanel.vue'
@@ -79,10 +81,25 @@ async function onViewProduct(productId: number) {
 }
 </script>
 
-<style scoped>
-.ecommerce-page__title {
-  margin: 0 0 16px;
-  font-size: 18px;
-  font-weight: 600;
+<style scoped lang="scss">
+.war-room-panel--tabs {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  :deep(.el-tabs) {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+
+  :deep(.el-tabs__content) {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
 }
 </style>

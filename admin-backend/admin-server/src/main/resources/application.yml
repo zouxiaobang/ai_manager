@@ -36,6 +36,15 @@ ai-manager:
   upload:
     ecommerce-path: uploads/ecommerce
     notebook-images-path: uploads/notebook/images
+  deploy:
+    backend-jar-path: ${DEPLOY_BACKEND_JAR_PATH:/opt/ai-manager/backend/admin-server.jar}
+    frontend-index-path: ${DEPLOY_FRONTEND_INDEX_PATH:/var/www/ai-manager/index.html}
+    runner:
+      enabled: false
+      mode: ${DEPLOY_RUNNER_MODE:auto}
+      project-root: ${AI_MANAGER_ROOT:}
+      run-as-user: ${DEPLOY_RUN_AS_USER:}
+      git-pull-enabled: ${DEPLOY_GIT_PULL:true}
   baidu-pan:
     app-key: ${BAIDU_APP_KEY:0FzEpqFsRX50bkxhGls0WUZfXvnDLL59}
     secret-key: ${BAIDU_SECRET_KEY:mgOo20RU4AzgH8VBzKYV3aIH3CjVtxco}

@@ -13,8 +13,10 @@ export interface NbTodoItem {
   repeatType?: NbTodoRepeatType | string
   repeatInterval?: number
   repeatUntil?: string | null
+  repeatDays?: string | null
   seriesId?: number | null
   sortOrder?: number
+  pinned?: number
   createTime?: string
   updateTime?: string
 }
@@ -30,7 +32,10 @@ export interface NbTodoSaveRequest {
   repeatInterval?: number
   repeatUntil?: string | null
   clearRepeatUntil?: boolean
+  repeatDays?: string | null
+  clearRepeatDays?: boolean
   sortOrder?: number
+  pinned?: boolean
 }
 
 export interface NbTodoMutation {
@@ -46,7 +51,7 @@ export const TODO_REPEAT_TYPES: NbTodoRepeatType[] = [
   'YEARLY',
 ]
 
-export function fetchTodos(options?: { completed?: boolean; today?: boolean }) {
+export function fetchTodos(options?: { completed?: boolean; today?: boolean; pinned?: boolean }) {
   const params: Record<string, boolean> = {}
   if (options?.completed !== undefined) {
     params.completed = options.completed
@@ -54,7 +59,14 @@ export function fetchTodos(options?: { completed?: boolean; today?: boolean }) {
   if (options?.today) {
     params.today = true
   }
+  if (options?.pinned) {
+    params.pinned = true
+  }
   return getData<NbTodoItem[]>('/api/todos', params)
+}
+
+export function fetchPinnedTodos() {
+  return fetchTodos({ pinned: true })
 }
 
 export function fetchTodayTodos() {

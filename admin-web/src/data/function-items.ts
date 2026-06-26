@@ -2,6 +2,7 @@ import type { Component } from 'vue'
 import {
   Chicken,
   Collection,
+  List,
   Notebook,
   ShoppingCart,
   Timer,
@@ -11,6 +12,7 @@ import {
 export type FunctionItemKey =
   | 'pomodoro'
   | 'notebook'
+  | 'todos'
   | 'aiKnowledge'
   | 'library'
   | 'ecommerce'
@@ -35,6 +37,12 @@ export const functionItems: FunctionItem[] = [
     icon: Notebook,
     route: '/notebook',
     accent: '#409eff',
+  },
+  {
+    key: 'todos',
+    icon: List,
+    route: '/todos',
+    accent: '#10b981',
   },
   {
     key: 'aiKnowledge',
