@@ -105,7 +105,11 @@ export async function pollDeployUntilFinished(
     }
 
     const last = status.lastDeploy
-    if (last?.finishedAt && last.finishedAt >= deployStartedAt - 2000) {
+    if (
+      last?.finishedAt &&
+      last.finishedAt >= deployStartedAt - 2000 &&
+      (!last.target || last.target === target)
+    ) {
       return {
         success: Boolean(last.success),
         exitCode: last.exitCode ?? -1,
