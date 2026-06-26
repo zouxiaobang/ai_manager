@@ -163,8 +163,8 @@ public class DeployRunnerService {
             Path root = resolveProjectRoot();
             Path backendScript = root.resolve("deploy").resolve("scripts").resolve("deploy-on-pi-backend.sh");
             Path frontendScript = root.resolve("deploy").resolve("scripts").resolve("deploy-on-pi-frontend.sh");
-            if (!Files.isRegularFile(backendScript) || !Files.isRegularFile(frontendScript)) {
-                data.put("message", "缺少本机部署脚本 deploy-on-pi-*.sh");
+            if (!isDeployScript(backendScript) || !isDeployScript(frontendScript)) {
+                data.put("message", "缺少本机部署脚本 deploy-on-pi-*.sh，请先在 114 上 git pull 最新代码");
                 return false;
             }
             if (!runAsUser.isBlank() && !canRunAsUser(runAsUser)) {
@@ -272,10 +272,15 @@ public class DeployRunnerService {
     private Path resolveProjectRoot() {
         if (!projectRootConfig.isBlank()) {
             Path configured = Path.of(projectRootConfig).toAbsolutePath().normalize();
-            if (Files.isDirectory(configured.resolve("deploy").resolve("scripts"))) {
+            if (isDeployScriptsDir(configured.resolve("deploy").resolve("scripts"))) {
                 return configured;
             }
-            throw new BusinessException(500, "配置的 project-root 无效: " + configured);
+            String hint = resolveMode() == DeployRunnerMode.LOCAL && !runAsUser.isBlank()
+                    ? "请确认已 git clone 到该路径，且 deploy/scripts 存在（可通过 sudo -u "
+                            + runAsUser
+                            + " 访问）"
+                    : "请确认该路径下存在 deploy/scripts";
+            throw new BusinessException(500, "配置的 project-root 无效: " + configured + "。" + hint);
         }
 
         Path cwd = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
@@ -289,11 +294,43 @@ public class DeployRunnerService {
         candidates.add(cwd.resolve("../..").normalize());
 
         for (Path candidate : candidates) {
-            if (Files.isDirectory(candidate.resolve("deploy").resolve("scripts"))) {
+            if (isDeployScriptsDir(candidate.resolve("deploy").resolve("scripts"))) {
                 return candidate;
             }
         }
         throw new BusinessException(500, "未找到项目根目录（需包含 deploy/scripts）");
+    }
+
+    private boolean isDeployScriptsDir(Path scriptsDir) {
+        if (resolveMode() == DeployRunnerMode.LOCAL && !runAsUser.isBlank()) {
+            return runUserTest("-d", scriptsDir.toString());
+        }
+        return Files.isDirectory(scriptsDir);
+    }
+
+    private boolean isDeployScript(Path script) {
+        if (resolveMode() == DeployRunnerMode.LOCAL && !runAsUser.isBlank()) {
+            return runUserTest("-f", script.toString());
+        }
+        return Files.isRegularFile(script);
+    }
+
+    private boolean runUserTest(String flag, String path) {
+        try {
+            ProcessBuilder builder = new ProcessBuilder("sudo", "-n", "-u", runAsUser, "test", flag, path);
+            applyProcessEnvironment(builder);
+            builder.redirectErrorStream(true);
+            Process process = builder.start();
+            process.getInputStream().readAllBytes();
+            if (!process.waitFor(10, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                return false;
+            }
+            return process.exitValue() == 0;
+        } catch (Exception ex) {
+            log.warn("runUserTest failed for {} {}: {}", flag, path, ex.getMessage());
+            return false;
+        }
     }
 
     private List<String> buildLocalScriptCommand(Path projectRoot, DeployTarget target) {
@@ -301,7 +338,7 @@ public class DeployRunnerService {
         Path script = target == DeployTarget.BACKEND
                 ? scriptsDir.resolve("deploy-on-pi-backend.sh")
                 : scriptsDir.resolve("deploy-on-pi-frontend.sh");
-        if (!Files.isRegularFile(script)) {
+        if (!isDeployScript(script)) {
             throw new BusinessException(500, "本机部署脚本不存在: " + script);
         }
         return wrapRunAsUser("bash", script.toString());
