@@ -78,6 +78,21 @@ void gt911_read_cb(lv_indev_t *indev, lv_indev_data_t *data) {
   y = cached_y;
   portEXIT_CRITICAL(&touch_state_lock);
 
+  if (pressed) {
+#if PANEL_MIRROR_X
+    x = static_cast<uint16_t>(PANEL_WIDTH - 1 - x);
+#endif
+#if PANEL_MIRROR_Y
+    y = static_cast<uint16_t>(PANEL_HEIGHT - 1 - y);
+#endif
+    if (x >= PANEL_WIDTH) {
+      x = static_cast<uint16_t>(PANEL_WIDTH - 1);
+    }
+    if (y >= PANEL_HEIGHT) {
+      y = static_cast<uint16_t>(PANEL_HEIGHT - 1);
+    }
+  }
+
   if (pressed && !prev_indev_pressed) {
     app_ui_notify_activity();
   } else if (pressed) {

@@ -536,6 +536,8 @@ export default {
       started: 'Starting deploy script…',
       doneSuccess: 'Deploy finished.',
       doneFailed: 'Deploy failed, exit code: {code}',
+      frontendFailedHint:
+        'Pi builds often OOM during rendering chunks. On your Windows dev machine run: powershell -ExecutionPolicy Bypass -File deploy/scripts/deploy-frontend.ps1',
       doneToast: 'Deploy succeeded',
       failToast: 'Deploy failed — see log',
       streamDisconnectedHint:

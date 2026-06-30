@@ -123,6 +123,9 @@ function finishDeploy(success: boolean, exitCode: number) {
     ElMessage.success(t('deployCenter.deployRun.doneToast'))
   } else {
     appendLog(t('deployCenter.deployRun.doneFailed', { code: exitCode }))
+    if (props.target === 'frontend') {
+      appendLog(t('deployCenter.deployRun.frontendFailedHint'))
+    }
     ElMessage.error(t('deployCenter.deployRun.failToast'))
   }
   emit('finished', success)
@@ -166,7 +169,11 @@ async function pollAfterDisconnect() {
     finishDeploy(result.success, result.exitCode)
   } catch (err) {
     phase.value = 'failed'
-    appendLog(err instanceof Error ? err.message : t('deployCenter.deployRun.pollFailed'))
+    const message = err instanceof Error ? err.message : t('deployCenter.deployRun.pollFailed')
+    appendLog(message)
+    if (props.target === 'frontend') {
+      appendLog(t('deployCenter.deployRun.frontendFailedHint'))
+    }
     emit('finished', false)
   } finally {
     polling = false

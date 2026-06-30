@@ -38,7 +38,6 @@ lv_obj_t *lbl_status_time = nullptr;
 lv_obj_t *dock_slots[5] = {};
 lv_obj_t *dock_borders[5] = {};
 lv_obj_t *dock_dots[UI_HOME_PAGE_DOTS] = {};
-lv_obj_t *dock_sel_bar = nullptr;
 lv_obj_t *bar_pomo = nullptr;
 lv_obj_t *lbl_lyric_title = nullptr;
 lv_obj_t *lbl_lyric_line = nullptr;
@@ -274,6 +273,9 @@ void dock_clicked(DockId id) {
 }
 
 void dock_btn_event(lv_event_t *e) {
+  if (lv_event_get_code(e) != LV_EVENT_PRESSED) {
+    return;
+  }
   auto id = static_cast<DockId>(reinterpret_cast<intptr_t>(lv_event_get_user_data(e)));
   dock_clicked(id);
 }
@@ -373,21 +375,17 @@ void tick_cb(lv_timer_t *t) {
 }
 
 void set_dock_selected(int index) {
+  static const uint32_t kDockColors[] = {0x8bc34a, 0x29b6f6, 0xff9800, 0x42a5f5, 0x42a5f5};
   for (int i = 0; i < 5; i++) {
-    if (dock_borders[i] != nullptr) {
-      if (i == index) {
-        pixel_dock_jagged_border_set_color(dock_borders[i], lv_color_hex(0x8bc34a));
-        lv_obj_remove_flag(dock_borders[i], LV_OBJ_FLAG_HIDDEN);
-      } else {
-        lv_obj_add_flag(dock_borders[i], LV_OBJ_FLAG_HIDDEN);
-      }
+    if (dock_borders[i] == nullptr) {
+      continue;
     }
-  }
-  if (dock_sel_bar != nullptr) {
-    const int slot_w = (PANEL_WIDTH - UI_HOME_MARGIN * 2) / 5;
-    lv_obj_set_pos(dock_sel_bar, UI_HOME_MARGIN + index * slot_w + 10, UI_HOME_DOCK_Y + UI_HOME_DOCK_H - 4);
-    lv_obj_set_size(dock_sel_bar, slot_w - 20, 3);
-    lv_obj_remove_flag(dock_sel_bar, LV_OBJ_FLAG_HIDDEN);
+    if (i == index) {
+      pixel_dock_jagged_border_set_color(dock_borders[i], lv_color_hex(kDockColors[i]));
+      lv_obj_remove_flag(dock_borders[i], LV_OBJ_FLAG_HIDDEN);
+    } else {
+      lv_obj_add_flag(dock_borders[i], LV_OBJ_FLAG_HIDDEN);
+    }
   }
   for (int i = 0; i < UI_HOME_PAGE_DOTS; i++) {
     if (dock_dots[i] == nullptr) {
@@ -410,7 +408,6 @@ void bind_home_widgets(const ui_home_widgets_t *w) {
   bar_pomo = w->bar_pomo;
   lbl_lyric_title = w->lbl_lyric_title;
   lbl_lyric_line = w->lbl_lyric_body;
-  dock_sel_bar = w->dock_sel_bar;
   for (int i = 0; i < 5; i++) {
     dock_slots[i] = w->dock_slots[i];
     dock_borders[i] = w->dock_borders[i];
@@ -420,6 +417,7 @@ void bind_home_widgets(const ui_home_widgets_t *w) {
   }
 
   if (w->card_pomo != nullptr) {
+    lv_obj_add_flag(w->card_pomo, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(w->card_pomo, pomodoro_card_clicked, LV_EVENT_CLICKED, nullptr);
     lv_obj_add_event_cb(w->card_pomo, global_activity_event, LV_EVENT_PRESSED, nullptr);
   }
@@ -429,7 +427,8 @@ void bind_home_widgets(const ui_home_widgets_t *w) {
       continue;
     }
     lv_obj_add_flag(dock_slots[i], LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_add_event_cb(dock_slots[i], dock_btn_event, LV_EVENT_CLICKED,
+    lv_obj_move_foreground(dock_slots[i]);
+    lv_obj_add_event_cb(dock_slots[i], dock_btn_event, LV_EVENT_PRESSED,
                         reinterpret_cast<void *>(static_cast<intptr_t>(kDock[i].id)));
   }
 }

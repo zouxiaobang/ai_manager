@@ -28,11 +28,13 @@ extern "C" void app_main(void) {
     ESP_LOGW(TAG, "SD card unavailable, using built-in UI fallbacks");
   }
 
-  ESP_ERROR_CHECK(app_ui_init());
-
   if (touch_init() != ESP_OK) {
     ESP_LOGW(TAG, "Touch init failed");
-  } else if (sd_storage_is_mounted()) {
+  }
+
+  ESP_ERROR_CHECK(app_ui_init());
+
+  if (sd_storage_is_mounted()) {
     board_sd_cs_set(true);
   }
 

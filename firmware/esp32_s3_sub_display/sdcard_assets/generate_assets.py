@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parent
 ASSETS = ROOT / "assets"
 LYRICS = ROOT / "lyrics"
 EMBED_DIR = ROOT.parent / "main" / "assets_embed"
+REFERENCE_TOMATO = ROOT / "reference" / "tomato_ref.png"
 
 # Palette aligned with reference mockup
 GREEN = (139, 195, 74, 255)
@@ -57,27 +58,65 @@ def paste_center(dst: Image.Image, src: Image.Image) -> None:
     dst.paste(src, (ox, oy), src)
 
 
-def draw_tomato(size: int = 72) -> Image.Image:
+def tomato_from_reference(card_size: int = 96, dock_size: int = 28) -> tuple[Image.Image, Image.Image]:
+    """Build transparent tomato PNGs from reference art (图2)."""
+    if not REFERENCE_TOMATO.is_file():
+        card = draw_tomato(card_size)
+        dock = card.resize((dock_size, dock_size), Image.NEAREST)
+        return card, dock
+
+    im = Image.open(REFERENCE_TOMATO).convert("RGBA")
+    px = im.load()
+    w, h = im.size
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if r <= 12 and g <= 18 and 10 <= b <= 40:
+                px[x, y] = TRANSPARENT
+                continue
+            if r + g + b < 75 and r < 80:
+                px[x, y] = TRANSPARENT
+
+    minx, miny, maxx, maxy = w, h, 0, 0
+    for y in range(h):
+        for x in range(w):
+            if px[x, y][3] > 0:
+                minx = min(minx, x)
+                miny = min(miny, y)
+                maxx = max(maxx, x)
+                maxy = max(maxy, y)
+    pad = 4
+    im = im.crop((max(0, minx - pad), max(0, miny - pad), min(w, maxx + pad + 1), min(h, maxy + pad + 1)))
+
+    side = max(im.width, im.height)
+    square = new_rgba(side, side)
+    paste_center(square, im)
+    card = square.resize((card_size, card_size), Image.NEAREST)
+    dock = square.resize((dock_size, dock_size), Image.NEAREST)
+    return card, dock
+
+
+def draw_tomato(size: int = 80) -> Image.Image:
     img = new_rgba(size, size)
-    p = max(2, size // 18)
-    cx, cy = size // 2, size // 2 + p
+    p = max(2, size // 20)
+    cx, cy = size // 2, size // 2 + p // 2
     radius = size // 2 - p * 2
 
     for y in range(size):
         for x in range(size):
             dx = x - cx
             dy = y - cy
-            if dx * dx + dy * dy <= radius * radius:
-                shade = DRED if dx + dy > 4 else RED
-                if dx < -p and dy < -p:
+            dist2 = dx * dx + dy * dy
+            if dist2 <= radius * radius:
+                shade = DRED if dx * 0.6 + dy > 6 else RED
+                if dx < -p * 2 and dy < -p:
                     shade = HILITE
                 blit(img, x, y, shade)
 
-    # Stem + leaves
-    stem_w = p * 2
-    fill_rect(img, cx - stem_w // 2, cy - radius - p * 3, stem_w, p * 3, STEM)
-    fill_rect(img, cx - p * 4, cy - radius - p * 2, p * 3, p * 2, LGREEN)
-    fill_rect(img, cx + p, cy - radius - p * 3, p * 3, p * 2, DGREEN)
+    stem_w = max(3, p * 2)
+    fill_rect(img, cx - stem_w // 2, cy - radius - p * 4, stem_w, p * 4, STEM)
+    fill_rect(img, cx - p * 5, cy - radius - p * 3, p * 4, p * 2, LGREEN)
+    fill_rect(img, cx + p, cy - radius - p * 4, p * 4, p * 2, DGREEN)
     fill_rect(img, cx - p * 2, cy - radius - p, p * 2, p, LGREEN)
     return img
 
@@ -127,36 +166,38 @@ def draw_diamond(size: int = 8, color: tuple[int, int, int, int] = GREEN) -> Ima
     return img
 
 
-def draw_dock_pomo() -> Image.Image:
-    img = new_rgba(24, 24)
-    sub = draw_tomato(20).resize((20, 20), Image.NEAREST)
+def draw_dock_pomo(tomato_dock: Image.Image | None = None) -> Image.Image:
+    if tomato_dock is not None:
+        return tomato_dock.copy()
+    img = new_rgba(28, 28)
+    sub = draw_tomato(24).resize((24, 24), Image.NEAREST)
     paste_center(img, sub)
     return img
 
 
 def draw_dock_lyrics() -> Image.Image:
-    img = new_rgba(24, 24)
-    fill_rect(img, 4, 4, 16, 16, BLUE)
-    fill_rect(img, 6, 4, 12, 2, DBLUE)
-    # Eighth note
-    fill_rect(img, 14, 6, 2, 10, WHITE)
-    fill_rect(img, 11, 14, 6, 4, WHITE)
-    fill_rect(img, 10, 6, 4, 2, WHITE)
+    img = new_rgba(28, 28)
+    p = 2
+    fill_rect(img, 6, 14, 3, 10, BLUE)
+    fill_rect(img, 12, 10, 3, 14, BLUE)
+    fill_rect(img, 18, 16, 3, 8, BLUE)
+    fill_rect(img, 16, 6, 3, 8, WHITE)
+    fill_rect(img, 19, 6, 6, 3, WHITE)
     return img
 
 
 def draw_dock_sleep() -> Image.Image:
-    img = new_rgba(24, 24)
-    # Monitor bezel
-    fill_rect(img, 3, 5, 18, 12, ORANGE)
-    fill_rect(img, 5, 7, 14, 8, NIGHT)
-    fill_rect(img, 10, 16, 4, 2, ORANGE)
-    # Moon + stars
-    fill_rect(img, 12, 8, 4, 4, DORANGE)
-    fill_rect(img, 14, 8, 2, 2, NIGHT)
-    blit(img, 8, 9, WHITE)
-    blit(img, 16, 11, WHITE)
-    blit(img, 9, 13, WHITE)
+    img = new_rgba(28, 28)
+    p = 2
+    # Crescent moon
+    for y in range(6, 22):
+        for x in range(8, 22):
+            dx, dy = x - 14, y - 14
+            if 36 <= dx * dx + dy * dy <= 64 and x > 12:
+                blit(img, x, y, ORANGE)
+    fill_rect(img, 16, 12, 4, 4, NIGHT)
+    blit(img, 20, 8, WHITE)
+    blit(img, 22, 12, WHITE)
     return img
 
 
@@ -288,13 +329,14 @@ def main() -> int:
     ASSETS.mkdir(parents=True, exist_ok=True)
     LYRICS.mkdir(parents=True, exist_ok=True)
 
-    save_asset("tomato.png", draw_tomato(72))
+    tomato_card, tomato_dock = tomato_from_reference(card_size=96, dock_size=28)
+    save_asset("tomato.png", tomato_card)
+    save_asset("dock_pomo.png", draw_dock_pomo(tomato_dock))
     save_asset("icon_wifi.png", draw_wifi())
     save_asset("icon_lock.png", draw_lock_status())
     save_asset("icon_eq.png", draw_eq())
     save_asset("deco_diamond.png", draw_diamond(8, GREEN))
     save_asset("deco_diamond_blue.png", draw_diamond(8, BLUE))
-    save_asset("dock_pomo.png", draw_dock_pomo())
     save_asset("dock_lyrics.png", draw_dock_lyrics())
     save_asset("dock_sleep.png", draw_dock_sleep())
     save_asset("dock_lock.png", draw_dock_lock())

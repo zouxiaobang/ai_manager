@@ -535,6 +535,8 @@ export default {
       started: '开始执行部署脚本…',
       doneSuccess: '部署完成。',
       doneFailed: '部署失败，退出码：{code}',
+      frontendFailedHint:
+        'Pi 上构建易因内存不足在 rendering chunks 阶段失败。建议在 Windows 开发机执行：powershell -ExecutionPolicy Bypass -File deploy/scripts/deploy-frontend.ps1',
       doneToast: '部署成功',
       failToast: '部署失败，请查看日志',
       streamDisconnectedHint:

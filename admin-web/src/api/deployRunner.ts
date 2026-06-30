@@ -108,7 +108,7 @@ export async function pollDeployUntilFinished(
 ): Promise<{ success: boolean; exitCode: number; timedOut: boolean; unknown?: boolean }> {
   const startedAt = Date.now()
   let consecutiveErrors = 0
-  const maxConsecutiveErrors = 24
+  const maxConsecutiveErrors = 360
 
   while (Date.now() - startedAt < maxWaitMs) {
     await new Promise((resolve) => setTimeout(resolve, intervalMs))

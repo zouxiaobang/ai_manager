@@ -1,26 +1,46 @@
 # 密码 SSH 辅助（手动执行 deploy-*.ps1 时使用，依赖 SSH.NET）
 $ErrorActionPreference = "Stop"
 
-$script:SshNetVersion = "2016.1.0"
+$script:SshNetVersion = "2024.1.0"
 $script:SshNetPackageDir = Join-Path $PSScriptRoot ".nuget/SSH.NET.$($script:SshNetVersion)"
-$script:SshNetDll = Join-Path $script:SshNetPackageDir "lib/net45/Renci.SshNet.dll"
+
+function Resolve-SshNetDll {
+    $candidates = @(
+        (Join-Path $script:SshNetPackageDir "lib/net8.0/Renci.SshNet.dll"),
+        (Join-Path $script:SshNetPackageDir "lib/netstandard2.1/Renci.SshNet.dll"),
+        (Join-Path $script:SshNetPackageDir "lib/netstandard2.0/Renci.SshNet.dll"),
+        (Join-Path $script:SshNetPackageDir "lib/net45/Renci.SshNet.dll"),
+        (Join-Path $script:SshNetPackageDir "lib/net40/Renci.SshNet.dll")
+    )
+    foreach ($dll in $candidates) {
+        if (Test-Path $dll) {
+            return $dll
+        }
+    }
+    return $null
+}
 
 function Ensure-SshNet {
-    if (Test-Path $script:SshNetDll) {
+    $resolved = Resolve-SshNetDll
+    if ($resolved) {
+        $script:SshNetDll = $resolved
         return
     }
     $zipPath = Join-Path $env:TEMP "SSH.NET.$($script:SshNetVersion).nupkg.zip"
     $url = "https://www.nuget.org/api/v2/package/SSH.NET/$($script:SshNetVersion)"
-    Write-Host "==> 下载 SSH.NET（首次需要联网）..."
+    Write-Host "==> Downloading SSH.NET (first run needs network)..."
     Invoke-WebRequest -Uri $url -OutFile $zipPath -UseBasicParsing
     if (Test-Path $script:SshNetPackageDir) {
         Remove-Item $script:SshNetPackageDir -Recurse -Force
     }
+    New-Item -ItemType Directory -Path $script:SshNetPackageDir -Force | Out-Null
     Expand-Archive -Path $zipPath -DestinationPath $script:SshNetPackageDir -Force
     Remove-Item $zipPath -Force
-    if (-not (Test-Path $script:SshNetDll)) {
-        throw "SSH.NET 安装失败"
+    $resolved = Resolve-SshNetDll
+    if (-not $resolved) {
+        throw "SSH.NET install failed"
     }
+    $script:SshNetDll = $resolved
 }
 
 function Get-PiCredential {

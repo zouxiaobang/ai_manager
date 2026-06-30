@@ -715,8 +715,9 @@ public class DeployRunnerService {
             return;
         }
         Map<String, String> env = builder.environment();
-        env.putIfAbsent("NODE_OPTIONS", "--max-old-space-size=1536");
+        env.putIfAbsent("NODE_OPTIONS", "--max-old-space-size=1024");
         env.putIfAbsent("npm_config_jobs", "1");
+        env.putIfAbsent("PI_BUILD", "1");
     }
 
     private void recordDeployHistory(

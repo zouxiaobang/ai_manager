@@ -174,38 +174,31 @@ lv_obj_t *pixel_create_mono_sprite(lv_obj_t *parent, int x, int y, int pixel, co
 extern "C" {
 
 void pixel_bg_create_stars(lv_obj_t *parent) {
-  const int max_y = PANEL_HEIGHT - 88;
-  constexpr int kStarCount = 62;
+  const int max_y = PANEL_HEIGHT - 96;
+  constexpr int kStarCount = 88;
 
   for (int i = 0; i < kStarCount; i++) {
     const int roll = rand() % 100;
-    const lv_color_t color = star_palette_color(rand() % 7);
-    const lv_opa_t opa = static_cast<lv_opa_t>(120 + rand() % 136);
+    const lv_color_t color = star_palette_color(rand() % 5);
+    const lv_opa_t opa = static_cast<lv_opa_t>(100 + rand() % 120);
 
-    int x = 2 + rand() % (PANEL_WIDTH - 18);
-    int y = 2 + rand() % (max_y - 2);
+    int x = 4 + rand() % (PANEL_WIDTH - 12);
+    int y = 4 + rand() % (max_y - 4);
 
-    if (roll < 42) {
+    if (roll < 55) {
       const int sz = 1 + rand() % 2;
       create_star_dot(parent, x, y, sz, color, opa);
-    } else if (roll < 68) {
-      const int sz = 2 + rand() % 2;
+    } else if (roll < 78) {
+      const int sz = 2;
       create_star_dot(parent, x, y, sz, color, opa);
-    } else if (roll < 80) {
-      create_star_twinkle(parent, x, y, color, opa);
     } else if (roll < 90) {
-      const int pixel = 2;
-      create_star_diamond(parent, x, y, pixel, color, opa);
-    } else if (roll < 97) {
-      const int arm = 3 + rand() % 2;
-      const lv_color_t plus_color =
-          (rand() % 3 == 0) ? lv_color_hex(0xffca28) : star_palette_color(rand() % 4);
-      create_star_plus(parent, x, y, arm, 2, plus_color, opa);
+      create_star_twinkle(parent, x, y, color, opa);
+    } else if (roll < 98) {
+      create_star_diamond(parent, x, y, 2, color, opa);
     } else {
-      const int arm = 5 + rand() % 3;
-      const int thick = 2 + rand() % 2;
-      const lv_color_t plus_color = (rand() % 2 == 0) ? lv_color_hex(0x4fc3f7) : lv_color_hex(0xffab40);
-      create_star_plus(parent, x, y, arm, thick, plus_color, LV_OPA_COVER);
+      const int arm = 2;
+      const lv_color_t plus_color = star_palette_color(rand() % 4);
+      create_star_plus(parent, x, y, arm, 1, plus_color, static_cast<lv_opa_t>(opa / 2));
     }
   }
 }
@@ -246,7 +239,27 @@ lv_obj_t *pixel_create_wifi_icon(lv_obj_t *parent, int x, int y, int pixel) {
   return pixel_create_mono_sprite(parent, x, y, pixel, &kWifiMask[0][0], kWifiCols, kWifiRows, status_icon_color());
 }
 
-lv_obj_t *pixel_create_dock_jagged_border(lv_obj_t *parent, int x, int y, int w, int h, lv_color_t color) {
+lv_obj_t *pixel_create_eq_icon(lv_obj_t *parent, int x, int y, int pixel, lv_color_t color) {
+  lv_obj_t *box = lv_obj_create(parent);
+  lv_obj_remove_style_all(box);
+  lv_obj_set_size(box, 14 * pixel, 10 * pixel);
+  lv_obj_set_pos(box, x, y);
+  lv_obj_set_style_bg_opa(box, LV_OPA_TRANSP, 0);
+  lv_obj_remove_flag(box, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_remove_flag(box, LV_OBJ_FLAG_SCROLLABLE);
+
+  const int bars[][2] = {{1, 8}, {5, 5}, {9, 9}};
+  for (const auto &bar : bars) {
+    lv_obj_t *px = lv_obj_create(box);
+    style_star_fill(px, color, LV_OPA_COVER);
+    lv_obj_set_size(px, pixel * 2, bar[1] * pixel);
+    lv_obj_set_pos(px, bar[0] * pixel, (10 - bar[1]) * pixel);
+  }
+  return box;
+}
+
+lv_obj_t *pixel_create_jagged_border(lv_obj_t *parent, int x, int y, int w, int h, lv_color_t color,
+                                     int thickness, int corner_inset) {
   lv_obj_t *box = lv_obj_create(parent);
   lv_obj_remove_style_all(box);
   lv_obj_set_size(box, w, h);
@@ -255,8 +268,8 @@ lv_obj_t *pixel_create_dock_jagged_border(lv_obj_t *parent, int x, int y, int w,
   lv_obj_remove_flag(box, LV_OBJ_FLAG_CLICKABLE);
   lv_obj_remove_flag(box, LV_OBJ_FLAG_SCROLLABLE);
 
-  const int p = 2;
-  const int inset = 4;
+  const int p = thickness > 0 ? thickness : 1;
+  const int inset = corner_inset > p ? corner_inset : p * 2;
 
   auto block = [&](int bx, int by, int bw, int bh) {
     lv_obj_t *px = lv_obj_create(box);
@@ -273,18 +286,21 @@ lv_obj_t *pixel_create_dock_jagged_border(lv_obj_t *parent, int x, int y, int w,
   block(inset, h - p, w - inset * 2, p);
   block(0, inset, p, h - inset * 2);
   block(w - p, inset, p, h - inset * 2);
-  block(p, 0, p, p);
-  block(0, p, p, p);
-  block(w - p * 2, 0, p, p);
-  block(w - p, p, p, p);
-  block(p, h - p, p, p);
-  block(0, h - p * 2, p, p);
-  block(w - p * 2, h - p, p, p);
-  block(w - p, h - p * 2, p, p);
+
+  for (int i = p; i < inset; i += p) {
+    block(i, 0, p, p);
+    block(0, i, p, p);
+    block(w - i - p, 0, p, p);
+    block(w - p, i, p, p);
+    block(i, h - p, p, p);
+    block(0, h - i - p, p, p);
+    block(w - i - p, h - p, p, p);
+    block(w - p, h - i - p, p, p);
+  }
   return box;
 }
 
-void pixel_dock_jagged_border_set_color(lv_obj_t *border, lv_color_t color) {
+void pixel_jagged_border_set_color(lv_obj_t *border, lv_color_t color) {
   if (border == nullptr) {
     return;
   }
@@ -293,6 +309,14 @@ void pixel_dock_jagged_border_set_color(lv_obj_t *border, lv_color_t color) {
     lv_obj_t *child = lv_obj_get_child(border, i);
     lv_obj_set_style_bg_color(child, color, 0);
   }
+}
+
+lv_obj_t *pixel_create_dock_jagged_border(lv_obj_t *parent, int x, int y, int w, int h, lv_color_t color) {
+  return pixel_create_jagged_border(parent, x, y, w, h, color, 2, 4);
+}
+
+void pixel_dock_jagged_border_set_color(lv_obj_t *border, lv_color_t color) {
+  pixel_jagged_border_set_color(border, color);
 }
 
 }  // extern "C"

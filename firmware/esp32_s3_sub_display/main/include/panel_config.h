@@ -6,8 +6,8 @@
 
 #define PANEL_MIRROR_X 1
 #define PANEL_MIRROR_Y 1
-#define TOUCH_MIRROR_X 1
-#define TOUCH_MIRROR_Y 1
+#define TOUCH_MIRROR_X 0
+#define TOUCH_MIRROR_Y 0
 #define TOUCH_SWAP_XY 0
 
 #define LCD_G3 0
