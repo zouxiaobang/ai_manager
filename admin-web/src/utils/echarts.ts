@@ -1,5 +1,6 @@
 import { BarChart, GaugeChart, LineChart, PieChart } from 'echarts/charts'
 import {
+  GraphicComponent,
   GridComponent,
   LegendComponent,
   TitleComponent,
@@ -13,6 +14,7 @@ echarts.use([
   BarChart,
   GaugeChart,
   PieChart,
+  GraphicComponent,
   GridComponent,
   TooltipComponent,
   LegendComponent,

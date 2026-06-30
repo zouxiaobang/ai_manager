@@ -7,6 +7,8 @@ public class EcFactorySaveRequest {
 
     private String name;
 
+    private String factoryType;
+
     private String contactName;
 
     private String contactPhone;

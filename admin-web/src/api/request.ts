@@ -11,8 +11,11 @@ request.interceptors.response.use(
   (response) => {
     const body = response.data as ApiResult<unknown>
     if (body && typeof body.code === 'number' && body.code !== 0) {
-      ElMessage.error(body.message || '请求失败')
-      return Promise.reject(new Error(body.message))
+      const silent = Boolean(response.config?.headers?.['X-Silent-Error'])
+      if (!silent) {
+        ElMessage.error(body.message || '请求失败')
+      }
+      return Promise.reject(new Error(body.message || '请求失败'))
     }
     return response
   },
@@ -40,9 +43,12 @@ export async function getData<T>(
 export async function postData<T>(
   url: string,
   data?: unknown,
-  options?: { timeout?: number },
+  options?: { timeout?: number; silent?: boolean },
 ): Promise<T> {
-  const response = await request.post<ApiResult<T>>(url, data, { timeout: options?.timeout })
+  const response = await request.post<ApiResult<T>>(url, data, {
+    timeout: options?.timeout,
+    headers: options?.silent ? { 'X-Silent-Error': '1' } : undefined,
+  })
   return response.data.data
 }
 

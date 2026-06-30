@@ -20,4 +20,10 @@ public class EcCartonSaveRequest {
     private BigDecimal unitPrice;
 
     private String remark;
+
+    /** 纸箱材质 0~3（牛皮/白卡/瓦楞/普通快递盒） */
+    private Integer illustrationVariant;
+
+    /** 3D 预览图文件名 */
+    private String previewImage;
 }

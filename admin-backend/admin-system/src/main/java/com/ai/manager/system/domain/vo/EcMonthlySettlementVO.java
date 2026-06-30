@@ -11,6 +11,12 @@ public class EcMonthlySettlementVO {
 
     private String settlementMonth;
 
+    /** 是否已有入库快照（仅读取快照接口返回） */
+    private Boolean saved;
+
+    /** 快照统计完成时间 */
+    private LocalDateTime calculatedAt;
+
     /** 当月是否已导入快递账单 */
     private Boolean expressBillImported;
 
@@ -25,6 +31,7 @@ public class EcMonthlySettlementVO {
         private BigDecimal actualTotalCost;
         private BigDecimal estimatedTotalProfit;
         private BigDecimal actualTotalProfit;
+        private BigDecimal totalActualFreight;
         private Integer includedOrderCount;
         private Integer excludedOrderCount;
         private Integer pendingOrderCount;
@@ -37,8 +44,19 @@ public class EcMonthlySettlementVO {
         private Long orderId;
         private String orderNo;
         private String platformOrderNo;
-        private BigDecimal profitAmount;
+        private String productName;
+        private String skuName;
+        private String productImageUrl;
+        private LocalDateTime orderTime;
         private BigDecimal receivedAmount;
+        private BigDecimal estimatedCostAmount;
+        private BigDecimal actualCostAmount;
+        /** 预估利润 */
+        private BigDecimal profitAmount;
+        /** 实际利润 */
+        private BigDecimal actualProfitAmount;
+        /** 实际利润未知时的原因码：EXPRESS_BILL_NOT_IMPORTED / ACTUAL_FREIGHT_MISSING */
+        private String actualProfitUnknownReason;
     }
 
     @Data
@@ -48,6 +66,8 @@ public class EcMonthlySettlementVO {
         private String platformOrderNo;
         private String status;
         private String buyerName;
+        private String productName;
+        private String skuName;
         private BigDecimal receivedAmount;
         private LocalDateTime orderTime;
         /** 是否已人工决策 */

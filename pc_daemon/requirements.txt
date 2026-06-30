@@ -1,9 +1,0 @@
-fastapi
-uvicorn[standard]
-pyyaml
-pyautogui
-psutil
-winsdk
-zhconv
-Pillow
-websocket-client

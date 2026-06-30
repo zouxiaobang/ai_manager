@@ -2,8 +2,7 @@
   <div :class="['ec-image-field', `ec-image-field--${size}`]">
     <div
       class="ec-image-field__preview"
-      :title="t('ecommerce.product.imageClickHint')"
-      @click="openPreview"
+      @click="openPicker"
     >
       <img
         v-if="showImage && imageUrl"
@@ -12,6 +11,13 @@
         class="ec-image-field__img"
         @error="onImageError"
       />
+      <img
+        v-else-if="fallbackSrc && !fallbackBroken"
+        :src="fallbackSrc"
+        :alt="t('ecommerce.product.noImage')"
+        class="ec-image-field__img ec-image-field__img--fallback"
+        @error="onFallbackError"
+      />
       <div v-else class="ec-image-field__placeholder">
         <el-icon :size="iconSize"><Picture /></el-icon>
         <span v-if="size !== 'compact'" class="ec-image-field__placeholder-text">
@@ -19,81 +25,60 @@
         </span>
       </div>
     </div>
-    <p v-if="showName && modelValue" class="ec-image-field__name">{{ modelValue }}</p>
 
-    <el-dialog
-      v-model="previewVisible"
-      :title="dialogTitle"
+    <StorageImagePickerDialog
+      v-model="pickerVisible"
+      :scope="scope"
+      :readonly="readonly"
       :width="previewWidth"
-      append-to-body
-      destroy-on-close
-      class="ec-image-preview-dialog"
-      @closed="previewBroken = false"
-    >
-      <div class="ec-image-preview">
-        <div class="ec-image-preview__body">
-          <img
-            v-if="showImage && imageUrl && !previewBroken"
-            :src="imageUrl"
-            :alt="modelValue || t('ecommerce.product.imageName')"
-            class="ec-image-preview__img"
-            @error="previewBroken = true"
-          />
-          <div v-else class="ec-image-preview__empty">
-            <el-icon :size="48"><Picture /></el-icon>
-            <p>{{ t('ecommerce.product.noImage') }}</p>
-          </div>
-        </div>
-        <div v-if="!readonly" class="ec-image-preview__footer">
-          <input
-            ref="fileInputRef"
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            hidden
-            @change="onFileSelected"
-          />
-          <el-button type="primary" :loading="uploading" @click="triggerUpload">
-            {{ t('ecommerce.product.uploadImage') }}
-          </el-button>
-        </div>
-      </div>
-    </el-dialog>
+      :title="dialogTitle"
+      :upload-file="uploadLocalImage"
+      @confirm="onImagePicked"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
 import { Picture } from '@element-plus/icons-vue'
 import { getEcommerceImageUrl, uploadEcommerceImage } from '@/api/ecommerce/image'
+import { getNotebookImageUrl, uploadNotebookImage } from '@/api/notebook/image'
+import StorageImagePickerDialog from '@/components/storage/StorageImagePickerDialog.vue'
+import type { ImagePickerScope } from '@/components/storage/StorageImagePickerPanel.vue'
 
 const props = withDefaults(defineProps<{
   modelValue?: string
   size?: 'compact' | 'medium' | 'large'
-  showName?: boolean
   dialogTitle?: string
   readonly?: boolean
+  fallbackSrc?: string
+  scope?: ImagePickerScope
 }>(), {
   modelValue: '',
   size: 'medium',
-  showName: false,
   readonly: false,
+  fallbackSrc: '',
+  scope: 'ecommerce',
 })
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
+  persist: []
 }>()
 
 const { t } = useI18n()
 
-const previewVisible = ref(false)
-const uploading = ref(false)
+const pickerVisible = ref(false)
 const imageBroken = ref(false)
-const previewBroken = ref(false)
-const fileInputRef = ref<HTMLInputElement | null>(null)
+const fallbackBroken = ref(false)
 
-const imageUrl = computed(() => getEcommerceImageUrl(props.modelValue))
+const imageUrl = computed(() => {
+  if (props.scope === 'notebook') {
+    return getNotebookImageUrl(props.modelValue)
+  }
+  return getEcommerceImageUrl(props.modelValue)
+})
 
 const showImage = computed(() => Boolean(props.modelValue?.trim()) && !imageBroken.value)
 
@@ -104,46 +89,45 @@ const iconSize = computed(() => {
 })
 
 const previewWidth = computed(() => {
-  if (props.size === 'compact') return '520px'
-  return '560px'
+  if (props.size === 'compact') return '800px'
+  return '920px'
 })
-
-const dialogTitle = computed(() => props.dialogTitle || t('ecommerce.product.imagePreview'))
 
 watch(() => props.modelValue, () => {
   imageBroken.value = false
-  previewBroken.value = false
 })
+
+watch(() => props.fallbackSrc, () => {
+  fallbackBroken.value = false
+})
+
+function emitPersist() {
+  emit('persist')
+}
 
 function onImageError() {
   imageBroken.value = true
 }
 
-function openPreview() {
-  previewBroken.value = false
-  previewVisible.value = true
+function onFallbackError() {
+  fallbackBroken.value = true
 }
 
-function triggerUpload() {
-  fileInputRef.value?.click()
+function openPicker() {
+  pickerVisible.value = true
 }
 
-async function onFileSelected(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  input.value = ''
-  if (!file) return
+function onImagePicked(fileName: string) {
+  emit('update:modelValue', fileName)
+  imageBroken.value = false
+  emitPersist()
+}
 
-  uploading.value = true
-  try {
-    const fileName = await uploadEcommerceImage(file)
-    emit('update:modelValue', fileName)
-    imageBroken.value = false
-    previewBroken.value = false
-    ElMessage.success(t('ecommerce.product.uploadSuccess'))
-  } finally {
-    uploading.value = false
+async function uploadLocalImage(file: File): Promise<string> {
+  if (props.scope === 'notebook') {
+    return uploadNotebookImage(file)
   }
+  return uploadEcommerceImage(file)
 }
 </script>
 
@@ -189,6 +173,12 @@ async function onFileSelected(event: Event) {
   height: 100%;
   object-fit: cover;
   display: block;
+
+  &--fallback {
+    object-fit: contain;
+    padding: 14%;
+    background: #f3f4f6;
+  }
 }
 
 .ec-image-field__placeholder {
@@ -204,52 +194,5 @@ async function onFileSelected(event: Event) {
 
 .ec-image-field__placeholder-text {
   font-size: 12px;
-}
-
-.ec-image-field__name {
-  margin: 0;
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  word-break: break-all;
-  max-width: 160px;
-}
-
-.ec-image-preview {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.ec-image-preview__body {
-  min-height: 280px;
-  max-height: 60vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--el-fill-color-light);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.ec-image-preview__img {
-  max-width: 100%;
-  max-height: 60vh;
-  object-fit: contain;
-  display: block;
-}
-
-.ec-image-preview__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  color: var(--el-text-color-secondary);
-  padding: 40px;
-}
-
-.ec-image-preview__footer {
-  display: flex;
-  justify-content: center;
-  padding-top: 4px;
 }
 </style>

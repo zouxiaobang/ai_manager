@@ -9,6 +9,8 @@ public class EcPlatformSaveRequest {
 
     private String nameEn;
 
+    private String avatarUrl;
+
     private Integer platformCode;
 
     private String channelType;

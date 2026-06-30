@@ -18,6 +18,9 @@ public class EcExpressStation {
 
     private String name;
 
+    /** 站点头像，对应 uploads/ecommerce 下文件名 */
+    private String avatarUrl;
+
     private String contact;
 
     private String address;

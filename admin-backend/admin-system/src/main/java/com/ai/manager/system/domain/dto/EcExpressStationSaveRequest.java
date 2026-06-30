@@ -10,6 +10,9 @@ public class EcExpressStationSaveRequest {
 
     private String name;
 
+    /** 站点头像（上传文件名） */
+    private String avatarUrl;
+
     /** 导入文件中的快递名称别名（不含站点 canonical 名称） */
     private List<String> nameAliases;
 

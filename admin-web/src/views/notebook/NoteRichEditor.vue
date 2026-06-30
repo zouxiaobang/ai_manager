@@ -9,24 +9,32 @@
     />
     <Editor
       class="note-rich-editor__body"
-      :model-value="html"
+      :default-html="initialEditorHtml"
       :default-config="editorConfig"
       mode="default"
       @on-created="handleCreated"
       @on-change="handleChange"
+    />
+    <StorageImagePickerDialog
+      v-model="imagePickerVisible"
+      scope="notebook"
+      :upload-file="uploadNotebookImage"
+      @confirm="onNotebookImagePicked"
     />
   </div>
 </template>
 
 <script setup lang="ts">
 import '@wangeditor/editor/dist/css/style.css'
-import { nextTick, onBeforeUnmount, shallowRef, watch } from 'vue'
+import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Editor } from '@wangeditor/editor-for-vue'
 import { createToolbar, DomEditor, i18nAddResources, i18nChangeLanguage } from '@wangeditor/editor'
 import type { IDomEditor, IEditorConfig, IToolbarConfig } from '@wangeditor/editor'
 import { getNotebookImageUrl, uploadNotebookImage } from '@/api/notebook/image'
+import StorageImagePickerDialog from '@/components/storage/StorageImagePickerDialog.vue'
 import { HEADING_SELECTOR } from './noteToc'
+import { hasNoteVisibleText } from './noteContentOptimize'
 import { APP_FONT_FAMILY_VALUE } from '@/constants/font-family'
 
 const { locale, t } = useI18n()
@@ -55,8 +63,9 @@ function buildToolbarConfig(): Partial<IToolbarConfig> {
       'codeBlock',
       'blockquote',
       '|',
-      'insertTable',
-      '|',
+          'insertTable',
+          'insertImage',
+          '|',
       {
         key: 'group-more',
         title: t('notebook.moreTools'),
@@ -117,7 +126,8 @@ const emit = defineEmits<{
 const editorRef = shallowRef<IDomEditor>()
 const rootRef = shallowRef<HTMLElement | null>(null)
 const toolbarRef = shallowRef<HTMLElement | null>(null)
-const html = shallowRef(normalizeHtmlContent(props.modelValue))
+const initialEditorHtml = normalizeHtmlContent(props.modelValue)
+const html = shallowRef(initialEditorHtml)
 
 let dropPanelObserver: MutationObserver | null = null
 let suppressChange = false
@@ -213,10 +223,15 @@ function patchToolbarTooltips() {
   })
 }
 
-function hasVisibleHtml(html: string): boolean {
-  const el = document.createElement('div')
-  el.innerHTML = html
-  return (el.textContent?.replace(/\u200B/g, '').trim().length ?? 0) > 0
+function applyEditorHtml(next: string, suppressMs = 160) {
+  const editor = editorRef.value
+  if (!editor) return
+  const normalized = normalizeHtmlContent(next)
+  if (!normalized.trim()) return
+  if (editor.getHtml() === normalized) return
+  runWithSuppressedChange(() => {
+    editor.setHtml(normalized)
+  }, suppressMs)
 }
 
 function runWithSuppressedChange(run: () => void, releaseMs = 120) {
@@ -313,13 +328,24 @@ watch(
     const next = normalizeHtmlContent(value)
     if (next === html.value) return
     html.value = next
-    if (editorRef.value && editorRef.value.getHtml() !== next) {
-      runWithSuppressedChange(() => {
-        editorRef.value?.setHtml(next)
-      })
-    }
+    applyEditorHtml(next)
   },
 )
+
+watch(imagePickerVisible, (open) => {
+  if (!open) {
+    pendingImageInsert = null
+  }
+})
+
+const imagePickerVisible = ref(false)
+let pendingImageInsert: ((url: string, alt: string, href: string) => void) | null = null
+
+function onNotebookImagePicked(fileName: string) {
+  const url = getNotebookImageUrl(fileName)
+  pendingImageInsert?.(url, fileName, url)
+  pendingImageInsert = null
+}
 
 const editorConfig: Partial<IEditorConfig> = {
   placeholder: props.placeholder ?? '开始记录…',
@@ -333,6 +359,12 @@ const editorConfig: Partial<IEditorConfig> = {
       fontSizeList: ['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px', '36px'],
     },
     uploadImage: {
+      customBrowseAndUpload(
+        insertFn: (url: string, alt: string, href: string) => void,
+      ) {
+        pendingImageInsert = insertFn
+        imagePickerVisible.value = true
+      },
       async customUpload(file: File, insertFn: (url: string, alt: string, href: string) => void) {
         const fileName = await uploadNotebookImage(file)
         const url = getNotebookImageUrl(fileName)
@@ -385,6 +417,69 @@ function getScrollRoot(): HTMLElement | null {
     rootRef.value?.querySelector<HTMLElement>('.note-rich-editor__body') ??
     null
   )
+}
+
+function captureEditorScrollTop(): number {
+  return getScrollRoot()?.scrollTop ?? 0
+}
+
+function restoreEditorScrollTop(scrollTop: number) {
+  const root = getScrollRoot()
+  if (!root) return
+  const apply = () => {
+    root.scrollTop = scrollTop
+  }
+  apply()
+  requestAnimationFrame(apply)
+}
+
+function ensureSelectionVisible() {
+  const root = getScrollRoot()
+  const selection = window.getSelection()
+  if (!root || !selection?.rangeCount) return
+
+  const range = selection.getRangeAt(0)
+  const rects = range.getClientRects()
+  const rect = rects.length ? rects[rects.length - 1] : range.getBoundingClientRect()
+  if (!rect.width && !rect.height) return
+
+  const rootRect = root.getBoundingClientRect()
+  const padding = 32
+
+  if (rect.bottom > rootRect.bottom - padding) {
+    root.scrollTop += rect.bottom - rootRect.bottom + padding
+  } else if (rect.top < rootRect.top + padding) {
+    root.scrollTop -= rootRect.top + padding - rect.top
+  }
+}
+
+/** 仅在异常跳到顶部时恢复滚动；否则让视口跟随光标（如底部回车换行） */
+function reconcileEditorScroll(savedScrollTop: number) {
+  const root = getScrollRoot()
+  if (!root) return
+
+  const apply = () => {
+    if (savedScrollTop > 60 && root.scrollTop < 20) {
+      root.scrollTop = savedScrollTop
+      return
+    }
+    ensureSelectionVisible()
+  }
+
+  requestAnimationFrame(() => {
+    apply()
+    requestAnimationFrame(apply)
+  })
+}
+
+function isSelectionInCodeBlock(): boolean {
+  const selection = window.getSelection()
+  if (!selection?.anchorNode) return false
+  const anchor =
+    selection.anchorNode.nodeType === Node.TEXT_NODE
+      ? selection.anchorNode.parentElement
+      : (selection.anchorNode as Element)
+  return !!anchor?.closest('pre, code')
 }
 
 function setupScrollSpy() {
@@ -504,17 +599,28 @@ function patchDropPanelMenus() {
 
 function handleChange(editor: IDomEditor) {
   if (suppressChange) return
+  const savedScrollTop = captureEditorScrollTop()
+  const inCodeBlock = isSelectionInCodeBlock()
   const value = editor.getHtml()
-  if (!hasVisibleHtml(value) && hasVisibleHtml(html.value)) {
-    runWithSuppressedChange(() => {
-      editor.setHtml(html.value)
-    })
+  const fallbackHtml = html.value || props.modelValue
+  if (!hasNoteVisibleText(value)) {
+    if (hasNoteVisibleText(fallbackHtml)) {
+      runWithSuppressedChange(() => {
+        editor.setHtml(fallbackHtml)
+      }, 200)
+      restoreEditorScrollTop(savedScrollTop)
+      return
+    }
+    reconcileEditorScroll(savedScrollTop)
     return
   }
   html.value = value
   emit('update:modelValue', value)
   emit('change')
-  void nextTick(() => updateActiveHeading())
+  reconcileEditorScroll(savedScrollTop)
+  if (!inCodeBlock) {
+    void nextTick(() => updateActiveHeading())
+  }
 }
 
 function getEditableContainer(): HTMLElement | null {
@@ -554,23 +660,18 @@ async function setHtml(value: string) {
   html.value = next
   emit('update:modelValue', next)
 
-  const applyToEditor = () => {
-    if (!editorRef.value) return
-    if (editorRef.value.getHtml() !== next) {
-      editorRef.value.setHtml(next)
-    }
-  }
+  const applyToEditor = () => applyEditorHtml(next, 200)
 
-  runWithSuppressedChange(applyToEditor)
+  runWithSuppressedChange(applyToEditor, 200)
 
   await nextTick()
   await new Promise<void>((resolve) => {
-    window.setTimeout(resolve, 32)
+    window.setTimeout(resolve, 48)
   })
 
   const actual = editorRef.value?.getHtml() ?? ''
-  if (hasVisibleHtml(next) && !hasVisibleHtml(actual)) {
-    runWithSuppressedChange(applyToEditor, 160)
+  if (hasNoteVisibleText(next) && !hasNoteVisibleText(actual)) {
+    runWithSuppressedChange(applyToEditor, 240)
   }
 }
 
@@ -663,7 +764,7 @@ onBeforeUnmount(() => {
 }
 
 :deep(.w-e-text-container [data-slate-editor]) {
-  padding: 12px 20px 24px !important;
+  padding: 12px 20px 72px !important;
   min-height: 100%;
 }
 
@@ -771,6 +872,20 @@ onBeforeUnmount(() => {
 .note-rich-editor .w-e-bar-item-menus-container {
   min-width: 168px;
   padding: 6px 0 !important;
+}
+
+.note-rich-editor .w-e-select-list {
+  padding: 6px 0 !important;
+
+  ul li {
+    padding: 10px 20px !important;
+    text-align: left;
+
+    svg {
+      left: 8px !important;
+      margin-left: 0 !important;
+    }
+  }
 }
 
 .note-rich-editor .w-e-menu-tooltip-v5::before,

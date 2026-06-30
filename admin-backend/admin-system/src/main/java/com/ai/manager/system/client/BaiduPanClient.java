@@ -93,6 +93,49 @@ public class BaiduPanClient {
         return toUploadResponse(created, path, payload.length);
     }
 
+    public byte[] downloadBytes(String accessToken, String path, Long fsId) throws IOException, InterruptedException {
+        Long resolvedFsId = fsId;
+        if (resolvedFsId == null) {
+            resolvedFsId = findFsIdByPath(accessToken, path);
+        }
+        if (resolvedFsId == null) {
+            return new byte[0];
+        }
+        String metaUrl = XPAN_MULTIMEDIA + "?method=filemetas&access_token=" + url(accessToken)
+                + "&fsids=[" + resolvedFsId + "]&dlink=1";
+        HttpRequest metaRequest = HttpRequest.newBuilder(URI.create(metaUrl))
+                .timeout(Duration.ofSeconds(30))
+                .GET()
+                .build();
+        HttpResponse<String> metaResponse = httpClient.send(metaRequest, HttpResponse.BodyHandlers.ofString());
+        JsonNode root = objectMapper.readTree(metaResponse.body());
+        checkErrno(root);
+        JsonNode list = root.path("list");
+        if (!list.isArray() || list.isEmpty()) {
+            return new byte[0];
+        }
+        String dlink = list.get(0).path("dlink").asText("");
+        if (!StringUtils.hasText(dlink)) {
+            return new byte[0];
+        }
+        dlink = dlink.replace("\\u0026", "&");
+        String downloadUrl = dlink + (dlink.contains("?") ? "&" : "?") + "access_token=" + url(accessToken);
+        HttpRequest downloadRequest = HttpRequest.newBuilder(URI.create(downloadUrl))
+                .timeout(Duration.ofSeconds(60))
+                .header("User-Agent", BAIDU_DOWNLOAD_USER_AGENT)
+                .GET()
+                .build();
+        HttpResponse<byte[]> downloadResponse = httpClient.send(downloadRequest, HttpResponse.BodyHandlers.ofByteArray());
+        if (downloadResponse.statusCode() >= 400) {
+            throw new IOException("下载百度网盘文件失败: HTTP " + downloadResponse.statusCode());
+        }
+        byte[] body = downloadResponse.body();
+        if (body.length > 0 && body[0] == '{') {
+            validateDownloadBody(new String(body, StandardCharsets.UTF_8));
+        }
+        return body;
+    }
+
     public String download(String accessToken, String path, Long fsId) throws IOException, InterruptedException {
         Long resolvedFsId = fsId;
         if (resolvedFsId == null) {
@@ -188,6 +231,21 @@ public class BaiduPanClient {
     }
 
     public void ensureDir(String accessToken, String dirPath) throws IOException, InterruptedException {
+        if (!StringUtils.hasText(dirPath) || "/".equals(dirPath.trim())) {
+            return;
+        }
+        String[] parts = dirPath.split("/");
+        StringBuilder current = new StringBuilder();
+        for (String part : parts) {
+            if (!StringUtils.hasText(part)) {
+                continue;
+            }
+            current.append('/').append(part);
+            ensureDirSingle(accessToken, current.toString());
+        }
+    }
+
+    private void ensureDirSingle(String accessToken, String dirPath) throws IOException, InterruptedException {
         String requestUrl = XPAN_FILE + "?method=create&access_token=" + url(accessToken);
         // rtype=2：目录已存在则忽略，避免 rtype=1 每次重命名为 notes_YYYYMMDD_HHMMSS
         String body = "path=" + encodePath(dirPath) + "&isdir=1&rtype=2";

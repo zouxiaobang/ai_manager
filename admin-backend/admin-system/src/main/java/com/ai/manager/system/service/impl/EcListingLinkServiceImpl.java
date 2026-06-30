@@ -207,8 +207,7 @@ public class EcListingLinkServiceImpl extends ServiceImpl<EcListingLinkMapper, E
         validateProductIds(request.getProductIds());
         applyLinkFields(existing, request, shop);
         updateById(existing);
-        ecListingLinkProductMapper.delete(new LambdaQueryWrapper<EcListingLinkProduct>()
-                .eq(EcListingLinkProduct::getLinkId, id));
+        ecListingLinkProductMapper.physicalDeleteByLinkId(id);
         saveLinkProducts(id, request.getProductIds());
         ecListingLinkSkuMapper.delete(new LambdaQueryWrapper<EcListingLinkSku>()
                 .eq(EcListingLinkSku::getLinkId, id));
@@ -251,8 +250,7 @@ public class EcListingLinkServiceImpl extends ServiceImpl<EcListingLinkMapper, E
         }
         ecListingLinkSkuMapper.delete(new LambdaQueryWrapper<EcListingLinkSku>()
                 .eq(EcListingLinkSku::getLinkId, id));
-        ecListingLinkProductMapper.delete(new LambdaQueryWrapper<EcListingLinkProduct>()
-                .eq(EcListingLinkProduct::getLinkId, id));
+        ecListingLinkProductMapper.physicalDeleteByLinkId(id);
         removeById(id);
     }
 

@@ -17,6 +17,9 @@ public class EcFactory {
 
     private String name;
 
+    /** PRODUCTION / CUSTOMER / CARTON */
+    private String factoryType;
+
     private String contactName;
 
     private String contactPhone;

@@ -9,6 +9,7 @@ import com.ai.manager.system.domain.vo.EcExpressPriceVO;
 import com.ai.manager.system.mapper.EcExpressPriceMapper;
 import com.ai.manager.system.mapper.EcExpressStationMapper;
 import com.ai.manager.system.service.EcExpressPriceService;
+import com.ai.manager.system.service.support.EcAddressProvinceSupport;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,20 @@ public class EcExpressPriceServiceImpl extends ServiceImpl<EcExpressPriceMapper,
             result.add(toVO(price));
         }
         return result;
+    }
+
+    @Override
+    public List<String> listRegionNames() {
+        return list(new LambdaQueryWrapper<EcExpressPrice>()
+                .select(EcExpressPrice::getProvinceName)
+                .orderByAsc(EcExpressPrice::getProvinceName))
+                .stream()
+                .map(EcExpressPrice::getProvinceName)
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .distinct()
+                .sorted()
+                .toList();
     }
 
     @Override
@@ -96,6 +111,11 @@ public class EcExpressPriceServiceImpl extends ServiceImpl<EcExpressPriceMapper,
         if (!StringUtils.hasText(request.getProvinceName())) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "省份名称不能为空");
         }
+        String provinceName = EcAddressProvinceSupport.normalizeProvinceName(request.getProvinceName());
+        if (!StringUtils.hasText(provinceName)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "省份名称无法识别，请填写如「广东」或「广东省」");
+        }
+        request.setProvinceName(provinceName);
         validateNonNegative(request.getPriceW03Kg(), "0.3kg价格");
         validateNonNegative(request.getPriceW05Kg(), "0.5kg价格");
         validateNonNegative(request.getPriceW1Kg(), "1kg价格");

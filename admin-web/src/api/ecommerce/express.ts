@@ -4,6 +4,7 @@ import type { PageQuery, PageResult } from '../pagination'
 export interface EcExpressStation {
   id: number
   name: string
+  avatarUrl?: string | null
   contact?: string
   address?: string
   labelPrice?: number | null
@@ -12,6 +13,8 @@ export interface EcExpressStation {
   nameAliases?: string[]
   prices?: EcExpressPrice[]
   notices?: EcExpressNotice[]
+  priceCount?: number
+  noticeCount?: number
 }
 
 export interface EcExpressPrice {
@@ -41,6 +44,7 @@ export interface EcExpressNotice {
 
 export interface EcExpressStationSaveRequest {
   name: string
+  avatarUrl?: string | null
   contact?: string
   address?: string
   labelPrice?: number | null
@@ -69,11 +73,21 @@ export interface EcExpressNoticeSaveRequest {
   sortOrder?: number
 }
 
-export function fetchExpressStations(keyword?: string, pageQuery?: PageQuery) {
+export function fetchExpressStations(
+  keyword?: string,
+  pageQuery?: PageQuery,
+  options?: { defaultOnly?: boolean; regionNames?: string[] },
+) {
   return getData<PageResult<EcExpressStation>>('/api/ecommerce/express/stations', {
     ...(keyword ? { keyword } : {}),
+    ...(options?.defaultOnly ? { defaultOnly: true } : {}),
+    ...(options?.regionNames?.length ? { regionNames: options.regionNames.join(',') } : {}),
     ...(pageQuery ?? {}),
   })
+}
+
+export function fetchExpressRegions() {
+  return getData<string[]>('/api/ecommerce/express/stations/regions')
 }
 
 export function fetchExpressStation(id: number) {
@@ -90,6 +104,10 @@ export function updateExpressStation(id: number, data: EcExpressStationSaveReque
 
 export function deleteExpressStation(id: number) {
   return deleteData(`/api/ecommerce/express/stations/${id}`)
+}
+
+export function copyExpressStation(id: number) {
+  return postData<EcExpressStation>(`/api/ecommerce/express/stations/${id}/copy`)
 }
 
 export function fetchExpressPrices(stationId: number) {

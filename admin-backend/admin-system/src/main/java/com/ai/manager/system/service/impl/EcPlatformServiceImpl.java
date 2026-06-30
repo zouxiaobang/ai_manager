@@ -13,6 +13,7 @@ import com.ai.manager.system.domain.vo.EcPlatformListItemVO;
 import com.ai.manager.system.mapper.EcPlatformMapper;
 import com.ai.manager.system.mapper.EcShopMapper;
 import com.ai.manager.system.service.EcPlatformService;
+import com.ai.manager.system.service.EcEcommerceImageRenameService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -28,6 +29,7 @@ import java.util.List;
 public class EcPlatformServiceImpl extends ServiceImpl<EcPlatformMapper, EcPlatform> implements EcPlatformService {
 
     private final EcShopMapper ecShopMapper;
+    private final EcEcommerceImageRenameService ecEcommerceImageRenameService;
 
     @Override
     public PageResult<EcPlatformListItemVO> pagePlatforms(String keyword, String channelType,
@@ -75,7 +77,7 @@ public class EcPlatformServiceImpl extends ServiceImpl<EcPlatformMapper, EcPlatf
     @Override
     @Transactional(rollbackFor = Exception.class)
     public EcPlatformListItemVO createPlatform(EcPlatformSaveRequest request) {
-        validateRequest(request);
+        validateRequest(request, null);
         EcPlatform platform = applySaveFields(request, new EcPlatform());
         save(platform);
         return getPlatformDetail(platform.getId());
@@ -88,7 +90,7 @@ public class EcPlatformServiceImpl extends ServiceImpl<EcPlatformMapper, EcPlatf
         if (existing == null) {
             throw new BusinessException(ResultCode.NOT_FOUND);
         }
-        validateRequest(request);
+        validateRequest(request, id);
         applySaveFields(request, existing);
         updateById(existing);
         return getPlatformDetail(id);
@@ -109,10 +111,11 @@ public class EcPlatformServiceImpl extends ServiceImpl<EcPlatformMapper, EcPlatf
         removeById(id);
     }
 
-    private void validateRequest(EcPlatformSaveRequest request) {
+    private void validateRequest(EcPlatformSaveRequest request, Long excludeId) {
         if (request == null || !StringUtils.hasText(request.getName())) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "平台名称不能为空");
         }
+        assertNamesUnique(request.getName(), request.getNameEn(), excludeId);
         if (request.getPlatformCode() == null || EcPlatformCode.fromCode(request.getPlatformCode()) == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "平台标识无效");
         }
@@ -124,9 +127,29 @@ public class EcPlatformServiceImpl extends ServiceImpl<EcPlatformMapper, EcPlatf
         }
     }
 
+    private void assertNamesUnique(String name, String nameEn, Long excludeId) {
+        assertNameValueUnique(name.trim(), excludeId, "平台名称已存在");
+        if (StringUtils.hasText(nameEn)) {
+            assertNameValueUnique(nameEn.trim(), excludeId, "英文名称已存在");
+        }
+    }
+
+    private void assertNameValueUnique(String value, Long excludeId, String message) {
+        LambdaQueryWrapper<EcPlatform> wrapper = new LambdaQueryWrapper<EcPlatform>()
+                .and(w -> w.eq(EcPlatform::getName, value).or().eq(EcPlatform::getNameEn, value));
+        if (excludeId != null) {
+            wrapper.ne(EcPlatform::getId, excludeId);
+        }
+        if (count(wrapper) > 0) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), message);
+        }
+    }
+
     private EcPlatform applySaveFields(EcPlatformSaveRequest request, EcPlatform platform) {
         platform.setName(request.getName().trim());
         platform.setNameEn(trimToNull(request.getNameEn()));
+        platform.setAvatarUrl(ecEcommerceImageRenameService.normalizePlatformAvatar(
+                request.getAvatarUrl(), request.getName().trim()));
         platform.setPlatformCode(request.getPlatformCode());
         platform.setChannelType(StringUtils.hasText(request.getChannelType())
                 ? request.getChannelType().trim().toUpperCase()
@@ -145,6 +168,7 @@ public class EcPlatformServiceImpl extends ServiceImpl<EcPlatformMapper, EcPlatf
         vo.setId(platform.getId());
         vo.setName(platform.getName());
         vo.setNameEn(platform.getNameEn());
+        vo.setAvatarUrl(platform.getAvatarUrl());
         vo.setPlatformCode(platform.getPlatformCode());
         vo.setChannelType(platform.getChannelType());
         vo.setRemark(platform.getRemark());

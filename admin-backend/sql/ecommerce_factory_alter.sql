@@ -4,6 +4,7 @@ USE ai_manager_admin;
 CREATE TABLE IF NOT EXISTS ec_factory (
     id            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '工厂主键',
     name          VARCHAR(128) NOT NULL COMMENT '工厂名称',
+    factory_type  VARCHAR(16)  NOT NULL DEFAULT 'PRODUCTION' COMMENT 'PRODUCTION/CUSTOMER',
     contact_name  VARCHAR(64)  DEFAULT NULL COMMENT '联系人',
     contact_phone VARCHAR(64)  DEFAULT NULL COMMENT '联系方式',
     address       VARCHAR(512) DEFAULT NULL COMMENT '地址',

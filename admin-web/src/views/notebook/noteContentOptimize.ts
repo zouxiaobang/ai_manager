@@ -24,6 +24,7 @@ const PRESERVE_TAGS = new Set([
   'CODE',
 ])
 const TEXT_BLOCK_SELECTOR = 'p, h1, h2, h3, h4, h5, h6, li, blockquote'
+const BLOCK_CHILD_SELECTOR = 'p, h1, h2, h3, h4, h5, h6, ul, ol, li, pre, blockquote, table, hr'
 const INLINE_EMPTY_TAGS = new Set(['SPAN', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'FONT'])
 const SKIP_TEXT_NORMALIZE_SELECTOR = 'pre, code, pre *, code *'
 
@@ -43,6 +44,7 @@ export function optimizeNoteHtml(html: string): string {
   normalizeRootStructure(root)
   stripEditorArtifacts(root)
   convertTextDivsToParagraphs(root)
+  flattenNestedParagraphs(root)
 
   root.querySelectorAll(TEXT_BLOCK_SELECTOR).forEach((block) => {
     trimLeadingWhitespace(block)
@@ -67,6 +69,15 @@ export function optimizeNoteHtml(html: string): string {
   }
   if (!result) {
     return raw
+  }
+  if (beforeText && afterText.length < beforeText.length) {
+    const beforeChars = new Set(beforeText.replace(/\s+/g, ''))
+    const afterChars = new Set(afterText.replace(/\s+/g, ''))
+    for (const ch of beforeChars) {
+      if (!afterChars.has(ch)) {
+        return raw
+      }
+    }
   }
   return result
 }
@@ -125,10 +136,31 @@ function convertTextDivsToParagraphs(root: Element) {
   Array.from(root.querySelectorAll('div')).reverse().forEach((div) => {
     if (div.closest('table, pre, blockquote')) return
     if (div.querySelector('div, table, ul, ol, pre, blockquote')) return
+    if (div.querySelector(BLOCK_CHILD_SELECTOR)) return
     const p = document.createElement('p')
     p.innerHTML = div.innerHTML
     div.replaceWith(p)
   })
+}
+
+function flattenNestedParagraphs(root: Element) {
+  let changed = true
+  while (changed) {
+    changed = false
+    Array.from(root.querySelectorAll('p')).forEach((paragraph) => {
+      const nested = Array.from(paragraph.children).filter((child) => child.tagName === 'P')
+      if (!nested.length) return
+      const parent = paragraph.parentElement
+      if (!parent) return
+      nested.forEach((child) => {
+        parent.insertBefore(child, paragraph.nextSibling)
+      })
+      changed = true
+      if (isEmptyBlock(paragraph)) {
+        paragraph.remove()
+      }
+    })
+  }
 }
 
 function isEmptyBlock(el: Element): boolean {

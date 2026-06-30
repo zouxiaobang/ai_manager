@@ -1,76 +1,108 @@
 <template>
-  <el-dialog
+  <el-drawer
     v-model="visible"
-    :title="t('ecommerce.monthlySettlement.importExpressBillTitle')"
-    width="1000px"
+    :title="t('ecommerce.monthlySettlement.expressBillWorkbenchTitle')"
+    size="88%"
     destroy-on-close
+    class="express-bill-drawer"
     @open="onOpen"
     @closed="onClosed"
   >
-    <el-form label-width="96px" class="express-bill-form">
-      <el-row :gutter="16">
-        <el-col :span="12">
-          <el-form-item :label="t('ecommerce.monthlySettlement.monthPlaceholder')" required>
-            <el-date-picker
-              v-model="billMonth"
-              type="month"
-              value-format="YYYY-MM"
-              style="width: 100%"
-            />
-          </el-form-item>
-        </el-col>
-        <el-col :span="12">
-          <el-form-item :label="t('ecommerce.monthlySettlement.expressStation')" required>
-            <el-select
-              v-model="expressStationId"
-              filterable
-              style="width: 100%"
-              :placeholder="t('ecommerce.monthlySettlement.expressStationPlaceholder')"
-              @change="onStationChange"
+    <p class="express-bill-workbench__subtitle">{{ t('ecommerce.monthlySettlement.expressBillWorkbenchSubtitle') }}</p>
+
+    <div class="express-bill-workbench">
+      <aside class="express-bill-workbench__sidebar">
+        <div class="sidebar-block">
+          <div class="sidebar-block__label">{{ t('ecommerce.monthlySettlement.monthPlaceholder') }}</div>
+          <el-date-picker
+            v-if="!lockMonth"
+            v-model="billMonth"
+            type="month"
+            value-format="YYYY-MM"
+            style="width: 100%"
+          />
+          <div v-else class="sidebar-block__month-readonly">{{ formatBillMonth(billMonth) }}</div>
+        </div>
+
+        <div class="sidebar-block sidebar-block--stations">
+          <div class="sidebar-block__label">{{ t('ecommerce.monthlySettlement.expressBillStationList') }}</div>
+          <div class="station-list">
+            <button
+              v-for="station in expressStations"
+              :key="station.id"
+              type="button"
+              class="station-item"
+              :class="{ 'is-active': expressStationId === station.id }"
+              @click="selectStation(station.id)"
             >
-              <el-option v-for="s in expressStations" :key="s.id" :label="s.name" :value="s.id" />
-              <el-option :label="t('ecommerce.monthlySettlement.otherExpressStation')" :value="EXPRESS_STATION_OTHER" />
-            </el-select>
-          </el-form-item>
-        </el-col>
-      </el-row>
-      <el-form-item :label="t('ecommerce.monthlySettlement.includeLabelPrice')">
-        <div class="label-price-option">
-          <el-checkbox v-model="includeLabelPrice" :disabled="!canIncludeLabelPrice">
-            {{ t('ecommerce.monthlySettlement.includeLabelPriceLabel') }}
-          </el-checkbox>
-          <span v-if="selectedStationLabelPrice != null" class="label-price-hint">
-            {{ t('ecommerce.monthlySettlement.stationLabelPrice', { price: formatMoney(selectedStationLabelPrice) }) }}
-          </span>
-          <span v-else-if="expressStationId" class="label-price-hint label-price-hint--muted">
-            {{ t('ecommerce.monthlySettlement.stationLabelPriceUnset') }}
-          </span>
+              <ExpressStationAvatar :station="station" size="xs" />
+              <span class="station-item__name">{{ station.name }}</span>
+              <span class="station-item__stat">{{ stationMatchLabel(station.id) }}</span>
+            </button>
+            <button
+              type="button"
+              class="station-item"
+              :class="{ 'is-active': expressStationId === EXPRESS_STATION_OTHER }"
+              @click="selectStation(EXPRESS_STATION_OTHER)"
+            >
+              <span class="station-item__avatar-placeholder">⋯</span>
+              <span class="station-item__name">{{ t('ecommerce.monthlySettlement.otherExpressStation') }}</span>
+              <span class="station-item__stat">{{ stationMatchLabel(EXPRESS_STATION_OTHER) }}</span>
+            </button>
+          </div>
+          <button type="button" class="sidebar-records-link" @click="centerView = 'records'">
+            {{ t('ecommerce.monthlySettlement.expressBillViewRecords') }}
+          </button>
         </div>
-      </el-form-item>
-    </el-form>
+      </aside>
 
-    <el-tabs v-model="activeTab">
-      <el-tab-pane :label="t('ecommerce.monthlySettlement.expressBillTabUpload')" name="upload">
-        <div class="express-bill-upload-block">
-          <el-upload
-            ref="uploadRef"
-            class="express-bill-upload"
-            drag
-            :auto-upload="false"
-            :show-file-list="false"
-            accept=".csv,.txt,.xlsx,.xls"
-            @change="onFileChange"
-          >
-            <el-icon class="express-bill-upload__icon"><UploadFilled /></el-icon>
-            <p v-if="billFile" class="express-bill-upload__name">{{ billFile.name }}</p>
-            <p v-else class="express-bill-upload__trigger">{{ t('ecommerce.monthlySettlement.expressBillUpload') }}</p>
-          </el-upload>
-          <p class="express-bill-hint">{{ t('ecommerce.monthlySettlement.expressBillHint') }}</p>
+      <main class="express-bill-workbench__main">
+        <div class="main-toolbar">
+          <el-radio-group v-model="centerView" size="large" class="main-toolbar__view-switch">
+            <el-radio-button value="import">{{ t('ecommerce.monthlySettlement.expressBillCenterImport') }}</el-radio-button>
+            <el-radio-button value="manual">{{ t('ecommerce.monthlySettlement.expressBillCenterManual') }}</el-radio-button>
+            <el-radio-button value="records">{{ t('ecommerce.monthlySettlement.expressBillCenterRecords') }}</el-radio-button>
+          </el-radio-group>
+
+          <div v-if="centerView === 'import'" class="main-toolbar__options">
+            <el-checkbox v-model="includeLabelPrice" :disabled="!canIncludeLabelPrice">
+              {{ t('ecommerce.monthlySettlement.includeLabelPriceLabel') }}
+            </el-checkbox>
+            <span v-if="selectedStationLabelPrice != null" class="label-price-hint">
+              {{ t('ecommerce.monthlySettlement.stationLabelPrice', { price: formatMoney(selectedStationLabelPrice) }) }}
+            </span>
+          </div>
+          <div v-else-if="centerView === 'manual'" class="main-toolbar__options">
+            <el-checkbox v-model="includeLabelPrice" :disabled="!canIncludeLabelPrice">
+              {{ t('ecommerce.monthlySettlement.includeLabelPriceLabel') }}
+            </el-checkbox>
+            <span v-if="selectedStationLabelPrice != null" class="label-price-hint">
+              {{ t('ecommerce.monthlySettlement.stationLabelPrice', { price: formatMoney(selectedStationLabelPrice) }) }}
+            </span>
+          </div>
         </div>
 
-        <el-collapse v-model="mappingCollapse" class="mapping-collapse">
-          <el-collapse-item :title="t('ecommerce.monthlySettlement.columnMapping')" name="mapping">
-            <div class="mapping-block__actions">
+        <template v-if="centerView === 'import'">
+          <div class="express-bill-upload-block">
+            <el-upload
+              ref="uploadRef"
+              class="express-bill-upload"
+              drag
+              :auto-upload="false"
+              :show-file-list="false"
+              accept=".csv,.txt,.xlsx,.xls"
+              @change="onFileChange"
+            >
+              <el-icon class="express-bill-upload__icon"><UploadFilled /></el-icon>
+              <p v-if="billFile" class="express-bill-upload__name">{{ billFile.name }}</p>
+              <p v-else class="express-bill-upload__trigger">{{ t('ecommerce.monthlySettlement.expressBillUpload') }}</p>
+            </el-upload>
+            <p class="express-bill-hint">{{ t('ecommerce.monthlySettlement.expressBillHint') }}</p>
+          </div>
+
+          <div class="mapping-block">
+            <div class="mapping-block__header">
+              <span>{{ t('ecommerce.monthlySettlement.columnMapping') }}</span>
               <el-button link type="primary" :loading="savingProfile" @click="saveColumnProfile">
                 {{ t('ecommerce.monthlySettlement.saveColumnMapping') }}
               </el-button>
@@ -107,126 +139,369 @@
                 </template>
               </el-table-column>
             </el-table>
-          </el-collapse-item>
-        </el-collapse>
+          </div>
+        </template>
 
-        <div class="tab-actions">
-          <el-button type="primary" :loading="uploading" :disabled="!canUpload" @click="submitUpload">
-            {{ t('ecommerce.monthlySettlement.expressBillSubmit') }}
-          </el-button>
-        </div>
-      </el-tab-pane>
+        <template v-else-if="centerView === 'manual'">
+          <section class="manual-panel">
+            <header class="manual-panel__head">
+              <div class="manual-panel__intro">
+                <h4 class="manual-panel__title">{{ t('ecommerce.monthlySettlement.expressBillCenterManual') }}</h4>
+                <p class="manual-panel__hint">{{ t('ecommerce.monthlySettlement.manualPanelHint') }}</p>
+              </div>
+              <div class="manual-panel__stats">
+                <div class="manual-stat">
+                  <span class="manual-stat__label">{{ t('ecommerce.monthlySettlement.manualStatTotal') }}</span>
+                  <strong class="manual-stat__value">{{ manualLines.length }}</strong>
+                </div>
+                <div class="manual-stat manual-stat--success">
+                  <span class="manual-stat__label">{{ t('ecommerce.monthlySettlement.manualStatFilled') }}</span>
+                  <strong class="manual-stat__value">{{ manualFilledCount }}</strong>
+                </div>
+                <div class="manual-stat manual-stat--warning">
+                  <span class="manual-stat__label">{{ t('ecommerce.monthlySettlement.manualStatEmpty') }}</span>
+                  <strong class="manual-stat__value">{{ manualEmptyFreightCount }}</strong>
+                </div>
+              </div>
+            </header>
 
-      <el-tab-pane :label="t('ecommerce.monthlySettlement.expressBillTabManual')" name="manual">
-        <div class="manual-toolbar">
-          <el-button :disabled="!canPrepareManual" :loading="preparingManual" @click="prepareManualList">
-            {{ t('ecommerce.monthlySettlement.prepareManualList') }}
-          </el-button>
-          <el-button @click="addManualRow">{{ t('ecommerce.monthlySettlement.addManualRow') }}</el-button>
-          <span v-if="currentBillId" class="manual-bill-id">
-            {{ t('ecommerce.monthlySettlement.currentBillId', { id: currentBillId }) }}
-          </span>
-        </div>
-        <el-table :data="manualLines" border size="small" max-height="360" class="manual-lines-table">
-          <el-table-column :label="t('ecommerce.salesOrder.shop')" width="100" show-overflow-tooltip>
-            <template #default="{ row }">
-              <span class="readonly-cell">{{ row.shopName || '—' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column :label="t('ecommerce.salesOrder.payTime')" width="160">
-            <template #default="{ row }">
-              <span class="readonly-cell">{{ formatManualShipTime(row.shipTime) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column :label="t('ecommerce.monthlySettlement.settlementDestination')" min-width="100" show-overflow-tooltip>
-            <template #default="{ row }">
-              <span class="readonly-cell">{{ row.settlementDestination || '—' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column :label="t('ecommerce.salesOrder.platformOrderNo')" min-width="150" show-overflow-tooltip>
-            <template #default="{ row }">
-              <span class="readonly-cell">{{ row.platformOrderNo || '—' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column :label="t('ecommerce.salesOrder.trackingNumber')" min-width="130" show-overflow-tooltip>
-            <template #default="{ row }">
-              <span class="readonly-cell">{{ row.trackingNumber || '—' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column :label="t('ecommerce.monthlySettlement.weight')" min-width="120">
-            <template #default="{ row }">
-              <el-input-number
-                v-model="row.weight"
-                class="manual-num-input"
-                :min="0"
-                :precision="3"
-                size="small"
-                controls-position="right"
+            <div class="manual-panel__toolbar">
+              <div class="manual-panel__actions">
+                <el-button
+                  type="primary"
+                  :disabled="!canPrepareManual"
+                  :loading="preparingManual"
+                  @click="prepareManualList"
+                >
+                  {{ t('ecommerce.monthlySettlement.prepareManualList') }}
+                </el-button>
+                <el-button plain @click="addManualRow">{{ t('ecommerce.monthlySettlement.addManualRow') }}</el-button>
+              </div>
+              <span v-if="currentBillId" class="manual-panel__batch">
+                {{ t('ecommerce.monthlySettlement.currentBillId', { id: currentBillId }) }}
+              </span>
+            </div>
+
+            <el-empty
+              v-if="!manualLines.length"
+              class="manual-panel__empty"
+              :description="t('ecommerce.monthlySettlement.manualEmptyHint')"
+              :image-size="80"
+            >
+              <template #description>
+                <p class="manual-panel__empty-title">{{ t('ecommerce.monthlySettlement.manualEmptyTitle') }}</p>
+                <p class="manual-panel__empty-desc">{{ t('ecommerce.monthlySettlement.manualEmptyHint') }}</p>
+              </template>
+            </el-empty>
+
+            <div v-else class="manual-line-list">
+              <article
+                v-for="(row, index) in manualLines"
+                :key="row.id ?? row.orderId ?? `manual-${index}`"
+                class="manual-line-card"
+                :class="{ 'is-filled': isManualLineFilled(row) }"
+              >
+                <div class="manual-line-card__main">
+                  <div class="manual-line-card__order">
+                    <div class="manual-line-card__shop">{{ row.shopName || '—' }}</div>
+                    <button
+                      v-if="row.orderId && row.platformOrderNo"
+                      type="button"
+                      class="manual-order-link manual-line-card__order-no"
+                      @click="openManualLineOrderDetail(row)"
+                    >
+                      {{ row.platformOrderNo }}
+                    </button>
+                    <div v-else class="manual-line-card__order-no is-text">
+                      {{ row.platformOrderNo || '—' }}
+                    </div>
+                    <div class="manual-line-card__meta">
+                      <span v-if="row.trackingNumber" class="manual-line-card__tag">
+                        {{ t('ecommerce.salesOrder.trackingNumber') }}：{{ row.trackingNumber }}
+                      </span>
+                      <span v-if="row.settlementDestination" class="manual-line-card__tag">
+                        {{ row.settlementDestination }}
+                      </span>
+                      <span v-if="row.shipTime" class="manual-line-card__tag">
+                        {{ formatManualShipTime(row.shipTime) }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="manual-line-card__inputs">
+                    <label class="manual-input-field">
+                      <span class="manual-input-field__label">{{ t('ecommerce.monthlySettlement.manualWeightHighlight') }}</span>
+                      <el-input-number
+                        v-model="row.weight"
+                        class="manual-num-input"
+                        :min="0"
+                        :precision="3"
+                        size="default"
+                        controls-position="right"
+                      />
+                    </label>
+                    <label class="manual-input-field manual-input-field--freight">
+                      <span class="manual-input-field__label">{{ t('ecommerce.monthlySettlement.manualFreightHighlight') }}</span>
+                      <el-input-number
+                        v-model="row.freightAmount"
+                        class="manual-num-input manual-num-input--freight"
+                        :min="0"
+                        :precision="2"
+                        size="default"
+                        controls-position="right"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <el-button
+                  link
+                  type="danger"
+                  class="manual-line-card__remove"
+                  :title="t('ecommerce.monthlySettlement.delete')"
+                  @click="manualLines.splice(index, 1)"
+                >
+                  <el-icon><Delete /></el-icon>
+                </el-button>
+              </article>
+            </div>
+          </section>
+        </template>
+
+        <template v-else>
+          <section class="records-panel">
+            <header class="records-panel__head">
+              <div class="records-panel__intro">
+                <h4 class="records-panel__title">{{ t('ecommerce.monthlySettlement.expressBillCenterRecords') }}</h4>
+                <p class="records-panel__hint">{{ t('ecommerce.monthlySettlement.expressBillRecordsHint') }}</p>
+              </div>
+              <div class="records-panel__stats">
+                <div class="records-stat">
+                  <span class="records-stat__label">{{ t('ecommerce.monthlySettlement.expressBillRecordsBatchCount') }}</span>
+                  <strong class="records-stat__value">{{ recordsPanelSummary.batchCount }}</strong>
+                </div>
+                <div class="records-stat records-stat--primary">
+                  <span class="records-stat__label">{{ t('ecommerce.monthlySettlement.expressBillRecordsFileCount') }}</span>
+                  <strong class="records-stat__value">{{ recordsPanelSummary.fileCount }}</strong>
+                </div>
+                <div class="records-stat records-stat--warning">
+                  <span class="records-stat__label">{{ t('ecommerce.monthlySettlement.expressBillRecordsManualCount') }}</span>
+                  <strong class="records-stat__value">{{ recordsPanelSummary.manualCount }}</strong>
+                </div>
+              </div>
+            </header>
+
+            <div class="records-panel__toolbar">
+              <el-radio-group v-model="recordsModeFilter" size="small" class="records-panel__filter">
+                <el-radio-button value="ALL">{{ t('ecommerce.monthlySettlement.expressBillRecordsFilterAll') }}</el-radio-button>
+                <el-radio-button value="FILE">{{ t('ecommerce.monthlySettlement.modeFile') }}</el-radio-button>
+                <el-radio-button value="MANUAL">{{ t('ecommerce.monthlySettlement.modeManual') }}</el-radio-button>
+                <el-radio-button value="MIXED">{{ t('ecommerce.monthlySettlement.modeMixed') }}</el-radio-button>
+              </el-radio-group>
+              <span v-if="recordsPanelSummary.latestTime" class="records-panel__latest">
+                {{ t('ecommerce.monthlySettlement.expressBillRecordsLatest', { time: recordsPanelSummary.latestTime }) }}
+              </span>
+            </div>
+
+            <el-empty
+              v-if="!loadingRecords && !displayedRecords.length"
+              class="records-panel__empty"
+              :image-size="80"
+            >
+              <template #description>
+                <p class="records-panel__empty-title">{{ t('ecommerce.monthlySettlement.expressBillRecordsEmptyTitle') }}</p>
+                <p class="records-panel__empty-desc">{{ t('ecommerce.monthlySettlement.expressBillRecordsEmpty') }}</p>
+              </template>
+            </el-empty>
+
+            <div v-else v-loading="loadingRecords" class="records-list">
+              <article
+                v-for="record in displayedRecords"
+                :key="record.id"
+                class="records-card"
+                :class="{ 'is-active': selectedRecordId === record.id }"
+                @click="selectRecord(record)"
+              >
+                <div class="records-card__header">
+                  <div class="records-card__identity">
+                    <ExpressStationAvatar
+                      v-if="stationForRecord(record)"
+                      :station="stationForRecord(record)!"
+                      size="xs"
+                    />
+                    <span v-else class="records-card__avatar-placeholder">⋯</span>
+                    <div class="records-card__title-wrap">
+                      <div class="records-card__title-row">
+                        <span class="records-card__station">{{ recordStationName(record) }}</span>
+                        <el-tag size="small" :type="importModeTagType(record.importMode)" effect="plain">
+                          {{ importModeLabel(record.importMode) }}
+                        </el-tag>
+                      </div>
+                      <div class="records-card__file" :title="recordFileLabel(record)">
+                        {{ recordFileLabel(record) }}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="records-card__meta">
+                    <span class="records-card__time">{{ formatRecordTime(record.createTime) }}</span>
+                    <span class="records-card__batch-id">#{{ record.id }}</span>
+                  </div>
+                </div>
+
+                <div class="records-card__stats">
+                  <div class="records-card__stat">
+                    <span class="records-card__stat-label">{{ t('ecommerce.monthlySettlement.totalRows') }}</span>
+                    <strong class="records-card__stat-value">{{ record.totalRows ?? 0 }}</strong>
+                  </div>
+                  <div class="records-card__stat records-card__stat--success">
+                    <span class="records-card__stat-label">{{ t('ecommerce.monthlySettlement.matchedRows') }}</span>
+                    <strong class="records-card__stat-value">{{ record.matchedRows ?? 0 }}</strong>
+                  </div>
+                  <div class="records-card__stat records-card__stat--warning">
+                    <span class="records-card__stat-label">{{ t('ecommerce.monthlySettlement.unmatchedRows') }}</span>
+                    <strong class="records-card__stat-value">{{ record.unmatchedRows ?? 0 }}</strong>
+                  </div>
+                  <div class="records-card__stat records-card__stat--danger">
+                    <span class="records-card__stat-label">{{ t('ecommerce.monthlySettlement.gapOrderRows') }}</span>
+                    <strong class="records-card__stat-value">{{ record.gapOrderRows ?? 0 }}</strong>
+                  </div>
+                </div>
+
+                <div v-if="recordMatchRate(record) != null" class="records-card__progress">
+                  <el-progress
+                    :percentage="recordMatchRate(record)!"
+                    :stroke-width="8"
+                    :color="recordMatchRate(record)! >= 80 ? '#16a34a' : undefined"
+                  />
+                  <span class="records-card__progress-text">
+                    {{ t('ecommerce.monthlySettlement.expressBillMatchRate', { rate: recordMatchRate(record) }) }}
+                  </span>
+                </div>
+
+                <div class="records-card__actions" @click.stop>
+                  <el-button
+                    v-if="(record.totalRows ?? 0) > 0 && (record.unmatchedRows ?? 0) > 0"
+                    size="small"
+                    plain
+                    @click="selectRecord(record)"
+                  >
+                    {{ t('ecommerce.monthlySettlement.expressBillRecordsViewUnmatched') }}
+                  </el-button>
+                  <el-button
+                    v-if="canOpenRecordManual(record)"
+                    size="small"
+                    type="warning"
+                    plain
+                    @click="openBillManual(record)"
+                  >
+                    {{ t('ecommerce.monthlySettlement.viewManual') }}
+                  </el-button>
+                </div>
+              </article>
+            </div>
+          </section>
+        </template>
+      </main>
+
+      <aside class="express-bill-workbench__preview">
+        <h4 class="preview-title">
+          {{
+            centerView === 'records'
+              ? t('ecommerce.monthlySettlement.expressBillRecordDetailTitle')
+              : t('ecommerce.monthlySettlement.expressBillPreviewTitle')
+          }}
+        </h4>
+
+        <template v-if="effectivePreviewStats">
+          <div class="preview-body">
+          <div class="preview-stats">
+            <div class="preview-stat">
+              <span class="preview-stat__label">{{ t('ecommerce.monthlySettlement.totalRows') }}</span>
+              <strong class="preview-stat__value">{{ effectivePreviewStats.totalRows ?? 0 }}</strong>
+            </div>
+            <div class="preview-stat preview-stat--success">
+              <span class="preview-stat__label">{{ t('ecommerce.monthlySettlement.matchedRows') }}</span>
+              <strong class="preview-stat__value">{{ effectivePreviewStats.matchedRows ?? 0 }}</strong>
+            </div>
+            <div class="preview-stat preview-stat--warning">
+              <span class="preview-stat__label">{{ t('ecommerce.monthlySettlement.unmatchedRows') }}</span>
+              <strong class="preview-stat__value">{{ effectivePreviewStats.unmatchedRows ?? 0 }}</strong>
+            </div>
+            <div class="preview-stat preview-stat--danger">
+              <span class="preview-stat__label">{{ t('ecommerce.monthlySettlement.gapOrderRows') }}</span>
+              <strong class="preview-stat__value">{{ effectivePreviewStats.gapOrderRows ?? effectivePreviewStats.manualPendingRows ?? 0 }}</strong>
+            </div>
+          </div>
+
+          <div v-if="effectiveMatchRate != null" class="preview-match-rate">
+            {{ t('ecommerce.monthlySettlement.expressBillMatchRate', { rate: effectiveMatchRate }) }}
+          </div>
+
+          <div v-if="(effectivePreviewStats.gapOrderRows ?? effectivePreviewStats.manualPendingRows ?? 0) > 0" class="preview-actions">
+            <el-button size="small" type="warning" plain @click="goManualFromPreview">
+              {{ t('ecommerce.monthlySettlement.expressBillGoManual') }}
+            </el-button>
+          </div>
+
+          <div class="preview-unmatched">
+            <div class="preview-unmatched__title">{{ t('ecommerce.monthlySettlement.expressBillUnmatchedList') }}</div>
+            <div v-loading="loadingUnmatched" class="preview-unmatched__list">
+              <div v-for="line in unmatchedLines" :key="line.id ?? line.trackingNumber" class="preview-unmatched__item">
+                <el-tag size="small" type="warning" effect="plain">{{ t('ecommerce.monthlySettlement.unmatchedRows') }}</el-tag>
+                <span class="preview-unmatched__tracking">{{ line.trackingNumber || '—' }}</span>
+              </div>
+              <el-empty
+                v-if="!loadingUnmatched && !unmatchedLines.length"
+                :description="t('ecommerce.monthlySettlement.expressBillUnmatchedEmpty')"
+                :image-size="56"
               />
-            </template>
-          </el-table-column>
-          <el-table-column :label="t('ecommerce.monthlySettlement.freightAmount')" min-width="120">
-            <template #default="{ row }">
-              <el-input-number
-                v-model="row.freightAmount"
-                class="manual-num-input"
-                :min="0"
-                :precision="2"
-                size="small"
-                controls-position="right"
-              />
-            </template>
-          </el-table-column>
-          <el-table-column :label="t('ecommerce.product.actions')" width="48" fixed="right" align="center">
-            <template #default="{ $index }">
-              <el-button link type="danger" :title="t('ecommerce.monthlySettlement.delete')" @click="manualLines.splice($index, 1)">
-                <el-icon><Delete /></el-icon>
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-        <div class="tab-actions">
-          <el-button type="primary" :loading="savingManual" :disabled="!currentBillId || !manualLines.length" @click="saveManual">
-            {{ t('ecommerce.monthlySettlement.saveManualLines') }}
-          </el-button>
-        </div>
-      </el-tab-pane>
+            </div>
+          </div>
+          </div>
+        </template>
 
-      <el-tab-pane :label="t('ecommerce.monthlySettlement.expressBillTabRecords')" name="records">
-        <el-table v-loading="loadingRecords" :data="records" border size="small" max-height="400">
-          <el-table-column :label="t('ecommerce.monthlySettlement.importTime')" width="160">
-            <template #default="{ row }">{{ row.createTime }}</template>
-          </el-table-column>
-          <el-table-column prop="expressStationName" :label="t('ecommerce.monthlySettlement.expressStation')" width="120" />
-          <el-table-column prop="importMode" :label="t('ecommerce.monthlySettlement.importMode')" width="90">
-            <template #default="{ row }">{{ importModeLabel(row.importMode) }}</template>
-          </el-table-column>
-          <el-table-column prop="fileName" :label="t('ecommerce.monthlySettlement.expressBillFile')" min-width="140" show-overflow-tooltip />
-          <el-table-column prop="totalRows" :label="t('ecommerce.monthlySettlement.totalRows')" width="80" />
-          <el-table-column prop="matchedRows" :label="t('ecommerce.monthlySettlement.matchedRows')" width="80" />
-          <el-table-column prop="unmatchedRows" :label="t('ecommerce.monthlySettlement.unmatchedRows')" width="90" />
-          <el-table-column prop="gapOrderRows" :label="t('ecommerce.monthlySettlement.gapOrderRows')" width="100" />
-          <el-table-column :label="t('ecommerce.monthlySettlement.includeLabelPrice')" width="100">
-            <template #default="{ row }">
-              {{ row.includeLabelPrice ? t('ecommerce.monthlySettlement.yes') : t('ecommerce.monthlySettlement.no') }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="manualAppliedRows" :label="t('ecommerce.monthlySettlement.manualAppliedRows')" width="100" />
-          <el-table-column :label="t('ecommerce.product.actions')" width="90" fixed="right">
-            <template #default="{ row }">
-              <el-button link type="primary" @click="openBillManual(row)">
-                {{ t('ecommerce.monthlySettlement.viewManual') }}
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-tab-pane>
-    </el-tabs>
+        <el-empty
+          v-else
+          class="preview-empty"
+          :description="t('ecommerce.monthlySettlement.expressBillPreviewEmpty')"
+          :image-size="72"
+        />
+      </aside>
+    </div>
 
-    <template #footer>
+    <div class="express-bill-workbench__footer">
       <el-button @click="visible = false">{{ t('ecommerce.common.cancel') }}</el-button>
-    </template>
-  </el-dialog>
+      <el-button
+        v-if="centerView === 'import'"
+        type="primary"
+        :loading="uploading"
+        :disabled="!canUpload"
+        @click="submitUpload"
+      >
+        {{ t('ecommerce.monthlySettlement.expressBillSubmit') }}
+      </el-button>
+      <el-button
+        v-else-if="centerView === 'manual'"
+        type="primary"
+        :loading="savingManual"
+        :disabled="!currentBillId || !manualLines.length"
+        @click="saveManual"
+      >
+        {{ t('ecommerce.monthlySettlement.saveManualLines') }}
+      </el-button>
+    </div>
+  </el-drawer>
+
+  <SalesOrderDetailDrawer
+    v-model="orderDetailVisible"
+    :loading="orderDetailLoading"
+    :order="orderDetail"
+    :shop-icon-meta="orderDetailShopIconMeta"
+    :shop-options="shopOptions"
+    :express-options="expressStations"
+    :link-sku-options="[]"
+    :show-delete="false"
+  />
 </template>
 
 <script setup lang="ts">
@@ -235,6 +510,12 @@ import { useI18n } from 'vue-i18n'
 import { ElMessage, type UploadFile, type UploadInstance } from 'element-plus'
 import { Delete, UploadFilled } from '@element-plus/icons-vue'
 import { fetchExpressStations, type EcExpressStation } from '@/api/ecommerce/express'
+import { formatMoney } from '@/utils/formatMoney'
+import { fetchShopOptions, type EcShop } from '@/api/ecommerce/shop'
+import { fetchSalesOrder, type EcSalesOrder } from '@/api/ecommerce/salesOrder'
+import ExpressStationAvatar from '@/components/ecommerce/ExpressStationAvatar.vue'
+import SalesOrderDetailDrawer from './SalesOrderDetailDrawer.vue'
+import { resolveShopIconMeta } from '@/utils/shopVisual'
 import {
   BIZ_SETTLEMENT_EXPRESS_BILL,
   createImportProfile,
@@ -248,19 +529,23 @@ import {
 import {
   fetchExpressBillRecords,
   fetchManualExpressBillLines,
+  fetchUnmatchedExpressBillLines,
   EXPRESS_STATION_OTHER,
   prepareManualExpressBill,
   previewExpressBillColumns,
   saveManualExpressBillLines,
   uploadSettlementExpressBill,
+  type ExpressBillImportResult,
   type ExpressBillLine,
   type ExpressBillRecord,
 } from '@/api/ecommerce/monthlySettlement'
 import { autoMatchColumnMapping } from '@/utils/importColumnMapping'
+import { useEcSettingsStore } from '@/stores/ecSettings'
 
 const props = defineProps<{
   modelValue: boolean
   initialMonth?: string
+  lockMonth?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -269,6 +554,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const ecSettings = useEcSettingsStore()
 
 const visible = computed({
   get: () => props.modelValue,
@@ -279,8 +565,8 @@ const billMonth = ref('')
 const expressStationId = ref<number | undefined>()
 const includeLabelPrice = ref(true)
 const expressStations = ref<EcExpressStation[]>([])
-const activeTab = ref('upload')
-const mappingCollapse = ref<string[]>([])
+const shopOptions = ref<EcShop[]>([])
+const centerView = ref<'import' | 'manual' | 'records'>('import')
 const billFile = ref<File | null>(null)
 const uploadRef = ref<UploadInstance | null>(null)
 const docColumns = ref<string[]>([])
@@ -294,9 +580,39 @@ const savingProfile = ref(false)
 const preparingManual = ref(false)
 const savingManual = ref(false)
 const loadingRecords = ref(false)
+const loadingUnmatched = ref(false)
 const currentBillId = ref<number | null>(null)
+const lastImportResult = ref<ExpressBillImportResult | null>(null)
 const manualLines = ref<ExpressBillLine[]>([])
+const unmatchedLines = ref<ExpressBillLine[]>([])
 const records = ref<ExpressBillRecord[]>([])
+const recordsModeFilter = ref<'ALL' | 'FILE' | 'MANUAL' | 'MIXED'>('ALL')
+const selectedRecordId = ref<number | null>(null)
+
+const orderDetailVisible = ref(false)
+const orderDetailLoading = ref(false)
+const orderDetailId = ref<number | null>(null)
+const orderDetail = ref<EcSalesOrder | null>(null)
+
+const shopOptionMap = computed(() => {
+  const map = new Map<number, EcShop>()
+  for (const shop of shopOptions.value) {
+    map.set(shop.id, shop)
+  }
+  return map
+})
+
+const orderDetailShopIconMeta = computed(() => {
+  const order = orderDetail.value
+  if (!order) return resolveShopIconMeta()
+  const shop = shopOptionMap.value.get(order.shopId)
+  return resolveShopIconMeta(
+    order.shopName ?? shop?.name,
+    shop?.platformName ?? order.platformName,
+    shop?.platformCode,
+    shop?.avatarUrl,
+  )
+})
 
 const mappingRows = computed(() =>
   importFields.value.map((f) => ({
@@ -328,13 +644,164 @@ const selectedStationLabelPrice = computed(() => {
 
 const canIncludeLabelPrice = computed(() => selectedStationLabelPrice.value != null)
 
-function syncIncludeLabelPriceDefault() {
-  includeLabelPrice.value = canIncludeLabelPrice.value
+const manualFilledCount = computed(
+  () => manualLines.value.filter((line) => isManualLineFilled(line)).length,
+)
+
+const manualEmptyFreightCount = computed(
+  () => manualLines.value.length - manualFilledCount.value,
+)
+
+function isManualLineFilled(line: ExpressBillLine) {
+  return line.freightAmount != null && Number(line.freightAmount) > 0
 }
 
-function formatMoney(v?: number | null) {
-  if (v == null) return '—'
-  return `¥${Number(v).toFixed(2)}`
+function stationRecordKey(record: ExpressBillRecord): number {
+  return record.otherExpress ? EXPRESS_STATION_OTHER : (record.expressStationId ?? -1)
+}
+
+/** 与月结准备清单 buildExpressBillCards 一致：按快递公司聚合，优先取有账单行数的文件导入批次 */
+const stationContextByStation = computed(() => {
+  const grouped = new Map<number, ExpressBillRecord[]>()
+  for (const record of records.value) {
+    const key = stationRecordKey(record)
+    const list = grouped.get(key) ?? []
+    list.push(record)
+    grouped.set(key, list)
+  }
+  const map = new Map<
+    number,
+    {
+      primary: ExpressBillRecord | null
+      latest: ExpressBillRecord | null
+      gapOrderRows: number
+      manualBill: ExpressBillRecord | null
+    }
+  >()
+  for (const [key, stationRecords] of grouped) {
+    const primary =
+      stationRecords.find((r) => (r.totalRows ?? 0) > 0) ?? stationRecords[0] ?? null
+    const latest = stationRecords[0] ?? null
+    const gapOrderRows = stationRecords.reduce((max, r) => Math.max(max, r.gapOrderRows ?? 0), 0)
+    const manualBill = stationRecords.find((r) => r.importMode === 'MANUAL') ?? null
+    map.set(key, { primary, latest, gapOrderRows, manualBill })
+  }
+  return map
+})
+
+function activeStationKey(): number | null {
+  if (expressStationId.value == null) return null
+  return expressStationId.value === EXPRESS_STATION_OTHER ? EXPRESS_STATION_OTHER : expressStationId.value
+}
+
+function pickWorkingBillId(stationId: number): number | null {
+  const ctx = stationContextByStation.value.get(stationId)
+  if (!ctx) return null
+  return ctx.manualBill?.id ?? ctx.primary?.id ?? ctx.latest?.id ?? null
+}
+
+function pickFileBillId(stationId: number): number | null {
+  return stationContextByStation.value.get(stationId)?.primary?.id ?? null
+}
+
+const previewStats = computed(() => {
+  const key = activeStationKey()
+  if (key == null) return null
+  const ctx = stationContextByStation.value.get(key)
+  if (!ctx) return null
+
+  if (
+    lastImportResult.value &&
+    currentBillId.value === lastImportResult.value.billId &&
+    (lastImportResult.value.totalRows ?? 0) > 0
+  ) {
+    return {
+      ...lastImportResult.value,
+      gapOrderRows: ctx.gapOrderRows,
+      manualPendingRows: ctx.gapOrderRows,
+    }
+  }
+
+  const record = ctx.primary
+  if (!record && ctx.gapOrderRows === 0) return null
+  return {
+    billId: record?.id ?? ctx.latest?.id ?? null,
+    totalRows: record?.totalRows ?? 0,
+    matchedRows: record?.matchedRows ?? 0,
+    unmatchedRows: record?.unmatchedRows ?? 0,
+    gapOrderRows: ctx.gapOrderRows,
+    manualPendingRows: ctx.gapOrderRows,
+  }
+})
+
+const selectedRecord = computed(() => {
+  if (!selectedRecordId.value) return null
+  return records.value.find((r) => r.id === selectedRecordId.value) ?? null
+})
+
+const recordPreviewStats = computed(() => {
+  if (centerView.value !== 'records' || !selectedRecord.value) return null
+  const record = selectedRecord.value
+  return {
+    billId: record.id,
+    totalRows: record.totalRows ?? 0,
+    matchedRows: record.matchedRows ?? 0,
+    unmatchedRows: record.unmatchedRows ?? 0,
+    gapOrderRows: record.gapOrderRows ?? 0,
+    manualPendingRows: record.gapOrderRows ?? 0,
+  }
+})
+
+const effectivePreviewStats = computed(() => recordPreviewStats.value ?? previewStats.value)
+
+const stationFilteredRecords = computed(() => {
+  const key = activeStationKey()
+  if (key == null) return records.value
+  return records.value.filter((r) => stationRecordKey(r) === key)
+})
+
+const displayedRecords = computed(() => {
+  let list = stationFilteredRecords.value
+  if (recordsModeFilter.value !== 'ALL') {
+    list = list.filter((r) => r.importMode === recordsModeFilter.value)
+  }
+  return list
+})
+
+const recordsPanelSummary = computed(() => {
+  const list = stationFilteredRecords.value
+  return {
+    batchCount: list.length,
+    fileCount: list.filter((r) => r.importMode === 'FILE' || r.importMode === 'MIXED').length,
+    manualCount: list.filter((r) => r.importMode === 'MANUAL').length,
+    latestTime: list[0]?.createTime,
+  }
+})
+
+const effectiveMatchRate = computed(() => {
+  const stats = effectivePreviewStats.value
+  if (!stats?.totalRows) return null
+  const matched = stats.matchedRows ?? 0
+  return Math.round((matched / stats.totalRows) * 100)
+})
+
+function syncIncludeLabelPriceDefault() {
+  if (canIncludeLabelPrice.value) {
+    includeLabelPrice.value = ecSettings.express.includeLabelPriceDefault
+    return
+  }
+  includeLabelPrice.value = false
+}
+
+function stationMatchLabel(stationId: number) {
+  const record = stationContextByStation.value.get(stationId)?.primary
+  if (!record?.totalRows) {
+    return t('ecommerce.monthlySettlement.expressBillStationNotImported')
+  }
+  return t('ecommerce.monthlySettlement.expressBillStationMatchRatio', {
+    matched: record.matchedRows ?? 0,
+    total: record.totalRows ?? 0,
+  })
 }
 
 function defaultMapping(): Record<string, string> {
@@ -352,6 +819,32 @@ async function loadImportFields() {
 async function loadStations() {
   const page = await fetchExpressStations(undefined, { page: 1, pageSize: 200 })
   expressStations.value = page.records ?? []
+  if (expressStationId.value == null && expressStations.value[0]?.id != null) {
+    expressStationId.value = expressStations.value[0].id
+  }
+}
+
+async function loadShopOptions() {
+  shopOptions.value = await fetchShopOptions()
+}
+
+async function openManualLineOrderDetail(row: ExpressBillLine) {
+  if (!row.orderId) return
+  const orderId = Number(row.orderId)
+  if (!Number.isFinite(orderId) || orderId <= 0) return
+
+  orderDetailId.value = orderId
+  orderDetail.value = null
+  orderDetailVisible.value = true
+  orderDetailLoading.value = true
+  try {
+    orderDetail.value = await fetchSalesOrder(orderId)
+  } catch {
+    orderDetail.value = null
+    ElMessage.error(t('ecommerce.salesOrder.loadDetailFailed'))
+  } finally {
+    orderDetailLoading.value = false
+  }
 }
 
 async function loadColumnProfile() {
@@ -371,23 +864,73 @@ async function loadRecords() {
   loadingRecords.value = true
   try {
     records.value = await fetchExpressBillRecords(billMonth.value)
+    syncCurrentBillFromStation()
   } finally {
     loadingRecords.value = false
   }
 }
 
+async function loadUnmatchedLines() {
+  let billId: number | null = null
+  if (centerView.value === 'records' && selectedRecord.value && (selectedRecord.value.totalRows ?? 0) > 0) {
+    billId = selectedRecord.value.id
+  } else {
+    const key = activeStationKey()
+    billId = (key != null ? pickFileBillId(key) : null) ?? previewStats.value?.billId ?? null
+  }
+  if (!billId) {
+    unmatchedLines.value = []
+    return
+  }
+  loadingUnmatched.value = true
+  try {
+    unmatchedLines.value = await fetchUnmatchedExpressBillLines(billId)
+  } finally {
+    loadingUnmatched.value = false
+  }
+}
+
+function syncCurrentBillFromStation() {
+  if (currentBillId.value || expressStationId.value == null) return
+  currentBillId.value = pickWorkingBillId(expressStationId.value)
+}
+
+async function selectStation(stationId: number) {
+  expressStationId.value = stationId
+  syncIncludeLabelPriceDefault()
+  currentBillId.value = pickWorkingBillId(stationId)
+  lastImportResult.value = null
+  await loadColumnProfile()
+  if (billFile.value) {
+    await refreshDocColumns()
+  }
+  await loadUnmatchedLines()
+}
+
+function formatBillMonth(month?: string) {
+  if (!month) return '—'
+  const [year, mon] = month.split('-')
+  if (!year || !mon) return month
+  return `${year}年${mon}月`
+}
+
 async function onOpen() {
+  await ecSettings.ensureLoaded()
+  headerRow.value = ecSettings.express.headerRow
+  dataStartRow.value = ecSettings.express.dataStartRow
   billMonth.value = props.initialMonth || billMonth.value
-  activeTab.value = 'upload'
-  mappingCollapse.value = []
+  centerView.value = 'import'
   billFile.value = null
   currentBillId.value = null
+  lastImportResult.value = null
+  selectedRecordId.value = null
   manualLines.value = []
+  unmatchedLines.value = []
   docColumns.value = []
   profileId.value = undefined
   uploadRef.value?.clearFiles()
   await loadImportFields()
-  await loadStations()
+  await Promise.all([loadStations(), loadShopOptions()])
   if (expressStationId.value != null && expressStationId.value !== EXPRESS_STATION_OTHER) {
     await loadColumnProfile()
   } else {
@@ -395,19 +938,15 @@ async function onOpen() {
   }
   syncIncludeLabelPriceDefault()
   await loadRecords()
+  await loadUnmatchedLines()
 }
 
 function onClosed() {
   billFile.value = null
   uploadRef.value?.clearFiles()
-}
-
-async function onStationChange() {
-  syncIncludeLabelPriceDefault()
-  await loadColumnProfile()
-  if (billFile.value) {
-    await refreshDocColumns()
-  }
+  orderDetailVisible.value = false
+  orderDetailId.value = null
+  orderDetail.value = null
 }
 
 async function onFileChange(uploadFile: UploadFile) {
@@ -480,11 +1019,7 @@ async function submitUpload() {
     ElMessage.warning(t('ecommerce.monthlySettlement.monthRequired'))
     return
   }
-  if (expressStationId.value == null) {
-    ElMessage.warning(t('ecommerce.monthlySettlement.expressStationRequired'))
-    return
-  }
-  if (expressStationId.value === EXPRESS_STATION_OTHER) {
+  if (expressStationId.value == null || expressStationId.value === EXPRESS_STATION_OTHER) {
     ElMessage.warning(t('ecommerce.monthlySettlement.expressStationRequired'))
     return
   }
@@ -494,9 +1029,7 @@ async function submitUpload() {
   }
   uploading.value = true
   try {
-    if (billFile.value) {
-      await refreshDocColumns()
-    }
+    await refreshDocColumns()
     const res = await uploadSettlementExpressBill({
       month: billMonth.value,
       expressStationId: expressStationId.value,
@@ -507,6 +1040,7 @@ async function submitUpload() {
       includeLabelPrice: includeLabelPrice.value,
     })
     currentBillId.value = res.billId
+    lastImportResult.value = res
     ElMessage.success(
       t('ecommerce.monthlySettlement.expressBillImported', {
         matched: res.matchedRows,
@@ -515,6 +1049,11 @@ async function submitUpload() {
       }),
     )
     await loadRecords()
+    await loadUnmatchedLines()
+    if ((res.gapOrderRows ?? res.manualPendingRows ?? 0) > 0) {
+      centerView.value = 'manual'
+      await loadManualLines(res.billId)
+    }
     emit('imported')
   } finally {
     uploading.value = false
@@ -531,7 +1070,10 @@ async function prepareManualList() {
       includeLabelPrice.value,
     )
     currentBillId.value = res.billId
+    lastImportResult.value = res
     await loadManualLines(res.billId)
+    await loadRecords()
+    await loadUnmatchedLines()
     ElMessage.success(t('ecommerce.monthlySettlement.manualListPrepared', { count: res.manualPendingRows ?? 0 }))
     emit('imported')
   } finally {
@@ -588,11 +1130,13 @@ async function saveManual() {
         remark: line.remark,
       })),
     })
+    lastImportResult.value = res
     ElMessage.success(
       t('ecommerce.monthlySettlement.manualSaved', { applied: res.manualAppliedRows ?? 0 }),
     )
     await loadManualLines(currentBillId.value)
     await loadRecords()
+    await loadUnmatchedLines()
     emit('imported')
   } finally {
     savingManual.value = false
@@ -601,9 +1145,84 @@ async function saveManual() {
 
 async function openBillManual(record: ExpressBillRecord) {
   currentBillId.value = record.id
+  selectedRecordId.value = record.id
   expressStationId.value = record.otherExpress ? EXPRESS_STATION_OTHER : record.expressStationId
-  activeTab.value = 'manual'
+  centerView.value = 'manual'
   await loadManualLines(record.id)
+  await loadUnmatchedLines()
+}
+
+function syncRecordsSelection() {
+  const list = displayedRecords.value
+  if (!list.length) {
+    selectedRecordId.value = null
+    return
+  }
+  if (!selectedRecordId.value || !list.some((r) => r.id === selectedRecordId.value)) {
+    selectedRecordId.value = list[0].id
+  }
+}
+
+function selectRecord(record: ExpressBillRecord) {
+  selectedRecordId.value = record.id
+  void loadUnmatchedLines()
+}
+
+function stationForRecord(record: ExpressBillRecord) {
+  if (record.otherExpress) return null
+  return expressStations.value.find((s) => s.id === record.expressStationId) ?? null
+}
+
+function recordStationName(record: ExpressBillRecord) {
+  if (record.otherExpress) {
+    return t('ecommerce.monthlySettlement.otherExpressStation')
+  }
+  return record.expressStationName || stationForRecord(record)?.name || '—'
+}
+
+function recordFileLabel(record: ExpressBillRecord) {
+  if (record.fileName) return record.fileName
+  if (record.importMode === 'MANUAL') {
+    return t('ecommerce.monthlySettlement.expressBillRecordsManualBatch')
+  }
+  return t('ecommerce.monthlySettlement.expressBillRecordsNoFile')
+}
+
+function formatRecordTime(value?: string) {
+  if (!value) return '—'
+  return value.replace('T', ' ').slice(0, 19)
+}
+
+function recordMatchRate(record: ExpressBillRecord): number | null {
+  if (!record.totalRows) return null
+  return Math.round(((record.matchedRows ?? 0) / record.totalRows) * 100)
+}
+
+function canOpenRecordManual(record: ExpressBillRecord) {
+  return record.importMode === 'MANUAL' || record.importMode === 'MIXED' || (record.gapOrderRows ?? 0) > 0
+}
+
+function importModeTagType(mode?: string): 'primary' | 'warning' | 'success' | 'info' {
+  if (mode === 'FILE') return 'primary'
+  if (mode === 'MANUAL') return 'warning'
+  if (mode === 'MIXED') return 'success'
+  return 'info'
+}
+
+function goManualFromPreview() {
+  const stationId = expressStationId.value
+  if (stationId == null) return
+  const billId =
+    (centerView.value === 'records' &&
+    selectedRecord.value &&
+    canOpenRecordManual(selectedRecord.value)
+      ? selectedRecord.value.id
+      : null) ?? pickWorkingBillId(stationId)
+  centerView.value = 'manual'
+  if (billId) {
+    currentBillId.value = billId
+    void loadManualLines(billId)
+  }
 }
 
 function importModeLabel(mode?: string) {
@@ -615,35 +1234,236 @@ function importModeLabel(mode?: string) {
   return map[mode ?? ''] ?? mode ?? '—'
 }
 
+watch(
+  () => props.initialMonth,
+  (month) => {
+    if (props.lockMonth && month) {
+      billMonth.value = month
+    }
+  },
+)
+
 watch(billMonth, () => {
-  if (visible.value) loadRecords()
+  if (visible.value) {
+    currentBillId.value = null
+    lastImportResult.value = null
+    selectedRecordId.value = null
+    void loadRecords().then(() => {
+      syncRecordsSelection()
+      return loadUnmatchedLines()
+    })
+  }
+})
+
+watch(centerView, (view) => {
+  if (view === 'records') {
+    syncRecordsSelection()
+    void loadUnmatchedLines()
+  }
+})
+
+watch([expressStationId, recordsModeFilter, records], () => {
+  if (centerView.value === 'records') {
+    syncRecordsSelection()
+    void loadUnmatchedLines()
+  }
+})
+
+watch(selectedRecordId, () => {
+  if (visible.value && centerView.value === 'records') void loadUnmatchedLines()
+})
+
+watch(currentBillId, () => {
+  if (visible.value && centerView.value !== 'records') void loadUnmatchedLines()
 })
 </script>
 
 <style scoped lang="scss">
-.express-bill-form {
-  margin-bottom: 8px;
+.express-bill-drawer {
+  :deep(.el-drawer__body) {
+    display: flex;
+    flex-direction: column;
+    padding-top: 8px;
+    overflow: hidden;
+  }
 }
 
-.express-bill-upload-block {
+.express-bill-workbench__subtitle {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.express-bill-workbench {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 280px;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.express-bill-workbench__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-light);
+}
+
+.sidebar-block__label {
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+}
+
+.sidebar-block__month-readonly {
+  padding: 8px 12px;
+  border: 1px solid var(--el-border-color);
+  border-radius: var(--el-border-radius-base);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+  background: #fff;
+}
+
+.sidebar-block--stations {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.station-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: min(420px, calc(100vh - 320px));
+  overflow: auto;
+}
+
+.station-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
   width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+
+  &.is-active {
+    border-color: var(--el-color-primary-light-5);
+    background: var(--el-color-primary-light-9);
+  }
+
+  &:hover {
+    border-color: var(--el-border-color);
+  }
+}
+
+.station-item__name {
+  font-size: 13px;
+  color: var(--el-text-color-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.station-item__stat {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+  white-space: nowrap;
+}
+
+.station-item__avatar-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: var(--el-fill-color);
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
+}
+
+.sidebar-records-link {
+  margin-top: 4px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--el-color-primary);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.express-bill-workbench__main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  padding: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: #fff;
+  overflow: auto;
+}
+
+.main-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.main-toolbar__options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.main-toolbar__view-switch {
+  :deep(.el-radio-button__inner) {
+    min-width: 120px;
+    height: 42px;
+    padding: 0 22px;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 40px;
+  }
 }
 
 .express-bill-upload {
   width: 100%;
 
-  :deep(.el-upload) {
+  :deep(.el-upload),
+  :deep(.el-upload-dragger) {
     width: 100%;
   }
 
   :deep(.el-upload-dragger) {
-    width: 100%;
-    padding: 20px 16px;
+    padding: 18px 16px;
   }
 }
 
 .express-bill-upload__icon {
-  font-size: 36px;
+  font-size: 32px;
   color: var(--el-color-primary);
 }
 
@@ -661,32 +1481,13 @@ watch(billMonth, () => {
   line-height: 1.5;
 }
 
-.mapping-collapse {
-  margin-top: 16px;
-
-  :deep(.el-collapse-item__header) {
-    font-weight: 600;
-    font-size: 13px;
-  }
-}
-
-.mapping-block__actions {
+.mapping-block__header {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 8px;
-}
-
-.mapping-block {
-  margin-top: 16px;
-
-  &__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 8px;
-    font-weight: 600;
-    font-size: 13px;
-  }
+  font-weight: 600;
+  font-size: 13px;
 }
 
 .mapping-row-settings {
@@ -700,21 +1501,506 @@ watch(billMonth, () => {
   color: var(--el-text-color-secondary);
 }
 
-.mapping-table {
-  margin-top: 4px;
-}
-
-.tab-actions {
-  margin-top: 12px;
-  text-align: right;
-}
-
 .manual-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+}
+
+.manual-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+}
+
+.manual-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-light);
+}
+
+.manual-panel__title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.manual-panel__hint {
+  margin: 0;
+  max-width: 520px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--el-text-color-secondary);
+}
+
+.manual-panel__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(88px, 1fr));
+  gap: 8px;
+  min-width: 280px;
+}
+
+.manual-stat {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--el-border-color-lighter);
+
+  &__label {
+    display: block;
+    font-size: 11px;
+    color: var(--el-text-color-secondary);
+  }
+
+  &__value {
+    display: block;
+    margin-top: 4px;
+    font-size: 20px;
+    line-height: 1.2;
+    font-weight: 700;
+  }
+
+  &--success .manual-stat__value {
+    color: var(--el-color-success);
+  }
+
+  &--warning .manual-stat__value {
+    color: var(--el-color-warning);
+  }
+}
+
+.manual-panel__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 2px;
+}
+
+.manual-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.manual-panel__batch {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.manual-panel__empty {
+  padding: 32px 16px;
+  border: 1px dashed var(--el-border-color);
+  border-radius: 8px;
+  background: var(--el-fill-color-blank);
+}
+
+.manual-panel__empty-title {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.manual-panel__empty-desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.records-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+}
+
+.records-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-light);
+}
+
+.records-panel__title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.records-panel__hint {
+  margin: 0;
+  max-width: 520px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--el-text-color-secondary);
+}
+
+.records-panel__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(88px, 1fr));
+  gap: 8px;
+  min-width: 280px;
+}
+
+.records-stat {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--el-border-color-lighter);
+
+  &__label {
+    display: block;
+    font-size: 11px;
+    color: var(--el-text-color-secondary);
+  }
+
+  &__value {
+    display: block;
+    margin-top: 4px;
+    font-size: 20px;
+    line-height: 1.2;
+    font-weight: 700;
+  }
+
+  &--primary .records-stat__value {
+    color: var(--el-color-primary);
+  }
+
+  &--warning .records-stat__value {
+    color: var(--el-color-warning);
+  }
+}
+
+.records-panel__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.records-panel__latest {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.records-panel__empty {
+  padding: 32px 16px;
+  border: 1px dashed var(--el-border-color);
+  border-radius: 8px;
+  background: var(--el-fill-color-blank);
+}
+
+.records-panel__empty-title {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.records-panel__empty-desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.records-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: calc(100vh - 380px);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.records-card {
+  padding: 14px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &.is-active {
+    border-color: var(--el-color-primary-light-5);
+    background: var(--el-color-primary-light-9);
+    box-shadow: 0 0 0 1px var(--el-color-primary-light-7);
+  }
+
+  &:hover {
+    border-color: var(--el-border-color);
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+  }
+}
+
+.records-card__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
   margin-bottom: 12px;
+}
+
+.records-card__identity {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.records-card__avatar-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: var(--el-fill-color);
+  color: var(--el-text-color-secondary);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.records-card__title-wrap {
+  min-width: 0;
+  flex: 1;
+}
+
+.records-card__title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.records-card__station {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.records-card__file {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.records-card__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.records-card__time {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  white-space: nowrap;
+}
+
+.records-card__batch-id {
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
+  font-family: ui-monospace, monospace;
+}
+
+.records-card__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.records-card__stat {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--el-fill-color-light);
+
+  &-label {
+    display: block;
+    font-size: 10px;
+    color: var(--el-text-color-secondary);
+  }
+
+  &-value {
+    display: block;
+    margin-top: 2px;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  &--success .records-card__stat-value {
+    color: var(--el-color-success);
+  }
+
+  &--warning .records-card__stat-value {
+    color: var(--el-color-warning);
+  }
+
+  &--danger .records-card__stat-value {
+    color: var(--el-color-danger);
+  }
+}
+
+.records-card__progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+
+  :deep(.el-progress) {
+    flex: 1;
+  }
+}
+
+.records-card__progress-text {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+  white-space: nowrap;
+}
+
+.records-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.manual-line-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: calc(100vh - 380px);
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.manual-line-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  padding: 12px 14px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &.is-filled {
+    border-color: var(--el-color-success-light-5);
+    background: var(--el-color-success-light-9);
+  }
+
+  &:hover {
+    border-color: var(--el-border-color);
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+  }
+}
+
+.manual-line-card__main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 20px;
+  min-width: 0;
+}
+
+.manual-line-card__order {
+  flex: 1;
+  min-width: 220px;
+}
+
+.manual-line-card__shop {
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+}
+
+.manual-line-card__order-no {
+  font-size: 15px;
+  font-weight: 600;
+
+  &.is-text {
+    color: var(--el-text-color-primary);
+    word-break: break-all;
+  }
+}
+
+.manual-line-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 8px;
+}
+
+.manual-line-card__tag {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.manual-line-card__inputs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.manual-input-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 140px;
+
+  &__label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--el-text-color-secondary);
+  }
+
+  &--freight .manual-input-field__label {
+    color: var(--el-color-primary);
+    font-weight: 600;
+  }
+}
+
+.manual-line-card__remove {
+  margin-top: 2px;
+}
+
+.manual-num-input {
+  width: 140px;
+
+  &--freight {
+    :deep(.el-input__wrapper) {
+      box-shadow: 0 0 0 1px var(--el-color-primary-light-5) inset;
+    }
+  }
 }
 
 .manual-bill-id {
@@ -727,30 +2013,157 @@ watch(billMonth, () => {
   color: var(--el-text-color-regular);
 }
 
-.manual-lines-table {
-  :deep(.manual-num-input) {
-    width: 100%;
-  }
+.manual-order-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--el-color-primary);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  word-break: break-all;
 
-  :deep(.manual-num-input .el-input__wrapper) {
-    padding-left: 8px;
-    padding-right: 30px;
+  &:hover {
+    text-decoration: underline;
   }
 }
 
-.label-price-option {
+.express-bill-workbench__preview {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
   gap: 12px;
+  min-height: 0;
+  height: 100%;
+  padding: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-blank);
+  overflow: hidden;
+}
+
+.preview-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.preview-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.preview-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.preview-stat {
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--el-fill-color-light);
+
+  &__label {
+    display: block;
+    font-size: 11px;
+    color: var(--el-text-color-secondary);
+  }
+
+  &__value {
+    display: block;
+    margin-top: 4px;
+    font-size: 18px;
+    line-height: 1.2;
+  }
+
+  &--success .preview-stat__value {
+    color: var(--el-color-success);
+  }
+
+  &--warning .preview-stat__value {
+    color: var(--el-color-warning);
+  }
+
+  &--danger .preview-stat__value {
+    color: var(--el-color-danger);
+  }
+}
+
+.preview-match-rate {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-color-success);
+}
+
+.preview-unmatched {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.preview-unmatched__title {
+  flex-shrink: 0;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+}
+
+.preview-unmatched__list {
+  flex: 1;
+  min-height: 0;
+  max-height: calc(100vh - 380px);
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.preview-unmatched__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.preview-unmatched__tracking {
+  font-size: 12px;
+  color: var(--el-text-color-primary);
+  word-break: break-all;
+}
+
+.preview-empty {
+  flex: 1;
 }
 
 .label-price-hint {
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
 
-  &--muted {
-    color: var(--el-text-color-placeholder);
+.express-bill-workbench__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--el-border-color-lighter);
+}
+
+@media (max-width: 1100px) {
+  .express-bill-workbench {
+    grid-template-columns: 200px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+  }
+
+  .express-bill-workbench__preview {
+    grid-column: 1 / -1;
+    max-height: 280px;
   }
 }
 </style>

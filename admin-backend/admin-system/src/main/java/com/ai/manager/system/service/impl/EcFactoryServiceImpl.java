@@ -8,6 +8,7 @@ import com.ai.manager.system.domain.dto.EcFactorySaveRequest;
 import com.ai.manager.system.domain.entity.EcCarton;
 import com.ai.manager.system.domain.entity.EcFactory;
 import com.ai.manager.system.domain.entity.EcProduct;
+import com.ai.manager.system.domain.vo.EcFactoryStatsVO;
 import com.ai.manager.system.mapper.EcCartonMapper;
 import com.ai.manager.system.mapper.EcFactoryMapper;
 import com.ai.manager.system.mapper.EcProductMapper;
@@ -30,7 +31,7 @@ public class EcFactoryServiceImpl extends ServiceImpl<EcFactoryMapper, EcFactory
     private final EcCartonMapper ecCartonMapper;
 
     @Override
-    public PageResult<EcFactory> pageFactories(String keyword, Long page, Long pageSize) {
+    public PageResult<EcFactory> pageFactories(String keyword, String factoryType, String status, Long page, Long pageSize) {
         long p = PageUtils.normalizePage(page);
         long ps = PageUtils.normalizePageSize(pageSize);
         LambdaQueryWrapper<EcFactory> wrapper = new LambdaQueryWrapper<EcFactory>()
@@ -41,15 +42,51 @@ public class EcFactoryServiceImpl extends ServiceImpl<EcFactoryMapper, EcFactory
                     .or().like(EcFactory::getContactName, kw)
                     .or().like(EcFactory::getContactPhone, kw));
         }
+        applyFactoryTypeFilter(wrapper, factoryType);
+        if (StringUtils.hasText(status)) {
+            wrapper.eq(EcFactory::getStatus, status.trim().toUpperCase());
+        }
         Page<EcFactory> result = page(new Page<>(p, ps), wrapper);
         return PageUtils.of(result.getRecords(), result.getTotal(), result.getCurrent(), result.getSize());
     }
 
     @Override
-    public List<EcFactory> listFactoryOptions() {
-        return list(new LambdaQueryWrapper<EcFactory>()
-                .select(EcFactory::getId, EcFactory::getName, EcFactory::getStatus)
-                .orderByDesc(EcFactory::getId));
+    public EcFactoryStatsVO getFactoryStats() {
+        EcFactoryStatsVO stats = new EcFactoryStatsVO();
+        stats.setProductionCount(count(new LambdaQueryWrapper<EcFactory>()
+                .and(w -> w.eq(EcFactory::getFactoryType, "PRODUCTION").or().isNull(EcFactory::getFactoryType))));
+        stats.setCustomerCount(count(new LambdaQueryWrapper<EcFactory>()
+                .eq(EcFactory::getFactoryType, "CUSTOMER")));
+        stats.setCartonCount(count(new LambdaQueryWrapper<EcFactory>()
+                .eq(EcFactory::getFactoryType, "CARTON")));
+        stats.setEnabledCount(count(new LambdaQueryWrapper<EcFactory>()
+                .and(w -> w.eq(EcFactory::getStatus, "ENABLED").or().isNull(EcFactory::getStatus))));
+        stats.setDisabledCount(count(new LambdaQueryWrapper<EcFactory>()
+                .eq(EcFactory::getStatus, "DISABLED")));
+        return stats;
+    }
+
+    @Override
+    public List<EcFactory> listFactoryOptions(String factoryType) {
+        LambdaQueryWrapper<EcFactory> wrapper = new LambdaQueryWrapper<EcFactory>()
+                .select(EcFactory::getId, EcFactory::getName, EcFactory::getFactoryType, EcFactory::getStatus)
+                .orderByDesc(EcFactory::getId);
+        applyFactoryTypeFilter(wrapper, factoryType);
+        return list(wrapper);
+    }
+
+    private void applyFactoryTypeFilter(LambdaQueryWrapper<EcFactory> wrapper, String factoryType) {
+        if (!StringUtils.hasText(factoryType)) {
+            return;
+        }
+        String type = factoryType.trim().toUpperCase();
+        if ("PRODUCTION".equals(type)) {
+            wrapper.and(w -> w.eq(EcFactory::getFactoryType, type).or().isNull(EcFactory::getFactoryType));
+        } else if ("CUSTOMER".equals(type)) {
+            wrapper.eq(EcFactory::getFactoryType, type);
+        } else if ("CARTON".equals(type)) {
+            wrapper.eq(EcFactory::getFactoryType, type);
+        }
     }
 
     @Override
@@ -98,10 +135,22 @@ public class EcFactoryServiceImpl extends ServiceImpl<EcFactoryMapper, EcFactory
         if (request == null || !StringUtils.hasText(request.getName())) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "工厂名称不能为空");
         }
+        String factoryType = normalizeFactoryType(request.getFactoryType());
+        if (!"PRODUCTION".equals(factoryType) && !"CUSTOMER".equals(factoryType) && !"CARTON".equals(factoryType)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "工厂类型无效");
+        }
+    }
+
+    private String normalizeFactoryType(String factoryType) {
+        if (!StringUtils.hasText(factoryType)) {
+            return "PRODUCTION";
+        }
+        return factoryType.trim().toUpperCase();
     }
 
     private EcFactory toEntity(EcFactorySaveRequest request, EcFactory factory) {
         factory.setName(request.getName().trim());
+        factory.setFactoryType(normalizeFactoryType(request.getFactoryType()));
         factory.setContactName(trimToNull(request.getContactName()));
         factory.setContactPhone(trimToNull(request.getContactPhone()));
         factory.setAddress(trimToNull(request.getAddress()));

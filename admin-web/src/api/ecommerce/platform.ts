@@ -5,6 +5,7 @@ export interface EcPlatform {
   id: number
   name: string
   nameEn?: string
+  avatarUrl?: string | null
   platformCode: number
   channelType: 'ONLINE' | 'OFFLINE'
   remark?: string
@@ -15,6 +16,7 @@ export interface EcPlatform {
 export interface EcPlatformSaveRequest {
   name: string
   nameEn?: string
+  avatarUrl?: string
   platformCode: number
   channelType?: string
   remark?: string

@@ -95,7 +95,7 @@ import { functionItems, type FunctionItemKey } from '@/data/function-items'
 import { moduleVisuals } from '@/data/module-visuals'
 import { warRoomIconUrl } from '@/data/war-room-icons'
 
-const FEATURED_KEYS: FunctionItemKey[] = ['pomodoro', 'notebook', 'todos']
+const FEATURED_KEYS: FunctionItemKey[] = ['notebook', 'todos', 'userCenter']
 
 const router = useRouter()
 const { t } = useI18n()
@@ -217,9 +217,9 @@ function openFunction(entry: (typeof modules.value)[number]) {
   overflow: hidden;
 }
 
-.functions-featured-card.is-pomodoro {
-  background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
-  border-color: #fed7aa;
+.functions-featured-card.is-userCenter {
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  border-color: #a5b4fc;
 }
 
 .functions-featured-card.is-notebook {

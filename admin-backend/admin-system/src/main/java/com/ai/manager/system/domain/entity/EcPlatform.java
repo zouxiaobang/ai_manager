@@ -19,6 +19,8 @@ public class EcPlatform {
 
     private String nameEn;
 
+    private String avatarUrl;
+
     /** 与 {@link com.ai.manager.system.domain.enums.EcPlatformCode} 一致 */
     private Integer platformCode;
 

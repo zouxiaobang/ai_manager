@@ -6,6 +6,7 @@ import com.ai.manager.common.result.PageUtils;
 import com.ai.manager.common.result.ResultCode;
 import com.ai.manager.system.domain.dto.EcInventoryAdjustRequest;
 import com.ai.manager.system.domain.dto.EcInventoryInboundRequest;
+import com.ai.manager.system.domain.dto.EcInventoryOutboundRequest;
 import com.ai.manager.system.domain.dto.EcInventorySaveRequest;
 import com.ai.manager.system.domain.entity.EcFactory;
 import com.ai.manager.system.domain.entity.EcInventory;
@@ -15,10 +16,14 @@ import com.ai.manager.system.domain.entity.EcSku;
 import com.ai.manager.system.domain.entity.EcCarton;
 import com.ai.manager.system.domain.entity.EcInboundOrder;
 import com.ai.manager.system.domain.entity.EcInboundOrderLine;
+import com.ai.manager.system.domain.entity.EcOutboundOrder;
+import com.ai.manager.system.domain.entity.EcOutboundOrderLine;
 import com.ai.manager.system.domain.vo.EcInventoryDetailVO;
 import com.ai.manager.system.domain.vo.EcInventoryFactorySummaryVO;
 import com.ai.manager.system.domain.vo.EcInventoryGlobalLogVO;
 import com.ai.manager.system.domain.vo.EcInventoryInboundBriefVO;
+import com.ai.manager.system.domain.vo.EcInventoryInboundValueSummaryVO;
+import com.ai.manager.system.domain.vo.EcInventoryOutboundBriefVO;
 import com.ai.manager.system.domain.vo.EcInventoryListItemVO;
 import com.ai.manager.system.domain.vo.EcInventoryLogVO;
 import com.ai.manager.system.domain.vo.EcInventoryPackingEstimateVO;
@@ -26,12 +31,15 @@ import com.ai.manager.system.domain.vo.EcInventorySkuOptionVO;
 import com.ai.manager.system.mapper.EcCartonMapper;
 import com.ai.manager.system.mapper.EcFactoryMapper;
 import com.ai.manager.system.mapper.EcInboundOrderLineMapper;
+import com.ai.manager.system.mapper.EcOutboundOrderLineMapper;
+import com.ai.manager.system.mapper.EcOutboundOrderMapper;
 import com.ai.manager.system.mapper.EcInboundOrderMapper;
 import com.ai.manager.system.mapper.EcInventoryLogMapper;
 import com.ai.manager.system.mapper.EcInventoryMapper;
 import com.ai.manager.system.mapper.EcProductMapper;
 import com.ai.manager.system.mapper.EcSkuMapper;
 import com.ai.manager.system.service.EcInventoryService;
+import com.ai.manager.system.service.EcSystemSettingsService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -66,23 +74,25 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
     private static final String STATUS_DRAFT = "DRAFT";
     private static final String SKU_ON_SALE = "ON_SALE";
     private static final String PRODUCT_ENABLED = "ENABLED";
-    private static final int DEFAULT_ALERT_THRESHOLD = 10;
     private static final int RECENT_LOG_LIMIT = 5;
 
+    private final EcSystemSettingsService ecSystemSettingsService;
     private final EcInventoryLogMapper ecInventoryLogMapper;
     private final EcInboundOrderMapper ecInboundOrderMapper;
     private final EcInboundOrderLineMapper ecInboundOrderLineMapper;
+    private final EcOutboundOrderMapper ecOutboundOrderMapper;
+    private final EcOutboundOrderLineMapper ecOutboundOrderLineMapper;
     private final EcCartonMapper ecCartonMapper;
     private final EcSkuMapper ecSkuMapper;
     private final EcProductMapper ecProductMapper;
     private final EcFactoryMapper ecFactoryMapper;
 
     @Override
-    public PageResult<EcInventoryListItemVO> pageInventories(String keyword, Boolean alertOnly, Long factoryId,
-                                                               Long page, Long pageSize) {
+    public PageResult<EcInventoryListItemVO> pageInventories(String keyword, Boolean alertOnly, Boolean inStockOnly,
+                                                               Long factoryId, Long page, Long pageSize) {
         long p = PageUtils.normalizePage(page);
         long ps = PageUtils.normalizePageSize(pageSize);
-        LambdaQueryWrapper<EcInventory> wrapper = buildInventoryQueryWrapper(keyword, factoryId, alertOnly);
+        LambdaQueryWrapper<EcInventory> wrapper = buildInventoryQueryWrapper(keyword, factoryId, alertOnly, inStockOnly);
 
         Set<String> allowedSkuCodes = resolveAllowedSkuCodes(keyword, factoryId);
         if (allowedSkuCodes != null && allowedSkuCodes.isEmpty()) {
@@ -117,12 +127,15 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
     }
 
     private LambdaQueryWrapper<EcInventory> buildInventoryQueryWrapper(String keyword, Long factoryId,
-                                                                       Boolean alertOnly) {
+                                                                       Boolean alertOnly, Boolean inStockOnly) {
         LambdaQueryWrapper<EcInventory> wrapper = new LambdaQueryWrapper<EcInventory>()
                 .orderByDesc(EcInventory::getId);
         Set<String> allowedSkuCodes = resolveAllowedSkuCodes(keyword, factoryId);
         if (allowedSkuCodes != null) {
             wrapper.in(EcInventory::getSkuCode, allowedSkuCodes);
+        }
+        if (Boolean.TRUE.equals(inStockOnly)) {
+            wrapper.gt(EcInventory::getQuantity, 0);
         }
         if (Boolean.TRUE.equals(alertOnly)) {
             wrapper.and(w -> w.isNull(EcInventory::getIgnoreAlert).or().eq(EcInventory::getIgnoreAlert, 0))
@@ -268,6 +281,29 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public EcInventoryDetailVO outbound(EcInventoryOutboundRequest request, String refType, Long refId) {
+        if (request == null || !StringUtils.hasText(request.getSkuCode())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "货号不能为空");
+        }
+        String skuCode = request.getSkuCode().trim();
+        requireSkuExists(skuCode);
+        int changeQty = requirePositiveQty(request.getQuantity(), "出货数量");
+
+        EcInventory inventory = getOne(new LambdaQueryWrapper<EcInventory>().eq(EcInventory::getSkuCode, skuCode));
+        if (inventory == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "该货号尚无库存记录");
+        }
+        if (inventory.getQuantity() < changeQty) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "库存不足，无法出货");
+        }
+        inventory.setQuantity(inventory.getQuantity() - changeQty);
+        updateById(inventory);
+        insertInventoryLog(inventory.getId(), CHANGE_DEDUCT, changeQty, refType, refId, request.getRemark());
+        return getInventoryDetail(inventory.getId());
+    }
+
+    @Override
     public List<EcInventorySkuOptionVO> listSkuOptions(Long factoryId, Long productId, List<Long> productIds,
                                                        String keyword) {
         LambdaQueryWrapper<EcSku> skuWrapper = new LambdaQueryWrapper<EcSku>().orderByAsc(EcSku::getSkuCode);
@@ -332,6 +368,11 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
             vo.setSpecName(sku.getSpecName());
             vo.setSkuStatus(sku.getStatus());
             vo.setInboundAllowed(isSkuAvailableForInbound(sku, product));
+            if (StringUtils.hasText(sku.getImageName())) {
+                vo.setImageName(sku.getImageName().trim());
+            } else if (product != null && StringUtils.hasText(product.getImageName())) {
+                vo.setImageName(product.getImageName().trim());
+            }
             if (product != null) {
                 vo.setProductName(product.getName());
                 vo.setProductId(product.getId());
@@ -514,6 +555,134 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
     }
 
     @Override
+    public EcInventoryInboundValueSummaryVO summarizeHistoricalInboundValue(Long factoryId) {
+        BigDecimal total = sumInboundValueFromConfirmedOrders(factoryId)
+                .add(sumInboundValueFromQuickInboundLogs(factoryId));
+        EcInventoryInboundValueSummaryVO vo = new EcInventoryInboundValueSummaryVO();
+        vo.setTotalInboundValue(total.setScale(2, RoundingMode.HALF_UP));
+        return vo;
+    }
+
+    private BigDecimal sumInboundValueFromConfirmedOrders(Long factoryId) {
+        LambdaQueryWrapper<EcInboundOrder> orderWrapper = new LambdaQueryWrapper<EcInboundOrder>()
+                .eq(EcInboundOrder::getStatus, "CONFIRMED");
+        if (factoryId != null) {
+            orderWrapper.eq(EcInboundOrder::getFactoryId, factoryId);
+        }
+        List<EcInboundOrder> orders = ecInboundOrderMapper.selectList(orderWrapper);
+        if (orders.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        Set<Long> orderIds = orders.stream().map(EcInboundOrder::getId).collect(Collectors.toSet());
+        List<EcInboundOrderLine> lines = ecInboundOrderLineMapper.selectList(
+                new LambdaQueryWrapper<EcInboundOrderLine>()
+                        .in(EcInboundOrderLine::getOrderId, orderIds));
+        if (lines.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+        Set<String> skuCodes = lines.stream()
+                .map(EcInboundOrderLine::getSkuCode)
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .collect(Collectors.toSet());
+        Map<String, SkuBrief> skuBriefMap = loadSkuBriefMap(new ArrayList<>(skuCodes));
+
+        BigDecimal total = BigDecimal.ZERO;
+        for (EcInboundOrderLine line : lines) {
+            int qty = line.getReceivedQuantity() != null ? line.getReceivedQuantity() : 0;
+            if (qty <= 0 || !StringUtils.hasText(line.getSkuCode())) {
+                continue;
+            }
+            SkuBrief brief = skuBriefMap.get(line.getSkuCode().trim());
+            if (brief == null || brief.salePrice == null) {
+                continue;
+            }
+            total = total.add(brief.salePrice.multiply(BigDecimal.valueOf(qty)));
+        }
+        return total;
+    }
+
+    private BigDecimal sumInboundValueFromQuickInboundLogs(Long factoryId) {
+        List<EcInventoryLog> logs = ecInventoryLogMapper.selectList(new LambdaQueryWrapper<EcInventoryLog>()
+                .eq(EcInventoryLog::getChangeType, CHANGE_INBOUND)
+                .and(w -> w.isNull(EcInventoryLog::getRefType)
+                        .or()
+                        .ne(EcInventoryLog::getRefType, REF_INBOUND_ORDER)));
+        if (logs.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        Set<Long> inventoryIds = logs.stream()
+                .map(EcInventoryLog::getInventoryId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, EcInventory> inventoryMap = inventoryIds.isEmpty()
+                ? Map.of()
+                : listByIds(inventoryIds).stream()
+                .collect(Collectors.toMap(EcInventory::getId, inv -> inv, (a, b) -> a));
+
+        Set<String> skuCodes = inventoryMap.values().stream()
+                .map(EcInventory::getSkuCode)
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .collect(Collectors.toSet());
+        Map<String, SkuBrief> skuBriefMap = loadSkuBriefMap(new ArrayList<>(skuCodes));
+        Map<String, Long> skuFactoryMap = loadSkuFactoryMap(new ArrayList<>(skuCodes));
+
+        BigDecimal total = BigDecimal.ZERO;
+        for (EcInventoryLog log : logs) {
+            Long logFactoryId = resolveQuickInboundLogFactoryId(log, inventoryMap, skuFactoryMap);
+            if (factoryId != null && !factoryId.equals(logFactoryId)) {
+                continue;
+            }
+            EcInventory inventory = inventoryMap.get(log.getInventoryId());
+            if (inventory == null || !StringUtils.hasText(inventory.getSkuCode())) {
+                continue;
+            }
+            SkuBrief brief = skuBriefMap.get(inventory.getSkuCode().trim());
+            if (brief == null || brief.salePrice == null) {
+                continue;
+            }
+            int qty = log.getChangeQty() != null ? log.getChangeQty() : 0;
+            if (qty <= 0) {
+                continue;
+            }
+            total = total.add(brief.salePrice.multiply(BigDecimal.valueOf(qty)));
+        }
+        return total;
+    }
+
+    private Long resolveQuickInboundLogFactoryId(EcInventoryLog log,
+                                                Map<Long, EcInventory> inventoryMap,
+                                                Map<String, Long> skuFactoryMap) {
+        EcInventory inventory = inventoryMap.get(log.getInventoryId());
+        if (inventory == null || !StringUtils.hasText(inventory.getSkuCode())) {
+            return null;
+        }
+        return skuFactoryMap.get(inventory.getSkuCode().trim());
+    }
+
+    private Map<String, Long> loadSkuFactoryMap(List<String> skuCodes) {
+        if (skuCodes == null || skuCodes.isEmpty()) {
+            return Map.of();
+        }
+        List<EcSku> skus = ecSkuMapper.selectList(new LambdaQueryWrapper<EcSku>()
+                .in(EcSku::getSkuCode, skuCodes));
+        if (skus.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, Long> productFactoryMap = ecProductMapper.selectBatchIds(
+                        skus.stream().map(EcSku::getProductId).collect(Collectors.toSet()))
+                .stream()
+                .collect(Collectors.toMap(EcProduct::getId, EcProduct::getFactoryId, (a, b) -> a));
+        Map<String, Long> result = new HashMap<>();
+        for (EcSku sku : skus) {
+            result.put(sku.getSkuCode().trim(), productFactoryMap.get(sku.getProductId()));
+        }
+        return result;
+    }
+
+    @Override
     public EcInventoryPackingEstimateVO estimatePacking(String skuCode, Integer outboundQty) {
         if (!StringUtils.hasText(skuCode)) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "SKU 货号不能为空");
@@ -659,7 +828,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
             brief.specName = sku.getSpecName();
             brief.productName = productNameMap.get(sku.getProductId());
             brief.salePrice = sku.getSalePrice();
-            result.put(sku.getSkuCode(), brief);
+            result.put(sku.getSkuCode().trim(), brief);
         }
         return result;
     }
@@ -673,7 +842,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
         inventory = new EcInventory();
         inventory.setSkuCode(skuCode);
         inventory.setQuantity(0);
-        inventory.setAlertThreshold(alertThreshold != null ? alertThreshold : DEFAULT_ALERT_THRESHOLD);
+        inventory.setAlertThreshold(alertThreshold != null ? alertThreshold : ecSystemSettingsService.resolveDefaultAlertThreshold());
         inventory.setIgnoreAlert(Boolean.TRUE.equals(ignoreAlert) ? 1 : 0);
         save(inventory);
         return inventory;
@@ -885,8 +1054,10 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
         vo.setRecentLogs(recentLogs);
         vo.setInTransitQty(loadInTransitQty(inventory.getSkuCode()));
         vo.setRelatedInboundOrders(loadRelatedInboundOrders(inventory.getSkuCode()));
+        vo.setRelatedOutboundOrders(loadRelatedOutboundOrders(inventory.getSkuCode()));
         int qty = inventory.getQuantity() != null ? inventory.getQuantity() : 0;
         if (ctx != null) {
+            vo.setImageName(ctx.imageName);
             vo.setPackingEstimate(buildPackingEstimate(ctx, qty));
             vo.setOutboundPackingEstimate(buildPackingEstimate(ctx, qty));
         }
@@ -960,6 +1131,43 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
         return result;
     }
 
+    private List<EcInventoryOutboundBriefVO> loadRelatedOutboundOrders(String skuCode) {
+        List<EcOutboundOrderLine> lines = ecOutboundOrderLineMapper.selectList(
+                new LambdaQueryWrapper<EcOutboundOrderLine>()
+                        .eq(EcOutboundOrderLine::getSkuCode, skuCode)
+                        .orderByDesc(EcOutboundOrderLine::getId));
+        if (lines.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> orderIds = lines.stream().map(EcOutboundOrderLine::getOrderId).collect(Collectors.toSet());
+        Map<Long, EcOutboundOrder> orderMap = ecOutboundOrderMapper.selectBatchIds(orderIds).stream()
+                .collect(Collectors.toMap(EcOutboundOrder::getId, o -> o, (a, b) -> a));
+
+        List<EcInventoryOutboundBriefVO> result = new ArrayList<>();
+        Set<Long> seen = new HashSet<>();
+        for (EcOutboundOrderLine line : lines) {
+            if (!seen.add(line.getOrderId())) {
+                continue;
+            }
+            EcOutboundOrder order = orderMap.get(line.getOrderId());
+            if (order == null) {
+                continue;
+            }
+            EcInventoryOutboundBriefVO brief = new EcInventoryOutboundBriefVO();
+            brief.setId(order.getId());
+            brief.setOrderNo(order.getOrderNo());
+            brief.setStatus(order.getStatus());
+            brief.setQuantity(line.getQuantity());
+            brief.setShippedQuantity(line.getShippedQuantity());
+            brief.setOrderTime(order.getOrderTime());
+            brief.setExpectedShipTime(order.getExpectedShipTime());
+            brief.setActualShipTime(order.getActualShipTime());
+            result.add(brief);
+        }
+        result.sort(Comparator.comparing(EcInventoryOutboundBriefVO::getId, Comparator.nullsLast(Comparator.reverseOrder())));
+        return result;
+    }
+
     private SkuContext loadSkuContext(String skuCode) {
         Map<String, SkuContext> map = loadSkuContextMap(List.of(skuCode));
         return map.get(skuCode);
@@ -1001,6 +1209,9 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
             ctx.specName = sku.getSpecName();
             ctx.salePrice = sku.getSalePrice();
             ctx.skuStatus = sku.getStatus();
+            if (StringUtils.hasText(sku.getImageName())) {
+                ctx.imageName = sku.getImageName().trim();
+            }
             ctx.unitsPerCarton = sku.getUnitsPerCarton();
             ctx.cartonId = sku.getCartonId();
             EcProduct product = productMap.get(sku.getProductId());
@@ -1010,6 +1221,9 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
                 ctx.factoryId = product.getFactoryId();
                 if (product.getFactoryId() != null) {
                     ctx.factoryName = factoryNameMap.get(product.getFactoryId());
+                }
+                if (!StringUtils.hasText(ctx.imageName) && StringUtils.hasText(product.getImageName())) {
+                    ctx.imageName = product.getImageName().trim();
                 }
             }
             if (sku.getCartonId() != null) {
@@ -1085,6 +1299,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
         private String skuStatus;
         private String productStatus;
         private java.math.BigDecimal salePrice;
+        private String imageName;
         private Integer unitsPerCarton;
         private Long cartonId;
         private String cartonName;

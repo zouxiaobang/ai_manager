@@ -331,7 +331,7 @@ watch(keyword, () => {
 })
 
 onMounted(async () => {
-  factoryOptions.value = await fetchFactoryOptions()
+  factoryOptions.value = await fetchFactoryOptions('PRODUCTION')
 })
 </script>
 

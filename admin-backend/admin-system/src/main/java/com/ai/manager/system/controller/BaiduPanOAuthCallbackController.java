@@ -2,6 +2,7 @@ package com.ai.manager.system.controller;
 
 import com.ai.manager.system.config.BaiduPanProperties;
 import com.ai.manager.system.service.BaiduPanAuthService;
+import com.ai.manager.system.service.NoteContentSyncService;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.util.StringUtils;
@@ -22,6 +23,7 @@ public class BaiduPanOAuthCallbackController {
 
     private final BaiduPanAuthService baiduPanAuthService;
     private final BaiduPanProperties baiduPanProperties;
+    private final NoteContentSyncService noteContentSyncService;
 
     @GetMapping("/oauth/baidu/callback")
     public void oauthCallback(@RequestParam(required = false) String code,
@@ -33,6 +35,7 @@ public class BaiduPanOAuthCallbackController {
             return;
         }
         baiduPanAuthService.exchangeCode(code);
+        noteContentSyncService.scheduleReconcileAll();
         redirect(response, state, "baidu=connected");
     }
 

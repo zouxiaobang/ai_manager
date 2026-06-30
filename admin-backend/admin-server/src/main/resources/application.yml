@@ -69,10 +69,13 @@ ai-manager:
     app-key: ${BAIDU_APP_KEY:0FzEpqFsRX50bkxhGls0WUZfXvnDLL59}
     secret-key: ${BAIDU_SECRET_KEY:mgOo20RU4AzgH8VBzKYV3aIH3CjVtxco}
     app-folder-name: ai_blog
+    # 环境子目录：dev 写入 /apps/ai_blog/dev/...；生产留空沿用 /apps/ai_blog/...
+    environment-folder: ${BAIDU_PAN_ENV_FOLDER:}
     default-user-id: 1
   note-storage:
     local-root: uploads/notebook-content
     cache-ttl-seconds: 3600
+    cache-max-mb: 512
 
 logging:
   level:

@@ -14,6 +14,18 @@ public class EcSalesOrderImportPreviewVO {
 
     private String batchNo;
 
+    private Long shopId;
+
+    private Long profileId;
+
+    private String fileName;
+
+    private Long fileSize;
+
+    private Integer detectedColumnCount;
+
+    private List<String> detectedColumns;
+
     private Integer totalRows;
 
     private Integer matchedRows;
@@ -24,6 +36,9 @@ public class EcSalesOrderImportPreviewVO {
     private Integer statusUnmatchedRows;
 
     private Integer errorRows;
+
+    /** 原始导入文件是否仍可读取；为 false 时需重新上传后才能「重新解析」 */
+    private Boolean importFileReadable;
 
     private List<EcSalesOrderImportRowVO> rows;
 }

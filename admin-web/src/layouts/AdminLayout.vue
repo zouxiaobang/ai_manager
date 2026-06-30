@@ -53,13 +53,15 @@ watch(
 
 const railItems = computed(() => [
   { path: '/home', iconKey: 'home' as WarRoomNavIconName, label: t('portal.menu.home') },
-  { path: '/functions', iconKey: 'functions' as WarRoomNavIconName, label: t('portal.menu.functions') },
+  { path: '/pomodoro', iconKey: 'pomodoro' as WarRoomNavIconName, label: t('portal.menu.pomodoro') },
+  { path: '/ecommerce', iconKey: 'ecommerce' as WarRoomNavIconName, label: t('portal.menu.ecommerce') },
+  { path: '/pixel-dog', iconKey: 'pixel-dog' as WarRoomNavIconName, label: t('portal.menu.pixelDog') },
   { path: '/notebook', iconKey: 'notebook' as WarRoomNavIconName, label: t('portal.menu.notebook') },
   { path: '/todos', iconKey: 'todos' as WarRoomNavIconName, label: t('portal.menu.todos') },
-  { path: '/user-center', iconKey: 'user-center' as WarRoomNavIconName, label: t('portal.menu.userCenter') },
-  { path: '/users', iconKey: 'permission' as WarRoomNavIconName, label: t('portal.menu.permission') },
+  { path: '/functions', iconKey: 'functions' as WarRoomNavIconName, label: t('portal.menu.functions') },
   { path: '/deploy-docs', iconKey: 'deploy-docs' as WarRoomNavIconName, label: t('portal.menu.deployCenter') },
   { path: '/storage', iconKey: 'storage' as WarRoomNavIconName, label: t('portal.menu.storage') },
+  { path: '/image-space', iconKey: 'image-space' as WarRoomNavIconName, label: t('portal.menu.imageSpace') },
 ])
 
 const isSettingsActive = computed(() => route.path === '/settings')
@@ -67,9 +69,12 @@ const isSettingsActive = computed(() => route.path === '/settings')
 function isRailActive(path: string) {
   const current = route.path
   if (path === '/functions') {
-    return current === '/functions' || current === '/pomodoro' || current === '/ecommerce'
+    return current === '/functions' || current === '/user-center' || current === '/users'
   }
   if (path === '/home') return current === '/home'
+  if (path === '/pomodoro') return current.startsWith('/pomodoro')
+  if (path === '/ecommerce') return current.startsWith('/ecommerce')
+  if (path === '/pixel-dog') return current === '/pixel-dog'
   return current === path
 }
 </script>

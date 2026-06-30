@@ -9,6 +9,7 @@ import com.ai.manager.system.domain.dto.EcInventorySaveRequest;
 import com.ai.manager.system.domain.vo.EcInventoryDetailVO;
 import com.ai.manager.system.domain.vo.EcInventoryFactorySummaryVO;
 import com.ai.manager.system.domain.vo.EcInventoryGlobalLogVO;
+import com.ai.manager.system.domain.vo.EcInventoryInboundValueSummaryVO;
 import com.ai.manager.system.domain.vo.EcInventoryListItemVO;
 import com.ai.manager.system.domain.vo.EcInventoryLogVO;
 import com.ai.manager.system.domain.vo.EcInventoryPackingEstimateVO;
@@ -31,10 +32,11 @@ public class EcInventoryController {
     @GetMapping
     public ApiResult<PageResult<EcInventoryListItemVO>> list(@RequestParam(required = false) String keyword,
                                                                @RequestParam(required = false) Boolean alertOnly,
+                                                               @RequestParam(required = false) Boolean inStockOnly,
                                                                @RequestParam(required = false) Long factoryId,
                                                                @RequestParam(required = false) Long page,
                                                                @RequestParam(required = false) Long pageSize) {
-        return ApiResult.ok(ecInventoryService.pageInventories(keyword, alertOnly, factoryId, page, pageSize));
+        return ApiResult.ok(ecInventoryService.pageInventories(keyword, alertOnly, inStockOnly, factoryId, page, pageSize));
     }
 
     @GetMapping("/logs")
@@ -56,6 +58,12 @@ public class EcInventoryController {
     public ApiResult<List<EcInventoryFactorySummaryVO>> factorySummary(
             @RequestParam(required = false) Long factoryId) {
         return ApiResult.ok(ecInventoryService.listFactorySummary(factoryId));
+    }
+
+    @GetMapping("/inbound-value-summary")
+    public ApiResult<EcInventoryInboundValueSummaryVO> inboundValueSummary(
+            @RequestParam(required = false) Long factoryId) {
+        return ApiResult.ok(ecInventoryService.summarizeHistoricalInboundValue(factoryId));
     }
 
     @GetMapping("/packing-estimate")

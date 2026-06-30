@@ -1,11 +1,11 @@
 <template>
   <div class="mobile-ecommerce">
-    <EcommerceView />
+    <EcommerceTabsView />
   </div>
 </template>
 
 <script setup lang="ts">
-import EcommerceView from '@/views/EcommerceView.vue'
+import EcommerceTabsView from '@/views/ecommerce/EcommerceTabsView.vue'
 </script>
 
 <style scoped lang="scss">

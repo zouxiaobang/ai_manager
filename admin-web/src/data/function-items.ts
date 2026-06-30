@@ -1,22 +1,20 @@
 import type { Component } from 'vue'
 import {
-  Chicken,
   Collection,
-  List,
-  Notebook,
-  ShoppingCart,
-  Timer,
   FolderOpened,
+  List,
+  Lock,
+  Notebook,
+  User,
 } from '@element-plus/icons-vue'
 
 export type FunctionItemKey =
-  | 'pomodoro'
   | 'notebook'
   | 'todos'
   | 'aiKnowledge'
   | 'library'
-  | 'ecommerce'
-  | 'pixelDog'
+  | 'userCenter'
+  | 'permission'
 
 export interface FunctionItem {
   key: FunctionItemKey
@@ -26,12 +24,6 @@ export interface FunctionItem {
 }
 
 export const functionItems: FunctionItem[] = [
-  {
-    key: 'pomodoro',
-    icon: Timer,
-    route: '/pomodoro',
-    accent: '#e6a23c',
-  },
   {
     key: 'notebook',
     icon: Notebook,
@@ -45,6 +37,18 @@ export const functionItems: FunctionItem[] = [
     accent: '#10b981',
   },
   {
+    key: 'userCenter',
+    icon: User,
+    route: '/user-center',
+    accent: '#6366f1',
+  },
+  {
+    key: 'permission',
+    icon: Lock,
+    route: '/users',
+    accent: '#0ea5e9',
+  },
+  {
     key: 'aiKnowledge',
     icon: Collection,
     accent: '#67c23a',
@@ -53,16 +57,5 @@ export const functionItems: FunctionItem[] = [
     key: 'library',
     icon: FolderOpened,
     accent: '#909399',
-  },
-  {
-    key: 'ecommerce',
-    icon: ShoppingCart,
-    route: '/ecommerce',
-    accent: '#f56c6c',
-  },
-  {
-    key: 'pixelDog',
-    icon: Chicken,
-    accent: '#a855f7',
   },
 ]

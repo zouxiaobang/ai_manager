@@ -13,6 +13,9 @@ public class EcExpressStationDetailVO {
 
     private String name;
 
+    /** 站点头像（上传文件名） */
+    private String avatarUrl;
+
     /** 各平台/导入文件中可能出现的名称别名，用于订单导入匹配 */
     private List<String> nameAliases;
 
@@ -29,4 +32,10 @@ public class EcExpressStationDetailVO {
     private List<EcExpressPriceVO> prices;
 
     private List<EcExpressNoticeVO> notices;
+
+    /** 价格矩阵行数（地区数） */
+    private Integer priceCount;
+
+    /** 注意事项条数 */
+    private Integer noticeCount;
 }

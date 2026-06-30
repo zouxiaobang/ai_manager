@@ -5,6 +5,7 @@ export interface EcShop {
   id: number
   name: string
   nameEn?: string
+  avatarUrl?: string | null
   platformId: number
   platformName?: string
   platformCode?: number

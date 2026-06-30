@@ -228,28 +228,21 @@ export function fetchListingLink(id: number) {
 
 
 
-export function calculateListingPricing(params: {
-
-  shopId: number
-
-  skuCodes: string
-
-  discountPct?: number
-
-  couponAmount?: number
-
-  actualSetAmount?: number | null
-
-}) {
-
+export function calculateListingPricing(
+  params: {
+    shopId: number
+    skuCodes: string
+    discountPct?: number
+    couponAmount?: number
+    actualSetAmount?: number | null
+  },
+  options?: { silent?: boolean },
+) {
   return postData<EcListingLinkPricingResult>(
-
     '/api/ecommerce/listing-links/calculate-pricing',
-
     params,
-
+    { silent: options?.silent },
   )
-
 }
 
 

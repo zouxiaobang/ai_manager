@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 
 import AdminLayout from '@/layouts/AdminLayout.vue'
+import { ecommercePathForLegacyTab } from '@/data/ecommerce-nav'
 
 
 
@@ -61,11 +62,159 @@ const router = createRouter({
 
           path: 'ecommerce',
 
-          name: 'ecommerce',
-
-          component: () => import('@/views/EcommerceView.vue'),
+          component: () => import('@/layouts/EcommerceLayout.vue'),
 
           meta: { titleKey: 'ecommerce.title' },
+
+          children: [
+
+            {
+
+              path: '',
+
+              name: 'ecommerce',
+
+              component: () => import('@/views/ecommerce/EcommerceHomeView.vue'),
+
+            },
+
+            {
+
+              path: 'monthly-settlement',
+
+              name: 'ecommerce-monthly-settlement',
+
+              component: () => import('@/views/ecommerce/EcommerceModuleView.vue'),
+
+              meta: { module: 'monthlySettlement' },
+
+            },
+
+            {
+
+              path: 'orders',
+
+              name: 'ecommerce-orders',
+
+              component: () => import('@/views/ecommerce/EcommerceModuleView.vue'),
+
+              meta: { module: 'order' },
+
+            },
+
+            {
+
+              path: 'express',
+
+              name: 'ecommerce-express',
+
+              component: () => import('@/views/ecommerce/EcommerceModuleView.vue'),
+
+              meta: { module: 'express' },
+
+            },
+
+            {
+
+              path: 'inventory',
+
+              name: 'ecommerce-inventory',
+
+              component: () => import('@/views/ecommerce/EcommerceModuleView.vue'),
+
+              meta: { module: 'inventory' },
+
+            },
+
+            {
+
+              path: 'products',
+
+              name: 'ecommerce-products',
+
+              component: () => import('@/views/ecommerce/EcommerceModuleView.vue'),
+
+              meta: { module: 'product' },
+
+            },
+
+            {
+
+              path: 'shops',
+
+              name: 'ecommerce-shops',
+
+              component: () => import('@/views/ecommerce/EcommerceModuleView.vue'),
+
+              meta: { module: 'platformShop' },
+
+            },
+
+            {
+
+              path: 'factories',
+
+              name: 'ecommerce-factories',
+
+              component: () => import('@/views/ecommerce/EcommerceModuleView.vue'),
+
+              meta: { module: 'factory' },
+
+            },
+
+            {
+
+              path: 'cartons',
+
+              name: 'ecommerce-cartons',
+
+              component: () => import('@/views/ecommerce/EcommerceModuleView.vue'),
+
+              meta: { module: 'carton' },
+
+            },
+
+            {
+
+              path: 'reports',
+
+              name: 'ecommerce-reports',
+
+              component: () => import('@/views/ecommerce/EcommercePlaceholderView.vue'),
+
+            },
+
+            {
+
+              path: 'settings',
+
+              name: 'ecommerce-settings',
+
+              component: () => import('@/views/ecommerce/EcommerceSettingsView.vue'),
+
+            },
+
+            {
+
+              path: 'manage',
+
+              redirect: (to) => ecommercePathForLegacyTab(to.query.tab),
+
+            },
+
+          ],
+
+        },
+
+        {
+
+          path: 'pixel-dog',
+
+          name: 'pixel-dog',
+
+          component: () => import('@/views/PlaceholderView.vue'),
+
+          meta: { titleKey: 'functions.items.pixelDog.name' },
 
         },
 
@@ -153,9 +302,21 @@ const router = createRouter({
 
           name: 'storage',
 
-          component: () => import('@/views/PlaceholderView.vue'),
+          component: () => import('@/views/StorageCenterView.vue'),
 
           meta: { titleKey: 'portal.menu.storage' },
+
+        },
+
+        {
+
+          path: 'image-space',
+
+          name: 'image-space',
+
+          component: () => import('@/views/ImageSpaceView.vue'),
+
+          meta: { titleKey: 'portal.menu.imageSpace' },
 
         },
 

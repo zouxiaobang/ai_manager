@@ -26,6 +26,12 @@ public class EcInventoryDetailVO extends EcInventoryListItemVO {
     /** 关联进货单（含历史） */
     private List<EcInventoryInboundBriefVO> relatedInboundOrders;
 
+    /** 关联出货单（含历史） */
+    private List<EcInventoryOutboundBriefVO> relatedOutboundOrders;
+
+    /** SKU 图片文件名 */
+    private String imageName;
+
     /** 当前库存估箱（按账面数量） */
     private EcInventoryPackingEstimateVO packingEstimate;
 

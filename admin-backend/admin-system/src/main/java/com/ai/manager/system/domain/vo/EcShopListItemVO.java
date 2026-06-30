@@ -14,6 +14,8 @@ public class EcShopListItemVO {
 
     private String nameEn;
 
+    private String avatarUrl;
+
     private Long platformId;
 
     private String platformName;

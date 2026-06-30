@@ -17,6 +17,8 @@ import com.ai.manager.system.mapper.EcFactoryMapper;
 import com.ai.manager.system.mapper.EcProductMapper;
 import com.ai.manager.system.mapper.EcSkuMapper;
 import com.ai.manager.system.service.EcCartonService;
+import com.ai.manager.system.service.EcEcommerceImageRenameService;
+import com.ai.manager.system.service.EcImageUploadService;
 import com.ai.manager.system.service.support.EcCartonBackfillTaskManager;
 import com.ai.manager.system.service.support.EcCartonMatcher;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -26,6 +28,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -45,13 +48,14 @@ public class EcCartonServiceImpl extends ServiceImpl<EcCartonMapper, EcCarton> i
     private final EcSkuMapper ecSkuMapper;
     private final EcProductMapper ecProductMapper;
     private final EcCartonBackfillTaskManager backfillTaskManager;
+    private final EcEcommerceImageRenameService ecEcommerceImageRenameService;
+    private final EcImageUploadService ecImageUploadService;
 
     @Override
     public PageResult<EcCartonListItemVO> pageCartons(String keyword, Long page, Long pageSize) {
         long p = PageUtils.normalizePage(page);
         long ps = PageUtils.normalizePageSize(pageSize);
-        LambdaQueryWrapper<EcCarton> wrapper = new LambdaQueryWrapper<EcCarton>()
-                .orderByDesc(EcCarton::getId);
+        LambdaQueryWrapper<EcCarton> wrapper = new LambdaQueryWrapper<EcCarton>();
         if (StringUtils.hasText(keyword)) {
             String kw = keyword.trim();
             Set<Long> matchedIds = collectCartonIdsByKeyword(kw);
@@ -60,6 +64,7 @@ public class EcCartonServiceImpl extends ServiceImpl<EcCartonMapper, EcCarton> i
             }
             wrapper.in(EcCarton::getId, matchedIds);
         }
+        wrapper.last("ORDER BY (COALESCE(length_cm, 0) * COALESCE(width_cm, 0) * COALESCE(height_cm, 0)) DESC, id DESC");
         Page<EcCarton> entityPage = page(new Page<>(p, ps), wrapper);
         if (entityPage.getRecords().isEmpty()) {
             return PageUtils.of(List.of(), entityPage.getTotal(), entityPage.getCurrent(), entityPage.getSize());
@@ -106,6 +111,23 @@ public class EcCartonServiceImpl extends ServiceImpl<EcCartonMapper, EcCarton> i
         }
         validateRequest(request);
         applyFields(request, existing);
+        updateById(existing);
+        return getCartonDetail(id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public EcCartonListItemVO updateCartonPreviewImage(Long id, MultipartFile file, String cartonName) {
+        EcCarton existing = getById(id);
+        if (existing == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND);
+        }
+        String nameForFile = StringUtils.hasText(cartonName) ? cartonName.trim() : existing.getName();
+        if (!StringUtils.hasText(nameForFile)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "纸箱名称不能为空");
+        }
+        String storedName = ecImageUploadService.uploadCartonPreviewImage(file, nameForFile).getFileName();
+        existing.setPreviewImage(storedName);
         updateById(existing);
         return getCartonDetail(id);
     }
@@ -261,6 +283,8 @@ public class EcCartonServiceImpl extends ServiceImpl<EcCartonMapper, EcCarton> i
         vo.setHeightCm(carton.getHeightCm());
         vo.setUnitPrice(carton.getUnitPrice());
         vo.setRemark(carton.getRemark());
+        vo.setIllustrationVariant(carton.getIllustrationVariant());
+        vo.setPreviewImage(carton.getPreviewImage());
         vo.setUpdateTime(carton.getUpdateTime());
         return vo;
     }
@@ -273,6 +297,11 @@ public class EcCartonServiceImpl extends ServiceImpl<EcCartonMapper, EcCarton> i
         carton.setHeightCm(request.getHeightCm());
         carton.setUnitPrice(request.getUnitPrice());
         carton.setRemark(trimToNull(request.getRemark()));
+        carton.setIllustrationVariant(normalizeIllustrationVariant(request.getIllustrationVariant()));
+        if (StringUtils.hasText(request.getPreviewImage())) {
+            carton.setPreviewImage(ecEcommerceImageRenameService.normalizeCartonPreview(
+                    request.getPreviewImage().trim(), request.getName().trim()));
+        }
     }
 
     private void validateRequest(EcCartonSaveRequest request) {
@@ -286,6 +315,20 @@ public class EcCartonServiceImpl extends ServiceImpl<EcCartonMapper, EcCarton> i
         if (request.getUnitPrice() != null && request.getUnitPrice().signum() < 0) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "单价不能为负数");
         }
+        if (request.getIllustrationVariant() != null
+                && (request.getIllustrationVariant() < 0 || request.getIllustrationVariant() > 3)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "纸箱材质无效");
+        }
+    }
+
+    private Integer normalizeIllustrationVariant(Integer variant) {
+        if (variant == null) {
+            return 3;
+        }
+        if (variant < 0 || variant > 3) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "纸箱材质无效");
+        }
+        return variant;
     }
 
     private Long resolveFactoryId(Long factoryId) {
@@ -295,6 +338,10 @@ public class EcCartonServiceImpl extends ServiceImpl<EcCartonMapper, EcCarton> i
         EcFactory factory = ecFactoryMapper.selectById(factoryId);
         if (factory == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "工厂不存在");
+        }
+        String factoryType = factory.getFactoryType();
+        if (factoryType == null || !"CARTON".equals(factoryType.trim().toUpperCase())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "请选择纸箱厂类型的工厂");
         }
         return factoryId;
     }

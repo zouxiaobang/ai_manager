@@ -10,6 +10,7 @@ export interface MonthlySettlementShopSummary {
   actualTotalCost?: number
   estimatedTotalProfit?: number
   actualTotalProfit?: number
+  totalActualFreight?: number
   includedOrderCount?: number
   excludedOrderCount?: number
   pendingOrderCount?: number
@@ -17,8 +18,16 @@ export interface MonthlySettlementShopSummary {
     orderId?: number
     orderNo?: string
     platformOrderNo?: string
-    profitAmount?: number
+    productName?: string
+    skuName?: string
+    productImageUrl?: string
+    orderTime?: string
     receivedAmount?: number
+    estimatedCostAmount?: number
+    actualCostAmount?: number
+    profitAmount?: number
+    actualProfitAmount?: number
+    actualProfitUnknownReason?: 'EXPRESS_BILL_NOT_IMPORTED' | 'ACTUAL_FREIGHT_MISSING'
   }
   pendingOrders?: PendingSettlementOrder[]
 }
@@ -29,6 +38,8 @@ export interface PendingSettlementOrder {
   platformOrderNo?: string
   status?: string
   buyerName?: string
+  productName?: string
+  skuName?: string
   receivedAmount?: number
   orderTime?: string
   decided?: boolean
@@ -38,6 +49,8 @@ export interface PendingSettlementOrder {
 export interface MonthlySettlementResult {
   settlementMonth: string
   expressBillImported?: boolean
+  saved?: boolean
+  calculatedAt?: string
   shops: MonthlySettlementShopSummary[]
 }
 
@@ -108,6 +121,19 @@ export function fetchMonthlySettlement(month: string, shopId?: number) {
     month,
     ...(shopId ? { shopId } : {}),
   })
+}
+
+export function fetchMonthlySettlementSnapshot(month: string) {
+  return getData<MonthlySettlementResult | null>('/api/ecommerce/monthly-settlement/snapshot', { month })
+}
+
+export async function calculateMonthlySettlement(month: string) {
+  const response = await request.post<ApiResult<MonthlySettlementResult>>(
+    '/api/ecommerce/monthly-settlement/calculate',
+    null,
+    { params: { month } },
+  )
+  return response.data.data!
 }
 
 export function fetchExpressBillImported(month: string) {
@@ -183,6 +209,10 @@ export async function prepareManualExpressBill(
 
 export function fetchManualExpressBillLines(billId: number) {
   return getData<ExpressBillLine[]>('/api/ecommerce/monthly-settlement/express-bill/manual/lines', { billId })
+}
+
+export function fetchUnmatchedExpressBillLines(billId: number) {
+  return getData<ExpressBillLine[]>('/api/ecommerce/monthly-settlement/express-bill/unmatched-lines', { billId })
 }
 
 export function saveManualExpressBillLines(data: {

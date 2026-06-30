@@ -17,9 +17,11 @@ export interface EcInventory {
   ignoreAlert?: boolean
   alertThreshold?: number
   alertActive?: boolean
+  imageName?: string
   updateTime?: string
   recentLogs?: EcInventoryLog[]
   relatedInboundOrders?: EcInventoryInboundBrief[]
+  relatedOutboundOrders?: EcInventoryOutboundBrief[]
   packingEstimate?: EcInventoryPackingEstimate
   outboundPackingEstimate?: EcInventoryPackingEstimate
 }
@@ -54,6 +56,17 @@ export interface EcInventoryInboundBrief {
   actualReceiptTime?: string | null
 }
 
+export interface EcInventoryOutboundBrief {
+  id: number
+  orderNo: string
+  status: string
+  quantity?: number
+  shippedQuantity?: number | null
+  orderTime?: string
+  expectedShipTime?: string
+  actualShipTime?: string | null
+}
+
 export interface EcInventoryPackingEstimate {
   outboundQty?: number
   unitsPerCarton?: number
@@ -86,6 +99,7 @@ export interface EcInventorySkuOption {
   quantity?: number
   alertThreshold?: number
   ignoreAlert?: boolean
+  imageName?: string
 }
 
 export interface EcInventoryInboundRequest {
@@ -113,10 +127,12 @@ export function fetchInventories(
   alertOnly?: boolean,
   factoryId?: number,
   pageQuery?: PageQuery,
+  inStockOnly?: boolean,
 ) {
   return getData<PageResult<EcInventory>>('/api/ecommerce/inventories', {
     ...(keyword ? { keyword } : {}),
     ...(alertOnly ? { alertOnly: true } : {}),
+    ...(inStockOnly ? { inStockOnly: true } : {}),
     ...(factoryId ? { factoryId } : {}),
     ...(pageQuery ?? {}),
   })
@@ -148,6 +164,16 @@ export function fetchGlobalInventoryLogs(params: {
 
 export function fetchInventoryFactorySummary(factoryId?: number) {
   return getData<EcInventoryFactorySummary[]>('/api/ecommerce/inventories/factory-summary', {
+    ...(factoryId ? { factoryId } : {}),
+  })
+}
+
+export interface EcInventoryInboundValueSummary {
+  totalInboundValue?: number | null
+}
+
+export function fetchInventoryInboundValueSummary(factoryId?: number) {
+  return getData<EcInventoryInboundValueSummary>('/api/ecommerce/inventories/inbound-value-summary', {
     ...(factoryId ? { factoryId } : {}),
   })
 }

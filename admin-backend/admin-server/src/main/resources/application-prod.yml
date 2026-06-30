@@ -21,6 +21,8 @@ ai-manager:
     backend-dir: /opt/ai-manager/backend
     web-root: /var/www/ai-manager
   baidu-pan:
+    # 生产环境不写子目录，沿用 /apps/ai_blog/...（与历史数据一致）
+    environment-folder:
     # 经 Nginx 80 端口反代；百度开放平台需登记相同回调地址
     redirect-uri: http://192.168.0.114/oauth/baidu/callback
     frontend-redirect-uri: http://192.168.0.114/#/notebook

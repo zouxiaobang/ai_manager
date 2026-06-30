@@ -4,6 +4,7 @@ import com.ai.manager.common.result.ApiResult;
 import com.ai.manager.common.result.PageResult;
 import com.ai.manager.system.domain.dto.EcFactorySaveRequest;
 import com.ai.manager.system.domain.entity.EcFactory;
+import com.ai.manager.system.domain.vo.EcFactoryStatsVO;
 import com.ai.manager.system.service.EcFactoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -19,14 +20,21 @@ public class EcFactoryController {
 
     @GetMapping
     public ApiResult<PageResult<EcFactory>> list(@RequestParam(required = false) String keyword,
+                                                 @RequestParam(required = false) String factoryType,
+                                                 @RequestParam(required = false) String status,
                                                  @RequestParam(required = false) Long page,
                                                  @RequestParam(required = false) Long pageSize) {
-        return ApiResult.ok(ecFactoryService.pageFactories(keyword, page, pageSize));
+        return ApiResult.ok(ecFactoryService.pageFactories(keyword, factoryType, status, page, pageSize));
+    }
+
+    @GetMapping("/stats")
+    public ApiResult<EcFactoryStatsVO> stats() {
+        return ApiResult.ok(ecFactoryService.getFactoryStats());
     }
 
     @GetMapping("/options")
-    public ApiResult<List<EcFactory>> options() {
-        return ApiResult.ok(ecFactoryService.listFactoryOptions());
+    public ApiResult<List<EcFactory>> options(@RequestParam(required = false) String factoryType) {
+        return ApiResult.ok(ecFactoryService.listFactoryOptions(factoryType));
     }
 
     @GetMapping("/{id}")

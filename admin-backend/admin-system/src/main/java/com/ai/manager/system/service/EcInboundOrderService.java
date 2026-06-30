@@ -10,7 +10,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 public interface EcInboundOrderService extends IService<EcInboundOrder> {
 
     PageResult<EcInboundOrderDetailVO> pageOrders(String keyword, String status, Long factoryId,
-                                                   Long page, Long pageSize);
+                                                   String orderMonth, Long page, Long pageSize);
 
     EcInboundOrderDetailVO getOrderDetail(Long id);
 

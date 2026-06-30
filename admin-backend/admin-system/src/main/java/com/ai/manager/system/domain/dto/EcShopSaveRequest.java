@@ -11,6 +11,8 @@ public class EcShopSaveRequest {
 
     private String nameEn;
 
+    private String avatarUrl;
+
     private Long platformId;
 
     private String remark;

@@ -43,6 +43,27 @@ function resolvePlatformTemplate(platformName?: string): Record<string, string> 
   return {}
 }
 
+function matchStatusColumn(docColumns: string[], fieldKey: string): string {
+  const findCol = (...names: string[]) => {
+    for (const name of names) {
+      const hit = docColumns.find((c) => c.trim() === name)
+      if (hit) return hit
+    }
+    for (const name of names) {
+      const hit = docColumns.find((c) => c.trim().includes(name))
+      if (hit) return hit
+    }
+    return ''
+  }
+  if (fieldKey === 'platform_line_status') {
+    return findCol('退款状态') || findCol('订单状态', '交易状态', '当前订单状态', '子订单状态')
+  }
+  if (fieldKey === 'platform_status') {
+    return findCol('订单状态', '交易状态', '当前订单状态', '平台订单状态')
+  }
+  return ''
+}
+
 export function autoMatchColumnMapping(
   fields: SysImportField[],
   docColumns: string[],
@@ -52,6 +73,10 @@ export function autoMatchColumnMapping(
   for (const f of fields) {
     if (Object.prototype.hasOwnProperty.call(existing, f.key)) {
       mapping[f.key] = existing[f.key] ?? ''
+      continue
+    }
+    if (f.key === 'platform_line_status' || f.key === 'platform_status') {
+      mapping[f.key] = matchStatusColumn(docColumns, f.key)
       continue
     }
     const zh = f.labelZh.trim()

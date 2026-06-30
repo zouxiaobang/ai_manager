@@ -189,7 +189,8 @@ import type { HealthData } from '@/api/types'
 import { fetchPinnedTodos, fetchTodayTodos, fetchTodos, updateTodo, type NbTodoFilter, type NbTodoItem } from '@/api/notebook/todo'
 import { useTodoReminders, dismissTodoNotification } from '@/composables/useTodoReminders'
 import { formatTodoScheduleLabel } from '@/views/notebook/todoGroup'
-import { functionItems, type FunctionItemKey } from '@/data/function-items'
+import { functionItems } from '@/data/function-items'
+import { type HomeModuleKey } from '@/data/module-visuals'
 import { quickModules, type QuickModuleDef } from '@/data/module-visuals'
 
 type HealthState = 'up' | 'down' | 'unknown'
@@ -221,7 +222,7 @@ interface DisplayCard {
   onClick?: () => void
 }
 
-const spotlightOrder: FunctionItemKey[] = [
+const spotlightOrder: HomeModuleKey[] = [
   'notebook',
   'todos',
   'pomodoro',
@@ -230,6 +231,12 @@ const spotlightOrder: FunctionItemKey[] = [
   'library',
   'pixelDog',
 ]
+
+const spotlightRoutes: Partial<Record<HomeModuleKey, string>> = {
+  pomodoro: '/pomodoro',
+  ecommerce: '/ecommerce',
+  pixelDog: '/pixel-dog',
+}
 
 const { t, locale } = useI18n()
 const router = useRouter()
@@ -546,10 +553,15 @@ function openQuickModule(item: QuickModuleDef) {
   router.push(item.route)
 }
 
-function openFunctionByKey(key: FunctionItemKey) {
+function openFunctionByKey(key: HomeModuleKey) {
   const item = functionItems.find((row) => row.key === key)
   if (item?.route) {
     router.push(item.route)
+    return
+  }
+  const railRoute = spotlightRoutes[key]
+  if (railRoute) {
+    router.push(railRoute)
     return
   }
   ElMessage.info(t('functions.openSoon', { name: t(`functions.items.${key}.name`) }))

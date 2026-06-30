@@ -13,22 +13,16 @@ import WarRoomSvgIcon from '@/components/war-room/WarRoomSvgIcon.vue'
 
 
 export type WarRoomNavIconName =
-
   | 'home'
-
+  | 'pomodoro'
+  | 'ecommerce'
+  | 'pixel-dog'
   | 'functions'
-
   | 'notebook'
-
   | 'todos'
-
-  | 'user-center'
-
-  | 'permission'
-
   | 'deploy-docs'
-
   | 'storage'
+  | 'image-space'
 
 
 

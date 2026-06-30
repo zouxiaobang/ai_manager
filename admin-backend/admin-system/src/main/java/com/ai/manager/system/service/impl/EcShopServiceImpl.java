@@ -13,6 +13,7 @@ import com.ai.manager.system.mapper.EcListingLinkMapper;
 import com.ai.manager.system.mapper.EcPlatformMapper;
 import com.ai.manager.system.mapper.EcShopMapper;
 import com.ai.manager.system.service.EcShopService;
+import com.ai.manager.system.service.EcEcommerceImageRenameService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -34,6 +35,7 @@ public class EcShopServiceImpl extends ServiceImpl<EcShopMapper, EcShop> impleme
 
     private final EcPlatformMapper ecPlatformMapper;
     private final EcListingLinkMapper ecListingLinkMapper;
+    private final EcEcommerceImageRenameService ecEcommerceImageRenameService;
 
     @Override
     public PageResult<EcShopListItemVO> pageShops(String keyword, Long platformId, Long page, Long pageSize) {
@@ -143,8 +145,12 @@ public class EcShopServiceImpl extends ServiceImpl<EcShopMapper, EcShop> impleme
     }
 
     private EcShop applySaveFields(EcShopSaveRequest request, EcShop shop) {
+        EcPlatform platform = ecPlatformMapper.selectById(request.getPlatformId());
+        String platformName = platform != null ? platform.getName() : "平台";
         shop.setName(request.getName().trim());
         shop.setNameEn(trimToNull(request.getNameEn()));
+        shop.setAvatarUrl(ecEcommerceImageRenameService.normalizeShopAvatar(
+                request.getAvatarUrl(), platformName, request.getName().trim()));
         shop.setPlatformId(request.getPlatformId());
         shop.setRemark(trimToNull(request.getRemark()));
         shop.setCategoryCommissionPct(request.getCategoryCommissionPct());
@@ -183,6 +189,7 @@ public class EcShopServiceImpl extends ServiceImpl<EcShopMapper, EcShop> impleme
         vo.setId(shop.getId());
         vo.setName(shop.getName());
         vo.setNameEn(shop.getNameEn());
+        vo.setAvatarUrl(shop.getAvatarUrl());
         vo.setPlatformId(shop.getPlatformId());
         if (platform != null) {
             vo.setPlatformName(platform.getName());

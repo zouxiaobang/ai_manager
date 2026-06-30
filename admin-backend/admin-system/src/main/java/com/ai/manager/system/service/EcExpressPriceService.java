@@ -11,6 +11,8 @@ public interface EcExpressPriceService extends IService<EcExpressPrice> {
 
     List<EcExpressPriceVO> listPrices(Long stationId);
 
+    List<String> listRegionNames();
+
     EcExpressPriceVO createPrice(EcExpressPriceSaveRequest request);
 
     EcExpressPriceVO updatePrice(Long id, EcExpressPriceSaveRequest request);

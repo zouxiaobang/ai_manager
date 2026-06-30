@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS ec_platform (
     id            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '平台主键',
     name          VARCHAR(128) NOT NULL COMMENT '平台名称',
     name_en       VARCHAR(128) DEFAULT NULL COMMENT '平台英文名称',
+    avatar_url    VARCHAR(256) DEFAULT NULL COMMENT '平台头像(上传文件名)',
     platform_code INT          NOT NULL COMMENT '平台标识(枚举 int)',
     channel_type  VARCHAR(16)  NOT NULL DEFAULT 'ONLINE' COMMENT '渠道模式 ONLINE/OFFLINE',
     remark        VARCHAR(512) DEFAULT NULL COMMENT '备注',

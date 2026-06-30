@@ -10,12 +10,16 @@ import com.ai.manager.system.domain.vo.EcSalesOrderDetailVO;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.ai.manager.system.domain.vo.EcSalesOrderImportPreviewVO;
+import com.ai.manager.system.domain.vo.EcSalesOrderMonthlyOverviewVO;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 public interface EcSalesOrderService extends IService<EcSalesOrder> {
 
     PageResult<EcSalesOrderDetailVO> pageOrders(String keyword, String status, Long shopId,
+                                                 String orderTimeFrom, String orderTimeTo,
                                                  Long page, Long pageSize);
+
+    EcSalesOrderMonthlyOverviewVO getMonthlyOverview(String orderMonth, Long shopId);
 
     EcSalesOrderDetailVO getOrderDetail(Long id);
 
@@ -37,11 +41,17 @@ public interface EcSalesOrderService extends IService<EcSalesOrder> {
 
     EcSalesOrderImportPreviewVO previewImport(EcSalesOrderImportPreviewRequest request);
 
-    EcSalesOrderImportPreviewVO uploadImport(MultipartFile file, Long profileId, Long shopId);
+    EcSalesOrderImportPreviewVO uploadImport(MultipartFile file, Long profileId, Long shopId, String orderMonth);
+
+    EcSalesOrderImportPreviewVO getImportPreview(Long batchId);
 
     EcSalesOrderImportPreviewVO commitImport(Long batchId,
                                              EcSalesOrderImportManualCostUpdateRequest request);
 
     EcSalesOrderImportPreviewVO updateImportManualCosts(Long batchId,
                                                         EcSalesOrderImportManualCostUpdateRequest request);
+
+    EcSalesOrderImportPreviewVO reparseImport(Long batchId);
+
+    EcSalesOrderImportPreviewVO replaceImportFile(Long batchId, MultipartFile file);
 }

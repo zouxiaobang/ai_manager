@@ -102,6 +102,12 @@ export function todayDateString(): string {
 
 }
 
+export function tomorrowDateString(): string {
+  const date = new Date()
+  date.setDate(date.getDate() + 1)
+  return formatDateParam(date)
+}
+
 
 
 /** 仅日期提交 API 时转为 LocalDateTime 字符串 */
@@ -114,5 +120,40 @@ export function toApiDateTime(date: string): string {
 
   return `${date}T00:00:00`
 
+}
+
+/** 月份字符串 yyyy-MM */
+export function formatMonth(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  return `${y}-${m}`
+}
+
+/** 月份偏移，month 格式 yyyy-MM */
+export function shiftMonth(month: string, delta: number): string {
+  const [y, m] = month.split('-').map(Number)
+  const d = new Date(y, m - 1 + delta, 1)
+  return formatMonth(d)
+}
+
+/** 月日展示：M月D日 */
+export function formatMonthDay(value?: Date | string | null): string {
+  if (value == null || value === '') return EMPTY_DATE
+  const d = value instanceof Date ? value : new Date(String(value).replace('T', ' '))
+  if (Number.isNaN(d.getTime())) return EMPTY_DATE
+  return `${d.getMonth() + 1}月${d.getDate()}日`
+}
+
+/** 默认订单月份：上月（月初导入习惯） */
+export function defaultOrderMonth(): string {
+  return shiftMonth(formatMonth(new Date()), -1)
+}
+
+/** 月份对应的日期区间 [start, end]，格式 yyyy-MM-dd */
+export function monthDateRange(month: string): [string, string] {
+  const [y, m] = month.split('-').map(Number)
+  const lastDay = new Date(y, m, 0).getDate()
+  const dd = String(lastDay).padStart(2, '0')
+  return [`${month}-01`, `${month}-${dd}`]
 }
 

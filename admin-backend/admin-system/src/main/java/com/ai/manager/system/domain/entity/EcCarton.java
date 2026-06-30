@@ -30,6 +30,12 @@ public class EcCarton {
 
     private String remark;
 
+    /** 纸箱材质 0~3（牛皮/白卡/瓦楞/普通快递盒），null 时前端按 id 哈希选取 */
+    private Integer illustrationVariant;
+
+    /** 3D 预览图文件名（uploads/ecommerce 下） */
+    private String previewImage;
+
     @TableLogic
     private Integer deleted;
 

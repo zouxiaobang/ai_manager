@@ -17,6 +17,8 @@ import com.ai.manager.system.mapper.EcFactoryMapper;
 import com.ai.manager.system.mapper.EcProductMapper;
 import com.ai.manager.system.mapper.EcSkuMapper;
 import com.ai.manager.system.service.EcProductService;
+import com.ai.manager.system.service.EcEcommerceImageRenameService;
+import com.ai.manager.system.service.EcSystemSettingsService;
 import com.ai.manager.system.service.support.EcCartonMatcher;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -43,13 +45,28 @@ public class EcProductServiceImpl extends ServiceImpl<EcProductMapper, EcProduct
     private final EcSkuMapper ecSkuMapper;
     private final EcFactoryMapper ecFactoryMapper;
     private final EcCartonMapper ecCartonMapper;
+    private final EcSystemSettingsService ecSystemSettingsService;
+    private final EcEcommerceImageRenameService ecEcommerceImageRenameService;
+
+    private static final String PRODUCT_LIST_ORDER_SQL =
+            "ORDER BY CASE WHEN status = 'ENABLED' THEN 0 ELSE 1 END ASC, "
+                    + "(SELECT GREATEST("
+                    + "IFNULL(MAX(l.create_time), '1970-01-01 00:00:00'), "
+                    + "IFNULL(MAX(i.update_time), '1970-01-01 00:00:00')) "
+                    + "FROM ec_sku s "
+                    + "INNER JOIN ec_inventory i ON i.sku_code = s.sku_code AND i.deleted = 0 "
+                    + "LEFT JOIN ec_inventory_log l ON l.inventory_id = i.id AND l.deleted = 0 "
+                    + "WHERE s.product_id = ec_product.id AND s.deleted = 0) DESC, "
+                    + "(SELECT COALESCE(SUM(i.quantity), 0) FROM ec_sku s "
+                    + "INNER JOIN ec_inventory i ON i.sku_code = s.sku_code AND i.deleted = 0 "
+                    + "WHERE s.product_id = ec_product.id AND s.deleted = 0) DESC, "
+                    + "create_time ASC, id ASC";
 
     @Override
     public PageResult<EcProductListItemVO> pageProducts(String keyword, Long page, Long pageSize) {
         long p = PageUtils.normalizePage(page);
         long ps = PageUtils.normalizePageSize(pageSize);
-        LambdaQueryWrapper<EcProduct> wrapper = new LambdaQueryWrapper<EcProduct>()
-                .orderByDesc(EcProduct::getId);
+        LambdaQueryWrapper<EcProduct> wrapper = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(keyword)) {
             String kw = keyword.trim();
             Set<Long> matchedIds = collectProductIdsByKeyword(kw);
@@ -58,6 +75,7 @@ public class EcProductServiceImpl extends ServiceImpl<EcProductMapper, EcProduct
             }
             wrapper.in(EcProduct::getId, matchedIds);
         }
+        wrapper.last(PRODUCT_LIST_ORDER_SQL);
         Page<EcProduct> entityPage = page(new Page<>(p, ps), wrapper);
         if (entityPage.getRecords().isEmpty()) {
             return PageUtils.of(List.of(), entityPage.getTotal(), entityPage.getCurrent(), entityPage.getSize());
@@ -185,7 +203,8 @@ public class EcProductServiceImpl extends ServiceImpl<EcProductMapper, EcProduct
         product.setFactoryId(resolveFactoryId(request.getFactoryId()));
         product.setDescription(trimToNull(request.getDescription()));
         product.setRebatePct(normalizeRebatePct(request.getRebatePct()));
-        product.setImageName(trimToNull(request.getImageName()));
+        product.setImageName(ecEcommerceImageRenameService.normalizeSpuMainImage(
+                request.getImageName(), request.getName().trim()));
         if (StringUtils.hasText(request.getStatus())) {
             product.setStatus(request.getStatus().trim().toUpperCase());
         } else if (product.getStatus() == null) {
@@ -241,7 +260,12 @@ public class EcProductServiceImpl extends ServiceImpl<EcProductMapper, EcProduct
         sku.setSkuCode(item.getSkuCode().trim());
         sku.setSpecName(trimToNull(item.getSpecName()));
         sku.setRebatePct(resolveSkuRebatePct(item.getRebatePct(), product.getRebatePct()));
-        sku.setImageName(trimToNull(item.getImageName()));
+        sku.setImageName(ecEcommerceImageRenameService.normalizeSkuImage(
+                item.getImageName(),
+                product.getName(),
+                item.getSpecName(),
+                item.getSkuCode(),
+                item.getId()));
         sku.setSalePrice(item.getSalePrice());
         sku.setProductLengthCm(item.getProductLengthCm());
         sku.setProductWidthCm(item.getProductWidthCm());
@@ -386,7 +410,7 @@ public class EcProductServiceImpl extends ServiceImpl<EcProductMapper, EcProduct
 
     private BigDecimal normalizeRebatePct(BigDecimal rebatePct) {
         if (rebatePct == null) {
-            return BigDecimal.ZERO;
+            return ecSystemSettingsService.resolveDefaultRebatePct();
         }
         return rebatePct;
     }

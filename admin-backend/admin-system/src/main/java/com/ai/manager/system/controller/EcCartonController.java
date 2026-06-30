@@ -9,6 +9,7 @@ import com.ai.manager.system.domain.vo.EcCartonListItemVO;
 import com.ai.manager.system.service.EcCartonService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/ecommerce/cartons")
@@ -68,6 +69,13 @@ public class EcCartonController {
     @PutMapping("/{id}")
     public ApiResult<EcCartonListItemVO> update(@PathVariable Long id, @RequestBody EcCartonSaveRequest request) {
         return ApiResult.ok(ecCartonService.updateCarton(id, request));
+    }
+
+    @PutMapping("/{id}/preview-image")
+    public ApiResult<EcCartonListItemVO> uploadPreviewImage(@PathVariable Long id,
+                                                            @RequestParam("file") MultipartFile file,
+                                                            @RequestParam(value = "cartonName", required = false) String cartonName) {
+        return ApiResult.ok(ecCartonService.updateCartonPreviewImage(id, file, cartonName));
     }
 
     @DeleteMapping("/{id}")

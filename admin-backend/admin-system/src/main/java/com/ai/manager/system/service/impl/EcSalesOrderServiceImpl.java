@@ -24,6 +24,7 @@ import com.ai.manager.system.domain.vo.EcSalesOrderDetailVO;
 import com.ai.manager.system.domain.vo.EcSalesOrderImportPreviewVO;
 import com.ai.manager.system.domain.vo.EcSalesOrderImportRowVO;
 import com.ai.manager.system.domain.vo.EcSalesOrderLineVO;
+import com.ai.manager.system.domain.vo.EcSalesOrderMonthlyOverviewVO;
 import com.ai.manager.system.domain.vo.EcSalesOrderShortageVO;
 import com.ai.manager.system.mapper.EcExpressStationMapper;
 import com.ai.manager.system.mapper.EcOrderImportRowMapper;
@@ -34,7 +35,9 @@ import com.ai.manager.system.mapper.EcSalesOrderShortageMapper;
 import com.ai.manager.system.mapper.EcShopMapper;
 import com.ai.manager.system.mapper.SysImportBatchMapper;
 import com.ai.manager.system.mapper.SysImportProfileMapper;
+import com.ai.manager.system.service.EcSalesOrderImportFileStorage;
 import com.ai.manager.system.service.EcSalesOrderService;
+import com.ai.manager.system.service.EcSystemSettingsService;
 import com.ai.manager.system.service.support.Ec1688ImportLinkNameSupport;
 import com.ai.manager.system.service.support.EcAddressProvinceSupport;
 import com.ai.manager.system.service.support.EcImportStatusSupport;
@@ -58,7 +61,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -66,6 +71,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -76,6 +82,7 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
 
     private static final String SOURCE_MANUAL = "MANUAL";
     private static final String SOURCE_IMPORT = "IMPORT";
+    private static final String MANUAL_DEFAULT_PLATFORM_STATUS = "已完成";
     private static final String STATUS_DRAFT = "DRAFT";
     private static final String STATUS_PAID = "PAID";
     private static final String STATUS_PARTIAL_SHIPPED = "PARTIAL_SHIPPED";
@@ -108,11 +115,17 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
     private final EcSalesOrderPricingSupport pricingSupport;
     private final EcSalesOrderInventorySupport inventorySupport;
     private final SysImportParseSupport sysImportParseSupport;
+    private final EcSalesOrderImportFileStorage importFileStorage;
     private final ExpressStationNameAliasSupport expressStationNameAliasSupport;
     private final ObjectMapper objectMapper;
+    private final EcSystemSettingsService ecSystemSettingsService;
+
+    private static final DateTimeFormatter ORDER_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter ORDER_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     @Override
     public PageResult<EcSalesOrderDetailVO> pageOrders(String keyword, String status, Long shopId,
+                                                       String orderTimeFrom, String orderTimeTo,
                                                        Long page, Long pageSize) {
         long p = PageUtils.normalizePage(page);
         long ps = PageUtils.normalizePageSize(pageSize);
@@ -125,6 +138,7 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         if (shopId != null) {
             wrapper.eq(EcSalesOrder::getShopId, shopId);
         }
+        applyOrderTimeRangeFilter(wrapper, orderTimeFrom, orderTimeTo);
         if (StringUtils.hasText(keyword)) {
             String kw = keyword.trim();
             wrapper.and(w -> w.like(EcSalesOrder::getOrderNo, kw)
@@ -144,13 +158,95 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
                 .map(EcSalesOrder::getExpressStationId).filter(Objects::nonNull).distinct().toList());
         List<Long> orderIds = entityPage.getRecords().stream().map(EcSalesOrder::getId).toList();
         Map<Long, Integer> lineCountMap = loadLineCountMap(orderIds);
+        Map<Long, EcSalesOrderLine> firstLineMap = loadFirstLineMap(orderIds);
         List<EcSalesOrderDetailVO> records = new ArrayList<>();
         for (EcSalesOrder order : entityPage.getRecords()) {
             int lineCount = lineCountMap.getOrDefault(order.getId(), 0);
-            records.add(toDetailVO(order, List.of(), shopMap, platformMap, stationNameMap, lineCount));
+            EcSalesOrderDetailVO vo = toDetailVO(order, List.of(), shopMap, platformMap, stationNameMap, lineCount);
+            EcSalesOrderLine firstLine = firstLineMap.get(order.getId());
+            if (firstLine != null) {
+                vo.setLinkName(firstLine.getLinkName());
+                vo.setSkuSpecName(firstLine.getSkuSpecName());
+            }
+            records.add(vo);
         }
         return PageUtils.of(records, entityPage.getTotal(), entityPage.getCurrent(), entityPage.getSize());
     }
+
+    @Override
+    public EcSalesOrderMonthlyOverviewVO getMonthlyOverview(String orderMonth, Long shopId) {
+        YearMonth ym = parseOrderMonth(orderMonth);
+        LocalDateTime start = ym.atDay(1).atStartOfDay();
+        LocalDateTime end = ym.plusMonths(1).atDay(1).atStartOfDay();
+
+        List<EcShop> shops = loadOverviewShops(shopId);
+        Map<Long, EcPlatform> platformMap = loadPlatformMap(shops.stream()
+                .map(EcShop::getPlatformId).filter(Objects::nonNull).distinct().toList());
+        Map<Long, Long> orderCountByShop = countOrdersByShop(start, end, shopId);
+        Map<Long, PendingBatchInfo> pendingByShop = loadPendingBatchInfoByShop(ym);
+
+        List<EcSalesOrderMonthlyOverviewVO.ShopImportStatus> shopStatuses = new ArrayList<>();
+        int totalOrderCount = 0;
+        int importedShopCount = 0;
+        int pendingReviewCount = 0;
+        LocalDateTime lastImportTime = null;
+
+        for (EcShop shop : shops) {
+            int orderCount = orderCountByShop.getOrDefault(shop.getId(), 0L).intValue();
+            PendingBatchInfo pending = pendingByShop.get(shop.getId());
+            EcSalesOrderMonthlyOverviewVO.ShopImportStatus row = new EcSalesOrderMonthlyOverviewVO.ShopImportStatus();
+            row.setShopId(shop.getId());
+            row.setShopName(shop.getName());
+            row.setShopAvatarUrl(shop.getAvatarUrl());
+            if (shop.getPlatformId() != null) {
+                EcPlatform platform = platformMap.get(shop.getPlatformId());
+                if (platform != null) {
+                    row.setPlatformName(platform.getName());
+                    row.setPlatformCode(platform.getPlatformCode());
+                    row.setPlatformAvatarUrl(platform.getAvatarUrl());
+                }
+            }
+            row.setOrderCount(orderCount);
+
+            if (pending != null) {
+                row.setStatus("PENDING_REVIEW");
+                row.setPendingBatchId(pending.batchId());
+                row.setPendingReviewRows(pending.reviewRows());
+                pendingReviewCount += pending.reviewRows();
+            } else if (orderCount > 0) {
+                row.setStatus("IMPORTED");
+            } else {
+                row.setStatus("NOT_IMPORTED");
+            }
+
+            if (orderCount > 0) {
+                importedShopCount++;
+            }
+
+            LocalDateTime shopLastImport = loadShopLastImportTime(shop.getId(), start, end);
+            if (shopLastImport == null && pending != null && pending.importTime() != null) {
+                shopLastImport = pending.importTime();
+            }
+            row.setLastImportTime(shopLastImport);
+            if (shopLastImport != null && (lastImportTime == null || shopLastImport.isAfter(lastImportTime))) {
+                lastImportTime = shopLastImport;
+            }
+            totalOrderCount += orderCount;
+            shopStatuses.add(row);
+        }
+
+        EcSalesOrderMonthlyOverviewVO vo = new EcSalesOrderMonthlyOverviewVO();
+        vo.setOrderMonth(ym.toString());
+        vo.setTotalOrderCount(totalOrderCount);
+        vo.setImportedShopCount(importedShopCount);
+        vo.setTotalShopCount(shops.size());
+        vo.setPendingReviewCount(pendingReviewCount);
+        vo.setLastImportTime(lastImportTime);
+        vo.setShops(shopStatuses);
+        return vo;
+    }
+
+    private record PendingBatchInfo(Long batchId, int reviewRows, LocalDateTime importTime) {}
 
     @Override
     public EcSalesOrderDetailVO getOrderDetail(Long id) {
@@ -162,9 +258,9 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
     @Transactional(rollbackFor = Exception.class)
     public EcSalesOrderDetailVO createOrder(EcSalesOrderSaveRequest request) {
         EcShop shop = requireShop(request.getShopId());
-        String province = EcAddressProvinceSupport.parseProvince(trimToNull(request.getReceiveAddress()));
+        String province = resolveReceiveProvince(request);
         List<BuiltLine> lines = buildLines(request.getLines(), shop, request.getExpressStationId(),
-                province, true);
+                province, false);
         EcSalesOrder order = new EcSalesOrder();
         order.setOrderNo(generateOrderNo());
         order.setShopId(shop.getId());
@@ -173,6 +269,7 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         order.setStatus(STATUS_DRAFT);
         order.setActualFreightAmount(BigDecimal.ZERO);
         applyHeaderFields(order, request);
+        applyPlatformStatus(order, request);
         save(order);
         saveBuiltLines(order.getId(), lines);
         recalculateOrderTotals(order.getId());
@@ -185,12 +282,13 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
     public EcSalesOrderDetailVO updateOrder(Long id, EcSalesOrderSaveRequest request) {
         EcSalesOrder order = requireEditableOrder(id);
         EcShop shop = requireShop(request.getShopId());
-        String province = EcAddressProvinceSupport.parseProvince(trimToNull(request.getReceiveAddress()));
+        String province = resolveReceiveProvince(request);
         List<BuiltLine> lines = buildLines(request.getLines(), shop, request.getExpressStationId(),
-                province, true);
+                province, false);
         order.setShopId(shop.getId());
         order.setPlatformOrderNo(trimToNull(request.getPlatformOrderNo()));
         applyHeaderFields(order, request);
+        applyPlatformStatus(order, request);
         updateById(order);
         ecSalesOrderLineMapper.delete(new LambdaQueryWrapper<EcSalesOrderLine>()
                 .eq(EcSalesOrderLine::getOrderId, id));
@@ -312,10 +410,12 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteOrder(Long id) {
-        requireOrder(id);
+        EcSalesOrder order = requireDeletableOrder(id);
         ecSalesOrderLineMapper.delete(new LambdaQueryWrapper<EcSalesOrderLine>()
                 .eq(EcSalesOrderLine::getOrderId, id));
-        removeById(id);
+        ecSalesOrderShortageMapper.delete(new LambdaQueryWrapper<EcSalesOrderShortage>()
+                .eq(EcSalesOrderShortage::getOrderId, id));
+        removeById(order.getId());
     }
 
     @Override
@@ -333,7 +433,8 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public EcSalesOrderImportPreviewVO uploadImport(MultipartFile file, Long profileId, Long shopId) {
+    public EcSalesOrderImportPreviewVO uploadImport(MultipartFile file, Long profileId, Long shopId,
+                                                    String orderMonth) {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "请上传文件");
         }
@@ -346,23 +447,37 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "导入配置与店铺所属平台不一致");
         }
         try {
+            byte[] fileBytes = file.getBytes();
             SysImportParseSupport.ImportParseResult parsed = sysImportParseSupport.parseBytes(
-                    file.getBytes(), file.getOriginalFilename(), profile);
+                    fileBytes, file.getOriginalFilename(), profile);
             if (parsed.rows().isEmpty()) {
                 throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "文件无有效数据");
             }
+            String batchNo = generateBatchNo();
             SysImportBatch batch = new SysImportBatch();
-            batch.setBatchNo(generateBatchNo());
+            batch.setBatchNo(batchNo);
             batch.setProfileId(profile.getId());
             batch.setBizType(SysImportFieldRegistry.BIZ_SALES_ORDER);
-            batch.setBizContext(toJson(Map.of("shopId", shopId)));
             batch.setFileName(trimToNull(file.getOriginalFilename()));
             batch.setDetectedColumns(toJson(parsed.headers()));
             batch.setSource("UPLOAD");
             batch.setStatus("PREVIEWED");
             batch.setTotalRows(parsed.rows().size());
             sysImportBatchMapper.insert(batch);
-            return processImportRows(shopId, batch, parsed.rows());
+            EcSalesOrderImportFileStorage.SaveResult saved = importFileStorage.save(
+                    batchNo, file.getOriginalFilename(), fileBytes);
+            batch.setFilePath(saved.panPath());
+            batch.setBizContext(buildSalesOrderBatchContext(shopId, orderMonth, saved));
+            sysImportBatchMapper.updateById(batch);
+            YearMonth ym = parseOrderMonthOptional(orderMonth).orElse(null);
+            if (ym == null) {
+                ym = resolveBatchOrderMonth(batch).orElse(null);
+            }
+            if (ym != null) {
+                closeOtherPreviewedBatches(shopId, ym, batch.getId());
+            }
+            EcSalesOrderImportPreviewVO vo = processImportRows(shopId, batch, parsed.rows());
+            return enrichImportPreviewVO(vo, batch, shopId);
         } catch (BusinessException ex) {
             throw ex;
         } catch (Exception ex) {
@@ -391,7 +506,7 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         boolean parse1688LinkSku = is1688Platform(shop.getPlatformId());
         SysImportProfile profile = batch.getProfileId() != null
                 ? sysImportProfileMapper.selectById(batch.getProfileId()) : null;
-        EcImportStatusSupport statusSupport = EcImportStatusSupport.from(profile, objectMapper);
+        EcImportStatusSupport statusSupport = createStatusSupport(profile);
         Set<String> sellerRemarkOrders = parse1688LinkSku
                 ? collect1688OrdersWithSellerRemark(rows) : Set.of();
         int matched = 0;
@@ -478,22 +593,118 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
 
     private void applyImportRowStatus(EcOrderImportRow entity, Map<String, String> raw,
                                       EcImportStatusSupport statusSupport) {
-        String platformLineStatus = getMapValue(raw, "platform_line_status", "platformLineStatus");
-        if (!StringUtils.hasText(platformLineStatus)) {
-            platformLineStatus = getMapValue(raw, "platform_status", "platformStatus");
-        }
+        String platformLineStatus = readImportPlatformStatus(raw);
         entity.setPlatformLineStatus(StringUtils.hasText(platformLineStatus) ? platformLineStatus.trim() : null);
         EcImportStatusSupport.ResolveResult resolved = statusSupport.resolveDetailed(platformLineStatus);
+        if (!resolved.matched()) {
+            String inferred = inferLineStatusFromRaw(raw);
+            if (inferred != null) {
+                resolved = new EcImportStatusSupport.ResolveResult(true, inferred, platformLineStatus);
+            }
+        }
         if (resolved.matched()) {
             entity.setStatusMatchStatus("MATCHED");
             entity.setLineStatus(resolved.lineStatus());
         } else {
             entity.setStatusMatchStatus("UNMATCHED");
             entity.setLineStatus(null);
-            entity.setErrorMessage(mergeImportRowMessages(
-                    "平台状态「" + resolved.platformText() + "」未映射，请选择系统状态",
-                    entity.getErrorMessage()));
+            String message = StringUtils.hasText(resolved.platformText())
+                    ? "平台状态「" + resolved.platformText() + "」未映射，请选择系统状态"
+                    : "未识别到平台订单状态，请手动选择系统状态";
+            entity.setErrorMessage(mergeImportRowMessages(message, entity.getErrorMessage()));
         }
+    }
+
+    private String readImportPlatformStatus(Map<String, String> raw) {
+        String platformLineStatus = getMapValue(raw, "platform_line_status", "platformLineStatus");
+        if (!StringUtils.hasText(platformLineStatus)) {
+            platformLineStatus = getMapValue(raw, "platform_status", "platformStatus");
+        }
+        return platformLineStatus;
+    }
+
+    private SysImportProfile resolveImportProfile(SysImportBatch batch) {
+        return batch.getProfileId() != null ? sysImportProfileMapper.selectById(batch.getProfileId()) : null;
+    }
+
+    /**
+     * 恢复预览或入库前，从 platform_line_status / raw_json 回填缺失或错误的 line_status。
+     * 人工指定且 status_match_status=UNMATCHED 的行不覆盖。
+     */
+    private void hydrateImportRowLineStatus(EcOrderImportRow row, EcImportStatusSupport statusSupport) {
+        if ("UNMATCHED".equals(row.getStatusMatchStatus()) && StringUtils.hasText(row.getLineStatus())) {
+            return;
+        }
+        String platformStatus = readImportPlatformStatusFromRow(row);
+        Map<String, String> raw = readImportRowRawAsStringMap(row);
+        EcImportStatusSupport.ResolveResult resolved = statusSupport.resolveDetailed(platformStatus);
+        if (!resolved.matched()) {
+            String inferred = inferLineStatusFromRaw(raw);
+            if (inferred != null) {
+                resolved = new EcImportStatusSupport.ResolveResult(true, inferred, platformStatus);
+            }
+        }
+        if (!resolved.matched()) {
+            return;
+        }
+        String expected = resolved.lineStatus();
+        boolean statusBlank = !StringUtils.hasText(row.getLineStatus());
+        boolean statusMismatch = !statusBlank
+                && !expected.equalsIgnoreCase(row.getLineStatus().trim());
+        boolean platformBlank = !StringUtils.hasText(row.getPlatformLineStatus());
+        if (!statusBlank && !statusMismatch && !platformBlank) {
+            return;
+        }
+        row.setLineStatus(expected);
+        row.setStatusMatchStatus("MATCHED");
+        if (StringUtils.hasText(resolved.platformText())) {
+            row.setPlatformLineStatus(resolved.platformText());
+        } else if (StringUtils.hasText(platformStatus)) {
+            row.setPlatformLineStatus(platformStatus);
+        }
+        ecOrderImportRowMapper.updateById(row);
+    }
+
+    private String readImportPlatformStatusFromRow(EcOrderImportRow row) {
+        if (StringUtils.hasText(row.getPlatformLineStatus())) {
+            return row.getPlatformLineStatus().trim();
+        }
+        Map<String, String> raw = readImportRowRawAsStringMap(row);
+        return readImportPlatformStatus(raw);
+    }
+
+    private Map<String, String> readImportRowRawAsStringMap(EcOrderImportRow row) {
+        if (!StringUtils.hasText(row.getRawJson())) {
+            return Map.of();
+        }
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> map = objectMapper.readValue(row.getRawJson(), Map.class);
+            Map<String, String> result = new LinkedHashMap<>();
+            for (Map.Entry<String, Object> entry : map.entrySet()) {
+                if (entry.getValue() != null && StringUtils.hasText(String.valueOf(entry.getValue()))) {
+                    result.put(entry.getKey(), String.valueOf(entry.getValue()).trim());
+                }
+            }
+            return result;
+        } catch (Exception ignored) {
+            return Map.of();
+        }
+    }
+
+    /** 平台状态列缺失时，根据时间/物流字段推断行状态 */
+    private String inferLineStatusFromRaw(Map<String, String> raw) {
+        if (StringUtils.hasText(getMapValue(raw, "complete_time", "completeTime"))) {
+            return "COMPLETED";
+        }
+        if (StringUtils.hasText(getMapValue(raw, "ship_time", "shipTime"))
+                || StringUtils.hasText(getMapValue(raw, "tracking_number", "trackingNumber"))) {
+            return "SHIPPED";
+        }
+        if (StringUtils.hasText(getMapValue(raw, "pay_time", "payTime"))) {
+            return "PAID";
+        }
+        return null;
     }
 
     private String mergeImportRowMessages(String primary, String secondary) {
@@ -517,8 +728,92 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         if (request == null || request.getItems() == null || request.getItems().isEmpty()) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "请提供要更新的行");
         }
-        applyImportManualCosts(batchId, request);
-        return buildImportPreviewVO(batch);
+        applyImportManualCosts(batchId, request, Set.of());
+        EcSalesOrderImportPreviewVO vo = buildImportPreviewVO(batch);
+        return enrichImportPreviewVO(vo, batch, readShopIdFromBatch(batch));
+    }
+
+    @Override
+    public EcSalesOrderImportPreviewVO getImportPreview(Long batchId) {
+        SysImportBatch batch = requireImportBatchForEdit(batchId);
+        if (!SysImportFieldRegistry.BIZ_SALES_ORDER.equals(batch.getBizType())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "批次类型不匹配");
+        }
+        EcSalesOrderImportPreviewVO vo = buildImportPreviewVO(batch);
+        return enrichImportPreviewVO(vo, batch, readShopIdFromBatch(batch));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public EcSalesOrderImportPreviewVO reparseImport(Long batchId) {
+        SysImportBatch batch = requireImportBatchForEdit(batchId);
+        if (!SysImportFieldRegistry.BIZ_SALES_ORDER.equals(batch.getBizType())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "批次类型不匹配");
+        }
+        return reparseExistingBatch(batch);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public EcSalesOrderImportPreviewVO replaceImportFile(Long batchId, MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "请上传文件");
+        }
+        SysImportBatch batch = requireImportBatchForEdit(batchId);
+        if (!SysImportFieldRegistry.BIZ_SALES_ORDER.equals(batch.getBizType())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "批次类型不匹配");
+        }
+        try {
+            byte[] fileBytes = file.getBytes();
+            EcSalesOrderImportFileStorage.SaveResult saved = importFileStorage.save(
+                    batch.getBatchNo(), file.getOriginalFilename(), fileBytes);
+            batch.setFileName(trimToNull(file.getOriginalFilename()));
+            batch.setFilePath(saved.panPath());
+            batch.setBizContext(buildSalesOrderBatchContext(readShopIdFromBatch(batch),
+                    readOrderMonthFromBatch(batch).map(YearMonth::toString).orElse(null), saved));
+            sysImportBatchMapper.updateById(batch);
+            return reparseExistingBatch(batch);
+        } catch (BusinessException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "文件替换失败: " + ex.getMessage());
+        }
+    }
+
+    private EcSalesOrderImportPreviewVO reparseExistingBatch(SysImportBatch batch) {
+        Long shopId = readShopIdFromBatch(batch);
+        EcShop shop = requireShop(shopId);
+        SysImportProfile profile = resolveImportProfile(batch.getProfileId(), shop);
+        try {
+            byte[] bytes = importFileStorage.load(batch);
+            if (bytes == null || bytes.length == 0) {
+                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "导入文件不存在，请重新上传");
+            }
+            SysImportParseSupport.ImportParseResult parsed = sysImportParseSupport.parseBytes(
+                    bytes, batch.getFileName(), profile);
+            if (parsed.rows().isEmpty()) {
+                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "文件无有效数据");
+            }
+            clearImportRows(batch.getId());
+            batch.setTotalRows(parsed.rows().size());
+            batch.setDetectedColumns(toJson(parsed.headers()));
+            batch.setStatus("PREVIEWED");
+            batch.setSuccessRows(0);
+            batch.setFailedRows(0);
+            batch.setUnmatchedRows(0);
+            sysImportBatchMapper.updateById(batch);
+            EcSalesOrderImportPreviewVO vo = processImportRows(shopId, batch, parsed.rows());
+            return enrichImportPreviewVO(vo, batch, shopId);
+        } catch (BusinessException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "重新解析失败: " + ex.getMessage());
+        }
+    }
+
+    private void clearImportRows(Long batchId) {
+        ecOrderImportRowMapper.delete(new LambdaQueryWrapper<EcOrderImportRow>()
+                .eq(EcOrderImportRow::getBatchId, batchId));
     }
 
     @Override
@@ -526,14 +821,31 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
     public EcSalesOrderImportPreviewVO commitImport(Long batchId,
                                                       EcSalesOrderImportManualCostUpdateRequest request) {
         SysImportBatch batch = requireImportBatchForEdit(batchId);
+        Set<String> excludedLineStatuses = resolveExcludedLineStatuses(request);
         if (request != null && request.getItems() != null && !request.getItems().isEmpty()) {
-            applyImportManualCosts(batchId, request);
+            applyImportManualCosts(batchId, request, excludedLineStatuses);
         }
         Long shopId = readShopIdFromBatch(batch);
         EcShop shop = requireShop(shopId);
         List<EcOrderImportRow> rows = ecOrderImportRowMapper.selectList(new LambdaQueryWrapper<EcOrderImportRow>()
                 .eq(EcOrderImportRow::getBatchId, batchId)
                 .orderByAsc(EcOrderImportRow::getRowNo));
+        SysImportProfile profile = resolveImportProfile(batch);
+        EcImportStatusSupport statusSupport = createStatusSupport(profile);
+        for (EcOrderImportRow row : rows) {
+            if ("OK".equals(row.getParseStatus())) {
+                hydrateImportRowLineStatus(row, statusSupport);
+            }
+        }
+        for (EcOrderImportRow row : rows) {
+            if (!"OK".equals(row.getParseStatus())) {
+                continue;
+            }
+            if (isExcludedImportRow(row, excludedLineStatuses) && "UNMATCHED".equals(row.getMatchStatus())) {
+                row.setManualCostPrice(BigDecimal.ZERO);
+                ecOrderImportRowMapper.updateById(row);
+            }
+        }
         List<Integer> missingCostRows = new ArrayList<>();
         List<Integer> missingStatusRows = new ArrayList<>();
         Map<String, List<EcOrderImportRow>> grouped = new LinkedHashMap<>();
@@ -547,8 +859,11 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
                 continue;
             }
             if ("UNMATCHED".equals(row.getMatchStatus())) {
-                if (row.getManualCostPrice() == null || row.getManualCostPrice().compareTo(BigDecimal.ZERO) <= 0) {
-                    missingCostRows.add(row.getRowNo());
+                if (row.getManualCostPrice() == null
+                        || row.getManualCostPrice().compareTo(BigDecimal.ZERO) == 0) {
+                    if (!isExcludedImportRow(row, excludedLineStatuses)) {
+                        missingCostRows.add(row.getRowNo());
+                    }
                     continue;
                 }
             }
@@ -567,9 +882,6 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         if (grouped.isEmpty()) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "没有可入库的有效行");
         }
-        SysImportProfile profile = batch.getProfileId() != null
-                ? sysImportProfileMapper.selectById(batch.getProfileId()) : null;
-        EcImportStatusSupport statusSupport = EcImportStatusSupport.from(profile, objectMapper);
         int success = 0;
         for (Map.Entry<String, List<EcOrderImportRow>> entry : grouped.entrySet()) {
             String platformOrderNo = entry.getKey().startsWith("ROW-") ? null : entry.getKey();
@@ -595,6 +907,10 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         batch.setSuccessRows(success);
         batch.setCommittedTime(LocalDateTime.now());
         sysImportBatchMapper.updateById(batch);
+        YearMonth batchMonth = resolveBatchOrderMonth(batch).orElse(null);
+        if (batchMonth != null) {
+            closeOtherPreviewedBatches(shopId, batchMonth, batch.getId());
+        }
 
         return buildImportPreviewVO(batch, success);
     }
@@ -617,7 +933,9 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         return batch;
     }
 
-    private void applyImportManualCosts(Long batchId, EcSalesOrderImportManualCostUpdateRequest request) {
+    private void applyImportManualCosts(Long batchId,
+                                        EcSalesOrderImportManualCostUpdateRequest request,
+                                        Set<String> excludedLineStatuses) {
         for (EcSalesOrderImportManualCostUpdateRequest.Item item : request.getItems()) {
             if (item.getRowId() == null) {
                 continue;
@@ -630,8 +948,9 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
                 if (!"UNMATCHED".equals(row.getMatchStatus())) {
                     throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "仅未匹配链接行可填写手动成本");
                 }
-                if (item.getManualCostPrice().compareTo(BigDecimal.ZERO) < 0) {
-                    throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "手动成本不能为负数");
+                if (item.getManualCostPrice().compareTo(BigDecimal.ZERO) == 0
+                        && !isExcludedImportRow(row, excludedLineStatuses)) {
+                    throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "手动成本不能为 0");
                 }
                 row.setManualCostPrice(item.getManualCostPrice());
             }
@@ -641,6 +960,27 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
             }
             ecOrderImportRowMapper.updateById(row);
         }
+    }
+
+    private Set<String> resolveExcludedLineStatuses(EcSalesOrderImportManualCostUpdateRequest request) {
+        if (request == null || request.getExcludedLineStatuses() == null
+                || request.getExcludedLineStatuses().isEmpty()) {
+            return Set.of();
+        }
+        Set<String> excluded = new LinkedHashSet<>();
+        for (String status : request.getExcludedLineStatuses()) {
+            if (StringUtils.hasText(status)) {
+                excluded.add(normalizeImportLineStatus(status));
+            }
+        }
+        return excluded;
+    }
+
+    private boolean isExcludedImportRow(EcOrderImportRow row, Set<String> excludedLineStatuses) {
+        if (excludedLineStatuses.isEmpty() || !StringUtils.hasText(row.getLineStatus())) {
+            return false;
+        }
+        return excludedLineStatuses.contains(row.getLineStatus().trim().toUpperCase());
     }
 
     private static String normalizeImportLineStatus(String status) {
@@ -659,12 +999,14 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         List<EcOrderImportRow> rows = ecOrderImportRowMapper.selectList(new LambdaQueryWrapper<EcOrderImportRow>()
                 .eq(EcOrderImportRow::getBatchId, batch.getId())
                 .orderByAsc(EcOrderImportRow::getRowNo));
+        EcImportStatusSupport statusSupport = createStatusSupport(resolveImportProfile(batch));
         int matched = 0;
         int unmatched = 0;
         int statusUnmatched = 0;
         int errors = 0;
         List<EcSalesOrderImportRowVO> previewRows = new ArrayList<>();
         for (EcOrderImportRow row : rows) {
+            hydrateImportRowLineStatus(row, statusSupport);
             if ("ERROR".equals(row.getParseStatus())) {
                 errors++;
             } else if ("MATCHED".equals(row.getMatchStatus())) {
@@ -767,14 +1109,15 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
 
     private void applyHeaderFields(EcSalesOrder order, EcSalesOrderSaveRequest request) {
         order.setExpressStationId(request.getExpressStationId());
-        order.setOrderTime(request.getOrderTime() != null ? request.getOrderTime() : LocalDateTime.now());
-        order.setPayTime(request.getPayTime());
+        LocalDateTime orderTime = request.getOrderTime() != null ? request.getOrderTime() : LocalDateTime.now();
+        order.setOrderTime(orderTime);
+        order.setPayTime(request.getPayTime() != null ? request.getPayTime() : orderTime);
         order.setBuyerName(trimToNull(request.getBuyerName()));
         order.setBuyerPhone(trimToNull(request.getBuyerPhone()));
         order.setReceiveCity(trimToNull(request.getReceiveCity()));
         order.setReceiveDistrict(trimToNull(request.getReceiveDistrict()));
         order.setReceiveAddress(trimToNull(request.getReceiveAddress()));
-        order.setReceiveProvince(EcAddressProvinceSupport.parseProvince(order.getReceiveAddress()));
+        order.setReceiveProvince(resolveReceiveProvince(request));
         order.setTrackingNumber(trimToNull(request.getTrackingNumber()));
         order.setBuyerRemark(trimToNull(request.getBuyerRemark()));
         order.setSellerRemark(trimToNull(request.getSellerRemark()));
@@ -785,6 +1128,33 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         }
         order.setOrderCouponAmount(request.getOrderCouponAmount());
         order.setHasShortage(0);
+    }
+
+    private String resolveReceiveProvince(EcSalesOrderSaveRequest request) {
+        if (StringUtils.hasText(request.getReceiveProvince())) {
+            return trimToNull(request.getReceiveProvince());
+        }
+        return EcAddressProvinceSupport.parseProvince(trimToNull(request.getReceiveAddress()));
+    }
+
+    private void applyPlatformStatus(EcSalesOrder order, EcSalesOrderSaveRequest request) {
+        if (StringUtils.hasText(request.getPlatformStatus())) {
+            order.setPlatformStatus(trimToNull(request.getPlatformStatus()));
+            return;
+        }
+        if (SOURCE_MANUAL.equals(order.getSource()) && !StringUtils.hasText(order.getPlatformStatus())) {
+            order.setPlatformStatus(MANUAL_DEFAULT_PLATFORM_STATUS);
+        }
+    }
+
+    private String resolvePlatformStatus(EcSalesOrder order) {
+        if (StringUtils.hasText(order.getPlatformStatus())) {
+            return order.getPlatformStatus().trim();
+        }
+        if (SOURCE_MANUAL.equals(order.getSource())) {
+            return MANUAL_DEFAULT_PLATFORM_STATUS;
+        }
+        return null;
     }
 
     private void recalculateOrderTotals(Long orderId) {
@@ -950,7 +1320,7 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         vo.setPlatformOrderNo(order.getPlatformOrderNo());
         vo.setSource(order.getSource());
         vo.setStatus(order.getStatus());
-        vo.setPlatformStatus(order.getPlatformStatus());
+        vo.setPlatformStatus(resolvePlatformStatus(order));
         vo.setExpressStationId(order.getExpressStationId());
         if (order.getExpressStationId() != null) {
             vo.setExpressStationName(stationNameMap.get(order.getExpressStationId()));
@@ -1001,6 +1371,23 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
             counts.merge(line.getOrderId(), 1, Integer::sum);
         }
         return counts;
+    }
+
+    private Map<Long, EcSalesOrderLine> loadFirstLineMap(List<Long> orderIds) {
+        if (orderIds == null || orderIds.isEmpty()) {
+            return Map.of();
+        }
+        List<EcSalesOrderLine> lines = ecSalesOrderLineMapper.selectList(new LambdaQueryWrapper<EcSalesOrderLine>()
+                .in(EcSalesOrderLine::getOrderId, orderIds)
+                .orderByAsc(EcSalesOrderLine::getSortOrder)
+                .orderByAsc(EcSalesOrderLine::getId));
+        Map<Long, EcSalesOrderLine> result = new LinkedHashMap<>();
+        for (EcSalesOrderLine line : lines) {
+            if (line.getOrderId() != null) {
+                result.putIfAbsent(line.getOrderId(), line);
+            }
+        }
+        return result;
     }
 
     private EcSalesOrderLineVO toLineVO(EcSalesOrderLine line) {
@@ -1059,6 +1446,7 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         vo.setPlatformOrderNo(row.getPlatformOrderNo());
         vo.setLinkName(row.getLinkName());
         vo.setSkuSpecName(row.getSkuSpecName());
+        vo.setSkuQuantity(parseSkuQuantityFromImportRow(row));
         vo.setMatchStatus(row.getMatchStatus());
         vo.setListingLinkSkuId(row.getListingLinkSkuId());
         vo.setManualCostPrice(row.getManualCostPrice());
@@ -1107,6 +1495,28 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
             @SuppressWarnings("unchecked")
             Map<String, Object> map = objectMapper.readValue(row.getRawJson(), Map.class);
             return trimToNull(getMapValueFromObject(map, "seller_remark", "sellerRemark"));
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private Integer parseSkuQuantityFromImportRow(EcOrderImportRow row) {
+        if (!StringUtils.hasText(row.getRawJson())) {
+            return null;
+        }
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> map = objectMapper.readValue(row.getRawJson(), Map.class);
+            String qty = getMapValueFromObject(map, "sku_quantity", "skuQuantity", "quantity");
+            if (!StringUtils.hasText(qty)) {
+                return null;
+            }
+            String normalized = qty.trim();
+            if (normalized.contains(".")) {
+                normalized = normalized.substring(0, normalized.indexOf('.'));
+            }
+            int value = Integer.parseInt(normalized);
+            return value > 0 ? value : null;
         } catch (Exception ignored) {
             return null;
         }
@@ -1503,7 +1913,14 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         if (StringUtils.hasText(row.getLineStatus())) {
             status = row.getLineStatus();
         } else {
-            status = statusSupport.resolveLineStatus(item.getPlatformLineStatus());
+            String platformStatus = item.getPlatformLineStatus();
+            if (!StringUtils.hasText(platformStatus)) {
+                platformStatus = readImportPlatformStatusFromRow(row);
+            }
+            status = statusSupport.resolveLineStatus(platformStatus);
+            if (!StringUtils.hasText(status)) {
+                status = inferLineStatusFromRaw(readImportRowRawAsStringMap(row));
+            }
         }
         return adjustImportLineStatusForCancelledOrder(order, status);
     }
@@ -1571,16 +1988,10 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
     }
 
     private String parseImportPlatformLineStatus(EcOrderImportRow row) {
-        if (!StringUtils.hasText(row.getRawJson())) {
-            return null;
+        if (StringUtils.hasText(row.getPlatformLineStatus())) {
+            return row.getPlatformLineStatus().trim();
         }
-        try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> map = objectMapper.readValue(row.getRawJson(), Map.class);
-            return getMapValueFromObject(map, "platform_line_status", "platformLineStatus");
-        } catch (Exception ignored) {
-            return null;
-        }
+        return readImportPlatformStatus(readImportRowRawAsStringMap(row));
     }
 
     private void applyManualLinePricing(EcSalesOrderLine line, BigDecimal costPrice, BigDecimal lineReceived) {
@@ -1758,9 +2169,23 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         return SysImportParseSupport.tryParseDateTime(value);
     }
 
+    private EcSalesOrder requireDeletableOrder(Long id) {
+        EcSalesOrder order = requireOrder(id);
+        if (STATUS_DRAFT.equals(order.getStatus())) {
+            return order;
+        }
+        if (SOURCE_MANUAL.equals(order.getSource())) {
+            return order;
+        }
+        throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "当前订单不可删除");
+    }
+
     private EcSalesOrder requireEditableOrder(Long id) {
         EcSalesOrder order = requireOrder(id);
         if (STATUS_DRAFT.equals(order.getStatus())) {
+            return order;
+        }
+        if (SOURCE_MANUAL.equals(order.getSource())) {
             return order;
         }
         if (SOURCE_IMPORT.equals(order.getSource())
@@ -1835,6 +2260,308 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         } catch (Exception ex) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "导入批次上下文无效");
         }
+    }
+
+    private String buildSalesOrderBatchContext(Long shopId, String orderMonth,
+                                               EcSalesOrderImportFileStorage.SaveResult fileMeta) {
+        Map<String, Object> ctx = new LinkedHashMap<>();
+        ctx.put("shopId", shopId);
+        if (StringUtils.hasText(orderMonth)) {
+            ctx.put("orderMonth", orderMonth.trim());
+        }
+        if (fileMeta != null) {
+            ctx.put("localStoredName", fileMeta.localStoredName());
+            ctx.put("fileSize", fileMeta.fileSize());
+            if (fileMeta.storageFsId() != null) {
+                ctx.put("storageFsId", fileMeta.storageFsId());
+            }
+        }
+        return toJson(ctx);
+    }
+
+    private EcSalesOrderImportPreviewVO enrichImportPreviewVO(EcSalesOrderImportPreviewVO vo,
+                                                              SysImportBatch batch,
+                                                              Long shopId) {
+        vo.setShopId(shopId);
+        vo.setProfileId(batch.getProfileId());
+        vo.setFileName(batch.getFileName());
+        vo.setFileSize(readFileSizeFromBatch(batch));
+        List<String> columns = parseDetectedColumnNames(batch.getDetectedColumns());
+        vo.setDetectedColumns(columns);
+        vo.setDetectedColumnCount(columns.isEmpty() ? null : columns.size());
+        vo.setImportFileReadable(importFileStorage.exists(batch));
+        return vo;
+    }
+
+    private Long readFileSizeFromBatch(SysImportBatch batch) {
+        if (!StringUtils.hasText(batch.getBizContext())) {
+            return null;
+        }
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> ctx = objectMapper.readValue(batch.getBizContext(), Map.class);
+            Object fileSize = ctx.get("fileSize");
+            if (fileSize == null) {
+                return null;
+            }
+            return Long.valueOf(String.valueOf(fileSize));
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private List<String> parseDetectedColumnNames(String detectedColumnsJson) {
+        if (!StringUtils.hasText(detectedColumnsJson)) {
+            return List.of();
+        }
+        try {
+            return objectMapper.readValue(detectedColumnsJson,
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, String.class));
+        } catch (Exception ex) {
+            return List.of();
+        }
+    }
+
+    private Optional<YearMonth> readOrderMonthFromBatch(SysImportBatch batch) {
+        if (!StringUtils.hasText(batch.getBizContext())) {
+            return Optional.empty();
+        }
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> ctx = objectMapper.readValue(batch.getBizContext(), Map.class);
+            Object orderMonth = ctx.get("orderMonth");
+            if (orderMonth == null || !StringUtils.hasText(String.valueOf(orderMonth))) {
+                return Optional.empty();
+            }
+            return Optional.of(YearMonth.parse(String.valueOf(orderMonth).trim()));
+        } catch (Exception ex) {
+            return Optional.empty();
+        }
+    }
+
+    private Optional<YearMonth> resolveBatchOrderMonth(SysImportBatch batch) {
+        Optional<YearMonth> fromContext = readOrderMonthFromBatch(batch);
+        if (fromContext.isPresent()) {
+            return fromContext;
+        }
+        List<EcOrderImportRow> rows = ecOrderImportRowMapper.selectList(new LambdaQueryWrapper<EcOrderImportRow>()
+                .eq(EcOrderImportRow::getBatchId, batch.getId())
+                .orderByAsc(EcOrderImportRow::getRowNo)
+                .last("LIMIT 30"));
+        for (EcOrderImportRow row : rows) {
+            if (!StringUtils.hasText(row.getRawJson())) {
+                continue;
+            }
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> map = objectMapper.readValue(row.getRawJson(), Map.class);
+                LocalDateTime orderTime = parseImportDateTime(map, "order_time", "orderTime");
+                if (orderTime != null) {
+                    return Optional.of(YearMonth.from(orderTime));
+                }
+            } catch (Exception ignored) {
+                // try next row
+            }
+        }
+        return Optional.empty();
+    }
+
+    private void applyOrderMonthFilter(LambdaQueryWrapper<EcSalesOrder> wrapper, String orderMonth) {
+        if (!StringUtils.hasText(orderMonth)) {
+            return;
+        }
+        YearMonth ym = parseOrderMonth(orderMonth);
+        LocalDateTime start = ym.atDay(1).atStartOfDay();
+        LocalDateTime end = ym.plusMonths(1).atDay(1).atStartOfDay();
+        wrapper.isNotNull(EcSalesOrder::getOrderTime)
+                .ge(EcSalesOrder::getOrderTime, start)
+                .lt(EcSalesOrder::getOrderTime, end);
+    }
+
+    private void applyOrderTimeRangeFilter(LambdaQueryWrapper<EcSalesOrder> wrapper,
+                                           String orderTimeFrom, String orderTimeTo) {
+        wrapper.isNotNull(EcSalesOrder::getOrderTime);
+        if (StringUtils.hasText(orderTimeFrom)) {
+            wrapper.ge(EcSalesOrder::getOrderTime, parseOrderTimeFrom(orderTimeFrom));
+        }
+        if (StringUtils.hasText(orderTimeTo)) {
+            wrapper.lt(EcSalesOrder::getOrderTime, parseOrderTimeToExclusive(orderTimeTo));
+        }
+    }
+
+    private LocalDateTime parseOrderTimeFrom(String value) {
+        String trimmed = value.trim();
+        if (trimmed.length() <= 10) {
+            return LocalDate.parse(trimmed.substring(0, 10), ORDER_DATE_FORMAT).atStartOfDay();
+        }
+        return LocalDateTime.parse(trimmed.replace('T', ' ').substring(0, 19), ORDER_TIME_FORMAT);
+    }
+
+    private LocalDateTime parseOrderTimeToExclusive(String value) {
+        String trimmed = value.trim();
+        if (trimmed.length() <= 10) {
+            return LocalDate.parse(trimmed.substring(0, 10), ORDER_DATE_FORMAT).plusDays(1).atStartOfDay();
+        }
+        LocalDateTime dt = LocalDateTime.parse(trimmed.replace('T', ' ').substring(0, 19), ORDER_TIME_FORMAT);
+        if (trimmed.length() <= 16) {
+            return dt.plusDays(1);
+        }
+        return dt.plusSeconds(1);
+    }
+
+    private YearMonth parseOrderMonth(String orderMonth) {
+        if (!StringUtils.hasText(orderMonth)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "请选择订单月份");
+        }
+        try {
+            return YearMonth.parse(orderMonth.trim(), DateTimeFormatter.ofPattern("yyyy-MM"));
+        } catch (Exception ex) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "订单月份格式无效");
+        }
+    }
+
+    private List<EcShop> loadOverviewShops(Long shopId) {
+        LambdaQueryWrapper<EcShop> wrapper = new LambdaQueryWrapper<EcShop>()
+                .orderByAsc(EcShop::getName);
+        if (shopId != null) {
+            wrapper.eq(EcShop::getId, shopId);
+        }
+        return ecShopMapper.selectList(wrapper);
+    }
+
+    private Map<Long, Long> countOrdersByShop(LocalDateTime start, LocalDateTime end, Long shopId) {
+        LambdaQueryWrapper<EcSalesOrder> wrapper = new LambdaQueryWrapper<EcSalesOrder>()
+                .ge(EcSalesOrder::getOrderTime, start)
+                .lt(EcSalesOrder::getOrderTime, end)
+                .isNotNull(EcSalesOrder::getOrderTime);
+        if (shopId != null) {
+            wrapper.eq(EcSalesOrder::getShopId, shopId);
+        }
+        List<EcSalesOrder> orders = list(wrapper);
+        return orders.stream()
+                .collect(Collectors.groupingBy(EcSalesOrder::getShopId, Collectors.counting()));
+    }
+
+    private Map<Long, String> loadPlatformNameMap(List<Long> platformIds) {
+        if (platformIds == null || platformIds.isEmpty()) {
+            return Map.of();
+        }
+        return ecPlatformMapper.selectBatchIds(platformIds).stream()
+                .collect(Collectors.toMap(EcPlatform::getId, EcPlatform::getName, (a, b) -> a));
+    }
+
+    private Map<Long, PendingBatchInfo> loadPendingBatchInfoByShop(YearMonth selectedMonth) {
+        List<SysImportBatch> batches = sysImportBatchMapper.selectList(new LambdaQueryWrapper<SysImportBatch>()
+                .eq(SysImportBatch::getBizType, SysImportFieldRegistry.BIZ_SALES_ORDER)
+                .eq(SysImportBatch::getStatus, "PREVIEWED")
+                .orderByDesc(SysImportBatch::getUpdateTime));
+        Map<Long, PendingBatchInfo> result = new LinkedHashMap<>();
+        for (SysImportBatch batch : batches) {
+            Optional<YearMonth> batchMonth = resolveBatchOrderMonth(batch);
+            if (batchMonth.isEmpty() || !batchMonth.get().equals(selectedMonth)) {
+                continue;
+            }
+            Long shopId;
+            try {
+                shopId = readShopIdFromBatch(batch);
+            } catch (BusinessException ex) {
+                continue;
+            }
+            if (result.containsKey(shopId)) {
+                continue;
+            }
+            int reviewRows = countPendingReviewRows(batch.getId());
+            LocalDateTime importTime = batch.getUpdateTime() != null ? batch.getUpdateTime() : batch.getCreateTime();
+            result.put(shopId, new PendingBatchInfo(batch.getId(), reviewRows, importTime));
+        }
+        return result;
+    }
+
+    private int countPendingReviewRows(Long batchId) {
+        List<EcOrderImportRow> rows = ecOrderImportRowMapper.selectList(new LambdaQueryWrapper<EcOrderImportRow>()
+                .eq(EcOrderImportRow::getBatchId, batchId));
+        int count = 0;
+        for (EcOrderImportRow row : rows) {
+            if (!"OK".equals(row.getParseStatus())) {
+                continue;
+            }
+            if ("UNMATCHED".equals(row.getStatusMatchStatus())
+                    && !StringUtils.hasText(row.getLineStatus())) {
+                count++;
+                continue;
+            }
+            if ("UNMATCHED".equals(row.getMatchStatus())) {
+                if (row.getManualCostPrice() == null
+                        || row.getManualCostPrice().compareTo(BigDecimal.ZERO) == 0) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    /**
+     * 同一店铺同月仅保留一个有效待核对批次，避免确认入库后仍被旧 PREVIEWED 批次影响卡片状态。
+     */
+    private void closeOtherPreviewedBatches(Long shopId, YearMonth month, Long keepBatchId) {
+        List<SysImportBatch> batches = sysImportBatchMapper.selectList(new LambdaQueryWrapper<SysImportBatch>()
+                .eq(SysImportBatch::getBizType, SysImportFieldRegistry.BIZ_SALES_ORDER)
+                .eq(SysImportBatch::getStatus, "PREVIEWED")
+                .ne(keepBatchId != null, SysImportBatch::getId, keepBatchId));
+        for (SysImportBatch batch : batches) {
+            Long batchShopId;
+            try {
+                batchShopId = readShopIdFromBatch(batch);
+            } catch (BusinessException ex) {
+                continue;
+            }
+            if (!shopId.equals(batchShopId)) {
+                continue;
+            }
+            Optional<YearMonth> batchMonth = resolveBatchOrderMonth(batch);
+            if (batchMonth.isEmpty() || !batchMonth.get().equals(month)) {
+                continue;
+            }
+            batch.setStatus("FAILED");
+            sysImportBatchMapper.updateById(batch);
+        }
+    }
+
+    private Optional<YearMonth> parseOrderMonthOptional(String orderMonth) {
+        if (!StringUtils.hasText(orderMonth)) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(YearMonth.parse(orderMonth.trim(), DateTimeFormatter.ofPattern("yyyy-MM")));
+        } catch (Exception ex) {
+            return Optional.empty();
+        }
+    }
+
+    private LocalDateTime loadShopLastImportTime(Long shopId, LocalDateTime start, LocalDateTime end) {
+        List<SysImportBatch> batches = sysImportBatchMapper.selectList(new LambdaQueryWrapper<SysImportBatch>()
+                .eq(SysImportBatch::getBizType, SysImportFieldRegistry.BIZ_SALES_ORDER)
+                .eq(SysImportBatch::getStatus, "COMMITTED")
+                .isNotNull(SysImportBatch::getCommittedTime)
+                .ge(SysImportBatch::getCommittedTime, start)
+                .lt(SysImportBatch::getCommittedTime, end)
+                .orderByDesc(SysImportBatch::getCommittedTime));
+        for (SysImportBatch batch : batches) {
+            try {
+                if (shopId.equals(readShopIdFromBatch(batch))) {
+                    return batch.getCommittedTime();
+                }
+            } catch (BusinessException ex) {
+                continue;
+            }
+        }
+        return null;
+    }
+
+    private EcImportStatusSupport createStatusSupport(SysImportProfile profile) {
+        return EcImportStatusSupport.from(profile, objectMapper,
+                ecSystemSettingsService.resolveOrderImportStatusMapping(),
+                ecSystemSettingsService.resolveOrderImportDefaultLineStatus());
     }
 
     private static class BuiltLine {

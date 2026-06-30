@@ -20,6 +20,8 @@ public class EcShop {
 
     private String nameEn;
 
+    private String avatarUrl;
+
     private Long platformId;
 
     private String remark;

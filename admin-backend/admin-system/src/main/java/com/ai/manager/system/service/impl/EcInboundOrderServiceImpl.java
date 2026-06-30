@@ -32,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -60,7 +61,7 @@ public class EcInboundOrderServiceImpl extends ServiceImpl<EcInboundOrderMapper,
 
     @Override
     public PageResult<EcInboundOrderDetailVO> pageOrders(String keyword, String status, Long factoryId,
-                                                           Long page, Long pageSize) {
+                                                           String orderMonth, Long page, Long pageSize) {
         long p = PageUtils.normalizePage(page);
         long ps = PageUtils.normalizePageSize(pageSize);
         LambdaQueryWrapper<EcInboundOrder> wrapper = new LambdaQueryWrapper<EcInboundOrder>()
@@ -70,6 +71,9 @@ public class EcInboundOrderServiceImpl extends ServiceImpl<EcInboundOrderMapper,
         }
         if (factoryId != null) {
             wrapper.eq(EcInboundOrder::getFactoryId, factoryId);
+        }
+        if (StringUtils.hasText(orderMonth)) {
+            applyOrderMonthFilter(wrapper, orderMonth.trim());
         }
         if (StringUtils.hasText(keyword)) {
             String kw = keyword.trim();
@@ -259,6 +263,7 @@ public class EcInboundOrderServiceImpl extends ServiceImpl<EcInboundOrderMapper,
             if (factory == null) {
                 throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "工厂不存在");
             }
+            requireProductionFactoryForSkuOrder(factory);
         }
 
         List<EcInboundOrderLineItem> normalized = new ArrayList<>();
@@ -391,12 +396,33 @@ public class EcInboundOrderServiceImpl extends ServiceImpl<EcInboundOrderMapper,
         return vo;
     }
 
+    private void requireProductionFactoryForSkuOrder(EcFactory factory) {
+        String type = factory.getFactoryType();
+        if (type == null || type.isBlank()) {
+            return;
+        }
+        if (!"PRODUCTION".equals(type.trim().toUpperCase())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "进货单请选择生产工厂，纸箱进出货请在纸箱管理中处理");
+        }
+    }
+
     private Map<Long, String> loadFactoryNameMap(List<Long> factoryIds) {
         if (factoryIds == null || factoryIds.isEmpty()) {
             return Map.of();
         }
         return ecFactoryMapper.selectBatchIds(factoryIds).stream()
                 .collect(Collectors.toMap(EcFactory::getId, EcFactory::getName, (a, b) -> a));
+    }
+
+    private void applyOrderMonthFilter(LambdaQueryWrapper<EcInboundOrder> wrapper, String orderMonth) {
+        try {
+            YearMonth ym = YearMonth.parse(orderMonth);
+            LocalDateTime start = ym.atDay(1).atStartOfDay();
+            LocalDateTime end = ym.atEndOfMonth().atTime(23, 59, 59);
+            wrapper.between(EcInboundOrder::getOrderTime, start, end);
+        } catch (Exception ignored) {
+            /* ignore invalid month */
+        }
     }
 
     private String generateOrderNo() {

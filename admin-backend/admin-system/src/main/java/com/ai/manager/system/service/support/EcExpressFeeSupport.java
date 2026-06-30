@@ -13,6 +13,7 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -50,16 +51,41 @@ public class EcExpressFeeSupport {
         if (station == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "快递站点不存在");
         }
-        String province = StringUtils.hasText(provinceName) ? provinceName.trim() : DEFAULT_PROVINCE;
-        EcExpressPrice price = ecExpressPriceMapper.selectOne(new LambdaQueryWrapper<EcExpressPrice>()
-                .eq(EcExpressPrice::getStationId, station.getId())
-                .eq(EcExpressPrice::getProvinceName, province)
-                .last("LIMIT 1"));
+        String province = EcAddressProvinceSupport.normalizeProvinceName(provinceName);
+        if (!StringUtils.hasText(province)) {
+            province = DEFAULT_PROVINCE;
+        }
+        EcExpressPrice price = findPriceForProvince(station.getId(), province);
         if (price == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(),
                     "快递站点「" + station.getName() + "」未配置「" + province + "」价格");
         }
         return resolvePriceByWeight(weightKg, price).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private EcExpressPrice findPriceForProvince(Long stationId, String provinceName) {
+        List<EcExpressPrice> prices = ecExpressPriceMapper.selectList(new LambdaQueryWrapper<EcExpressPrice>()
+                .eq(EcExpressPrice::getStationId, stationId));
+        EcExpressPrice matched = matchProvincePrice(prices, provinceName);
+        if (matched != null) {
+            return matched;
+        }
+        if (!DEFAULT_PROVINCE.equals(provinceName)) {
+            return matchProvincePrice(prices, DEFAULT_PROVINCE);
+        }
+        return null;
+    }
+
+    private EcExpressPrice matchProvincePrice(List<EcExpressPrice> prices, String targetProvince) {
+        if (!StringUtils.hasText(targetProvince) || prices == null || prices.isEmpty()) {
+            return null;
+        }
+        for (EcExpressPrice price : prices) {
+            if (EcAddressProvinceSupport.provinceNamesEquivalent(targetProvince, price.getProvinceName())) {
+                return price;
+            }
+        }
+        return null;
     }
 
     private BigDecimal resolvePriceByWeight(BigDecimal weightKg, EcExpressPrice price) {

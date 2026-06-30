@@ -14,6 +14,8 @@ import java.nio.charset.StandardCharsets;
 @RequiredArgsConstructor
 public class BaiduPanNoteContentStorage implements NoteContentStorage {
 
+    public static final String TYPE = "BAIDU_PAN";
+
     private volatile boolean rootEnsured;
 
     private final BaiduPanClient baiduPanClient;
@@ -22,7 +24,7 @@ public class BaiduPanNoteContentStorage implements NoteContentStorage {
 
     @Override
     public String type() {
-        return "BAIDU_PAN";
+        return TYPE;
     }
 
     @Override
@@ -80,6 +82,7 @@ public class BaiduPanNoteContentStorage implements NoteContentStorage {
                 baiduPanClient.ensureDir(accessToken, baiduPanProperties.notesDir());
                 baiduPanClient.ensureDir(accessToken, baiduPanProperties.trashDir());
                 baiduPanClient.ensureDir(accessToken, baiduPanProperties.imagesDir());
+                baiduPanClient.ensureDir(accessToken, baiduPanProperties.ecommerceImagesDir());
                 rootEnsured = true;
             } catch (Exception e) {
                 throw new IllegalStateException("初始化百度网盘目录失败", e);

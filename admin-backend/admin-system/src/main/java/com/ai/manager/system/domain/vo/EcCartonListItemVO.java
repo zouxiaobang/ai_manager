@@ -26,5 +26,9 @@ public class EcCartonListItemVO {
 
     private String remark;
 
+    private Integer illustrationVariant;
+
+    private String previewImage;
+
     private LocalDateTime updateTime;
 }

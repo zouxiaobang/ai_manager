@@ -29,16 +29,18 @@
   >
 
     <el-option
-
       v-for="opt in options"
-
       :key="opt.skuCode"
-
-      :label="optionLabel(opt)"
-
+      :label="optionText(opt)"
       :value="opt.skuCode"
-
-    />
+    >
+      <span class="sku-option">
+        <span class="sku-option__text">{{ optionText(opt) }}</span>
+        <el-icon v-if="isSkuAlert(opt)" class="sku-option__alert" :title="alertTitle">
+          <WarningFilled />
+        </el-icon>
+      </span>
+    </el-option>
 
   </el-select>
 
@@ -49,8 +51,11 @@
 <script setup lang="ts">
 
 import { ref, watch } from 'vue'
-
+import { useI18n } from 'vue-i18n'
+import { WarningFilled } from '@element-plus/icons-vue'
 import { fetchInventorySkuOptions, type EcInventorySkuOption } from '@/api/ecommerce/inventory'
+
+const { t } = useI18n()
 
 
 
@@ -98,22 +103,19 @@ watch(
 
 
 
-function optionLabel(opt: EcInventorySkuOption) {
+const alertTitle = t('ecommerce.inventory.alerting')
 
+function isSkuAlert(opt: EcInventorySkuOption) {
   const stock = opt.quantity ?? 0
-
-  const alert =
-    !opt.ignoreAlert && opt.alertThreshold != null && stock <= opt.alertThreshold ? ' ⚠' : ''
-
-  const name = opt.specName ? `${opt.skuCode} · ${opt.specName}` : opt.skuCode
-
-  const product = opt.productName ? ` · ${opt.productName}` : ''
-
-  return `${name}${product} · 库存${stock}${alert}`
-
+  return !opt.ignoreAlert && opt.alertThreshold != null && stock <= opt.alertThreshold
 }
 
-
+function optionText(opt: EcInventorySkuOption) {
+  const stock = opt.quantity ?? 0
+  const name = opt.specName ? `${opt.skuCode} · ${opt.specName}` : opt.skuCode
+  const product = opt.productName ? ` · ${opt.productName}` : ''
+  return `${name}${product} · 库存${stock}`
+}
 
 async function onSearch(keyword: string) {
 
@@ -170,4 +172,27 @@ watch(
 onSearch('')
 
 </script>
+
+<style scoped lang="scss">
+.sku-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.sku-option__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sku-option__alert {
+  flex-shrink: 0;
+  font-size: 16px;
+  color: #eab308;
+}
+</style>
 

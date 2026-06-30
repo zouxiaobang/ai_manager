@@ -802,6 +802,7 @@ CREATE TABLE IF NOT EXISTS ec_platform (
     id            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '平台主键',
     name          VARCHAR(128) NOT NULL COMMENT '平台名称',
     name_en       VARCHAR(128) DEFAULT NULL COMMENT '平台英文名称',
+    avatar_url    VARCHAR(256) DEFAULT NULL COMMENT '平台头像(上传文件名)',
     platform_code INT          NOT NULL COMMENT '平台标识(枚举 int)',
     channel_type  VARCHAR(16)  NOT NULL DEFAULT 'ONLINE' COMMENT '渠道模式 ONLINE/OFFLINE',
     remark        VARCHAR(512) DEFAULT NULL COMMENT '备注',
@@ -833,6 +834,7 @@ CREATE TABLE IF NOT EXISTS ec_shop (
     id                       BIGINT        NOT NULL AUTO_INCREMENT COMMENT '店铺主键',
     name                     VARCHAR(128)  NOT NULL COMMENT '店铺名称',
     name_en                  VARCHAR(128)  DEFAULT NULL COMMENT '店铺英文名称',
+    avatar_url               VARCHAR(256)  DEFAULT NULL COMMENT '店铺头像(上传文件名)',
     platform_id              BIGINT        NOT NULL COMMENT '所属平台 ID',
     remark                   VARCHAR(512)  DEFAULT NULL COMMENT '备注',
     category_commission_pct  DECIMAL(5, 2) DEFAULT NULL COMMENT '类目/交易佣金%',
@@ -2164,6 +2166,26 @@ DROP TABLE IF EXISTS ec_settlement_express_bill_profile;
 
 
 
+-- ########## FILE: ec_settlement_snapshot.sql ##########
+
+-- 月结统计结果快照（点击「统计」后入库，下次进入按月份读取）
+USE ai_manager_admin;
+
+CREATE TABLE IF NOT EXISTS ec_settlement_snapshot (
+    id                    BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    settlement_month      CHAR(7)      NOT NULL COMMENT '统计月份 YYYY-MM',
+    express_bill_imported TINYINT      NOT NULL DEFAULT 0 COMMENT '统计时是否已导入快递账单',
+    snapshot_json         LONGTEXT     NOT NULL COMMENT 'EcMonthlySettlementVO JSON 快照',
+    calculated_at         DATETIME     NOT NULL COMMENT '统计完成时间',
+    deleted               TINYINT      NOT NULL DEFAULT 0,
+    create_time           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_settlement_snapshot_month (settlement_month)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='月结统计结果快照';
+
+
+
 -- ########## FILE: ecommerce_sku_carton_backfill.sql ##########
 
 -- 为已有 SKU 按单品尺寸匹配并回填 carton_id（需先执行 ecommerce_sku_carton_alter.sql）
@@ -2477,5 +2499,29 @@ WHERE s.deleted = 0
 -- FROM ec_listing_link_sku
 -- WHERE deleted = 0
 -- ORDER BY link_id, sort_order;
+
+-- ========== 电商系统参数（键值 JSON） ==========
+USE ai_manager_admin;
+
+CREATE TABLE IF NOT EXISTS ec_system_config (
+    config_key   VARCHAR(64)  NOT NULL COMMENT '配置键 inventory/order_import/express/delivery_note/company',
+    config_json  TEXT         NOT NULL COMMENT '配置 JSON',
+    update_time  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (config_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='电商系统参数';
+
+INSERT INTO ec_system_config (config_key, config_json) VALUES
+('inventory', '{"defaultAlertThreshold":10,"slowMovingDays":45,"slowMovingFallbackDays":90}'),
+('order_import', '{"headerRow":1,"dataStartRow":2,"dateFormat":"yyyy-MM-dd HH:mm:ss"}'),
+('order_import_status', '{"defaultLineStatus":"PAID","statusMapping":{"交易成功":"COMPLETED","交易关闭":"CANCELLED","确认收货":"COMPLETED","卖家已发货，等待买家确认":"SHIPPED","等待买家确认收货":"SHIPPED","卖家已发货":"SHIPPED","等待买家确认":"SHIPPED","买家已付款，等待卖家发货":"PAID","买家已付款":"PAID","等待卖家发货":"PAID","待发货":"PAID","已关闭":"CANCELLED","已发货":"SHIPPED","已完成":"COMPLETED","已退款":"REFUNDED","退款成功":"REFUNDED","部分退款":"PARTIAL_REFUND","退款中":"REFUNDED","退货退款":"RETURNED","已取消":"CANCELLED"}}'),
+('express', '{"headerRow":1,"dataStartRow":2,"includeLabelPriceDefault":false}'),
+('delivery_note', '{"title":"唯十嘉送货单","address":"","tel":"","preparedBy":"","shipFromName":"","shipFromPhone":"","shipFromAddress":"","requirementItems":[],"noteItems":[]}'),
+('outbound_order', '{"title":"唯十嘉出库单","address":"","tel":"","preparedBy":"","approvedBy":"","warehouseKeeper":"","requirementItems":[],"noteItems":[]}'),
+('settlement', '{"profitDisplayMode":"ACTUAL_PREFERRED","costIncludesFreight":true}'),
+('rebate', '{"defaultRebatePct":0}'),
+('notification', '{"inventoryAlertEnabled":true,"zeroStockAlertEnabled":true,"settlementRemindEnabled":true,"settlementRemindDayOfMonth":25}'),
+('data_retention', '{"importHistoryRetentionDays":365,"inventoryLogRetentionDays":180,"autoCleanupEnabled":false}'),
+('company', '{"companyName":"","address":"","tel":"","contactName":"","contactPhone":""}')
+ON DUPLICATE KEY UPDATE config_key = config_key;
 
 

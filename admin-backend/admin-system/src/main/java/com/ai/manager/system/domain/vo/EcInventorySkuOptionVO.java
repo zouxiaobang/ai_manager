@@ -28,4 +28,7 @@ public class EcInventorySkuOptionVO {
     private Integer alertThreshold;
 
     private Boolean ignoreAlert;
+
+    /** SKU 图片文件名（优先 SKU，否则商品主图） */
+    private String imageName;
 }

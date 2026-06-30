@@ -3,6 +3,7 @@ package com.ai.manager.system.service.support;
 import com.ai.manager.system.domain.entity.SysImportProfile;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ai.manager.system.service.support.EcSettingsBuiltinSupport;
 import org.springframework.util.StringUtils;
 
 import java.util.LinkedHashMap;
@@ -20,11 +21,16 @@ public final class EcImportStatusSupport {
     static {
         BUILTIN_PLATFORM_STATUS.put("交易成功", "COMPLETED");
         BUILTIN_PLATFORM_STATUS.put("交易关闭", "CANCELLED");
+        BUILTIN_PLATFORM_STATUS.put("确认收货", "COMPLETED");
+        BUILTIN_PLATFORM_STATUS.put("卖家已发货，等待买家确认", "SHIPPED");
+        BUILTIN_PLATFORM_STATUS.put("等待买家确认收货", "SHIPPED");
         BUILTIN_PLATFORM_STATUS.put("卖家已发货", "SHIPPED");
         BUILTIN_PLATFORM_STATUS.put("等待买家确认", "SHIPPED");
+        BUILTIN_PLATFORM_STATUS.put("买家已付款，等待卖家发货", "PAID");
         BUILTIN_PLATFORM_STATUS.put("买家已付款", "PAID");
         BUILTIN_PLATFORM_STATUS.put("等待卖家发货", "PAID");
         BUILTIN_PLATFORM_STATUS.put("待发货", "PAID");
+        BUILTIN_PLATFORM_STATUS.put("已关闭", "CANCELLED");
         BUILTIN_PLATFORM_STATUS.put("已发货", "SHIPPED");
         BUILTIN_PLATFORM_STATUS.put("已完成", "COMPLETED");
         BUILTIN_PLATFORM_STATUS.put("已退款", "REFUNDED");
@@ -44,8 +50,21 @@ public final class EcImportStatusSupport {
     }
 
     public static EcImportStatusSupport from(SysImportProfile profile, ObjectMapper objectMapper) {
-        Map<String, String> mapping = new LinkedHashMap<>(BUILTIN_PLATFORM_STATUS);
-        String defaultStatus = DEFAULT_LINE_STATUS;
+        return from(profile, objectMapper, null, null);
+    }
+
+    public static EcImportStatusSupport from(SysImportProfile profile, ObjectMapper objectMapper,
+                                             Map<String, String> systemStatusMapping,
+                                             String systemDefaultLineStatus) {
+        Map<String, String> mapping = new LinkedHashMap<>();
+        if (systemStatusMapping != null && !systemStatusMapping.isEmpty()) {
+            mapping.putAll(systemStatusMapping);
+        } else {
+            mapping.putAll(EcSettingsBuiltinSupport.defaultOrderImportStatusMapping());
+        }
+        String defaultStatus = StringUtils.hasText(systemDefaultLineStatus)
+                ? systemDefaultLineStatus.trim()
+                : DEFAULT_LINE_STATUS;
         if (profile == null) {
             return new EcImportStatusSupport(mapping, defaultStatus);
         }
@@ -89,7 +108,7 @@ public final class EcImportStatusSupport {
      */
     public ResolveResult resolveDetailed(String platformStatus) {
         if (!StringUtils.hasText(platformStatus)) {
-            return new ResolveResult(true, defaultLineStatus, null);
+            return new ResolveResult(false, null, null);
         }
         String text = platformStatus.trim();
         String exact = valueMapping.get(text);

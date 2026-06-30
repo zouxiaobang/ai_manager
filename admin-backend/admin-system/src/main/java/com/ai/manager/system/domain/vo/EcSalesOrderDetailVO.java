@@ -88,4 +88,10 @@ public class EcSalesOrderDetailVO {
     private List<EcSalesOrderLineVO> lines;
 
     private Integer lineCount;
+
+    /** 列表摘要：首条明细链接名称 */
+    private String linkName;
+
+    /** 列表摘要：首条明细 SKU 规格 */
+    private String skuSpecName;
 }

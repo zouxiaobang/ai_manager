@@ -7,6 +7,7 @@ import com.ai.manager.system.domain.vo.EcCartonBackfillTaskVO;
 import com.ai.manager.system.domain.vo.EcCartonCalculateResultVO;
 import com.ai.manager.system.domain.vo.EcCartonListItemVO;
 import com.baomidou.mybatisplus.extension.service.IService;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface EcCartonService extends IService<EcCarton> {
 
@@ -17,6 +18,8 @@ public interface EcCartonService extends IService<EcCarton> {
     EcCartonListItemVO createCarton(EcCartonSaveRequest request);
 
     EcCartonListItemVO updateCarton(Long id, EcCartonSaveRequest request);
+
+    EcCartonListItemVO updateCartonPreviewImage(Long id, MultipartFile file, String cartonName);
 
     void deleteCarton(Long id);
 

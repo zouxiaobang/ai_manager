@@ -22,3 +22,16 @@ export async function uploadEcommerceImage(file: File): Promise<string> {
   )
   return response.data.data.fileName
 }
+
+/** 纸箱预览图：按纸箱名命名，本地落盘并双写网盘 */
+export async function uploadCartonPreviewImage(file: File, cartonName: string): Promise<string> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('cartonName', cartonName.trim())
+  const response = await request.post<ApiResult<EcImageUploadResult>>(
+    '/api/ecommerce/images/upload/carton-preview',
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000 },
+  )
+  return response.data.data.fileName
+}

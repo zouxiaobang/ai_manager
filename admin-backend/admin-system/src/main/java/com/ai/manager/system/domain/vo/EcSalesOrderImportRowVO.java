@@ -20,6 +20,8 @@ public class EcSalesOrderImportRowVO {
 
     private String skuSpecName;
 
+    private Integer skuQuantity;
+
     private String matchStatus;
 
     private Long listingLinkSkuId;

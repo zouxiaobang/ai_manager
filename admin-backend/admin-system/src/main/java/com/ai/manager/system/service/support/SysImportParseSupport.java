@@ -4,7 +4,7 @@ import com.ai.manager.common.exception.BusinessException;
 import com.ai.manager.common.result.ResultCode;
 import com.ai.manager.system.domain.entity.SysImportProfile;
 import com.ai.manager.system.domain.vo.SysImportFieldVO;
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.ai.manager.system.service.EcSystemSettingsService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Cell;
@@ -75,6 +75,8 @@ public class SysImportParseSupport {
 
     private final SysImportColumnMappingSupport columnMappingSupport;
 
+    private final EcSystemSettingsService ecSystemSettingsService;
+
     private final DataFormatter dataFormatter = new DataFormatter();
 
     public List<String> detectColumns(MultipartFile file, SysImportProfile profile) throws Exception {
@@ -139,12 +141,29 @@ public class SysImportParseSupport {
         if (StringUtils.hasText(mapped.get("platform_line_status"))) {
             return;
         }
-        int idx = indexOfHeader(headers, "订单状态");
-        if (idx >= 0 && idx < cells.size() && StringUtils.hasText(cells.get(idx))) {
-            String status = cells.get(idx).trim();
-            mapped.put("platform_line_status", status);
-            mapped.put("platform_status", status);
+        String status = readCellByHeaderCandidates(headers, cells, "订单状态", "当前订单状态", "交易状态");
+        if (!StringUtils.hasText(status) && !StringUtils.hasText(mapped.get("platform_status"))) {
+            status = readCellByHeaderCandidates(headers, cells, "状态");
         }
+        if (StringUtils.hasText(status)) {
+            mapped.put("platform_line_status", status);
+            if (!StringUtils.hasText(mapped.get("platform_status"))) {
+                mapped.put("platform_status", status);
+            }
+        }
+    }
+
+    private String readCellByHeaderCandidates(List<String> headers, List<String> cells, String... candidates) {
+        for (String candidate : candidates) {
+            int idx = indexOfHeader(headers, candidate);
+            if (idx < 0) {
+                idx = indexOfHeaderContains(headers, candidate);
+            }
+            if (idx >= 0 && idx < cells.size() && StringUtils.hasText(cells.get(idx))) {
+                return cells.get(idx).trim();
+            }
+        }
+        return null;
     }
 
     private void fillDatetimeFallbacks(List<String> headers, List<String> cells, Map<String, String> mapped) {
@@ -170,7 +189,7 @@ public class SysImportParseSupport {
             if (idx < 0 || idx >= cells.size()) {
                 continue;
             }
-            String parsed = formatDateTimeText(cells.get(idx));
+            String parsed = formatDateTimeTextConfigured(cells.get(idx));
             if (StringUtils.hasText(parsed)) {
                 mapped.put(backendKey, parsed);
                 return;
@@ -191,6 +210,14 @@ public class SysImportParseSupport {
     }
 
     public static String formatDateTimeText(String value) {
+        return formatDateTimeTextWithFormatters(value, DATETIME_FORMATTERS);
+    }
+
+    private String formatDateTimeTextConfigured(String value) {
+        return formatDateTimeTextWithFormatters(value, datetimeFormatters());
+    }
+
+    private static String formatDateTimeTextWithFormatters(String value, DateTimeFormatter[] formatters) {
         if (!StringUtils.hasText(value)) {
             return null;
         }
@@ -212,7 +239,7 @@ public class SysImportParseSupport {
         if (text.matches("\\d{4}\\.\\d{1,2}\\.\\d{1,2}.*")) {
             text = text.replace('.', '-');
         }
-        for (DateTimeFormatter formatter : DATETIME_FORMATTERS) {
+        for (DateTimeFormatter formatter : formatters) {
             String normalized = text.contains("/") ? text : text.replace('-', '/');
             try {
                 LocalDateTime ldt = LocalDateTime.parse(normalized, formatter);
@@ -418,6 +445,7 @@ public class SysImportParseSupport {
             {"buyer_phone", "buyerPhone"},
             {"receive_address", "receiveAddress"},
             {"platform_status", "platformStatus"},
+            {"platform_line_status", "platformLineStatus"},
     };
 
     private void propagateOrderHeaderFields(List<Map<String, String>> group) {
@@ -724,7 +752,7 @@ public class SysImportParseSupport {
                 }
                 double numeric = cell.getNumericCellValue();
                 if (numeric >= 30000 && numeric <= 60000) {
-                    String parsed = formatDateTimeText(String.valueOf(numeric));
+                    String parsed = formatDateTimeTextConfigured(String.valueOf(numeric));
                     if (StringUtils.hasText(parsed)) {
                         return parsed;
                     }
@@ -750,7 +778,7 @@ public class SysImportParseSupport {
                     }
                     double numeric = cell.getNumericCellValue();
                     if (numeric >= 30000 && numeric <= 60000) {
-                        String parsed = formatDateTimeText(String.valueOf(numeric));
+                        String parsed = formatDateTimeTextConfigured(String.valueOf(numeric));
                         if (StringUtils.hasText(parsed)) {
                             return parsed;
                         }
@@ -818,6 +846,20 @@ public class SysImportParseSupport {
 
     private String nullToEmpty(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private DateTimeFormatter[] datetimeFormatters() {
+        String preferred = ecSystemSettingsService.resolveOrderImportDateFormat();
+        List<DateTimeFormatter> formatters = new ArrayList<>();
+        if (StringUtils.hasText(preferred)) {
+            try {
+                formatters.add(DateTimeFormatter.ofPattern(preferred.trim()));
+            } catch (IllegalArgumentException ignored) {
+                /* invalid pattern */
+            }
+        }
+        formatters.addAll(List.of(DATETIME_FORMATTERS));
+        return formatters.toArray(DateTimeFormatter[]::new);
     }
 
     public List<String> toColumnList(List<Map<String, String>> rows) {

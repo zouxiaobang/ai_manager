@@ -21,4 +21,10 @@ public class EcImageUploadController {
     public ApiResult<EcImageUploadVO> upload(@RequestParam("file") MultipartFile file) {
         return ApiResult.ok(ecImageUploadService.uploadEcommerceImage(file));
     }
+
+    @PostMapping("/upload/carton-preview")
+    public ApiResult<EcImageUploadVO> uploadCartonPreview(@RequestParam("file") MultipartFile file,
+                                                          @RequestParam("cartonName") String cartonName) {
+        return ApiResult.ok(ecImageUploadService.uploadCartonPreviewImage(file, cartonName));
+    }
 }

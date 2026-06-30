@@ -12,6 +12,7 @@ import com.ai.manager.system.domain.entity.EcSettlementBuyerExclude;
 import com.ai.manager.system.domain.entity.EcSettlementExpressBill;
 import com.ai.manager.system.domain.entity.EcSettlementExpressBillLine;
 import com.ai.manager.system.domain.entity.EcSettlementOrderDecision;
+import com.ai.manager.system.domain.entity.EcSettlementSnapshot;
 import com.ai.manager.system.domain.entity.EcShop;
 import com.ai.manager.system.domain.vo.EcMonthlySettlementVO;
 import com.ai.manager.system.domain.vo.EcSettlementBuyerExcludeVO;
@@ -27,6 +28,7 @@ import com.ai.manager.system.mapper.EcSettlementBuyerExcludeMapper;
 import com.ai.manager.system.mapper.EcSettlementExpressBillLineMapper;
 import com.ai.manager.system.mapper.EcSettlementExpressBillMapper;
 import com.ai.manager.system.mapper.EcSettlementOrderDecisionMapper;
+import com.ai.manager.system.mapper.EcSettlementSnapshotMapper;
 import com.ai.manager.system.mapper.EcShopMapper;
 import com.ai.manager.system.service.EcMonthlySettlementService;
 import com.ai.manager.system.service.SysImportService;
@@ -36,6 +38,8 @@ import com.ai.manager.system.service.support.ExpressBillStationFilter;
 import com.ai.manager.system.service.support.SysImportColumnMappingSupport;
 import com.ai.manager.system.service.support.SysImportFieldRegistry;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,11 +76,13 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
     private final EcShopMapper ecShopMapper;
     private final EcSettlementBuyerExcludeMapper buyerExcludeMapper;
     private final EcSettlementOrderDecisionMapper orderDecisionMapper;
+    private final EcSettlementSnapshotMapper settlementSnapshotMapper;
     private final EcSettlementExpressBillMapper expressBillMapper;
     private final EcSettlementExpressBillLineMapper expressBillLineMapper;
     private final EcExpressStationMapper expressStationMapper;
     private final SysImportService sysImportService;
     private final SysImportColumnMappingSupport columnMappingSupport;
+    private final ObjectMapper objectMapper;
 
     @Override
     public EcMonthlySettlementVO calculate(String settlementMonth, Long shopId) {
@@ -92,17 +98,50 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
         vo.setSettlementMonth(ym.toString());
         List<EcMonthlySettlementVO.ShopSummary> summaries = new ArrayList<>();
 
+        boolean expressBillImported = isExpressBillImported(ym.toString());
+
         for (EcShop shop : shops) {
-            summaries.add(buildShopSummary(shop, shopNameMap, start, end, ym.toString()));
+            summaries.add(buildShopSummary(shop, shopNameMap, start, end, ym.toString(), expressBillImported));
         }
         vo.setShops(summaries);
-        vo.setExpressBillImported(isExpressBillImported(ym.toString()));
+        vo.setExpressBillImported(expressBillImported);
+        return vo;
+    }
+
+    @Override
+    public EcMonthlySettlementVO loadSnapshot(String settlementMonth) {
+        String month = parseMonth(settlementMonth).toString();
+        EcSettlementSnapshot snapshot = settlementSnapshotMapper.selectOne(
+                new LambdaQueryWrapper<EcSettlementSnapshot>()
+                        .eq(EcSettlementSnapshot::getSettlementMonth, month));
+        if (snapshot == null || !StringUtils.hasText(snapshot.getSnapshotJson())) {
+            return null;
+        }
+        try {
+            EcMonthlySettlementVO vo = objectMapper.readValue(snapshot.getSnapshotJson(), EcMonthlySettlementVO.class);
+            vo.setSaved(true);
+            vo.setCalculatedAt(snapshot.getCalculatedAt());
+            if (vo.getExpressBillImported() == null) {
+                vo.setExpressBillImported(snapshot.getExpressBillImported() != null && snapshot.getExpressBillImported() == 1);
+            }
+            return vo;
+        } catch (JsonProcessingException e) {
+            throw new BusinessException(ResultCode.INTERNAL_ERROR.getCode(), "读取月结快照失败");
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public EcMonthlySettlementVO calculateAndSave(String settlementMonth) {
+        EcMonthlySettlementVO vo = calculate(settlementMonth, null);
+        saveSnapshot(vo);
+        vo.setSaved(true);
         return vo;
     }
 
     @Override
     public boolean isExpressBillImported(String billMonth) {
-        String month = parseMonth(billMonth).toString();
+        String month = normalizeBillMonth(billMonth);
         Long count = expressBillMapper.selectCount(new LambdaQueryWrapper<EcSettlementExpressBill>()
                 .eq(EcSettlementExpressBill::getBillMonth, month)
                 .eq(EcSettlementExpressBill::getStatus, "IMPORTED"));
@@ -214,7 +253,7 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
                 orderDecisionMapper.updateById(existing);
             }
         }
-        return calculate(month, null);
+        return calculateAndSave(month);
     }
 
     @Override
@@ -235,6 +274,7 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "请上传快递账单文件");
         }
         parseMonth(billMonth);
+        String month = normalizeBillMonth(billMonth);
         EcExpressStation station = requireExpressStation(stationFilter.stationId());
         SysImportProfileVO savedProfile = sysImportService.getProfileByScope(
                 SysImportFieldRegistry.BIZ_SETTLEMENT_EXPRESS_BILL,
@@ -254,7 +294,7 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
         }
 
         EcSettlementExpressBill bill = new EcSettlementExpressBill();
-        bill.setBillMonth(billMonth);
+        bill.setBillMonth(month);
         bill.setExpressStationId(stationFilter.stationId());
         bill.setOtherExpress(0);
         bill.setIncludeLabelPrice(Boolean.TRUE.equals(includeLabelPrice) ? 1 : 0);
@@ -270,7 +310,7 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
         int overwritten = 0;
         boolean addLabelPrice = Boolean.TRUE.equals(includeLabelPrice);
         Map<String, EcSettlementExpressBillLine> lineByTracking =
-                loadExistingLinesByTracking(billMonth, stationFilter);
+                loadExistingLinesByTracking(month, stationFilter);
         Set<String> processedThisRun = new HashSet<>();
         for (ExpressBillRow row : rows) {
             String tracking = row.trackingNumber();
@@ -292,7 +332,7 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
             line.setOrderId(null);
             line.setOrderNo(null);
             line.setPlatformOrderNo(null);
-            List<EcSalesOrder> orders = findOrdersForBillRow(row);
+            List<EcSalesOrder> orders = findOrdersForBillRow(row, month);
             if (orders.isEmpty()) {
                 line.setMatchStatus("UNMATCHED");
             } else {
@@ -352,11 +392,12 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
                                                                     Boolean includeLabelPrice) {
         ExpressBillStationFilter stationFilter = ExpressBillStationFilter.parse(expressStationId);
         parseMonth(billMonth);
+        String month = normalizeBillMonth(billMonth);
         EcExpressStation station = stationFilter.otherExpress()
                 ? null : requireExpressStation(stationFilter.stationId());
 
         EcSettlementExpressBill bill = new EcSettlementExpressBill();
-        bill.setBillMonth(billMonth);
+        bill.setBillMonth(month);
         bill.setExpressStationId(stationFilter.billStationId());
         bill.setOtherExpress(stationFilter.billOtherExpressFlag());
         bill.setIncludeLabelPrice(Boolean.TRUE.equals(includeLabelPrice) && !stationFilter.otherExpress() ? 1 : 0);
@@ -369,7 +410,7 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
         bill.setStatus("IMPORTED");
         expressBillMapper.insert(bill);
 
-        int gapCount = appendGapOrderLines(bill.getId(), billMonth, stationFilter, Set.of());
+        int gapCount = appendGapOrderLines(bill.getId(), month, stationFilter, Set.of());
         bill.setGapOrderRows(gapCount);
         expressBillMapper.updateById(bill);
 
@@ -436,7 +477,7 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
             if (item.getOrderId() != null) {
                 line.setOrderId(item.getOrderId());
             } else {
-                EcSalesOrder matched = resolveOrderForManualLine(line);
+                EcSalesOrder matched = resolveOrderForManualLine(line, bill.getBillMonth());
                 if (matched != null) {
                     line.setOrderId(matched.getId());
                     if (!StringUtils.hasText(line.getOrderNo())) {
@@ -539,6 +580,27 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
         return result;
     }
 
+    @Override
+    public List<EcSettlementExpressBillLineVO> listUnmatchedExpressBillLines(Long billId) {
+        if (billId == null) {
+            return List.of();
+        }
+        EcSettlementExpressBill bill = expressBillMapper.selectById(billId);
+        if (bill == null) {
+            return List.of();
+        }
+        EcExpressStation station = bill.getExpressStationId() != null
+                ? expressStationMapper.selectById(bill.getExpressStationId()) : null;
+        List<EcSettlementExpressBillLine> lines = expressBillLineMapper.selectList(
+                new LambdaQueryWrapper<EcSettlementExpressBillLine>()
+                        .eq(EcSettlementExpressBillLine::getBillId, billId)
+                        .eq(EcSettlementExpressBillLine::getMatchStatus, "UNMATCHED")
+                        .orderByAsc(EcSettlementExpressBillLine::getId));
+        return lines.stream()
+                .map(line -> toLineVO(line, bill, station))
+                .collect(Collectors.toList());
+    }
+
     private EcSettlementExpressBillLineVO buildManualLineVO(EcSettlementExpressBillLine line,
                                                             EcSettlementExpressBill bill,
                                                             EcExpressStation station,
@@ -581,8 +643,9 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
         if (!StringUtils.hasText(billMonth)) {
             return List.of();
         }
+        String month = normalizeBillMonth(billMonth);
         List<EcSettlementExpressBill> bills = expressBillMapper.selectList(new LambdaQueryWrapper<EcSettlementExpressBill>()
-                .eq(EcSettlementExpressBill::getBillMonth, billMonth.trim())
+                .eq(EcSettlementExpressBill::getBillMonth, month)
                 .eq(EcSettlementExpressBill::getStatus, "IMPORTED")
                 .orderByDesc(EcSettlementExpressBill::getCreateTime));
         Map<Long, String> stationNames = loadExpressStationNameMap(bills);
@@ -760,8 +823,24 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
         return count;
     }
 
-    private List<EcSalesOrder> findOrdersForBillRow(ExpressBillRow row) {
-        return findOrdersByTracking(row.trackingNumber());
+    private List<EcSalesOrder> findOrdersForBillRow(ExpressBillRow row, String billMonth) {
+        return findOrdersByTrackingInMonth(row.trackingNumber(), billMonth);
+    }
+
+    private List<EcSalesOrder> findOrdersByTrackingInMonth(String tracking, String billMonth) {
+        return findOrdersByTracking(tracking).stream()
+                .filter(order -> isOrderInSettlementMonth(order, billMonth))
+                .toList();
+    }
+
+    private boolean isOrderInSettlementMonth(EcSalesOrder order, String billMonth) {
+        if (order == null || order.getOrderTime() == null) {
+            return false;
+        }
+        YearMonth ym = parseMonth(billMonth);
+        LocalDateTime start = ym.atDay(1).atStartOfDay();
+        LocalDateTime end = ym.plusMonths(1).atDay(1).atStartOfDay();
+        return !order.getOrderTime().isBefore(start) && order.getOrderTime().isBefore(end);
     }
 
     private List<EcSalesOrder> findOrdersByTracking(String tracking) {
@@ -802,9 +881,9 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
         return sb.isEmpty() ? null : sb.toString();
     }
 
-    private EcSalesOrder resolveOrderForManualLine(EcSettlementExpressBillLine line) {
+    private EcSalesOrder resolveOrderForManualLine(EcSettlementExpressBillLine line, String billMonth) {
         if (StringUtils.hasText(line.getTrackingNumber())) {
-            List<EcSalesOrder> orders = findOrdersByTracking(line.getTrackingNumber());
+            List<EcSalesOrder> orders = findOrdersByTrackingInMonth(line.getTrackingNumber(), billMonth);
             if (!orders.isEmpty()) {
                 return orders.get(0);
             }
@@ -813,7 +892,7 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
             EcSalesOrder byOrderNo = ecSalesOrderMapper.selectOne(new LambdaQueryWrapper<EcSalesOrder>()
                     .eq(EcSalesOrder::getOrderNo, line.getOrderNo())
                     .last("LIMIT 1"));
-            if (byOrderNo != null) {
+            if (byOrderNo != null && isOrderInSettlementMonth(byOrderNo, billMonth)) {
                 return byOrderNo;
             }
         }
@@ -821,7 +900,7 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
             EcSalesOrder byPlatform = ecSalesOrderMapper.selectOne(new LambdaQueryWrapper<EcSalesOrder>()
                     .eq(EcSalesOrder::getPlatformOrderNo, line.getPlatformOrderNo())
                     .last("LIMIT 1"));
-            if (byPlatform != null) {
+            if (byPlatform != null && isOrderInSettlementMonth(byPlatform, billMonth)) {
                 return byPlatform;
             }
         }
@@ -920,7 +999,7 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
 
     private EcMonthlySettlementVO.ShopSummary buildShopSummary(EcShop shop, Map<Long, String> shopNameMap,
                                                                LocalDateTime start, LocalDateTime end,
-                                                               String settlementMonth) {
+                                                               String settlementMonth, boolean expressBillImported) {
         Set<String> excludedBuyers = loadExcludedBuyerNames(shop.getId());
         Map<Long, EcSettlementOrderDecision> decisionMap = loadDecisionMap(shop.getId(), settlementMonth);
         Map<Long, List<EcSalesOrderLine>> lineMap = loadLineMapForShop(shop.getId(), start, end);
@@ -934,6 +1013,7 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
         BigDecimal totalRevenue = BigDecimal.ZERO;
         BigDecimal estimatedTotalCost = BigDecimal.ZERO;
         BigDecimal actualTotalCost = BigDecimal.ZERO;
+        BigDecimal totalActualFreight = BigDecimal.ZERO;
         int includedCount = 0;
         int excludedCount = 0;
         List<EcMonthlySettlementVO.PendingOrder> pendingOrders = new ArrayList<>();
@@ -948,7 +1028,7 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
             SettlementAction action = resolveAction(order, lines, decisionMap.get(order.getId()));
             switch (action.type()) {
                 case EXCLUDE -> excludedCount++;
-                case PENDING -> pendingOrders.add(toPendingOrder(order, decisionMap.get(order.getId())));
+                case PENDING -> pendingOrders.add(toPendingOrder(order, lines, decisionMap.get(order.getId())));
                 case INCLUDE_LOSS -> {
                     includedCount++;
                     BigDecimal cost = orderCost(order);
@@ -956,6 +1036,7 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
                     BigDecimal actFreight = nvl(order.getActualFreightAmount());
                     estimatedTotalCost = estimatedTotalCost.add(cost).add(estFreight);
                     actualTotalCost = actualTotalCost.add(cost).add(actFreight);
+                    totalActualFreight = totalActualFreight.add(actFreight);
                 }
                 case INCLUDE_PROFIT -> {
                     includedCount++;
@@ -966,14 +1047,11 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
                     totalRevenue = totalRevenue.add(received);
                     estimatedTotalCost = estimatedTotalCost.add(cost).add(estFreight);
                     actualTotalCost = actualTotalCost.add(cost).add(actFreight);
+                    totalActualFreight = totalActualFreight.add(actFreight);
                     BigDecimal estProfit = received.subtract(cost).subtract(estFreight);
                     if (maxProfit == null || estProfit.compareTo(nvl(maxProfit.getProfitAmount())) > 0) {
-                        maxProfit = new EcMonthlySettlementVO.MaxProfitOrder();
-                        maxProfit.setOrderId(order.getId());
-                        maxProfit.setOrderNo(order.getOrderNo());
-                        maxProfit.setPlatformOrderNo(order.getPlatformOrderNo());
-                        maxProfit.setProfitAmount(estProfit.setScale(2, RoundingMode.HALF_UP));
-                        maxProfit.setReceivedAmount(received.setScale(2, RoundingMode.HALF_UP));
+                        maxProfit = buildMaxProfitOrder(order, lines, received, cost, estFreight, actFreight, estProfit,
+                                expressBillImported);
                     }
                 }
             }
@@ -990,6 +1068,7 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
         summary.setActualTotalCost(scale2(actualTotalCost));
         summary.setEstimatedTotalProfit(estimatedTotalProfit);
         summary.setActualTotalProfit(actualTotalProfit);
+        summary.setTotalActualFreight(scale2(totalActualFreight));
         summary.setIncludedOrderCount(includedCount);
         summary.setExcludedOrderCount(excludedCount);
         summary.setPendingOrderCount(pendingOrders.size());
@@ -1029,13 +1108,44 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
         return lines.stream().anyMatch(l -> LINE_RETURNED.equals(normalizeStatus(l.getStatus())));
     }
 
-    private EcMonthlySettlementVO.PendingOrder toPendingOrder(EcSalesOrder order, EcSettlementOrderDecision decision) {
+    private EcMonthlySettlementVO.MaxProfitOrder buildMaxProfitOrder(EcSalesOrder order, List<EcSalesOrderLine> lines,
+                                                                     BigDecimal received, BigDecimal cost,
+                                                                     BigDecimal estFreight, BigDecimal actFreight,
+                                                                     BigDecimal estProfit, boolean expressBillImported) {
+        BigDecimal actProfit = received.subtract(cost).subtract(actFreight);
+        EcMonthlySettlementVO.MaxProfitOrder maxProfit = new EcMonthlySettlementVO.MaxProfitOrder();
+        maxProfit.setOrderId(order.getId());
+        maxProfit.setOrderNo(order.getOrderNo());
+        maxProfit.setPlatformOrderNo(order.getPlatformOrderNo());
+        maxProfit.setProductName(joinPendingLineText(lines, false));
+        maxProfit.setSkuName(joinPendingLineText(lines, true));
+        maxProfit.setOrderTime(order.getOrderTime());
+        maxProfit.setReceivedAmount(scale2(received));
+        maxProfit.setEstimatedCostAmount(scale2(cost.add(estFreight)));
+        maxProfit.setActualCostAmount(scale2(cost.add(actFreight)));
+        maxProfit.setProfitAmount(scale2(estProfit));
+        if (!expressBillImported) {
+            maxProfit.setActualProfitAmount(null);
+            maxProfit.setActualProfitUnknownReason("EXPRESS_BILL_NOT_IMPORTED");
+        } else if (order.getActualFreightAmount() == null) {
+            maxProfit.setActualProfitAmount(null);
+            maxProfit.setActualProfitUnknownReason("ACTUAL_FREIGHT_MISSING");
+        } else {
+            maxProfit.setActualProfitAmount(scale2(actProfit));
+        }
+        return maxProfit;
+    }
+
+    private EcMonthlySettlementVO.PendingOrder toPendingOrder(EcSalesOrder order, List<EcSalesOrderLine> lines,
+                                                              EcSettlementOrderDecision decision) {
         EcMonthlySettlementVO.PendingOrder row = new EcMonthlySettlementVO.PendingOrder();
         row.setOrderId(order.getId());
         row.setOrderNo(order.getOrderNo());
         row.setPlatformOrderNo(order.getPlatformOrderNo());
         row.setStatus(order.getStatus());
         row.setBuyerName(order.getBuyerName());
+        row.setProductName(joinPendingLineText(lines, false));
+        row.setSkuName(joinPendingLineText(lines, true));
         row.setReceivedAmount(order.getReceivedAmount());
         row.setOrderTime(order.getOrderTime());
         if (decision != null) {
@@ -1046,6 +1156,38 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
             row.setIncluded(null);
         }
         return row;
+    }
+
+    private String joinPendingLineText(List<EcSalesOrderLine> lines, boolean sku) {
+        if (lines == null || lines.isEmpty()) {
+            return null;
+        }
+        List<String> parts = new ArrayList<>();
+        for (EcSalesOrderLine line : lines) {
+            String text;
+            if (sku) {
+                text = trimToNull(line.getSkuSpecName());
+            } else {
+                text = firstNonBlank(line.getLinkName(), line.getPlatformItemName());
+            }
+            if (text != null) {
+                parts.add(text);
+            }
+        }
+        return parts.isEmpty() ? null : String.join(" / ", parts);
+    }
+
+    private String firstNonBlank(String... candidates) {
+        if (candidates == null) {
+            return null;
+        }
+        for (String candidate : candidates) {
+            String text = trimToNull(candidate);
+            if (text != null) {
+                return text;
+            }
+        }
+        return null;
     }
 
     private BigDecimal orderCost(EcSalesOrder order) {
@@ -1119,6 +1261,42 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
             return false;
         }
         return excluded.contains(buyerName.trim());
+    }
+
+    private void saveSnapshot(EcMonthlySettlementVO vo) {
+        if (vo == null || !StringUtils.hasText(vo.getSettlementMonth())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "无法保存空的月结快照");
+        }
+        String month = parseMonth(vo.getSettlementMonth()).toString();
+        vo.setSettlementMonth(month);
+        LocalDateTime now = LocalDateTime.now();
+        try {
+            String json = objectMapper.writeValueAsString(vo);
+            EcSettlementSnapshot existing = settlementSnapshotMapper.selectOne(
+                    new LambdaQueryWrapper<EcSettlementSnapshot>()
+                            .eq(EcSettlementSnapshot::getSettlementMonth, month));
+            if (existing == null) {
+                EcSettlementSnapshot snapshot = new EcSettlementSnapshot();
+                snapshot.setSettlementMonth(month);
+                snapshot.setExpressBillImported(Boolean.TRUE.equals(vo.getExpressBillImported()) ? 1 : 0);
+                snapshot.setSnapshotJson(json);
+                snapshot.setCalculatedAt(now);
+                settlementSnapshotMapper.insert(snapshot);
+                vo.setCalculatedAt(now);
+            } else {
+                existing.setExpressBillImported(Boolean.TRUE.equals(vo.getExpressBillImported()) ? 1 : 0);
+                existing.setSnapshotJson(json);
+                existing.setCalculatedAt(now);
+                settlementSnapshotMapper.updateById(existing);
+                vo.setCalculatedAt(now);
+            }
+        } catch (JsonProcessingException e) {
+            throw new BusinessException(ResultCode.INTERNAL_ERROR.getCode(), "保存月结快照失败");
+        }
+    }
+
+    private String normalizeBillMonth(String billMonth) {
+        return parseMonth(billMonth).toString();
     }
 
     private YearMonth parseMonth(String month) {

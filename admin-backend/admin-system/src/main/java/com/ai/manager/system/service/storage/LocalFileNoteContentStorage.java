@@ -17,11 +17,13 @@ import java.nio.file.Paths;
 @RequiredArgsConstructor
 public class LocalFileNoteContentStorage implements NoteContentStorage {
 
+    public static final String TYPE = "LOCAL";
+
     private final NoteStorageProperties noteStorageProperties;
 
     @Override
     public String type() {
-        return "LOCAL";
+        return TYPE;
     }
 
     @Override

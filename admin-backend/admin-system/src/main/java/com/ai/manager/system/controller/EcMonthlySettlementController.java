@@ -35,6 +35,16 @@ public class EcMonthlySettlementController {
         return ApiResult.ok(monthlySettlementService.calculate(month, shopId));
     }
 
+    @GetMapping("/snapshot")
+    public ApiResult<EcMonthlySettlementVO> loadSnapshot(@RequestParam String month) {
+        return ApiResult.ok(monthlySettlementService.loadSnapshot(month));
+    }
+
+    @PostMapping("/calculate")
+    public ApiResult<EcMonthlySettlementVO> calculateAndSave(@RequestParam String month) {
+        return ApiResult.ok(monthlySettlementService.calculateAndSave(month));
+    }
+
     @GetMapping("/buyer-excludes")
     public ApiResult<List<EcSettlementBuyerExcludeVO>> listBuyerExcludes(
             @RequestParam(required = false) Long shopId) {
@@ -90,6 +100,11 @@ public class EcMonthlySettlementController {
     @GetMapping("/express-bill/manual/lines")
     public ApiResult<List<EcSettlementExpressBillLineVO>> listManualPendingLines(@RequestParam Long billId) {
         return ApiResult.ok(monthlySettlementService.listManualPendingLines(billId));
+    }
+
+    @GetMapping("/express-bill/unmatched-lines")
+    public ApiResult<List<EcSettlementExpressBillLineVO>> listUnmatchedExpressBillLines(@RequestParam Long billId) {
+        return ApiResult.ok(monthlySettlementService.listUnmatchedExpressBillLines(billId));
     }
 
     @GetMapping("/express-bill/records")

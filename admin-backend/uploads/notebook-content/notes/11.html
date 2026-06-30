@@ -1,0 +1,19 @@
+<p>volatile 和原子性操作（如 AtomicInteger、AtomicReference 等）都是 Java 并发编程中的重要概念，但它们解决的问题和适用的场景不同。</p><h2 style="text-align: left;">1. 主要区别</h2><table style="width: auto;"><tbody><tr><td colSpan="1" rowSpan="1" width="auto">特性</td><td colSpan="1" rowSpan="1" width="auto">volatile 变量</td><td colSpan="1" rowSpan="1" width="auto">原子性操作（如 AtomicInteger）</td></tr><tr><td colSpan="1" rowSpan="1" width="auto">可见性</td><td colSpan="1" rowSpan="1" width="auto">✅ 保证变量的读写对所有线程立即可见</td><td colSpan="1" rowSpan="1" width="auto">✅ 同样保证可见性（内部使用 volatile）</td></tr><tr><td colSpan="1" rowSpan="1" width="auto">原子性</td><td colSpan="1" rowSpan="1" width="auto">❌ 仅保证单次读/写的原子性</td><td colSpan="1" rowSpan="1" width="auto">✅ 保证复合操作的原子性（如 incrementAndGet()）</td></tr><tr><td colSpan="1" rowSpan="1" width="auto">适用场景</td><td colSpan="1" rowSpan="1" width="auto">状态标志、一次性发布（如单例模式）</td><td colSpan="1" rowSpan="1" width="auto">计数器、复杂并发操作</td></tr><tr><td colSpan="1" rowSpan="1" width="auto">性能</td><td colSpan="1" rowSpan="1" width="auto">较高（无锁）</td><td colSpan="1" rowSpan="1" width="auto">略低（CAS 可能重试）</td></tr><tr><td colSpan="1" rowSpan="1" width="auto">ABA 问题</td><td colSpan="1" rowSpan="1" width="auto">不涉及</td><td colSpan="1" rowSpan="1" width="auto">可能遇到（需用 AtomicStampedReference 解决）</td></tr></tbody></table><h2 style="text-align: left;">2. 详细对比</h2><h3 style="text-align: left;">(1) 可见性</h3><ul><li style="text-align: left;">volatile：确保变量的修改能立即对其他线程可见（防止指令重排序，插入内存屏障）。</li><li style="text-align: left;">原子类：内部使用 volatile 变量，同样保证可见性。</li></ul><h3 style="text-align: left;">(2) 原子性</h3><ul><li style="text-align: left;">volatile：</li><ul><li style="text-align: left;">仅保证单次读/写是原子的（如 volatile int i = 0; 的读或写是原子的）。</li><li style="text-align: left;">不保证复合操作的原子性（如 i++ 不是原子的，因为它包含读、改、写三步）。</li></ul><li style="text-align: left;">原子类：</li><ul><li style="text-align: left;">保证复合操作的原子性（如 AtomicInteger.getAndIncrement() 是原子的）。</li><li style="text-align: left;">通过 CAS（Compare-And-Swap）实现无锁线程安全。</li></ul></ul><h3 style="text-align: left;">(3) 适用场景</h3><ul><li style="text-align: left;">volatile 适用场景：</li><ul><li style="text-align: left;">状态标志（如 volatile boolean running）。</li><li style="text-align: left;">一次性安全发布（如单例模式的双重检查锁）。</li></ul></ul><pre><code class="language-java">// 单例模式示例
+class Singleton {
+    private static volatile Singleton instance;
+
+    public static Singleton getInstance() {
+        if (instance == null) {
+            synchronized (Singleton.class) {
+                if (instance == null) {
+                    instance = new Singleton();
+                }
+            }
+        }
+        return instance;
+    }
+}</code></pre><ul><li style="text-align: left;">原子类适用场景：</li><ul><li style="text-align: left;">计数器（如 AtomicInteger）。</li><li style="text-align: left;">复杂并发操作（如 AtomicReference.compareAndSet()）。</li><li style="text-align: left;">// 原子计数器示例<br>AtomicInteger counter = new AtomicInteger(0);<br>// 线程安全的自增<br>counter.incrementAndGet();</li></ul></ul><h2 style="text-align: left;">3. 关键问题示例</h2><h3 style="text-align: left;">❌ volatile 无法保证原子性</h3><pre><code >volatile int count = 0;
+// 线程不安全！count++ 不是原子的
+public void unsafeIncrement() {
+    count++; // 实际是 read-modify-write 三步操作
+}</code></pre><h3 style="text-align: left;">✅ 原子类保证原子性</h3><p>AtomicInteger count = new AtomicInteger(0);<br>// 线程安全<br>public void safeIncrement() {<br>count.incrementAndGet(); // 原子操作<br>}</p><h2 style="text-align: left;">4. 如何选择？</h2><ul><li style="text-align: left;">如果只是简单的状态标志（如 boolean 开关），用 volatile。</li><li style="text-align: left;">如果需要原子性的复合操作（如计数器、条件更新），用原子类。</li><li style="text-align: left;">如果涉及多个变量的原子操作，可能需要 synchronized 或更高级的并发工具（如 ReentrantLock）。</li></ul><h2 style="text-align: left;">总结</h2><p>volatile 主要解决 可见性问题，而原子类解决 可见性 + 原子性问题。在需要线程安全的复合操作时，原子类是更好的选择。</p>

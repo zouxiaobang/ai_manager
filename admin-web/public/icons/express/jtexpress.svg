@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <rect width="32" height="32" rx="6" fill="#E60012"/>
+  <path d="M8 9h16v4H8z" fill="#FFFFFF"/>
+  <text x="16" y="21" text-anchor="middle" fill="#FFFFFF" font-size="8" font-family="Arial,Helvetica,sans-serif" font-weight="700">J&amp;T</text>
+  <text x="16" y="27" text-anchor="middle" fill="#FFFFFF" font-size="5.5" font-family="PingFang SC,Microsoft YaHei,SimHei,sans-serif" font-weight="600">极兔</text>
+</svg>

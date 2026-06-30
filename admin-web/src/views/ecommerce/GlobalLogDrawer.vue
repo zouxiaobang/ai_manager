@@ -26,7 +26,6 @@
           filterable
           :placeholder="t('ecommerce.inventory.factoryPlaceholder')"
           style="width: 160px"
-          @change="() => load(true)"
         >
           <el-option v-for="f in factoryOptions" :key="f.id" :label="f.name" :value="f.id" />
         </el-select>
@@ -35,14 +34,12 @@
           clearable
           :placeholder="t('ecommerce.inventory.changeType')"
           style="width: 120px"
-          @change="() => load(true)"
         >
           <el-option :label="t('ecommerce.inbound.inbound')" value="INBOUND" />
           <el-option :label="t('ecommerce.inventory.deduct')" value="DEDUCT" />
           <el-option :label="t('ecommerce.inventory.reclaim')" value="RECLAIM" />
           <el-option :label="t('ecommerce.stocktake.stocktake')" value="STOCKTAKE" />
         </el-select>
-        <el-button type="primary" @click="() => load(true)">{{ t('ecommerce.inventory.search') }}</el-button>
       </div>
 
       <el-table v-loading="loading" :data="records" stripe border size="small">
@@ -115,14 +112,18 @@ function changeTypeLabel(type: string) {
   return type
 }
 
-let searchTimer: ReturnType<typeof setTimeout> | null = null
+let inputTimer: ReturnType<typeof setTimeout> | null = null
 watch([keyword, skuCode], () => {
-  if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => load(true), 300)
+  if (inputTimer) clearTimeout(inputTimer)
+  inputTimer = setTimeout(() => load(true), 300)
+})
+
+watch([factoryId, changeType], () => {
+  if (visible.value) load(true)
 })
 
 onMounted(async () => {
-  factoryOptions.value = await fetchFactoryOptions()
+  factoryOptions.value = await fetchFactoryOptions('PRODUCTION')
 })
 </script>
 

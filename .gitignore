@@ -60,11 +60,12 @@ application-local.properties
 # Database
 *.db
 
-# firmware
-firmware/esp32_s3_lvgl/managed_components/
-firmware/esp32_s3_lvgl/build/
-firmware/esp32_s3_lvgl/.pio/
+# firmware (ESP-IDF)
+firmware/esp32_s3_sub_display/managed_components/
+firmware/esp32_s3_sub_display/build/
+firmware/esp32_s3_sub_display/sdkconfig
+firmware/esp32_s3_sub_display/sdkconfig.old
+firmware/esp32_s3_sub_display/dependencies.lock
 
 # Python virtual environment
 .venv/
-pc_daemon/.venv/

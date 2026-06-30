@@ -22,9 +22,10 @@ public class EcInboundOrderController {
     public ApiResult<PageResult<EcInboundOrderDetailVO>> list(@RequestParam(required = false) String keyword,
                                                                @RequestParam(required = false) String status,
                                                                @RequestParam(required = false) Long factoryId,
+                                                               @RequestParam(required = false) String orderMonth,
                                                                @RequestParam(required = false) Long page,
                                                                @RequestParam(required = false) Long pageSize) {
-        return ApiResult.ok(ecInboundOrderService.pageOrders(keyword, status, factoryId, page, pageSize));
+        return ApiResult.ok(ecInboundOrderService.pageOrders(keyword, status, factoryId, orderMonth, page, pageSize));
     }
 
     @GetMapping("/{id}")

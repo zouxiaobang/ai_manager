@@ -18,6 +18,10 @@ public interface EcMonthlySettlementService {
 
     EcMonthlySettlementVO calculate(String settlementMonth, Long shopId);
 
+    EcMonthlySettlementVO loadSnapshot(String settlementMonth);
+
+    EcMonthlySettlementVO calculateAndSave(String settlementMonth);
+
     List<EcSettlementBuyerExcludeVO> listBuyerExcludes(Long shopId);
 
     EcSettlementBuyerExcludeVO saveBuyerExclude(EcSettlementBuyerExcludeSaveRequest request);
@@ -36,6 +40,8 @@ public interface EcMonthlySettlementService {
     EcSettlementExpressBillImportVO saveManualExpressBillLines(EcSettlementExpressBillManualSaveRequest request);
 
     List<EcSettlementExpressBillLineVO> listManualPendingLines(Long billId);
+
+    List<EcSettlementExpressBillLineVO> listUnmatchedExpressBillLines(Long billId);
 
     List<EcSettlementExpressBillRecordVO> listExpressBillRecords(String billMonth);
 

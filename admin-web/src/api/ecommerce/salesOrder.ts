@@ -74,6 +74,10 @@ export interface EcSalesOrder {
   sellerRemark?: string
   lines?: EcSalesOrderLine[]
   lineCount?: number
+  /** 列表摘要：首条明细链接名称 */
+  linkName?: string
+  /** 列表摘要：首条明细 SKU 规格 */
+  skuSpecName?: string
 }
 
 export interface EcSalesOrderSaveRequest {
@@ -82,8 +86,10 @@ export interface EcSalesOrderSaveRequest {
   expressStationId?: number | null
   orderTime?: string
   payTime?: string
+  platformStatus?: string
   buyerName?: string
   buyerPhone?: string
+  receiveProvince?: string
   receiveAddress?: string
   trackingNumber?: string
   buyerRemark?: string
@@ -114,6 +120,7 @@ export interface EcSalesOrderImportRow {
   platformOrderNo?: string
   linkName?: string
   skuSpecName?: string
+  skuQuantity?: number | null
   matchStatus?: string
   listingLinkSkuId?: number
   manualCostPrice?: number | null
@@ -128,11 +135,19 @@ export interface EcSalesOrderImportRow {
 export interface EcSalesOrderImportPreview {
   batchId: number
   batchNo: string
+  shopId?: number
+  profileId?: number | null
+  fileName?: string | null
+  fileSize?: number | null
+  detectedColumnCount?: number | null
+  detectedColumns?: string[]
   totalRows: number
   matchedRows: number
   unmatchedRows: number
   statusUnmatchedRows?: number
   errorRows: number
+  /** 原始导入文件是否仍可读取；为 false 时需重新上传后才能重新解析 */
+  importFileReadable?: boolean
   rows: EcSalesOrderImportRow[]
 }
 
@@ -142,17 +157,54 @@ export type ImportRowPatchItem = {
   lineStatus?: string | null
 }
 
+export type ShopImportStatus = 'NOT_IMPORTED' | 'IMPORTED' | 'PENDING_REVIEW'
+
+export interface EcSalesOrderShopImportStatus {
+  shopId: number
+  shopName?: string
+  platformName?: string
+  platformCode?: number | null
+  shopAvatarUrl?: string | null
+  platformAvatarUrl?: string | null
+  orderCount: number
+  status: ShopImportStatus
+  lastImportTime?: string | null
+  pendingBatchId?: number | null
+  pendingReviewRows?: number
+}
+
+export interface EcSalesOrderMonthlyOverview {
+  orderMonth: string
+  totalOrderCount: number
+  importedShopCount: number
+  totalShopCount: number
+  pendingReviewCount: number
+  lastImportTime?: string | null
+  shops: EcSalesOrderShopImportStatus[]
+}
+
 export function fetchSalesOrders(
   keyword?: string,
   status?: string,
   shopId?: number,
+  orderTimeFrom?: string,
+  orderTimeTo?: string,
   pageQuery?: PageQuery,
 ) {
   return getData<PageResult<EcSalesOrder>>('/api/ecommerce/sales-orders', {
     ...(keyword ? { keyword } : {}),
     ...(status ? { status } : {}),
     ...(shopId ? { shopId } : {}),
+    ...(orderTimeFrom ? { orderTimeFrom } : {}),
+    ...(orderTimeTo ? { orderTimeTo } : {}),
     ...(pageQuery ?? {}),
+  })
+}
+
+export function fetchSalesOrderMonthlyOverview(orderMonth: string, shopId?: number) {
+  return getData<EcSalesOrderMonthlyOverview>('/api/ecommerce/sales-orders/monthly-overview', {
+    orderMonth,
+    ...(shopId ? { shopId } : {}),
   })
 }
 
@@ -205,12 +257,24 @@ export function previewSalesOrderImport(data: {
   return postData<EcSalesOrderImportPreview>('/api/ecommerce/sales-orders/import/preview', data)
 }
 
-export async function uploadSalesOrderImport(file: File, shopId: number, profileId?: number | null) {
+export function fetchSalesOrderImportPreview(batchId: number) {
+  return getData<EcSalesOrderImportPreview>(`/api/ecommerce/sales-orders/import/${batchId}`)
+}
+
+export async function uploadSalesOrderImport(
+  file: File,
+  shopId: number,
+  profileId?: number | null,
+  orderMonth?: string,
+) {
   const formData = new FormData()
   formData.append('file', file)
   formData.append('shopId', String(shopId))
   if (profileId != null) {
     formData.append('profileId', String(profileId))
+  }
+  if (orderMonth) {
+    formData.append('orderMonth', orderMonth)
   }
   const response = await request.post<ApiResult<EcSalesOrderImportPreview>>(
     '/api/ecommerce/sales-orders/import/upload',
@@ -222,7 +286,7 @@ export async function uploadSalesOrderImport(file: File, shopId: number, profile
 
 export function commitSalesOrderImport(
   batchId: number,
-  data?: { items: ImportRowPatchItem[] },
+  data?: { items?: ImportRowPatchItem[]; excludedLineStatuses?: string[] },
 ) {
   return postData<EcSalesOrderImportPreview>(
     `/api/ecommerce/sales-orders/import/${batchId}/commit`,
@@ -238,4 +302,19 @@ export function updateImportManualCosts(
     `/api/ecommerce/sales-orders/import/${batchId}/manual-costs`,
     data,
   )
+}
+
+export function reparseSalesOrderImport(batchId: number) {
+  return postData<EcSalesOrderImportPreview>(`/api/ecommerce/sales-orders/import/${batchId}/reparse`, {})
+}
+
+export async function replaceSalesOrderImportFile(batchId: number, file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  const response = await request.post<ApiResult<EcSalesOrderImportPreview>>(
+    `/api/ecommerce/sales-orders/import/${batchId}/replace-file`,
+    formData,
+    { headers: { 'Content-Type': 'multipart/form-data' } },
+  )
+  return response.data.data
 }

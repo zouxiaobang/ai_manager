@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { PAGE_SIZE_OPTIONS } from '@/api/pagination'
 
-defineProps<{
-  total: number
-  page: number
-  pageSize: number
-}>()
+const props = withDefaults(
+  defineProps<{
+    total: number
+    page: number
+    pageSize: number
+    layout?: string
+  }>(),
+  { layout: 'total, sizes, prev, pager, next, jumper' },
+)
 
 const emit = defineEmits<{
   'update:page': [number]
@@ -29,7 +33,7 @@ function onSizeChange(value: number) {
       :page-sizes="PAGE_SIZE_OPTIONS"
       :total="total"
       background
-      layout="total, sizes, prev, pager, next, jumper"
+      :layout="props.layout"
       @current-change="onPageChange"
       @size-change="onSizeChange"
     />

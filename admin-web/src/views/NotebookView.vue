@@ -202,6 +202,12 @@
                       {{ t('notebook.saved') }}
                     </span>
                     <span
+                      v-else-if="!contentLoadBlocked && currentNote.syncStatus === 'CLOUD_PENDING'"
+                      class="notebook-editor__meta-item is-warn"
+                    >
+                      {{ t('notebook.cloudPending') }}
+                    </span>
+                    <span
                       v-else-if="!contentLoadBlocked && currentNote.syncStatus === 'SYNCING'"
                       class="notebook-editor__meta-item"
                     >
@@ -740,6 +746,7 @@ const showMetaStatus = computed(() => {
   if (contentLoading.value) return true
   if (saveState.value === 'saving' || saveState.value === 'saved') return true
   if (contentLoadBlocked.value) return true
+  if (!contentLoadBlocked.value && currentNote.value.syncStatus === 'CLOUD_PENDING') return true
   if (!contentLoadBlocked.value && currentNote.value.syncStatus === 'SYNCING') return true
   if (!contentLoadBlocked.value && currentNote.value.syncStatus === 'FAILED') return true
   return false
@@ -1543,7 +1550,7 @@ function resolveEditorHtml(): string {
   return fromEditor || fromForm
 }
 
-function onOptimizeContent() {
+async function onOptimizeContent() {
   if (!currentNote.value || contentLoadBlocked.value || contentLoading.value) return
   const source = resolveEditorHtml()
   if (!hasNoteVisibleText(source)) {
@@ -1559,8 +1566,7 @@ function onOptimizeContent() {
     ElMessage.info(t('notebook.optimizeNoChange'))
     return
   }
-  editForm.content = optimized
-  editorRevision.value += 1
+  await editorRef.value?.setHtml(optimized)
   scheduleSave()
   ElMessage.success(t('notebook.optimizeDone'))
 }
@@ -2527,6 +2533,10 @@ onBeforeUnmount(() => {
 
   &.is-error {
     color: #dc2626;
+  }
+
+  &.is-warn {
+    color: #d97706;
   }
 }
 

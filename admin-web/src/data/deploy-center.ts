@@ -173,7 +173,7 @@ export const deployDataNodeCredentials: DeployDataNodeServiceCredentials[] = [
 ]
 
 export interface DeployStoragePathSection {
-  key: 'local-server' | 'local-dev' | 'baidu-pan'
+  key: 'local-server' | 'local-dev' | 'baidu-pan-prod' | 'baidu-pan-dev'
   title: string
   fields: DeployCredentialField[]
 }
@@ -216,13 +216,27 @@ export const deployStorageNodePaths: DeployStoragePathSection[] = [
     ],
   },
   {
-    key: 'baidu-pan',
-    title: '百度网盘目录',
+    key: 'baidu-pan-prod',
+    title: '百度网盘 · 生产（114）',
     fields: [
       { label: '应用根目录', value: '/apps/ai_blog' },
       { label: '笔记正文', value: '/apps/ai_blog/notes' },
       { label: '回收站', value: '/apps/ai_blog/trash' },
       { label: '笔记图片', value: '/apps/ai_blog/images' },
+      { label: '电商图片', value: '/apps/ai_blog/ecommerce-images' },
+      { label: '销售订单导入', value: '/apps/ai_blog/imports/sales-orders' },
+    ],
+  },
+  {
+    key: 'baidu-pan-dev',
+    title: '百度网盘 · 开发',
+    fields: [
+      { label: '应用根目录', value: '/apps/ai_blog/dev' },
+      { label: '笔记正文', value: '/apps/ai_blog/dev/notes' },
+      { label: '回收站', value: '/apps/ai_blog/dev/trash' },
+      { label: '笔记图片', value: '/apps/ai_blog/dev/images' },
+      { label: '电商图片', value: '/apps/ai_blog/dev/ecommerce-images' },
+      { label: '销售订单导入', value: '/apps/ai_blog/dev/imports/sales-orders' },
     ],
   },
 ]

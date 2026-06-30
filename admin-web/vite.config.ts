@@ -16,6 +16,7 @@ export default defineConfig({
   },
   // element-plus 2.14+ 的 .mjs.map 含 VLQ 空字节，esbuild 预构建时会当 JS 解析报错
   optimizeDeps: {
+    include: ['exceljs'],
     esbuildOptions: {
       sourcemap: false,
     },

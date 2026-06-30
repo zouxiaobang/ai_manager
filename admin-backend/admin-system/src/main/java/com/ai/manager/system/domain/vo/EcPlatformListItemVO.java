@@ -14,6 +14,8 @@ public class EcPlatformListItemVO {
 
     private String nameEn;
 
+    private String avatarUrl;
+
     private Integer platformCode;
 
     private String channelType;

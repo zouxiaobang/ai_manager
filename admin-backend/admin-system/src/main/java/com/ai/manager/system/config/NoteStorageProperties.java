@@ -10,7 +10,8 @@ import org.springframework.stereotype.Component;
 public class NoteStorageProperties {
 
     /**
-     * 正文存储类型：BAIDU_PAN（需授权）或 LOCAL（本地文件，开发/降级）
+     * 正文存储类型（双写关闭时的降级策略）：BAIDU_PAN 或 LOCAL。
+     * 存储中心开启双写后，正文将同时写入本地与百度网盘（storage_type=DUAL）。
      */
     private String type = "BAIDU_PAN";
 
@@ -19,4 +20,7 @@ public class NoteStorageProperties {
 
     /** Redis 正文缓存 TTL（秒） */
     private long cacheTtlSeconds = 3600;
+
+    /** Redis 正文缓存总容量上限（MB），0 表示不限制 */
+    private long cacheMaxMb = 512;
 }

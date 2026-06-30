@@ -17,6 +17,7 @@ const { t } = useI18n()
 
 const titleKeyMap: Record<string, string> = {
   '/user-center': 'portal.menu.userCenter',
+  '/pixel-dog': 'functions.items.pixelDog.name',
   '/deploy-docs': 'portal.menu.deployCenter',
   '/storage': 'portal.menu.storage',
 }

@@ -89,12 +89,14 @@ export function fetchInboundOrders(
   keyword?: string,
   status?: string,
   factoryId?: number,
+  orderMonth?: string,
   pageQuery?: PageQuery,
 ) {
   return getData<PageResult<EcInboundOrder>>('/api/ecommerce/inbound-orders', {
     ...(keyword ? { keyword } : {}),
     ...(status ? { status } : {}),
     ...(factoryId ? { factoryId } : {}),
+    ...(orderMonth ? { orderMonth } : {}),
     ...(pageQuery ?? {}),
   })
 }

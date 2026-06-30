@@ -24,4 +24,14 @@ public interface NbNoteContentService {
     void deleteContent(NbNote note);
 
     void prepareNewNote(NbNote note);
+
+    /**
+     * 双向差值同步：云盘→本地回填、本地→云盘补传。
+     */
+    void reconcileAll();
+
+    /**
+     * 单条笔记差值同步。
+     */
+    void reconcileNote(Long noteId);
 }

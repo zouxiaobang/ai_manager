@@ -84,7 +84,8 @@ async function copy(text: string) {
     color: #7c3aed;
   }
 
-  &__section.is-baidu-pan &__section-title {
+  &__section.is-baidu-pan-prod &__section-title,
+  &__section.is-baidu-pan-dev &__section-title {
     color: #ea580c;
   }
 

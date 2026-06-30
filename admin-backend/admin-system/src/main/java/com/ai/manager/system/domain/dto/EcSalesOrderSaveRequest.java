@@ -19,6 +19,10 @@ public class EcSalesOrderSaveRequest {
 
     private LocalDateTime payTime;
 
+    private String platformStatus;
+
+    private String receiveProvince;
+
     private String buyerName;
 
     private String buyerPhone;
