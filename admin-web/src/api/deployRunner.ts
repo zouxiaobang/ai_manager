@@ -17,7 +17,7 @@ export interface DeployRunnerStatus {
     exitCode?: number
     startedAt?: number
     finishedAt?: number
-  }
+  } | null
 }
 
 export interface DeployPreflightStatus {
@@ -34,8 +34,21 @@ export interface DeployStreamHandlers {
   onDisconnect: () => void
 }
 
-export function fetchDeployRunnerStatus() {
-  return getData<DeployRunnerStatus>('/api/deploy/runner/status')
+export function fetchDeployRunnerStatus(options?: { silent?: boolean; timeout?: number }) {
+  return getData<DeployRunnerStatus>('/api/deploy/runner/status', undefined, {
+    silent: options?.silent,
+    timeout: options?.timeout,
+  })
+}
+
+function isTransientDeployStatusError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false
+  const axiosErr = err as { response?: { status?: number }; code?: string; message?: string }
+  const status = axiosErr.response?.status
+  if (status === 502 || status === 503 || status === 504) return true
+  if (axiosErr.code === 'ECONNABORTED' || axiosErr.code === 'ERR_NETWORK') return true
+  const message = axiosErr.message ?? ''
+  return message.includes('502') || message.includes('503') || message.includes('Network Error')
 }
 
 export function fetchDeployPreflight() {
@@ -88,19 +101,39 @@ export function streamDeploy(
 
 export async function pollDeployUntilFinished(
   target: 'backend' | 'frontend',
-  onTick: (elapsedSeconds: number, running: boolean) => void,
+  onTick: (elapsedSeconds: number, running: boolean, transientError?: boolean) => void,
   deployStartedAt: number,
   intervalMs = 5000,
   maxWaitMs = 60 * 60 * 1000,
 ): Promise<{ success: boolean; exitCode: number; timedOut: boolean; unknown?: boolean }> {
   const startedAt = Date.now()
+  let consecutiveErrors = 0
+  const maxConsecutiveErrors = 24
+
   while (Date.now() - startedAt < maxWaitMs) {
     await new Promise((resolve) => setTimeout(resolve, intervalMs))
-    const status = await fetchDeployRunnerStatus()
     const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1000)
-    onTick(elapsedSeconds, Boolean(status.running))
 
-    if (status.running) {
+    let status: DeployRunnerStatus
+    try {
+      status = await fetchDeployRunnerStatus({ silent: true, timeout: 30000 })
+      consecutiveErrors = 0
+    } catch (err) {
+      if (!isTransientDeployStatusError(err)) {
+        throw err
+      }
+      consecutiveErrors += 1
+      onTick(elapsedSeconds, true, true)
+      if (consecutiveErrors >= maxConsecutiveErrors) {
+        throw err
+      }
+      continue
+    }
+
+    const stillRunning = Boolean(status.running || status.lastDeploy?.running)
+    onTick(elapsedSeconds, stillRunning)
+
+    if (stillRunning) {
       continue
     }
 

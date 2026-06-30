@@ -26,7 +26,7 @@
 #define UI_MARGIN      16
 #define UI_CARD_W      310
 #define UI_CARD_GAP    20
-#define UI_CARD_H      330
+#define UI_CARD_H      318
 #define UI_DOCK_H      72
 #define UI_STATUS_H    36
 #define UI_DOTS_H      12
@@ -313,6 +313,7 @@ lv_obj_t *ui_home_static_build(lv_obj_t *parent, ui_home_widgets_t *out) {
   lv_obj_set_layout(root, LV_LAYOUT_GRID);
   lv_obj_set_grid_dsc_array(root, col_dsc, row_dsc);
   lv_obj_set_style_pad_row(root, 4, 0);
+  lv_obj_set_style_pad_all(root, 0, 0);
 
   /* 状态栏 */
   lv_obj_t *status = lv_obj_create(root);
@@ -320,8 +321,17 @@ lv_obj_t *ui_home_static_build(lv_obj_t *parent, ui_home_widgets_t *out) {
   lv_obj_set_width(status, UI_W);
   lv_obj_set_style_bg_opa(status, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(status, 0, 0);
+  lv_obj_set_style_pad_hor(status, UI_MARGIN, 0);
   strip_scroll(status);
   lv_obj_set_grid_cell(status, LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_CENTER, 0, 1);
+
+  lv_obj_t *time_lbl = lv_label_create(status);
+  lv_label_set_text(time_lbl, "00:00");
+  style_label(time_lbl, &lv_font_montserrat_28, 0xffffff);
+  lv_obj_align(time_lbl, LV_ALIGN_LEFT_MID, 0, 0);
+  if (out) {
+    out->lbl_status_time = time_lbl;
+  }
 
   if (place_img(status, SD_ASSET_ICON_WIFI, LV_ALIGN_RIGHT_MID, -10, 0) == NULL) {
     lv_obj_t *w = pixel_create_wifi_icon(status, 0, 0, 2);

@@ -137,8 +137,14 @@ async function pollAfterDisconnect() {
   try {
     const result = await pollDeployUntilFinished(
       props.target,
-      (elapsed, running) => {
-        if (running) {
+      (elapsed, running, transientError) => {
+        if (transientError) {
+          if (elapsed % 30 === 0 || elapsed < 6) {
+            appendLog(t('deployCenter.deployRun.pollTransientError', { seconds: elapsed }))
+          }
+          return
+        }
+        if (running && elapsed % 20 === 0) {
           appendLog(t('deployCenter.deployRun.pollStillRunning', { seconds: elapsed }))
         }
       },

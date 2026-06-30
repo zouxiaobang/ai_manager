@@ -110,9 +110,11 @@ public class DeployRunnerService {
         Map<String, Object> data = new HashMap<>();
         data.put("enabled", enabled);
         data.put("deployMode", mode.name().toLowerCase());
-        data.put("running", runningTarget.get() != null);
-        data.put("runningTarget", runningTarget.get());
         DeployRunSnapshot snapshot = lastSnapshot.get();
+        boolean running = runningTarget.get() != null
+                || (snapshot != null && snapshot.running);
+        data.put("running", running);
+        data.put("runningTarget", runningTarget.get());
         if (snapshot != null) {
             data.put("lastDeploy", snapshot.toMap());
         }
@@ -178,9 +180,6 @@ public class DeployRunnerService {
         long startedAt = System.currentTimeMillis();
         lastSnapshot.set(new DeployRunSnapshot(targetKey, true, false, -1, startedAt, 0L));
         Runnable releaseLock = () -> runningTarget.compareAndSet(targetKey, null);
-        emitter.onCompletion(releaseLock);
-        emitter.onTimeout(releaseLock);
-        emitter.onError(ex -> releaseLock.run());
 
         if (mode == DeployRunnerMode.LOCAL) {
             List<String> command = buildLocalScriptCommand(projectRoot, target);
@@ -528,6 +527,18 @@ public class DeployRunnerService {
     }
 
     private void deployFrontendWithPassword(SseEmitter emitter, Path projectRoot) throws Exception {
+        if (!isWindows()) {
+            Path script = projectRoot.resolve("deploy").resolve("scripts").resolve("deploy-on-pi-frontend.sh");
+            if (Files.isRegularFile(script)) {
+                sendEvent(emitter, "log", "==> 本机构建并安装前端（Pi 优化脚本，可能需要 5～15 分钟）...");
+                int code = runCommand(emitter, projectRoot, List.of("bash", script.toString()));
+                if (code != 0) {
+                    throw new BusinessException(500, "前端部署脚本失败，退出码 " + code);
+                }
+                return;
+            }
+        }
+
         Path webDir = projectRoot.resolve("admin-web");
         sendEvent(emitter, "log", "==> 构建前端...");
         int installCode = runCommand(emitter, webDir, commandLine("npm", "install"));
@@ -588,6 +599,7 @@ public class DeployRunnerService {
         builder.directory(workDir.toFile());
         builder.redirectErrorStream(true);
         applyProcessEnvironment(builder);
+        applyPiBuildEnvironment(builder, command);
         Process process = builder.start();
         return streamProcessOutput(emitter, process, resolveConsoleCharset());
     }
@@ -692,6 +704,19 @@ public class DeployRunnerService {
         env.put("GIT_PULL", gitPullEnabled ? "true" : "false");
         env.put("BACKEND_DIR", backendDir);
         env.put("WEB_ROOT", webRoot);
+    }
+
+    private void applyPiBuildEnvironment(ProcessBuilder builder, List<String> command) {
+        if (isWindows() || command.isEmpty()) {
+            return;
+        }
+        String joined = String.join(" ", command);
+        if (!joined.contains("npm")) {
+            return;
+        }
+        Map<String, String> env = builder.environment();
+        env.putIfAbsent("NODE_OPTIONS", "--max-old-space-size=1536");
+        env.putIfAbsent("npm_config_jobs", "1");
     }
 
     private void recordDeployHistory(

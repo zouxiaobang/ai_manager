@@ -18,6 +18,7 @@ extern "C" {
 #define UI_HOME_DOCK_Y    (PANEL_HEIGHT - UI_HOME_MARGIN - UI_HOME_DOTS_H - 6 - UI_HOME_DOCK_H)
 
 typedef struct {
+  lv_obj_t *lbl_status_time;
   lv_obj_t *card_pomo;
   lv_obj_t *lbl_pomo_time;
   lv_obj_t *lbl_pomo_action;

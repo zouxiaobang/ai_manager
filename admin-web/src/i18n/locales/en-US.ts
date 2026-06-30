@@ -542,6 +542,7 @@ export default {
         'Log stream disconnected; the build may still be running on 114. Polling deploy status…',
       streamDisconnectedToast: 'Log stream disconnected — waiting for build in background',
       pollStillRunning: '… Build still running in background (waited {seconds}s)…',
+      pollTransientError: '… Backend temporarily unavailable ({seconds}s) — build may still be running, waiting…',
       pollTimedOut: 'Timed out waiting. SSH to 114 and check if the build process is still running.',
       pollFailed: 'Could not fetch deploy status. Refresh the page and check later.',
       pollUnknown: 'Build finished but result is unclear. Refresh and hard-reload (Ctrl+F5) to verify.',

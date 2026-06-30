@@ -14,10 +14,46 @@
 
 ## 编译
 
+本机 ESP-IDF 路径（已配置）：
+
+- IDF：`G:\projects\iot\Espressif\frameworks\esp-idf-v5.5.2`
+- 工具链：`G:\projects\iot\Espressif`
+
+### 方式一：脚本（推荐，Cursor / 普通 PowerShell 均可）
+
 ```powershell
 cd firmware\esp32_s3_sub_display
+.\scripts\build.ps1
+```
+
+烧录并打开串口监视：
+
+```powershell
+.\scripts\flash-monitor.ps1
+# 或指定端口
+.\scripts\flash-monitor.ps1 -Port COM5
+```
+
+仅加载 ESP-IDF 环境（当前终端后续可直接用 `idf.py`）：
+
+```powershell
+. .\scripts\idf-env.ps1
+idf.py build
+```
+
+### 方式二：ESP-IDF 终端
+
+若已安装 Espressif 的「ESP-IDF PowerShell」，进入工程目录后：
+
+```powershell
 idf.py build flash monitor
 ```
+
+### Cursor / VS Code
+
+已写入 `.vscode/settings.json`，安装 **Espressif IDF** 扩展后可用扩展面板的 Build / Flash。
+
+首次在新终端编译前，若 `python` 找不到，先执行 `. .\scripts\idf-env.ps1`。
 
 ## SD 卡资源（FAT32）
 

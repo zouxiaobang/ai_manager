@@ -34,6 +34,7 @@ lv_obj_t *more_layer = nullptr;
 lv_obj_t *settings_layer = nullptr;
 lv_obj_t *lbl_pomo_time = nullptr;
 lv_obj_t *lbl_pomo_action = nullptr;
+lv_obj_t *lbl_status_time = nullptr;
 lv_obj_t *dock_slots[5] = {};
 lv_obj_t *dock_borders[5] = {};
 lv_obj_t *dock_dots[UI_HOME_PAGE_DOTS] = {};
@@ -174,7 +175,14 @@ void refresh_lock_pomodoro() {
   }
 }
 
-void refresh_status_bar() {}
+void refresh_status_bar() {
+  if (lbl_status_time == nullptr) {
+    return;
+  }
+  char time_buf[16];
+  app_clock_format_time(time_buf, sizeof(time_buf));
+  lv_label_set_text(lbl_status_time, time_buf);
+}
 
 void set_locked(bool value) {
   locked = value;
@@ -396,6 +404,7 @@ void set_dock_selected(int index) {
 }
 
 void bind_home_widgets(const ui_home_widgets_t *w) {
+  lbl_status_time = w->lbl_status_time;
   lbl_pomo_time = w->lbl_pomo_time;
   lbl_pomo_action = w->lbl_pomo_action;
   bar_pomo = w->bar_pomo;
@@ -430,6 +439,7 @@ void build_home_content(lv_obj_t *parent) {
   ui_home_static_build(parent, &widgets);
   bind_home_widgets(&widgets);
   set_dock_selected(0);
+  refresh_status_bar();
   refresh_pomodoro_card();
   refresh_lyrics_card();
 }
@@ -584,9 +594,9 @@ esp_err_t app_ui_init() {
   app_power_init();
 
   scr_home = lv_obj_create(nullptr);
-  lv_obj_set_style_bg_color(scr_home, lv_color_hex(kColBg), 0);
-  layout_abs(scr_home);
+  lv_obj_remove_style_all(scr_home);
   lv_obj_set_size(scr_home, PANEL_WIDTH, PANEL_HEIGHT);
+  lv_obj_remove_flag(scr_home, LV_OBJ_FLAG_SCROLLABLE);
   lv_scr_load(scr_home);
 
   build_home_content(scr_home);
@@ -614,7 +624,7 @@ esp_err_t app_ui_init() {
   lv_timer_create(tick_cb, 1000, nullptr);
   display_unlock();
 
-  ESP_LOGI(TAG, "Home UI ready (static layout)");
+  ESP_LOGI(TAG, "Home UI ready (ui_home_static_layout)");
   return ESP_OK;
 }
 

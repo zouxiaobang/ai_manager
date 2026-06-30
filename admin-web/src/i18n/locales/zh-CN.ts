@@ -541,6 +541,7 @@ export default {
         '日志连接已断开，但 114 上的构建可能仍在后台继续。正在轮询部署状态，请稍候…',
       streamDisconnectedToast: '日志连接中断，正在后台继续等待构建完成',
       pollStillRunning: '… 后台构建仍在进行（已等待 {seconds} 秒）…',
+      pollTransientError: '… 后端暂时无响应（已等待 {seconds} 秒），构建可能仍在进行，继续等待…',
       pollTimedOut: '等待超时，请 SSH 登录 114 查看构建进程是否仍在运行。',
       pollFailed: '无法获取部署状态，请稍后刷新页面检查。',
       pollUnknown: '构建已结束但无法确认结果，请刷新页面并检查前端是否已更新（Ctrl+F5）。',

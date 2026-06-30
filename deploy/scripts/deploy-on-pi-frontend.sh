@@ -20,7 +20,7 @@ fi
 echo "==> 构建前端（Pi 上可能需要 5～15 分钟，日志长时间无输出属正常）..."
 cd "${ROOT}/admin-web"
 npm install
-nice -n 10 npm run build
+nice -n 10 npm run build:pi
 
 if [[ ! -d "${ROOT}/admin-web/dist" ]]; then
   echo "未找到 dist 目录" >&2

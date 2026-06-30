@@ -31,10 +31,11 @@ request.interceptors.response.use(
 export async function getData<T>(
   url: string,
   params?: Record<string, unknown>,
-  options?: { silent?: boolean },
+  options?: { silent?: boolean; timeout?: number },
 ): Promise<T> {
   const response = await request.get<ApiResult<T>>(url, {
     params,
+    timeout: options?.timeout,
     headers: options?.silent ? { 'X-Silent-Error': '1' } : undefined,
   })
   return response.data.data
