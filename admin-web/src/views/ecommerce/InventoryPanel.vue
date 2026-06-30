@@ -400,7 +400,7 @@
 <script setup lang="ts">
 import { computed, markRaw, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import {
   Box,
   Download,
@@ -412,7 +412,6 @@ import {
   Warning,
 } from '@element-plus/icons-vue'
 import {
-  deleteInventory,
   fetchInventories,
   fetchInventoryInboundValueSummary,
   fetchInventoryLogs,
@@ -758,12 +757,6 @@ function skuOptionLabel(opt: EcInventorySkuOption) {
   return parts.join(' · ')
 }
 
-function resetQuickInboundForm() {
-  quickInboundForm.skuCode = ''
-  quickInboundForm.quantity = 1
-  quickInboundForm.remark = ''
-}
-
 async function searchSkuOptions(query: string) {
   skuOptionsLoading.value = true
   try {
@@ -771,12 +764,6 @@ async function searchSkuOptions(query: string) {
   } finally {
     skuOptionsLoading.value = false
   }
-}
-
-function openQuickInboundDialog() {
-  resetQuickInboundForm()
-  quickInboundVisible.value = true
-  searchSkuOptions('')
 }
 
 async function onQuickInbound() {
@@ -891,11 +878,6 @@ async function openCreate() {
   saveDialogVisible.value = true
 }
 
-function openEdit(row: EcInventory) {
-  saveTarget.value = row
-  saveDialogVisible.value = true
-}
-
 function openAdjust(row: EcInventory) {
   adjustTarget.value = row
   adjustVisible.value = true
@@ -1001,13 +983,6 @@ function onLogPageChange(p: number) {
 function onLogSizeChange(ps: number) {
   logPageSize.value = ps
   loadLogPage(true)
-}
-
-async function onDelete(row: EcInventory) {
-  await ElMessageBox.confirm(t('ecommerce.inventory.deleteConfirm', { sku: row.skuCode }), { type: 'warning' })
-  await deleteInventory(row.id)
-  ElMessage.success(t('ecommerce.common.deleted'))
-  await loadInventories()
 }
 
 onMounted(async () => {

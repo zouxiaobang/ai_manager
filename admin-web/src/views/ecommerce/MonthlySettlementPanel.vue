@@ -705,7 +705,7 @@ const displayedMaxProfit = computed(() => {
   }
   const shop = selectedShop.value
   const order = shop?.maxProfitOrder
-  if (!order?.orderNo && !order?.platformOrderNo) return null
+  if (!shop || (!order?.orderNo && !order?.platformOrderNo)) return null
   return {
     ...order,
     shopId: shop.shopId,

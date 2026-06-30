@@ -62,7 +62,7 @@ export function normalizeCartonMaterialVariant(value: number | null | undefined)
 
 export function resolveCartonMaterialVariant(
   explicit: number | null | undefined,
-  seed?: number | string,
+  _seed?: number | string,
 ) {
   const normalized = normalizeCartonMaterialVariant(explicit)
   if (normalized != null) return normalized

@@ -191,7 +191,7 @@
                         <label class="so-detail__line-edit-label">{{ t('ecommerce.salesOrder.skuSpecName') }}</label>
                         <el-autocomplete
                           :model-value="row.skuSpecName ?? ''"
-                          :fetch-suggestions="(q, cb) => fetchSkuSpecSuggestions(q, cb, row)"
+                          :fetch-suggestions="bindSkuSpecSuggestions(row)"
                           clearable
                           fit-input-width
                           :trigger-on-focus="true"
@@ -807,6 +807,12 @@ function fetchSkuSpecSuggestions(
     results.unshift({ value: query.trim() })
   }
   cb(results)
+}
+
+function bindSkuSpecSuggestions(row: SalesOrderLineFormRow) {
+  return (query: string, cb: (results: { value: string }[]) => void) => {
+    fetchSkuSpecSuggestions(query, cb, row)
+  }
 }
 
 function onLineLinkNameChange(row: SalesOrderLineFormRow, value: string) {

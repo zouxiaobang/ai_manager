@@ -322,6 +322,9 @@ async function ensureToolbar(editor: IDomEditor) {
   patchToolbarPointer()
 }
 
+const imagePickerVisible = ref(false)
+let pendingImageInsert: ((url: string, alt: string, href: string) => void) | null = null
+
 watch(
   () => props.modelValue,
   (value) => {
@@ -337,9 +340,6 @@ watch(imagePickerVisible, (open) => {
     pendingImageInsert = null
   }
 })
-
-const imagePickerVisible = ref(false)
-let pendingImageInsert: ((url: string, alt: string, href: string) => void) | null = null
 
 function onNotebookImagePicked(fileName: string) {
   const url = getNotebookImageUrl(fileName)

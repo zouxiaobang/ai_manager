@@ -358,7 +358,7 @@ function renderChart() {
       padding: 0,
       backgroundColor: 'transparent',
       extraCssText: 'box-shadow:none;',
-      formatter: (params) => formatChannelPieTooltip(params),
+      formatter: (params: unknown) => formatChannelPieTooltip(params),
     },
     series: [
       {

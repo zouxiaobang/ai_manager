@@ -909,7 +909,7 @@ function resolveRowManualCost(row: EcSalesOrderImportPreview['rows'][number]): n
     const fromDraft = parseManualCostNumber(manualCostDrafts.value[row.id])
     if (fromDraft != null) return fromDraft
   }
-  return row.manualCostPrice
+  return row.manualCostPrice ?? undefined
 }
 
 function manualCostInputValue(row: EcSalesOrderImportPreview['rows'][number]) {

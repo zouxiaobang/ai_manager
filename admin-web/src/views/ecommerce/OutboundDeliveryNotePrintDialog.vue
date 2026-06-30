@@ -385,7 +385,7 @@ async function loadSheetData() {
     const productCache = new Map<number, Awaited<ReturnType<typeof fetchProduct>>>()
     const meta = new Map<string, EcSku>()
 
-    lineRows.value = await Promise.all(
+    const rawRows = await Promise.all(
       order.lines.map(async (line) => {
         const opt = skuOptions.find((item) => item.skuCode === line.skuCode)
         if (opt?.productId) {
@@ -402,7 +402,7 @@ async function loadSheetData() {
       }),
     )
     skuMetaMap.value = meta
-    lineRows.value = lineRows.value.map((row) => buildLineRow(row.line, row.imageUrl))
+    lineRows.value = rawRows.map((row) => buildLineRow(row.line, row.imageUrl))
   } finally {
     loading.value = false
   }

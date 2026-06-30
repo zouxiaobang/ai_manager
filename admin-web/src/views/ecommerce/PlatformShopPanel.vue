@@ -390,7 +390,7 @@ function renderChart() {
       padding: 0,
       backgroundColor: 'transparent',
       extraCssText: 'box-shadow:none;',
-      formatter: (params) => formatPlatformPieTooltip(params),
+      formatter: (params: unknown) => formatPlatformPieTooltip(params),
     },
     series: [
       {

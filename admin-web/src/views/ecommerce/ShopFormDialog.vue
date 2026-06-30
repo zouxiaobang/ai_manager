@@ -12,7 +12,8 @@
       <aside class="shop-form-dialog__left">
         <section class="shop-form-dialog__profile-card">
           <EcImageField
-            v-model="form.avatarUrl"
+            :model-value="form.avatarUrl ?? ''"
+            @update:model-value="(v) => { form.avatarUrl = v }"
             size="large"
             class="shop-form-dialog__avatar"
             :dialog-title="t('ecommerce.shop.avatar')"

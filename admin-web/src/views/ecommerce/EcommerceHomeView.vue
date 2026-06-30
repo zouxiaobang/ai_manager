@@ -261,7 +261,6 @@ import { fetchInventories, fetchInventoryFactorySummary, type EcInventory } from
 import { echarts } from '@/utils/echarts'
 import { ecommercePathForModule, type EcommerceWorkbenchModule } from '@/data/ecommerce-nav'
 import {
-  computeInventoryHealthScore,
   computeInventoryStats,
   type InventoryStatusKey,
 } from '@/utils/inventoryStats'
