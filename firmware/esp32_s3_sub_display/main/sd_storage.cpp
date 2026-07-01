@@ -81,8 +81,8 @@ esp_err_t sd_storage_init() {
 
   esp_vfs_fat_sdmmc_mount_config_t mount_config = {};
   mount_config.format_if_mount_failed = false;
-  mount_config.max_files = 6;
-  mount_config.allocation_unit_size = 16 * 1024;
+  mount_config.max_files = 16;
+  mount_config.allocation_unit_size = 4096;
 
   ESP_RETURN_ON_ERROR(board_sd_cs_set(true), TAG, "SD CS assert failed");
   vTaskDelay(pdMS_TO_TICKS(20));

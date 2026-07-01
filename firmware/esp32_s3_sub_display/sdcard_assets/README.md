@@ -8,6 +8,7 @@ TF卡根目录/
     tomato.png
     icon_wifi.png
     icon_lock.png
+    icon_unlock.png
     dock_pomo.png
     dock_lyrics.png
     dock_sleep.png

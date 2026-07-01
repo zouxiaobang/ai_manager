@@ -45,6 +45,7 @@
 #define LV_THEME_DEFAULT_DARK 1
 
 #define LV_USE_IMAGE 1
+#define LV_USE_CANVAS 1
 #define LV_USE_LODEPNG 1
 
 #define LV_USE_FS_POSIX 1

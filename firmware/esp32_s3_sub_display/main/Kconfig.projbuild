@@ -1,0 +1,38 @@
+menu "Pomodoro PC Sync"
+
+    config POMO_SYNC_ENABLE
+        bool "Enable pomodoro backend sync (WiFi + HTTP)"
+        default y
+        help
+            Sync pomodoro state with admin-backend via LAN.
+            ESP cannot use 127.0.0.1 (that points to ESP itself).
+
+            When PC DHCP IP changes often, prefer one of:
+            - SD file /sdcard/config/pomodoro_host.txt (no reflash)
+            - Router DHCP reservation for your PC
+            - PC hostname with mDNS, e.g. MYPC.local
+
+    config POMO_API_HOST
+        string "Backend host (fallback if no SD config)"
+        default "192.168.1.100"
+        depends on POMO_SYNC_ENABLE
+        help
+            IP (192.168.x.x) or hostname (MYPC.local).
+            Overridden by SD card config/pomodoro_host.txt when present.
+
+    config POMO_API_PORT
+        int "Backend HTTP port"
+        default 8080
+        depends on POMO_SYNC_ENABLE
+
+    config WIFI_SSID
+        string "WiFi SSID"
+        default "YOUR_SSID"
+        depends on POMO_SYNC_ENABLE
+
+    config WIFI_PASSWORD
+        string "WiFi password"
+        default "YOUR_PASSWORD"
+        depends on POMO_SYNC_ENABLE
+
+endmenu

@@ -15,6 +15,12 @@ ASSETS = ROOT / "assets"
 LYRICS = ROOT / "lyrics"
 EMBED_DIR = ROOT.parent / "main" / "assets_embed"
 REFERENCE_TOMATO = ROOT / "reference" / "tomato_ref.png"
+REFERENCE_DOCK_LYRICS = ROOT / "reference" / "dock_lyrics_ref.png"
+REFERENCE_DOCK_SLEEP = ROOT / "reference" / "dock_sleep_ref.png"
+REFERENCE_DOCK_LOCK = ROOT / "reference" / "dock_lock_ref.png"
+REFERENCE_DOCK_SETTINGS = ROOT / "reference" / "dock_settings_ref.png"
+REFERENCE_ICON_LOCK = ROOT / "reference" / "icon_lock_ref.png"
+REFERENCE_ICON_WIFI = ROOT / "reference" / "icon_wifi_ref.png"
 
 # Palette aligned with reference mockup
 GREEN = (139, 195, 74, 255)
@@ -31,6 +37,7 @@ ORANGE = (255, 152, 0, 255)
 DORANGE = (230, 81, 0, 255)
 GREY = (120, 144, 156, 255)
 WHITE = (236, 239, 241, 255)
+LAVENDER = (206, 147, 216, 255)
 TRANSPARENT = (0, 0, 0, 0)
 NIGHT = (20, 30, 60, 255)
 
@@ -147,6 +154,45 @@ def draw_lock_status(w: int = 18, h: int = 22) -> Image.Image:
     return img
 
 
+def unlock_status_from_lock(locked: Image.Image) -> Image.Image:
+    """Derive open-lock icon from locked icon: left shackle stays, right lifts."""
+    im = locked.copy().convert("RGBA")
+    px = im.load()
+    w, h = im.size
+    green = GREEN
+    for y in range(h):
+        for x in range(w):
+            if px[x, y][3] > 0:
+                green = px[x, y]
+                break
+        else:
+            continue
+        break
+
+    body_y = 9
+    for y in range(body_y):
+        for x in range(w):
+            px[x, y] = TRANSPARENT
+
+    for y in range(3):
+        for x in range(6, 12):
+            blit(im, x, y, green)
+    for y in range(3, body_y):
+        for x in range(3, 6):
+            blit(im, x, y, green)
+    for y in range(3):
+        for x in range(13, 16):
+            blit(im, x, y, green)
+    for y in range(1, 4):
+        blit(im, 14, y, green)
+        blit(im, 15, y, green)
+    return im
+
+
+def draw_unlock_status(w: int = 18, h: int = 22) -> Image.Image:
+    return unlock_status_from_lock(draw_lock_status(w, h))
+
+
 def draw_eq(w: int = 16, h: int = 14) -> Image.Image:
     img = new_rgba(w, h)
     p = 2
@@ -172,6 +218,135 @@ def draw_dock_pomo(tomato_dock: Image.Image | None = None) -> Image.Image:
     img = new_rgba(28, 28)
     sub = draw_tomato(24).resize((24, 24), Image.NEAREST)
     paste_center(img, sub)
+    return img
+
+
+def is_green_icon(r: int, g: int, b: int) -> bool:
+    return g > 120 and r > 60 and b < 120 and (g - b) > 30
+
+
+def status_icon_from_reference(
+    ref_path: Path,
+    is_foreground,
+    fallback,
+    width: int,
+    height: int,
+) -> Image.Image:
+    if not ref_path.is_file():
+        return fallback()
+
+    im = Image.open(ref_path).convert("RGBA")
+    px = im.load()
+    w, h = im.size
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if is_foreground(r, g, b):
+                continue
+            px[x, y] = TRANSPARENT
+
+    minx, miny, maxx, maxy = w, h, 0, 0
+    for y in range(h):
+        for x in range(w):
+            if px[x, y][3] > 0:
+                minx = min(minx, x)
+                miny = min(miny, y)
+                maxx = max(maxx, x)
+                maxy = max(maxy, y)
+    pad = 1
+    im = im.crop((max(0, minx - pad), max(0, miny - pad), min(w, maxx + pad + 1), min(h, maxy + pad + 1)))
+    return im.resize((width, height), Image.NEAREST)
+
+
+def lock_status_from_reference(width: int = 18, height: int = 22) -> Image.Image:
+    return status_icon_from_reference(REFERENCE_ICON_LOCK, is_green_icon, lambda: draw_lock_status(width, height), width, height)
+
+
+def unlock_status_from_reference(width: int = 18, height: int = 22) -> Image.Image:
+    return unlock_status_from_lock(lock_status_from_reference(width, height))
+
+
+def wifi_status_from_reference(width: int = 24, height: int = 20) -> Image.Image:
+    return status_icon_from_reference(REFERENCE_ICON_WIFI, is_green_icon, lambda: draw_wifi(width, height), width, height)
+
+
+def dock_icon_from_reference(
+    ref_path: Path,
+    is_foreground,
+    fallback,
+    dock_size: int = 28,
+) -> Image.Image:
+    if not ref_path.is_file():
+        return fallback()
+
+    im = Image.open(ref_path).convert("RGBA")
+    px = im.load()
+    w, h = im.size
+    for y in range(h):
+        for x in range(w):
+            r, g, b, a = px[x, y]
+            if is_foreground(r, g, b):
+                continue
+            px[x, y] = TRANSPARENT
+
+    minx, miny, maxx, maxy = w, h, 0, 0
+    for y in range(h):
+        for x in range(w):
+            if px[x, y][3] > 0:
+                minx = min(minx, x)
+                miny = min(miny, y)
+                maxx = max(maxx, x)
+                maxy = max(maxy, y)
+    pad = 2
+    im = im.crop((max(0, minx - pad), max(0, miny - pad), min(w, maxx + pad + 1), min(h, maxy + pad + 1)))
+
+    side = max(im.width, im.height)
+    square = new_rgba(side, side)
+    paste_center(square, im)
+    return square.resize((dock_size, dock_size), Image.NEAREST)
+
+
+def is_cyan_icon(r: int, g: int, b: int) -> bool:
+    return b > 100 and g > 70 and (b - r) > 25
+
+
+def is_orange_icon(r: int, g: int, b: int) -> bool:
+    return r > 170 and g > 120 and b < 170
+
+
+def lyrics_from_reference(dock_size: int = 28) -> Image.Image:
+    """Transparent dock lyrics icon from reference art."""
+    return dock_icon_from_reference(REFERENCE_DOCK_LYRICS, is_cyan_icon, draw_dock_lyrics, dock_size)
+
+
+def sleep_from_reference(dock_size: int = 28) -> Image.Image:
+    return dock_icon_from_reference(REFERENCE_DOCK_SLEEP, is_orange_icon, draw_dock_sleep, dock_size)
+
+
+def lock_from_reference(dock_size: int = 28) -> Image.Image:
+    return dock_icon_from_reference(REFERENCE_DOCK_LOCK, is_cyan_icon, draw_dock_lock, dock_size)
+
+
+def settings_from_reference(dock_size: int = 28) -> Image.Image:
+    def is_settings(r: int, g: int, b: int) -> bool:
+        return b > 90 and g > 50 and (b - r) > 20 and (r + g + b) > 80
+
+    return dock_icon_from_reference(REFERENCE_DOCK_SETTINGS, is_settings, draw_dock_settings, dock_size)
+
+
+def draw_dock_home() -> Image.Image:
+    """Dual-card home: left green + right blue panes with jagged lavender roof steps."""
+    img = new_rgba(28, 28)
+    fill_rect(img, 3, 12, 10, 12, GREEN)
+    fill_rect(img, 3, 10, 3, 2, LAVENDER)
+    fill_rect(img, 5, 8, 3, 2, LAVENDER)
+    fill_rect(img, 7, 6, 6, 2, LAVENDER)
+    fill_rect(img, 15, 12, 10, 12, BLUE)
+    fill_rect(img, 15, 10, 3, 2, LAVENDER)
+    fill_rect(img, 17, 8, 3, 2, LAVENDER)
+    fill_rect(img, 19, 6, 6, 2, LAVENDER)
+    for y in range(12, 24):
+        blit(img, 13, y, LAVENDER)
     return img
 
 
@@ -272,6 +447,222 @@ const lv_image_dsc_t {var} = {{
 """
 
 
+SEED_RELATIVE_PATHS = [
+    "assets/tomato.png",
+    "assets/icon_wifi.png",
+    "assets/icon_lock.png",
+    "assets/icon_unlock.png",
+    "assets/icon_eq.png",
+    "assets/deco_diamond.png",
+    "assets/deco_diamond_blue.png",
+    "assets/dock_pomo.png",
+    "assets/dock_home.png",
+    "assets/dock_lyrics.png",
+    "assets/dock_lock.png",
+    "assets/dock_settings.png",
+    "lyrics/current.meta",
+    "lyrics/current.txt",
+]
+
+
+def c_var_name(relative_path: str) -> str:
+    return "k_seed_" + relative_path.replace("/", "_").replace(".", "_")
+
+
+def write_sdcard_seed_manifest() -> None:
+    entries: list[str] = []
+    for rel in SEED_RELATIVE_PATHS:
+        src = ROOT / rel
+        if not src.is_file():
+            raise FileNotFoundError(f"Missing seed asset: {src}")
+        data = src.read_bytes()
+        var = c_var_name(rel)
+        hex_lines = []
+        for i in range(0, len(data), 16):
+            chunk = data[i : i + 16]
+            hex_lines.append("    " + ", ".join(f"0x{b:02x}" for b in chunk))
+        body = ",\n".join(hex_lines)
+        (EMBED_DIR / f"{var}.c").write_text(
+            f"""#include <stddef.h>
+#include <stdint.h>
+
+const uint8_t {var}[] = {{
+{body}
+}};
+
+const size_t {var}_len = sizeof({var});
+""",
+            encoding="utf-8",
+        )
+        entries.append(f'    {{"{rel}", {var}, {var}_len}},')
+
+    decls = "\n".join(
+        f"extern const uint8_t {c_var_name(rel)}[];\nextern const size_t {c_var_name(rel)}_len;"
+        for rel in SEED_RELATIVE_PATHS
+    )
+    table = "\n".join(entries)
+    (EMBED_DIR / "assets_seed.h").write_text(
+        f"""#pragma once
+
+#include <stddef.h>
+#include <stdint.h>
+
+#include "esp_err.h"
+
+{decls}
+
+size_t assets_seed_expected_len(const char *relative_path);
+esp_err_t assets_seed_sdcard(void);
+""",
+        encoding="utf-8",
+    )
+    (EMBED_DIR / "assets_seed.cpp").write_text(
+        f"""#include "assets_seed.h"
+
+#include "panel_config.h"
+#include "sd_storage.h"
+
+#include <cerrno>
+#include <cstdio>
+#include <cstring>
+
+#include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "sys/stat.h"
+#include "unistd.h"
+
+namespace {{
+constexpr char TAG[] = "assets_seed";
+constexpr int kWriteRetries = 4;
+constexpr int kRetryDelayMs = 40;
+
+struct SeedEntry {{
+  const char *relative_path;
+  const uint8_t *data;
+  size_t data_len;
+}};
+
+const SeedEntry kSeedFiles[] = {{
+{table}
+}};
+
+bool ensure_dir(const char *path) {{
+  struct stat st = {{}};
+  if (stat(path, &st) == 0 && S_ISDIR(st.st_mode)) {{
+    return true;
+  }}
+  if (mkdir(path, 0755) == 0) {{
+    return true;
+  }}
+  return stat(path, &st) == 0 && S_ISDIR(st.st_mode);
+}}
+
+bool seed_file_size_ok(const char *full_path, size_t expected_len) {{
+  struct stat st = {{}};
+  if (stat(full_path, &st) != 0 || !S_ISREG(st.st_mode)) {{
+    return false;
+  }}
+  return static_cast<size_t>(st.st_size) == expected_len;
+}}
+
+bool write_seed_file(const char *full_path, const uint8_t *data, size_t data_len) {{
+  for (int attempt = 0; attempt < kWriteRetries; ++attempt) {{
+    if (attempt > 0) {{
+      vTaskDelay(pdMS_TO_TICKS(kRetryDelayMs));
+      unlink(full_path);
+    }}
+
+    FILE *fp = std::fopen(full_path, "wb");
+    if (fp == nullptr) {{
+      ESP_LOGW(TAG, "fopen %s failed (errno=%d %s), attempt %d/%d", full_path, errno, std::strerror(errno),
+               attempt + 1, kWriteRetries);
+      continue;
+    }}
+
+    const size_t n = std::fwrite(data, 1, data_len, fp);
+    std::fflush(fp);
+    const int fd = fileno(fp);
+    if (fd >= 0) {{
+      fsync(fd);
+    }}
+    std::fclose(fp);
+
+    if (n != data_len) {{
+      ESP_LOGW(TAG, "Short write %s (%u/%u), attempt %d/%d", full_path, static_cast<unsigned>(n),
+               static_cast<unsigned>(data_len), attempt + 1, kWriteRetries);
+      continue;
+    }}
+    if (!seed_file_size_ok(full_path, data_len)) {{
+      ESP_LOGW(TAG, "Size verify failed %s, attempt %d/%d", full_path, attempt + 1, kWriteRetries);
+      continue;
+    }}
+    return true;
+  }}
+  return false;
+}}
+}}  // namespace
+
+size_t assets_seed_expected_len(const char *relative_path) {{
+  if (relative_path == nullptr) {{
+    return 0;
+  }}
+  for (const auto &entry : kSeedFiles) {{
+    if (std::strcmp(entry.relative_path, relative_path) == 0) {{
+      return entry.data_len;
+    }}
+  }}
+  return 0;
+}}
+
+esp_err_t assets_seed_sdcard() {{
+  if (!sd_storage_is_mounted()) {{
+    return ESP_ERR_INVALID_STATE;
+  }}
+
+  if (!ensure_dir(SD_MOUNT_POINT "/assets") || !ensure_dir(SD_MOUNT_POINT "/lyrics")) {{
+    ESP_LOGE(TAG, "Failed to create SD asset directories");
+    return ESP_FAIL;
+  }}
+
+  int written = 0;
+  int failed = 0;
+  for (const auto &entry : kSeedFiles) {{
+    char full_path[160];
+    std::snprintf(full_path, sizeof(full_path), "%s/%s", SD_MOUNT_POINT, entry.relative_path);
+    if (seed_file_size_ok(full_path, entry.data_len)) {{
+      continue;
+    }}
+
+    if (write_seed_file(full_path, entry.data, entry.data_len)) {{
+      ++written;
+      ESP_LOGI(TAG, "Wrote SD asset: %s (%u bytes)", entry.relative_path,
+               static_cast<unsigned>(entry.data_len));
+    }} else {{
+      ++failed;
+      ESP_LOGE(TAG, "Cannot write %s after %d attempts", full_path, kWriteRetries);
+    }}
+
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }}
+
+  if (written > 0) {{
+    ESP_LOGI(TAG, "Seeded %d file(s) to SD card", written);
+  }}
+  if (failed > 0) {{
+    ESP_LOGE(TAG, "Failed to seed %d file(s) on SD card", failed);
+    return ESP_FAIL;
+  }}
+  if (written == 0) {{
+    ESP_LOGI(TAG, "SD card assets already present");
+  }}
+  return ESP_OK;
+}}
+""",
+        encoding="utf-8",
+    )
+
+
 def write_embedded_assets() -> None:
     EMBED_DIR.mkdir(parents=True, exist_ok=True)
     decls: list[str] = []
@@ -332,15 +723,16 @@ def main() -> int:
     tomato_card, tomato_dock = tomato_from_reference(card_size=96, dock_size=28)
     save_asset("tomato.png", tomato_card)
     save_asset("dock_pomo.png", draw_dock_pomo(tomato_dock))
-    save_asset("icon_wifi.png", draw_wifi())
-    save_asset("icon_lock.png", draw_lock_status())
+    save_asset("dock_home.png", draw_dock_home())
+    save_asset("icon_wifi.png", wifi_status_from_reference(24, 20))
+    save_asset("icon_lock.png", lock_status_from_reference(18, 22))
+    save_asset("icon_unlock.png", unlock_status_from_reference(18, 22))
     save_asset("icon_eq.png", draw_eq())
     save_asset("deco_diamond.png", draw_diamond(8, GREEN))
     save_asset("deco_diamond_blue.png", draw_diamond(8, BLUE))
-    save_asset("dock_lyrics.png", draw_dock_lyrics())
-    save_asset("dock_sleep.png", draw_dock_sleep())
-    save_asset("dock_lock.png", draw_dock_lock())
-    save_asset("dock_settings.png", draw_dock_settings())
+    save_asset("dock_lyrics.png", lyrics_from_reference(28))
+    save_asset("dock_lock.png", lock_from_reference(28))
+    save_asset("dock_settings.png", settings_from_reference(28))
 
     (LYRICS / "current.meta").write_text("夜空中最亮的星", encoding="utf-8")
     (LYRICS / "current.txt").write_text(
@@ -356,9 +748,11 @@ def main() -> int:
     )
 
     write_embedded_assets()
+    write_sdcard_seed_manifest()
     print(f"Assets written to {ROOT}")
     print(f"Embedded C sources written to {EMBED_DIR}")
-    print("Copy sdcard_assets/assets/ and lyrics/ to the FAT32 TF card root.")
+    print("On boot: missing files are auto-written to /sdcard (assets/ + lyrics/).")
+    print("Optional: copy sdcard_assets/assets/ and lyrics/ to TF card root manually.")
     return 0
 
 
