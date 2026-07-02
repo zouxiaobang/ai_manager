@@ -8,6 +8,7 @@ import com.ai.manager.system.domain.dto.PomodoroPlanSaveRequest;
 import com.ai.manager.system.domain.entity.PomodoroPlan;
 import com.ai.manager.system.mapper.PomodoroPlanMapper;
 import com.ai.manager.system.service.PomodoroPlanService;
+import com.ai.manager.system.service.PomodoroSessionService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -21,6 +22,12 @@ import java.util.List;
 @Service
 public class PomodoroPlanServiceImpl extends ServiceImpl<PomodoroPlanMapper, PomodoroPlan>
         implements PomodoroPlanService {
+
+    private final PomodoroSessionService pomodoroSessionService;
+
+    public PomodoroPlanServiceImpl(PomodoroSessionService pomodoroSessionService) {
+        this.pomodoroSessionService = pomodoroSessionService;
+    }
 
     @Override
     public PageResult<PomodoroPlan> pagePlans(Long page, Long pageSize) {
@@ -59,6 +66,7 @@ public class PomodoroPlanServiceImpl extends ServiceImpl<PomodoroPlanMapper, Pom
     @Override
     @Transactional(rollbackFor = Exception.class)
     public PomodoroPlan createPlan(PomodoroPlanSaveRequest request) {
+        assertPlanEditAllowed();
         validatePlanRequest(request);
         PomodoroPlan plan = toEntity(request, new PomodoroPlan());
         if (Boolean.TRUE.equals(request.getAsDefault())) {
@@ -74,6 +82,7 @@ public class PomodoroPlanServiceImpl extends ServiceImpl<PomodoroPlanMapper, Pom
     @Override
     @Transactional(rollbackFor = Exception.class)
     public PomodoroPlan updatePlan(Long id, PomodoroPlanSaveRequest request) {
+        assertPlanEditAllowed();
         PomodoroPlan existing = getById(id);
         if (existing == null) {
             throw new BusinessException(ResultCode.NOT_FOUND);
@@ -91,6 +100,7 @@ public class PomodoroPlanServiceImpl extends ServiceImpl<PomodoroPlanMapper, Pom
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deletePlan(Long id) {
+        assertPlanEditAllowed();
         PomodoroPlan plan = getById(id);
         if (plan == null) {
             throw new BusinessException(ResultCode.NOT_FOUND);
@@ -99,6 +109,13 @@ public class PomodoroPlanServiceImpl extends ServiceImpl<PomodoroPlanMapper, Pom
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "不能删除默认计划，请先指定其他默认计划");
         }
         removeById(id);
+    }
+
+    private void assertPlanEditAllowed() {
+        if (pomodoroSessionService.isPlanEditBlocked()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(),
+                    "番茄钟正在计时中，请先暂停后再修改计划");
+        }
     }
 
     private void clearDefaultFlag() {

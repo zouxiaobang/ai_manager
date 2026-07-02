@@ -21,6 +21,8 @@ const Entry kEntries[] = {
     {"assets/dock_lyrics.png", &ui_img_dock_lyrics},
     {"assets/dock_lock.png", &ui_img_dock_lock},
     {"assets/dock_settings.png", &ui_img_dock_settings},
+    {"assets/border_tool_btn_92x52_green.png", &ui_img_border_tool_btn_92x52_green},
+    {"assets/border_tool_btn_92x52_blue.png", &ui_img_border_tool_btn_92x52_blue},
 };
 }  // namespace
 

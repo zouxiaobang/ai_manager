@@ -5,6 +5,11 @@ const LEGACY_STORAGE_KEYS = ['ai-manager-app-shell-pref', 'ai-manager-app-shell'
 /** 视口宽度 ≤ 此值时视为移动布局 */
 export const MOBILE_MAX_WIDTH = 768
 
+import {
+  isMobileHomeThemeId,
+  MOBILE_HOME_THEME_DEFAULT,
+} from '@/data/mobile-home-themes'
+
 export type AppShell = 'pc' | 'mobile'
 
 const SHELL_QUERY_KEY = 'shell'
@@ -110,9 +115,31 @@ export function clearAppShellPreference() {
   purgeLegacyShellStorage()
 }
 
+function applyMobileHomeThemeFromStorage() {
+  if (typeof document === 'undefined') return
+  const saved = localStorage.getItem('mobile-home-theme')
+  const id = isMobileHomeThemeId(saved) ? saved : MOBILE_HOME_THEME_DEFAULT
+  document.documentElement.dataset.mobileHomeTheme = id
+}
+
 export function applyShellDocumentClass(shell: AppShell) {
   document.documentElement.classList.toggle('is-mobile-shell', shell === 'mobile')
   document.documentElement.dataset.appShell = shell
+  if (shell === 'mobile') {
+    applyMobileViewportMeta()
+    applyMobileHomeThemeFromStorage()
+  } else if (typeof document !== 'undefined') {
+    delete document.documentElement.dataset.mobileHomeTheme
+  }
+}
+
+function applyMobileViewportMeta() {
+  const meta = document.querySelector('meta[name="viewport"]')
+  if (!meta) return
+  meta.setAttribute(
+    'content',
+    'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover',
+  )
 }
 
 export function prepareMobileEntryUrl() {

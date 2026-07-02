@@ -36,3 +36,28 @@ menu "Pomodoro PC Sync"
         depends on POMO_SYNC_ENABLE
 
 endmenu
+
+menu "NetEase Media Sync"
+
+    config MEDIA_SYNC_ENABLE
+        bool "Enable NetEase lyric/media sync (HTTP to PC daemon)"
+        default y
+        depends on POMO_SYNC_ENABLE
+        help
+            Sync lyrics and playback with NetEase Cloud Music on LAN PC.
+            PC daemon listens on port 8765 by default.
+
+    config MEDIA_API_HOST
+        string "Media bridge host (fallback if no SD config)"
+        default "192.168.0.114"
+        depends on MEDIA_SYNC_ENABLE
+        help
+            IP of the PC running pc_daemon (NetEase bridge).
+            Overridden by SD card config/media_host.txt when present.
+
+    config MEDIA_API_PORT
+        int "Media bridge HTTP port"
+        default 8765
+        depends on MEDIA_SYNC_ENABLE
+
+endmenu

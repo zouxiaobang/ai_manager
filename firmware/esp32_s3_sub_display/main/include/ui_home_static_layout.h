@@ -20,6 +20,8 @@ extern "C" {
 #define UI_HOME_CARD_H    296
 #define UI_HOME_DOCK_Y    362
 #define UI_HOME_DOCK_H    92
+#define UI_DOCK_W         (PANEL_WIDTH - UI_HOME_MARGIN * 2)
+#define UI_DOCK_SLOT_W    (UI_DOCK_W / 5)
 
 /** 锯齿边框：线宽 3px，四角各 4 级阶梯 */
 #define UI_CARD_BORDER_P        3

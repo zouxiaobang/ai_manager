@@ -7,6 +7,7 @@
 #include "cJSON.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "pomodoro_model.h"
@@ -17,8 +18,11 @@
 namespace {
 constexpr char TAG[] = "pomo_sync";
 constexpr int kHttpBufSize = 4096;
-constexpr int kPollIntervalMs = 1000;
-constexpr int kPlanRefreshPolls = 60;
+constexpr int kPollIntervalMs = 3000;
+constexpr int kPlanRefreshPolls = 20;
+constexpr int kHttpTimeoutMs = 5000;
+constexpr int kMaxBackoffMs = 30000;
+constexpr int64_t kErrorLogIntervalUs = 30000000;
 
 char s_http_buf[kHttpBufSize];
 
@@ -26,6 +30,50 @@ struct HttpResponse {
   int status = 0;
   int len = 0;
 };
+
+struct SyncBackoff {
+  int consecutive_failures = 0;
+  int64_t last_error_log_us = 0;
+};
+
+SyncBackoff g_backoff;
+
+int sync_backoff_delay_ms() {
+  switch (g_backoff.consecutive_failures) {
+    case 0:
+      return kPollIntervalMs;
+    case 1:
+      return 5000;
+    case 2:
+      return 10000;
+    case 3:
+      return 15000;
+    default:
+      return kMaxBackoffMs;
+  }
+}
+
+void note_sync_success() {
+  if (g_backoff.consecutive_failures > 0) {
+    ESP_LOGI(TAG, "Backend sync restored");
+  }
+  g_backoff.consecutive_failures = 0;
+}
+
+void note_sync_failure(const char *action) {
+  g_backoff.consecutive_failures++;
+  const int64_t now_us = esp_timer_get_time();
+  if (g_backoff.consecutive_failures == 1 ||
+      now_us - g_backoff.last_error_log_us >= kErrorLogIntervalUs) {
+    ESP_LOGW(TAG, "%s failed (%d consecutive), retry in %ds", action, g_backoff.consecutive_failures,
+             sync_backoff_delay_ms() / 1000);
+    g_backoff.last_error_log_us = now_us;
+  }
+}
+
+bool sync_network_ready() {
+  return wifi_sta_is_connected();
+}
 
 esp_err_t http_event_handler(esp_http_client_event_t *evt) {
   auto *resp = static_cast<HttpResponse *>(evt->user_data);
@@ -61,7 +109,8 @@ esp_err_t http_request(const char *method, const char *path, const char *json_bo
     config.method = HTTP_METHOD_GET;
   }
   config.event_handler = http_event_handler;
-  config.timeout_ms = 8000;
+  config.timeout_ms = kHttpTimeoutMs;
+  config.keep_alive_enable = false;
   config.user_data = resp;
 
   resp->len = 0;
@@ -81,8 +130,6 @@ esp_err_t http_request(const char *method, const char *path, const char *json_bo
   esp_err_t err = esp_http_client_perform(client);
   if (err == ESP_OK) {
     resp->status = esp_http_client_get_status_code(client);
-  } else {
-    ESP_LOGE(TAG, "HTTP %s %s failed: %s", method, url, esp_err_to_name(err));
   }
   esp_http_client_cleanup(client);
   return err;
@@ -317,11 +364,17 @@ bool push_session(bool take_control) {
     return false;
   }
   PomodoroRemoteSession remote;
+  bool accepted = false;
   if (parse_session_json(cJSON_GetObjectItem(root, "data"), &remote)) {
-    pomodoro_apply_remote_session(remote, true);
+    accepted = remote.controller_is_device;
+    if (accepted) {
+      pomodoro_apply_remote_session(remote, true);
+    } else {
+      ESP_LOGW(TAG, "Push rejected by server session, keep local state");
+    }
   }
   cJSON_Delete(root);
-  return true;
+  return accepted;
 }
 
 bool pull_session(bool *has_session, bool apply_remote) {
@@ -342,9 +395,8 @@ bool pull_session(bool *has_session, bool apply_remote) {
   PomodoroRemoteSession remote;
   if (parse_session_json(data, &remote)) {
     *has_session = true;
-    if (apply_remote) {
-      if (!remote.controller_is_device ||
-          remote.synced_at_ms > pomodoro_last_applied_sync_ms()) {
+    if (apply_remote && pomodoro_should_apply_remote_pull()) {
+      if (remote.synced_at_ms > pomodoro_last_applied_sync_ms()) {
         pomodoro_apply_remote_session(remote, true);
       }
     }
@@ -371,6 +423,10 @@ void sync_task(void *arg) {
   }
 
   wifi_sta_init_mdns();
+
+  esp_log_level_set("HTTP_CLIENT", ESP_LOG_ERROR);
+  esp_log_level_set("esp-tls", ESP_LOG_ERROR);
+  esp_log_level_set("transport_base", ESP_LOG_ERROR);
 
   char base[96];
   api_base_url(base, sizeof(base));
@@ -400,12 +456,25 @@ void sync_task(void *arg) {
   int poll_count = 0;
   int heartbeat_polls = 0;
   for (;;) {
+    const int delay_ms = sync_backoff_delay_ms();
+    if (!sync_network_ready()) {
+      pomodoro_set_backend_connected(false);
+      vTaskDelay(pdMS_TO_TICKS(delay_ms));
+      continue;
+    }
+
     flush_pending_work_record();
 
     bool take_control = false;
     const bool dirty = pomodoro_consume_sync_dirty(&take_control);
+    bool sync_ok = false;
     if (dirty) {
-      if (push_session(take_control)) {
+      sync_ok = push_session(take_control);
+      if (!sync_ok) {
+        pomodoro_mark_sync_dirty(take_control);
+        note_sync_failure("Push session");
+      } else {
+        note_sync_success();
         pomodoro_set_backend_connected(true);
       }
       heartbeat_polls = 0;
@@ -413,27 +482,38 @@ void sync_task(void *arg) {
       heartbeat_polls++;
       if (heartbeat_polls >= 15) {
         heartbeat_polls = 0;
-        push_session(false);
-      } else if (pull_session(&has_session, true)) {
-        pomodoro_set_backend_connected(true);
+        sync_ok = push_session(false);
+        if (!sync_ok) {
+          note_sync_failure("Heartbeat push");
+        } else {
+          note_sync_success();
+        }
       } else {
-        pomodoro_set_backend_connected(wifi_sta_is_connected());
+        sync_ok = pull_session(&has_session, true);
+        if (!sync_ok) {
+          note_sync_failure("Pull session");
+        } else {
+          note_sync_success();
+        }
+      }
+      pomodoro_set_backend_connected(sync_ok);
+    }
+
+    if (sync_ok && g_backoff.consecutive_failures == 0) {
+      poll_count++;
+      if (poll_count >= kPlanRefreshPolls) {
+        poll_count = 0;
+        if (fetch_default_plan(&remote_plan)) {
+          pomodoro_plan_cache_save(remote_plan);
+          pomodoro_apply_plan(remote_plan);
+        }
+        refresh_today_stats_from_server();
+      } else if (poll_count % 5 == 0) {
+        refresh_today_stats_from_server();
       }
     }
 
-    poll_count++;
-    if (poll_count >= kPlanRefreshPolls) {
-      poll_count = 0;
-      if (fetch_default_plan(&remote_plan)) {
-        pomodoro_plan_cache_save(remote_plan);
-        pomodoro_apply_plan(remote_plan);
-      }
-      refresh_today_stats_from_server();
-    } else if (poll_count % 15 == 0) {
-      refresh_today_stats_from_server();
-    }
-
-    vTaskDelay(pdMS_TO_TICKS(kPollIntervalMs));
+    vTaskDelay(pdMS_TO_TICKS(delay_ms));
   }
 }
 }  // namespace

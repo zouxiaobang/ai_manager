@@ -30,6 +30,9 @@ public class PomodoroSessionVO {
      */
     private String pendingPhase;
 
+    /** 副屏最近一次心跳（毫秒），用于前端判断设备在线 */
+    private Long deviceLastSeenMs;
+
     /** 最近一次同步时间（毫秒），用于 RUNNING 时推算剩余秒数 */
     private Long syncedAtMs;
 }

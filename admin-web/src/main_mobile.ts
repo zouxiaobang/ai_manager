@@ -11,6 +11,12 @@ import { useAppStore } from './stores/app'
 
 import './styles/index.scss'
 import './mobile/styles/mobile.scss'
+import { setupMobilePwa } from './mobile/pwa'
+import { setupMobileInputViewportFix } from './mobile/utils/inputViewport'
+import { setupHomeBackGuard } from './mobile/utils/homeBackGuard'
+
+setupMobilePwa()
+setupMobileInputViewportFix()
 
 const app = createApp(App)
 const pinia = createPinia()
@@ -20,8 +26,11 @@ app.use(router)
 app.use(i18n)
 app.use(ElementPlus)
 
+setupHomeBackGuard(router)
+
 const appStore = useAppStore()
 appStore.initTheme()
 appStore.initLocale(i18n)
+appStore.initMobileHomeTheme()
 
 app.mount('#app')

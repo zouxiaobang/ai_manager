@@ -37,6 +37,8 @@ const SeedEntry kSeedFiles[] = {
     {"assets/dock_lyrics.png", k_seed_assets_dock_lyrics_png, k_seed_assets_dock_lyrics_png_len},
     {"assets/dock_lock.png", k_seed_assets_dock_lock_png, k_seed_assets_dock_lock_png_len},
     {"assets/dock_settings.png", k_seed_assets_dock_settings_png, k_seed_assets_dock_settings_png_len},
+    {"assets/border_tool_btn_92x52_green.png", k_seed_assets_border_tool_btn_92x52_green_png, k_seed_assets_border_tool_btn_92x52_green_png_len},
+    {"assets/border_tool_btn_92x52_blue.png", k_seed_assets_border_tool_btn_92x52_blue_png, k_seed_assets_border_tool_btn_92x52_blue_png_len},
     {"lyrics/current.meta", k_seed_lyrics_current_meta, k_seed_lyrics_current_meta_len},
     {"lyrics/current.txt", k_seed_lyrics_current_txt, k_seed_lyrics_current_txt_len},
 };

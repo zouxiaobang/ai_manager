@@ -109,8 +109,7 @@ static lv_obj_t *make_card(lv_obj_t *parent, int x, int y, int w, int h, uint32_
   lv_obj_set_pos(inner, UI_CARD_INNER_PAD, UI_CARD_INNER_PAD);
   lv_obj_set_size(inner, w - UI_CARD_INNER_PAD * 2, h - UI_CARD_INNER_PAD * 2);
   strip_scroll(inner);
-  lv_obj_set_style_bg_color(inner, lv_color_hex(COL_CARD), 0);
-  lv_obj_set_style_bg_opa(inner, LV_OPA_COVER, 0);
+  lv_obj_set_style_bg_opa(inner, LV_OPA_TRANSP, 0);
   lv_obj_set_style_border_width(inner, 0, 0);
   lv_obj_set_style_radius(inner, 0, 0);
   lv_obj_set_style_pad_all(inner, 10, 0);
@@ -120,8 +119,10 @@ static lv_obj_t *make_card(lv_obj_t *parent, int x, int y, int w, int h, uint32_
 
   lv_obj_t *border = pixel_create_jagged_border(card, 0, 0, w, h, lv_color_hex(border_color), UI_CARD_BORDER_P,
                                                 UI_CARD_CORNER_INSET);
-  lv_obj_move_foreground(border);
-  make_non_interactive(border);
+  if (border != NULL) {
+    lv_obj_move_foreground(border);
+    make_non_interactive(border);
+  }
 
   if (inner_out != NULL) {
     *inner_out = inner;
@@ -245,8 +246,10 @@ static void build_pomo_card(lv_obj_t *parent, ui_home_widgets_t *out) {
   lv_obj_t *bar_border = pixel_create_jagged_border(bar_wrap, 0, 0, POMO_HOME_BAR_W, POMO_HOME_BAR_H,
                                                     lv_color_hex(0x0A0A18), POMO_HOME_BAR_BORDER_P,
                                                     POMO_HOME_BAR_CORNER_INSET);
-  lv_obj_move_foreground(bar_border);
-  make_non_interactive(bar_border);
+  if (bar_border != NULL) {
+    lv_obj_move_foreground(bar_border);
+    make_non_interactive(bar_border);
+  }
   lv_obj_add_flag(bar_wrap, LV_OBJ_FLAG_HIDDEN);
   if (out) {
     out->bar_pomo_wrap = bar_wrap;
@@ -332,7 +335,9 @@ static void build_dock_item(lv_obj_t *dock, int index, ui_home_widgets_t *out) {
   lv_obj_t *border = pixel_create_jagged_border(slot, border_x, frame_y, border_w, UI_DOCK_FRAME_H,
                                                 lv_color_hex(def->color), UI_DOCK_BORDER_P,
                                                 UI_DOCK_SEL_CORNER_INSET);
-  lv_obj_add_flag(border, LV_OBJ_FLAG_HIDDEN);
+  if (border != NULL) {
+    lv_obj_add_flag(border, LV_OBJ_FLAG_HIDDEN);
+  }
   if (out) {
     out->dock_borders[index] = border;
   }
@@ -456,8 +461,10 @@ lv_obj_t *ui_home_static_build(lv_obj_t *parent, ui_home_widgets_t *out) {
   lv_obj_t *dock_border = pixel_create_jagged_border(dock, 0, 0, UI_DOCK_W, UI_HOME_DOCK_H,
                                                     lv_color_hex(COL_DOCK_EDGE), UI_DOCK_BORDER_P,
                                                     UI_DOCK_CORNER_INSET);
-  lv_obj_move_foreground(dock_border);
-  make_non_interactive(dock_border);
+  if (dock_border != NULL) {
+    lv_obj_move_foreground(dock_border);
+    make_non_interactive(dock_border);
+  }
 
   return parent;
 }

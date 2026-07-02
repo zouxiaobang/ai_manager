@@ -67,6 +67,16 @@
   document.documentElement.classList.toggle('is-mobile-shell', shell === 'mobile');
   document.documentElement.dataset.appShell = shell;
 
+  if (shell === 'mobile') {
+    var vp = document.querySelector('meta[name="viewport"]');
+    if (vp) {
+      vp.setAttribute(
+        'content',
+        'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover',
+      );
+    }
+  }
+
   ensureHashUrl();
 
   if (hasManualOverride()) {

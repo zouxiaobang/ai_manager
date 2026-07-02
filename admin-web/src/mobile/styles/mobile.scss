@@ -1,15 +1,43 @@
 .mobile-app {
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   color: var(--el-text-color-primary);
+  background: #fff;
   --mobile-header-title-color: #0a3b73;
   --mobile-header-date-color: #4c4c4c;
   --mobile-header-icon-color: #0a3b73;
   --mobile-header-border-color: #e0e0e0;
   --mobile-page-bg: #fafafa;
+  --mobile-tabbar-height: calc(56px + env(safe-area-inset-bottom, 0px));
+  --mobile-tab-active-color: #166534;
   background: var(--mobile-page-bg);
+}
+
+/* 仅主内容区滚动，避免 PWA standalone 下 fixed 底栏随滑动收起 */
+html.is-mobile-shell,
+html.is-mobile-shell body,
+html.is-mobile-shell #app {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+
+/* iOS 输入框字号 < 16px 会自动放大页面，聚焦后常无法恢复 */
+html.is-mobile-shell {
+  .el-input__wrapper input,
+  .el-textarea__inner,
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
 
 html.dark .mobile-app {
@@ -18,8 +46,7 @@ html.dark .mobile-app {
 }
 
 .mobile-app__header {
-  position: sticky;
-  top: 0;
+  flex-shrink: 0;
   z-index: 100;
   display: flex;
   align-items: center;
@@ -95,30 +122,25 @@ html.dark .mobile-app {
 .mobile-app__main {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 12px;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  overscroll-behavior-y: contain;
+  padding: 0;
   background: var(--mobile-page-bg);
 }
 
-.mobile-app__main--with-tabbar {
-  padding-bottom: calc(72px + env(safe-area-inset-bottom));
-}
-
 .mobile-app__tabbar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  flex-shrink: 0;
   z-index: 100;
   display: flex;
   align-items: stretch;
   min-height: 56px;
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   background: var(--el-bg-color);
   border-top: 1px solid var(--el-border-color-lighter);
-  box-sizing: content-box;
+  box-sizing: border-box;
+  transform: translateZ(0);
 }
 
 .mobile-app__tab {
@@ -136,7 +158,7 @@ html.dark .mobile-app {
   cursor: pointer;
 
   &.is-active {
-    color: var(--el-color-primary);
+    color: var(--mobile-tab-active-color);
   }
 
   .el-icon {

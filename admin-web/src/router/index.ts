@@ -1,7 +1,8 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 
-import AdminLayout from '@/layouts/AdminLayout.vue'
 import { ecommercePathForLegacyTab } from '@/data/ecommerce-nav'
+
+const AdminLayout = () => import('@/layouts/AdminLayout.vue')
 
 
 

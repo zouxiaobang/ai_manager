@@ -1,97 +1,61 @@
 <template>
-  <div v-loading="loading" class="mobile-page">
-    <section class="mobile-card">
-      <h2 class="mobile-section-title">{{ t('portal.dashboard.systems') }}</h2>
-      <div class="mobile-list-item">
-        <div class="mobile-list-item__body">
-          <div class="mobile-list-item__title">{{ t('portal.dashboard.aiManager') }}</div>
-        </div>
-        <el-tag :type="healthTagType" size="small">{{ healthLabel }}</el-tag>
-      </div>
-    </section>
-
-    <section class="mobile-card">
-      <div class="mobile-section-title">{{ t('portal.dashboard.todayTodos') }}</div>
-      <div v-if="todayTodos.length">
-        <div v-for="item in todayTodos" :key="item.id" class="mobile-list-item">
-          <el-checkbox
-            :model-value="item.completed === 1"
-            @change="(checked: boolean) => onToggle(item, checked)"
-          />
-          <div class="mobile-list-item__body" @click="router.push(`/todos`)">
-            <div class="mobile-list-item__title">{{ item.content }}</div>
-            <div v-if="item.dueTime || item.remindTime" class="mobile-list-item__meta">
-              <span v-if="item.dueTime">{{ formatDateTime(item.dueTime) }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div v-else class="mobile-empty-hint">{{ t('portal.dashboard.todayTodosEmpty') }}</div>
-      <el-button link type="primary" @click="router.push('/todos')">
-        {{ t('portal.dashboard.viewAllTodayTodos') }}
-      </el-button>
-    </section>
+  <div v-loading="home.loading.value" class="mobile-home-shell">
+    <component :is="themeComponent" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
-import { fetchHealth } from '@/api/health'
-import { fetchTodayTodos, updateTodo, type NbTodoItem } from '@/api/notebook/todo'
-import { dismissTodoNotification, useTodoReminders } from '@/composables/useTodoReminders'
-import { formatDateTime } from '@/views/notebook/todoGroup'
+import { computed, provide } from 'vue'
+import { useAppStore } from '@/stores/app'
+import type { MobileHomeThemeId } from '@/data/mobile-home-themes'
+import { MOBILE_HOME_KEY } from '@/mobile/home/mobileHomeContext'
+import { useMobileHome } from '@/mobile/home/useMobileHome'
+import ThemeA from '@/mobile/home/themes/ThemeA.vue'
+import ThemeB from '@/mobile/home/themes/ThemeB.vue'
+import ThemeC from '@/mobile/home/themes/ThemeC.vue'
+import ThemeD from '@/mobile/home/themes/ThemeD.vue'
 
-const router = useRouter()
-const { t } = useI18n()
-const { refreshTodayCount } = useTodoReminders()
-
-const loading = ref(false)
-const healthStatus = ref<'unknown' | 'up' | 'down'>('unknown')
-const todayTodos = ref<NbTodoItem[]>([])
-
-const healthTagType = computed(() => {
-  if (healthStatus.value === 'up') return 'success'
-  if (healthStatus.value === 'down') return 'danger'
-  return 'info'
-})
-
-const healthLabel = computed(() => {
-  if (healthStatus.value === 'up') return t('home.healthOk')
-  if (healthStatus.value === 'down') return t('home.healthFail')
-  return t('portal.dashboard.healthUnknown')
-})
-
-async function loadData() {
-  loading.value = true
-  try {
-    const [health, todos] = await Promise.all([fetchHealth(), fetchTodayTodos()])
-    healthStatus.value = health.status === 'UP' ? 'up' : 'down'
-    todayTodos.value = todos
-  } catch {
-    healthStatus.value = 'down'
-    todayTodos.value = []
-  } finally {
-    loading.value = false
-  }
+const themeComponents: Record<MobileHomeThemeId, object> = {
+  'scheme-a': ThemeA,
+  'scheme-b': ThemeB,
+  'scheme-c': ThemeC,
+  'scheme-d': ThemeD,
 }
 
-async function onToggle(item: NbTodoItem, checked: boolean) {
-  try {
-    await updateTodo(item.id, { completed: checked })
-    if (checked) {
-      dismissTodoNotification(item.id)
-      todayTodos.value = todayTodos.value.filter((row) => row.id !== item.id)
-    }
-    await refreshTodayCount()
-  } catch {
-    ElMessage.error(t('notebook.todos.saveFailed'))
-  }
-}
+const appStore = useAppStore()
+const home = useMobileHome()
 
-onMounted(() => {
-  void loadData()
-})
+provide(MOBILE_HOME_KEY, home)
+
+const themeComponent = computed(() => themeComponents[appStore.mobileHomeTheme])
 </script>
+
+<style lang="scss">
+@use '@/mobile/home/styles/home-shared.scss';
+
+.mobile-home-shell {
+  min-height: 100%;
+}
+
+html.is-mobile-shell[data-mobile-home-theme]:not([data-mobile-home-theme='scheme-a']) {
+  .mobile-app__main {
+    background: #faf8f5;
+  }
+}
+
+html.is-mobile-shell[data-mobile-home-theme]:not([data-mobile-home-theme='scheme-a']) .mobile-app__tabbar {
+  background: #2563eb;
+  border-top: none;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -4px 16px rgb(37 99 235 / 22%);
+}
+
+html.is-mobile-shell[data-mobile-home-theme]:not([data-mobile-home-theme='scheme-a']) .mobile-app__tab {
+  color: rgb(255 255 255 / 72%);
+
+  &.is-active {
+    color: #fbbf24;
+    font-weight: 700;
+  }
+}
+</style>

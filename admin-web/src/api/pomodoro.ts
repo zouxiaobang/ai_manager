@@ -165,6 +165,9 @@ export interface PomodoroActiveSession {
 
   syncedAtMs: number
 
+  /** 副屏最近一次 HTTP 心跳（毫秒） */
+  deviceLastSeenMs?: number
+
 }
 
 

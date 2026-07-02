@@ -93,3 +93,5 @@ void pomodoro_apply_remote_session(const PomodoroRemoteSession &remote, bool for
 void pomodoro_mark_sync_dirty(bool take_control);
 bool pomodoro_consume_sync_dirty(bool *take_control_out);
 int64_t pomodoro_last_applied_sync_ms();
+/** 本地刚操作后短暂忽略远端 pull，避免被旧会话覆盖 */
+bool pomodoro_should_apply_remote_pull();

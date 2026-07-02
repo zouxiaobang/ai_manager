@@ -32,8 +32,23 @@
 .war-room-page {
   min-height: 100%;
   padding: 24px 28px 32px;
-  background: var(--wr-bg);
+  background: #fff;
   color: var(--wr-text);
+  // War-room screens are light-only; html.dark still sets Element Plus tokens
+  // and color-scheme:dark on <html>, which turns inputs/scrollbars near-black.
+  color-scheme: light;
+  --el-fill-color-blank: #ffffff;
+  --el-bg-color: #ffffff;
+  --el-bg-color-page: var(--wr-bg);
+  --el-text-color-primary: var(--wr-text);
+  --el-text-color-regular: #606266;
+  --el-text-color-secondary: var(--wr-text-secondary);
+  --el-text-color-placeholder: var(--wr-muted);
+  --el-border-color: #dcdfe6;
+  --el-border-color-light: #e4e7ed;
+  --el-border-color-lighter: #ebeef5;
+  --el-fill-color-light: #f5f7fa;
+  --el-fill-color-lighter: #fafafa;
 }
 
 .war-room-page__header {

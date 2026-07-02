@@ -39,57 +39,70 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { EcommerceWorkbenchModule } from '@/data/ecommerce-nav'
-import ProductPanel from './ProductPanel.vue'
-import PlatformShopPanel from './PlatformShopPanel.vue'
-import FactoryPanel from './FactoryPanel.vue'
-import CartonPanel from './CartonPanel.vue'
-import ExpressPanel from './ExpressPanel.vue'
-import InventoryPanel from './InventoryPanel.vue'
-import SalesOrderPanel from './SalesOrderPanel.vue'
-import MonthlySettlementPanel from './MonthlySettlementPanel.vue'
+
+const ProductPanel = defineAsyncComponent(() => import('./ProductPanel.vue'))
+const PlatformShopPanel = defineAsyncComponent(() => import('./PlatformShopPanel.vue'))
+const FactoryPanel = defineAsyncComponent(() => import('./FactoryPanel.vue'))
+const CartonPanel = defineAsyncComponent(() => import('./CartonPanel.vue'))
+const ExpressPanel = defineAsyncComponent(() => import('./ExpressPanel.vue'))
+const InventoryPanel = defineAsyncComponent(() => import('./InventoryPanel.vue'))
+const SalesOrderPanel = defineAsyncComponent(() => import('./SalesOrderPanel.vue'))
+const MonthlySettlementPanel = defineAsyncComponent(() => import('./MonthlySettlementPanel.vue'))
+
+interface EcommercePanelExpose {
+  loadProducts?: () => Promise<void>
+  loadAll?: () => Promise<void>
+  loadFactories?: () => Promise<void>
+  loadCartons?: () => Promise<void>
+  loadStations?: () => Promise<void>
+  loadInventories?: () => Promise<void>
+  load?: () => Promise<void>
+  enter?: () => Promise<void>
+  openEdit?: (id: number) => Promise<void>
+}
 
 const route = useRoute()
 const router = useRouter()
 
 const module = computed(() => route.meta.module as EcommerceWorkbenchModule)
 
-const productRef = ref<InstanceType<typeof ProductPanel> | null>(null)
-const platformShopRef = ref<InstanceType<typeof PlatformShopPanel> | null>(null)
-const factoryRef = ref<InstanceType<typeof FactoryPanel> | null>(null)
-const cartonRef = ref<InstanceType<typeof CartonPanel> | null>(null)
-const expressRef = ref<InstanceType<typeof ExpressPanel> | null>(null)
-const inventoryRef = ref<InstanceType<typeof InventoryPanel> | null>(null)
-const salesOrderRef = ref<InstanceType<typeof SalesOrderPanel> | null>(null)
-const monthlySettlementRef = ref<InstanceType<typeof MonthlySettlementPanel> | null>(null)
+const productRef = ref<EcommercePanelExpose | null>(null)
+const platformShopRef = ref<EcommercePanelExpose | null>(null)
+const factoryRef = ref<EcommercePanelExpose | null>(null)
+const cartonRef = ref<EcommercePanelExpose | null>(null)
+const expressRef = ref<EcommercePanelExpose | null>(null)
+const inventoryRef = ref<EcommercePanelExpose | null>(null)
+const salesOrderRef = ref<EcommercePanelExpose | null>(null)
+const monthlySettlementRef = ref<EcommercePanelExpose | null>(null)
 
 async function loadModule(tab: EcommerceWorkbenchModule) {
   await nextTick()
   if (tab === 'product') {
-    await productRef.value?.loadProducts()
+    await productRef.value?.loadProducts?.()
   } else if (tab === 'platformShop') {
-    await platformShopRef.value?.loadAll()
+    await platformShopRef.value?.loadAll?.()
   } else if (tab === 'factory') {
-    await factoryRef.value?.loadFactories()
+    await factoryRef.value?.loadFactories?.()
   } else if (tab === 'carton') {
-    await cartonRef.value?.loadCartons()
+    await cartonRef.value?.loadCartons?.()
   } else if (tab === 'express') {
-    await expressRef.value?.loadStations()
+    await expressRef.value?.loadStations?.()
   } else if (tab === 'inventory') {
-    await inventoryRef.value?.loadInventories()
+    await inventoryRef.value?.loadInventories?.()
   } else if (tab === 'order') {
-    await salesOrderRef.value?.load()
+    await salesOrderRef.value?.load?.()
   } else if (tab === 'monthlySettlement') {
-    await monthlySettlementRef.value?.enter()
+    await monthlySettlementRef.value?.enter?.()
   }
 }
 
 async function onViewProduct(productId: number) {
   await router.push({ path: '/ecommerce/products', query: { editId: String(productId) } })
   await nextTick()
-  await productRef.value?.openEdit(productId)
+  await productRef.value?.openEdit?.(productId)
 }
 
 watch(
@@ -107,7 +120,7 @@ watch(
     const id = Number(editId)
     if (!Number.isFinite(id)) return
     await nextTick()
-    await productRef.value?.openEdit(id)
+    await productRef.value?.openEdit?.(id)
   },
   { immediate: true },
 )
@@ -117,7 +130,7 @@ watch(
 .ec-module-page {
   display: flex;
   flex-direction: column;
-  padding: 20px 24px 24px;
+  padding: 0;
 }
 
 .ec-module-page__panel {
@@ -127,7 +140,7 @@ watch(
   flex-direction: column;
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 16px 20px;
+  padding: 0;
 
   :deep(.panel-toolbar) {
     margin-bottom: 12px;

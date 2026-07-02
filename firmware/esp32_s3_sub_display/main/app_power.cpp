@@ -32,10 +32,12 @@ void app_power_set_visual(PowerVisualState state) {
     if (state == PowerVisualState::Dimmed) {
       lv_obj_remove_flag(dim_overlay, LV_OBJ_FLAG_HIDDEN);
       lv_obj_move_foreground(dim_overlay);
+      lv_obj_add_flag(dim_overlay, LV_OBJ_FLAG_CLICKABLE);
       const uint8_t dim = app_settings_get().dim_brightness;
       lv_obj_set_style_bg_opa(dim_overlay, static_cast<lv_opa_t>(255 - dim * 255 / 100), 0);
     } else {
       lv_obj_add_flag(dim_overlay, LV_OBJ_FLAG_HIDDEN);
+      lv_obj_remove_flag(dim_overlay, LV_OBJ_FLAG_CLICKABLE);
     }
   }
 
@@ -98,7 +100,8 @@ void app_power_tick(bool locked) {
 
   const bool night = app_settings_is_night_period(h, m);
   const int64_t idle_ms = (esp_timer_get_time() - last_activity_us) / 1000;
-  const bool idle = idle_ms >= static_cast<int64_t>(s.idle_dim_minutes) * 60 * 1000;
+  const bool idle = s.idle_dim_minutes > 0 &&
+                    idle_ms >= static_cast<int64_t>(s.idle_dim_minutes) * 60 * 1000;
 
   if (night || idle) {
     if (visual != PowerVisualState::Dimmed) {

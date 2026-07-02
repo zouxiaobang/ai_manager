@@ -407,6 +407,53 @@ def draw_dock_settings() -> Image.Image:
     return img
 
 
+def draw_jagged_border(
+    img: Image.Image,
+    x: int,
+    y: int,
+    w: int,
+    h: int,
+    color: tuple[int, int, int, int],
+    thickness: int,
+    corner_inset: int,
+) -> None:
+    """Match firmware pixel_ui.cpp / preview_ui.py jagged frame geometry."""
+    p = max(1, thickness)
+    steps = max(1, corner_inset // p)
+    inset = steps * p
+
+    def block(bx: int, by: int, bw: int, bh: int) -> None:
+        if bw <= 0 or bh <= 0 or bx >= w or by >= h:
+            return
+        fill_rect(img, x + bx, y + by, bw, bh, color)
+
+    if w > inset * 2:
+        block(inset, 0, w - inset * 2, p)
+        block(inset, h - p, w - inset * 2, p)
+    if h > inset * 2:
+        block(0, inset, p, h - inset * 2)
+        block(w - p, inset, p, h - inset * 2)
+    for s in range(steps):
+        dx = (steps - 1 - s) * p
+        dy = s * p
+        block(dx, dy, p, p)
+        block(w - dx - p, dy, p, p)
+        block(dx, h - dy - p, p, p)
+        block(w - dx - p, h - dy - p, p, p)
+
+
+def draw_tool_button_border(
+    w: int,
+    h: int,
+    color: tuple[int, int, int, int],
+    thickness: int = 3,
+    corner_inset: int = 9,
+) -> Image.Image:
+    img = new_rgba(w, h)
+    draw_jagged_border(img, 0, 0, w, h, color, thickness, corner_inset)
+    return img
+
+
 def save_asset(name: str, image: Image.Image) -> None:
     path = ASSETS / name
     image.save(path)
@@ -460,6 +507,8 @@ SEED_RELATIVE_PATHS = [
     "assets/dock_lyrics.png",
     "assets/dock_lock.png",
     "assets/dock_settings.png",
+    "assets/border_tool_btn_92x52_green.png",
+    "assets/border_tool_btn_92x52_blue.png",
     "lyrics/current.meta",
     "lyrics/current.txt",
 ]
@@ -733,6 +782,8 @@ def main() -> int:
     save_asset("dock_lyrics.png", lyrics_from_reference(28))
     save_asset("dock_lock.png", lock_from_reference(28))
     save_asset("dock_settings.png", settings_from_reference(28))
+    save_asset("border_tool_btn_92x52_green.png", draw_tool_button_border(92, 52, GREEN))
+    save_asset("border_tool_btn_92x52_blue.png", draw_tool_button_border(92, 52, BLUE))
 
     (LYRICS / "current.meta").write_text("夜空中最亮的星", encoding="utf-8")
     (LYRICS / "current.txt").write_text(

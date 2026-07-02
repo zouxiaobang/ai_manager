@@ -1,0 +1,66 @@
+// 四角 N 级台阶锯齿（默认 4 级，与同步状态卡一致）
+@mixin pixel-jag-clip($n: 4) {
+  clip-path: polygon(
+    0 calc(var(--s) * #{$n}),
+    var(--s) calc(var(--s) * #{$n}),
+    var(--s) calc(var(--s) * #{$n - 1}),
+    calc(var(--s) * 2) calc(var(--s) * #{$n - 1}),
+    calc(var(--s) * 2) calc(var(--s) * #{$n - 2}),
+    calc(var(--s) * #{$n - 1}) calc(var(--s) * #{$n - 2}),
+    calc(var(--s) * #{$n - 1}) var(--s),
+    calc(var(--s) * #{$n}) var(--s),
+    calc(var(--s) * #{$n}) 0,
+    calc(100% - var(--s) * #{$n}) 0,
+    calc(100% - var(--s) * #{$n}) var(--s),
+    calc(100% - var(--s) * #{$n - 1}) var(--s),
+    calc(100% - var(--s) * #{$n - 1}) calc(var(--s) * #{$n - 2}),
+    calc(100% - var(--s) * 2) calc(var(--s) * #{$n - 2}),
+    calc(100% - var(--s) * 2) calc(var(--s) * #{$n - 1}),
+    calc(100% - var(--s)) calc(var(--s) * #{$n - 1}),
+    calc(100% - var(--s)) calc(var(--s) * #{$n}),
+    100% calc(var(--s) * #{$n}),
+    100% calc(100% - var(--s) * #{$n}),
+    calc(100% - var(--s)) calc(100% - var(--s) * #{$n}),
+    calc(100% - var(--s)) calc(100% - var(--s) * #{$n - 1}),
+    calc(100% - var(--s) * 2) calc(100% - var(--s) * #{$n - 1}),
+    calc(100% - var(--s) * 2) calc(100% - var(--s) * #{$n - 2}),
+    calc(100% - var(--s) * #{$n - 1}) calc(100% - var(--s) * #{$n - 2}),
+    calc(100% - var(--s) * #{$n - 1}) calc(100% - var(--s)),
+    calc(100% - var(--s) * #{$n}) calc(100% - var(--s)),
+    calc(100% - var(--s) * #{$n}) 100%,
+    calc(var(--s) * #{$n}) 100%,
+    calc(var(--s) * #{$n}) calc(100% - var(--s)),
+    calc(var(--s) * #{$n - 1}) calc(100% - var(--s)),
+    calc(var(--s) * #{$n - 1}) calc(100% - var(--s) * #{$n - 2}),
+    calc(var(--s) * 2) calc(100% - var(--s) * #{$n - 2}),
+    calc(var(--s) * 2) calc(100% - var(--s) * #{$n - 1}),
+    var(--s) calc(100% - var(--s) * #{$n - 1}),
+    var(--s) calc(100% - var(--s) * #{$n}),
+    0 calc(100% - var(--s) * #{$n})
+  );
+}
+
+@mixin pixel-panel-jagged-frame($frame-color) {
+  --s: 4px;
+  padding: var(--s);
+  background: $frame-color;
+  @include pixel-jag-clip(4);
+  box-shadow: 0 6px 0 rgb(0 0 0 / 35%);
+}
+
+@mixin pixel-panel-jagged-inner {
+  background: rgb(16 16 40 / 26%);
+  @include pixel-jag-clip(4);
+}
+
+@mixin pomo-pixel-digits {
+  font-family: var(--pomo-pixel-digit-font);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: unset;
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+}

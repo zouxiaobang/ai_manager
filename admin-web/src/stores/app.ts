@@ -1,5 +1,10 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
+import {
+  isMobileHomeThemeId,
+  MOBILE_HOME_THEME_DEFAULT,
+  type MobileHomeThemeId,
+} from '@/data/mobile-home-themes'
 
 export type ThemeMode = 'light' | 'dark'
 export type LocaleCode = 'zh-CN' | 'en-US'
@@ -12,10 +17,17 @@ type AppI18n = {
 
 const THEME_KEY = 'admin-theme'
 const LOCALE_KEY = 'admin-locale'
+const MOBILE_HOME_THEME_KEY = 'mobile-home-theme'
+
+function applyMobileHomeThemeToDocument(theme: MobileHomeThemeId) {
+  if (typeof document === 'undefined') return
+  document.documentElement.dataset.mobileHomeTheme = theme
+}
 
 export const useAppStore = defineStore('app', () => {
   const theme = ref<ThemeMode>('light')
   const locale = ref<LocaleCode>('zh-CN')
+  const mobileHomeTheme = ref<MobileHomeThemeId>(MOBILE_HOME_THEME_DEFAULT)
 
   function applyTheme(mode: ThemeMode) {
     theme.value = mode
@@ -56,6 +68,18 @@ export const useAppStore = defineStore('app', () => {
     setLocale(code, i18n)
   }
 
+  function setMobileHomeTheme(id: MobileHomeThemeId) {
+    mobileHomeTheme.value = id
+    localStorage.setItem(MOBILE_HOME_THEME_KEY, id)
+    applyMobileHomeThemeToDocument(id)
+  }
+
+  function initMobileHomeTheme() {
+    const saved = localStorage.getItem(MOBILE_HOME_THEME_KEY)
+    const id = isMobileHomeThemeId(saved) ? saved : MOBILE_HOME_THEME_DEFAULT
+    setMobileHomeTheme(id)
+  }
+
   watch(theme, (mode) => {
     document.documentElement.classList.toggle('dark', mode === 'dark')
   })
@@ -63,10 +87,13 @@ export const useAppStore = defineStore('app', () => {
   return {
     theme,
     locale,
+    mobileHomeTheme,
     applyTheme,
     toggleTheme,
     initTheme,
     setLocale,
     initLocale,
+    setMobileHomeTheme,
+    initMobileHomeTheme,
   }
 })

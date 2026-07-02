@@ -1,0 +1,63 @@
+.mfc-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: #ffffff;
+  padding-bottom: 88px;
+}
+
+.mfc-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 16px 16px;
+  margin-top: -12px;
+  position: relative;
+  z-index: 2;
+}
+
+.mfc-section {
+  width: 100%;
+}
+
+.mfc-fab {
+  position: fixed;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  right: 16px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.mfc-fab__btn {
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #8b5cf6;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgb(139 92 246 / 40%);
+  transition: transform 0.2s ease;
+
+  &:active {
+    transform: scale(1.05);
+  }
+}
+
+.mfc-fab__icon {
+  font-size: 32px;
+  font-weight: 400;
+  color: #fff;
+  line-height: 1;
+}
+
+.mfc-fab__label {
+  font-size: 12px;
+  font-weight: 800;
+  color: #8b5cf6;
+}

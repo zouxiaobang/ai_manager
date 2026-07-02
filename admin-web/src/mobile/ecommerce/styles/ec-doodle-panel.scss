@@ -1,0 +1,32 @@
+.mobile-ec-doodle-shell {
+  font-family: 'ZCOOL KuaiLe', 'Alibaba PuHuiTi', 'PingFang SC', sans-serif;
+
+  :deep(.war-room-panel),
+  :deep(.ec-module-page__panel) {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
+  :deep(.shop-dashboard__title),
+  :deep(.shop-dashboard__subtitle),
+  :deep(.shop-doodle-data-card__title),
+  :deep(.shop-doodle-data-card__stat-label),
+  :deep(.shop-grid-card__name),
+  :deep(.shop-grid-card__platform),
+  :deep(.shop-grid-card__status),
+  :deep(.factory-panel__title),
+  :deep(.order-section-title) {
+    font-family: inherit;
+  }
+
+  :deep(.shop-tile--doodle),
+  :deep(.inventory-card--doodle),
+  :deep(.order-shop-card--doodle),
+  :deep(.order-stat-card--doodle),
+  :deep(.inventory-sidebar-card--doodle),
+  :deep(.inventory-metric-card--doodle) {
+    border: none !important;
+    box-shadow: none !important;
+  }
+}

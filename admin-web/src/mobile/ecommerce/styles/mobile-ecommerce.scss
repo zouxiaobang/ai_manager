@@ -1,0 +1,33 @@
+.mec-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: #ffffff;
+}
+
+.mec-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  margin-top: -8px;
+  position: relative;
+  z-index: 2;
+}
+
+.mec-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  box-shadow: 0 4px 12px rgb(37 99 235 / 28%);
+}
+
+.mec-section {
+  width: 100%;
+}

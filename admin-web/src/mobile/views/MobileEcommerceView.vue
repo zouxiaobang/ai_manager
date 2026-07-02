@@ -1,24 +1,32 @@
 <template>
-  <div class="mobile-ecommerce">
-    <EcommerceTabsView />
+  <div v-loading="ec.loading.value" class="mec-shell mh-scheme-a">
+    <EcHeroHeader />
+    <div class="mec-content">
+      <EcOverviewPanel />
+      <EcPendingOrders />
+      <EcModuleGrid />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import EcommerceTabsView from '@/views/ecommerce/EcommerceTabsView.vue'
+import { onMounted, provide } from 'vue'
+import { MOBILE_ECOMMERCE_KEY } from '@/mobile/ecommerce/mobileEcommerceContext'
+import { useMobileEcommerce } from '@/mobile/ecommerce/useMobileEcommerce'
+import EcHeroHeader from '@/mobile/ecommerce/components/EcHeroHeader.vue'
+import EcOverviewPanel from '@/mobile/ecommerce/components/EcOverviewPanel.vue'
+import EcPendingOrders from '@/mobile/ecommerce/components/EcPendingOrders.vue'
+import EcModuleGrid from '@/mobile/ecommerce/components/EcModuleGrid.vue'
+
+const ec = useMobileEcommerce()
+provide(MOBILE_ECOMMERCE_KEY, ec)
+
+onMounted(() => {
+  void ec.init()
+})
 </script>
 
-<style scoped lang="scss">
-.mobile-ecommerce {
-  margin: -8px -12px 0;
-  overflow-x: auto;
-}
-
-.mobile-ecommerce :deep(.ecommerce-page__title) {
-  display: none;
-}
-
-.mobile-ecommerce :deep(.el-tabs__nav-wrap) {
-  overflow-x: auto;
-}
+<style lang="scss">
+@use '@/mobile/home/themes/scheme-a/scheme-a.scss';
+@use '@/mobile/ecommerce/styles/mobile-ecommerce.scss';
 </style>

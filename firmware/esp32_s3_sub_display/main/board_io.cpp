@@ -97,6 +97,51 @@ esp_err_t board_reset_touch() {
   return ESP_OK;
 }
 
+esp_err_t board_touch_irq_configure() {
+  gpio_config_t cfg = {};
+  cfg.mode = GPIO_MODE_INPUT;
+  cfg.pin_bit_mask = 1ULL << TP_IRQ;
+  cfg.pull_up_en = GPIO_PULLUP_ENABLE;
+  cfg.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  cfg.intr_type = GPIO_INTR_DISABLE;
+  ESP_RETURN_ON_ERROR(gpio_config(&cfg), TAG, "Configure TP_IRQ failed");
+  ESP_LOGI(TAG, "TP_IRQ GPIO%d input pull-up enabled", TP_IRQ);
+  return ESP_OK;
+}
+
+void board_i2c_lock() {}
+
+void board_i2c_unlock() {}
+
+bool board_i2c_probe(uint8_t address) {
+  i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+  if (cmd == nullptr) {
+    return false;
+  }
+
+  i2c_master_start(cmd);
+  i2c_master_write_byte(cmd, static_cast<uint8_t>((address << 1) | I2C_MASTER_WRITE), true);
+  i2c_master_stop(cmd);
+  const esp_err_t err = i2c_master_cmd_begin(kI2cPort, cmd, pdMS_TO_TICKS(50));
+  i2c_cmd_link_delete(cmd);
+  return err == ESP_OK;
+}
+
+void board_i2c_scan_log() {
+  ESP_LOGI(TAG, "I2C scan on GPIO%d/GPIO%d:", TP_SDA, TP_SCL);
+  int found = 0;
+  for (uint8_t addr = 0x08; addr < 0x78; ++addr) {
+    if (!board_i2c_probe(addr)) {
+      continue;
+    }
+    ESP_LOGI(TAG, "  found device at 0x%02X", addr);
+    ++found;
+  }
+  if (found == 0) {
+    ESP_LOGW(TAG, "  no I2C devices detected");
+  }
+}
+
 esp_err_t board_sd_cs_set(bool selected) {
   uint8_t value = s_exio_data;
   if (selected) {

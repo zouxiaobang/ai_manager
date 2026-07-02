@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <mutex>
 
+#include "esp_timer.h"
+
 namespace {
 std::mutex g_mu;
 PomodoroSnapshot g_state = {};
@@ -12,6 +14,9 @@ bool g_sync_dirty = false;
 bool g_take_control = false;
 bool g_need_work_record = false;
 int g_work_record_duration_sec = 0;
+int64_t g_local_authority_until_us = 0;
+
+constexpr int64_t kLocalAuthorityUs = 3 * 1000000LL;
 
 bool is_today_goal_reached_locked(int today_rounds) {
   return g_plan.daily_goal_rounds > 0 && today_rounds >= g_plan.daily_goal_rounds;
@@ -59,6 +64,7 @@ void mark_dirty_locked(bool take_control) {
   g_sync_dirty = true;
   if (take_control) {
     g_take_control = true;
+    g_local_authority_until_us = esp_timer_get_time() + kLocalAuthorityUs;
   }
 }
 
@@ -189,6 +195,7 @@ void pomodoro_init() {
   g_take_control = false;
   g_need_work_record = false;
   g_work_record_duration_sec = 0;
+  g_local_authority_until_us = 0;
 }
 
 void pomodoro_apply_plan(const PomodoroPlanConfig &plan) {
@@ -503,4 +510,9 @@ bool pomodoro_consume_sync_dirty(bool *take_control_out) {
 int64_t pomodoro_last_applied_sync_ms() {
   std::lock_guard<std::mutex> lock(g_mu);
   return g_last_applied_sync_ms;
+}
+
+bool pomodoro_should_apply_remote_pull() {
+  std::lock_guard<std::mutex> lock(g_mu);
+  return esp_timer_get_time() >= g_local_authority_until_us;
 }

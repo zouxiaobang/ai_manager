@@ -20,7 +20,10 @@ $ph-font-path: '@fontpkg/alibaba-pu-hui-ti-2-0';
 @include ph-face('AlibabaPuHuiTi-2-105-Heavy.ttf', 900);
 @include ph-face('AlibabaPuHuiTi-2-115-Black.ttf', 950);
 
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
 :root {
   --app-font-family: 'Alibaba PuHuiTi', 'PingFang SC', 'Microsoft YaHei', sans-serif;
   --el-font-family: var(--app-font-family);
+  --pomo-pixel-digit-font: 'Press Start 2P', 'Courier New', Consolas, monospace;
 }

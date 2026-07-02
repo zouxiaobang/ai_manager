@@ -1,5 +1,5 @@
 <template>
-  <div class="sales-order-panel">
+  <div class="sales-order-panel" :class="{ 'sales-order-panel--doodle': doodle.enabled.value }">
     <div class="order-workbench-header">
       <div class="order-workbench-header__main">
         <el-date-picker
@@ -15,16 +15,84 @@
     </div>
 
     <section v-loading="overviewLoading" class="order-stat-cards">
+      <template v-if="doodle.enabled.value">
+        <EcDoodleCard
+          v-for="card in statCards"
+          :key="card.key"
+          class="order-stat-card order-stat-card--doodle"
+          :class="`is-${card.tone}`"
+          :color="orderStatColor(card.tone)"
+          :seed="doodleSeedFromKey(card.key)"
+        >
+          <div class="order-stat-card__inner">
+            <div class="order-stat-card__label">{{ card.label }}</div>
+            <div class="order-stat-card__value">{{ card.value }}</div>
+            <p v-if="card.hint" class="order-stat-card__hint">{{ card.hint }}</p>
+          </div>
+        </EcDoodleCard>
+      </template>
+      <template v-else>
       <div v-for="card in statCards" :key="card.key" class="order-stat-card" :class="`is-${card.tone}`">
         <div class="order-stat-card__label">{{ card.label }}</div>
         <div class="order-stat-card__value">{{ card.value }}</div>
         <p v-if="card.hint" class="order-stat-card__hint">{{ card.hint }}</p>
       </div>
+      </template>
     </section>
 
     <section v-loading="overviewLoading" class="order-shop-section">
       <h3 class="order-section-title">{{ t('ecommerce.salesOrder.shopImportSection') }}</h3>
       <div v-if="shopImportCards.length" class="order-shop-grid">
+        <template v-if="doodle.enabled.value">
+          <EcDoodleCard
+            v-for="shop in shopImportCards"
+            :key="shop.shopId"
+            class="order-shop-card order-shop-card--doodle"
+            :class="[`is-${shop.tone}`, { 'is-active': shopFilter === shop.shopId }]"
+            :color="orderShopColor(shop.tone, shopFilter === shop.shopId)"
+            :seed="shop.shopId"
+            clickable
+            @click="onShopCardClick(shop)"
+          >
+            <div class="order-shop-card__inner">
+              <div class="order-shop-card__head">
+                <div class="order-shop-card__name-wrap">
+                  <img
+                    :src="getShopCardShopIcon(shop).src"
+                    alt=""
+                    class="order-shop-card__shop-avatar"
+                    :class="{ 'is-avatar': getShopCardShopIcon(shop).isCustomAvatar }"
+                  />
+                  <span class="order-shop-card__name">{{ shop.shopName }}</span>
+                </div>
+                <div v-if="shop.platformName" class="order-shop-card__platform-wrap">
+                  <img
+                    :src="getShopCardPlatformIcon(shop).src"
+                    alt=""
+                    class="order-shop-card__platform-avatar"
+                    :class="{ 'is-avatar': getShopCardPlatformIcon(shop).isCustomAvatar }"
+                  />
+                  <span class="order-shop-card__platform">{{ shop.platformName }}</span>
+                </div>
+              </div>
+              <p class="order-shop-card__status">{{ shop.statusText }}</p>
+              <p v-if="shop.dateLabel" class="order-shop-card__date">{{ shop.dateLabel }}</p>
+              <div v-if="shop.actionLabel" class="order-shop-card__footer">
+                <MobileDoodleChip
+                  tag="button"
+                  type="button"
+                  :color="shop.actionType === 'warning' ? '#ef4444' : '#8b5cf6'"
+                  :seed="shop.shopId + 3"
+                  class="order-shop-card__action-doodle"
+                  @click.stop="onShopCardAction(shop)"
+                >
+                  {{ shop.actionLabel }}
+                </MobileDoodleChip>
+              </div>
+            </div>
+          </EcDoodleCard>
+        </template>
+        <template v-else>
         <div
           v-for="shop in shopImportCards"
           :key="shop.shopId"
@@ -65,6 +133,7 @@
             </el-button>
           </div>
         </div>
+        </template>
       </div>
       <el-empty v-else :description="t('ecommerce.salesOrder.noShops')" :image-size="64" />
     </section>
@@ -628,11 +697,32 @@ import { buildColumnMappingForUpload } from '@/utils/importColumnMapping'
 import { resolveShopIconMeta } from '@/utils/shopVisual'
 import { resolvePlatformIconMeta } from '@/utils/platformVisual'
 import { usePagination } from '@/composables/usePagination'
+import { useMobileEcDoodle } from '@/composables/useMobileEcDoodle'
+import { doodleSeedFromKey } from '@/mobile/utils/doodleSeed'
+import EcDoodleCard from '@/mobile/ecommerce/components/EcDoodleCard.vue'
+import MobileDoodleChip from '@/mobile/components/MobileDoodleChip.vue'
 import { defaultOrderMonth, formatDateTime, formatMonthDay, monthDateRange, todayDateString } from '@/utils/date'
 import { normalizeLineStatus, type ImportLineStatus } from '@/constants/importStatusMapping'
 import { parseProvinceFromAddress } from '@/utils/addressProvince'
 
 const { t } = useI18n()
+const doodle = useMobileEcDoodle()
+
+function orderStatColor(tone: string) {
+  if (tone === 'green') return '#22c55e'
+  if (tone === 'orange') return '#f59e0b'
+  if (tone === 'purple') return '#8b5cf6'
+  if (tone === 'blue') return '#2563eb'
+  return '#cbd5e1'
+}
+
+function orderShopColor(tone: string, active: boolean) {
+  if (active) return '#2563eb'
+  if (tone === 'green') return '#22c55e'
+  if (tone === 'orange') return '#f59e0b'
+  if (tone === 'gray') return '#94a3b8'
+  return '#cbd5e1'
+}
 const ecSettings = useEcSettingsStore()
 const route = useRoute()
 const router = useRouter()
@@ -1884,6 +1974,41 @@ defineExpose({ load: refreshAll })
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 12px;
+}
+
+.order-shop-card__action {
+  width: 100%;
+}
+
+.sales-order-panel--doodle {
+  .order-stat-card--doodle,
+  .order-shop-card--doodle {
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  .order-stat-card__inner,
+  .order-shop-card__inner {
+    padding: 10px 12px;
+  }
+
+  .order-shop-card__action-doodle {
+    width: 100%;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    background: #fff;
+
+    :deep(.sa-doodle-frame__body) {
+      padding: 5px 8px;
+      text-align: center;
+    }
+  }
+
+  .order-shop-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .order-shop-card {

@@ -11,10 +11,15 @@ constexpr char TAG[] = "settings";
 constexpr char kNvsNs[] = "sub_disp";
 constexpr char kNvsKey[] = "cfg";
 
-AppSettings g_settings = {};
+AppSettings g_settings;
 }  // namespace
 
+static AppSettings app_settings_defaults() {
+  return AppSettings{};
+}
+
 void app_settings_init() {
+  g_settings = app_settings_defaults();
   nvs_handle_t handle = 0;
   if (nvs_open(kNvsNs, NVS_READONLY, &handle) != ESP_OK) {
     ESP_LOGI(TAG, "Using default settings");

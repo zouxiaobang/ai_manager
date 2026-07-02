@@ -66,6 +66,8 @@ void create_star_dot(lv_obj_t *parent, int x, int y, int size, lv_color_t color,
   style_star_fill(dot, color, opa);
   lv_obj_set_size(dot, size, size);
   lv_obj_set_pos(dot, x, y);
+  lv_obj_remove_flag(dot, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_remove_flag(dot, LV_OBJ_FLAG_SCROLLABLE);
 }
 
 void create_star_plus(lv_obj_t *parent, int x, int y, int arm, int thick, lv_color_t color, lv_opa_t opa) {
@@ -264,7 +266,15 @@ lv_obj_t *pixel_create_eq_icon(lv_obj_t *parent, int x, int y, int pixel, lv_col
 
 lv_obj_t *pixel_create_jagged_border(lv_obj_t *parent, int x, int y, int w, int h, lv_color_t color,
                                      int thickness, int corner_inset) {
+  if (parent == nullptr || w <= 0 || h <= 0) {
+    return nullptr;
+  }
+
   lv_obj_t *box = lv_obj_create(parent);
+  if (box == nullptr) {
+    return nullptr;
+  }
+
   lv_obj_remove_style_all(box);
   lv_obj_set_size(box, w, h);
   lv_obj_set_pos(box, x, y);
@@ -280,10 +290,13 @@ lv_obj_t *pixel_create_jagged_border(lv_obj_t *parent, int x, int y, int w, int 
   const int inset = steps * p;
 
   auto block = [&](int bx, int by, int bw, int bh) {
-    if (bw <= 0 || bh <= 0 || bx >= w || by >= h) {
+    if (bw <= 0 || bh <= 0 || bx >= w || by >= h || box == nullptr) {
       return;
     }
     lv_obj_t *px = lv_obj_create(box);
+    if (px == nullptr) {
+      return;
+    }
     lv_obj_remove_style_all(px);
     lv_obj_set_size(px, bw, bh);
     lv_obj_set_pos(px, bx, by);

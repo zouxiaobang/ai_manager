@@ -146,6 +146,7 @@ esp_err_t display_init() {
   void *buf2 = heap_caps_malloc(partial_buffer_bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
   ESP_RETURN_ON_FALSE(buf1 != nullptr && buf2 != nullptr, ESP_ERR_NO_MEM, TAG, "Allocate LVGL buffers failed");
   lv_display_set_buffers(lv_display, buf1, buf2, partial_buffer_bytes, LV_DISPLAY_RENDER_MODE_PARTIAL);
+  lv_display_set_default(lv_display);
   ESP_LOGI(TAG, "RGB %dx%d + LVGL partial %u lines", PANEL_WIDTH, PANEL_HEIGHT, LVGL_BUFFER_LINES);
   return ESP_OK;
 }

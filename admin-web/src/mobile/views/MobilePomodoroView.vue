@@ -15,16 +15,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { provide, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PlanPanel from '@/views/pomodoro/PlanPanel.vue'
 import TimerPanel from '@/views/pomodoro/TimerPanel.vue'
 import ReportPanel from '@/views/pomodoro/ReportPanel.vue'
+import { POMODORO_PLAN_CONTEXT_KEY } from '@/views/pomodoro/pomodoroPlanContext'
+import { fetchActiveSession } from '@/api/pomodoro'
+import { isPlanMutationBlocked } from '@/utils/pomodoroSession'
 
 const { t } = useI18n()
 const activeTab = ref('timer')
 const timerRef = ref<InstanceType<typeof TimerPanel> | null>(null)
 const planRef = ref<InstanceType<typeof PlanPanel> | null>(null)
+
+provide(POMODORO_PLAN_CONTEXT_KEY, {
+  checkEditable: async () => {
+    if (timerRef.value?.checkPlanEditable) {
+      return timerRef.value.checkPlanEditable()
+    }
+    try {
+      const session = await fetchActiveSession()
+      return !isPlanMutationBlocked(session)
+    } catch {
+      return true
+    }
+  },
+  notifyPlansChanged: async (planId?: number) => {
+    await timerRef.value?.onPlansChanged?.(planId)
+  },
+})
 
 watch(activeTab, (tab) => {
   if (tab === 'timer') {
@@ -35,6 +55,8 @@ watch(activeTab, (tab) => {
   }
   if (tab === 'plan') {
     planRef.value?.loadPlans()
+    timerRef.value?.pullRemoteSession()
+    timerRef.value?.startRemoteSync()
   }
 })
 </script>

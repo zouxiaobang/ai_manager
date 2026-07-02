@@ -1,80 +1,178 @@
 <template>
-  <div class="shop-dashboard">
+  <div class="shop-dashboard" :class="{ 'shop-dashboard--doodle': doodle.enabled.value }">
     <header class="shop-dashboard__header">
-      <div>
-        <h2 class="shop-dashboard__title">{{ t('ecommerce.shop.pageTitle') }}</h2>
-        <p class="shop-dashboard__subtitle">{{ t('ecommerce.shop.pageSubtitle') }}</p>
+      <div class="shop-dashboard__header-left">
+        <MobileDoodleChip
+          tag="button"
+          type="button"
+          shape="pill"
+          color="#2563eb"
+          class="shop-dashboard__back"
+          @click="$router.back()"
+        >
+          <span>←</span>
+        </MobileDoodleChip>
+        <div>
+          <h2 class="shop-dashboard__title">{{ t('ecommerce.shop.pageTitle') }}</h2>
+          <p class="shop-dashboard__subtitle">{{ t('ecommerce.shop.pageSubtitle') }}</p>
+        </div>
       </div>
     </header>
 
-    <section v-loading="loading" class="shop-hero">
-      <div class="shop-hero__stats">
-        <div class="shop-hero__stat">
-          <div class="shop-hero__stat-icon" aria-hidden="true">
-            <el-icon><Shop /></el-icon>
+    <template v-if="doodle.enabled.value">
+      <EcDoodleCard color="#2563eb" :seed="999" class="shop-doodle-data-card">
+        <div class="shop-doodle-data-card__header">
+          <span class="shop-doodle-data-card__icon">📊</span>
+          <span class="shop-doodle-data-card__title">{{ t('mobile.ecommerce.overviewTitle') }}</span>
+        </div>
+        <div class="shop-doodle-data-card__stats">
+          <div class="shop-doodle-data-card__stat">
+            <div class="shop-doodle-data-card__stat-value">{{ stats.total }}</div>
+            <div class="shop-doodle-data-card__stat-label">{{ t('ecommerce.shop.statTotal') }}</div>
           </div>
-          <div class="shop-hero__stat-body">
-            <div class="shop-hero__stat-label">{{ t('ecommerce.shop.statTotal') }}</div>
-            <div class="shop-hero__stat-value is-total">{{ stats.total }}</div>
+          <div class="shop-doodle-data-card__stat">
+            <div class="shop-doodle-data-card__stat-value">{{ stats.enabled }}</div>
+            <div class="shop-doodle-data-card__stat-label">{{ t('ecommerce.shop.statEnabled') }}</div>
+          </div>
+          <div class="shop-doodle-data-card__stat">
+            <div class="shop-doodle-data-card__stat-value">{{ stats.avgFeePct }}</div>
+            <div class="shop-doodle-data-card__stat-label">{{ t('ecommerce.shop.statAvgFee') }}</div>
           </div>
         </div>
-        <div class="shop-hero__stat">
-          <div class="shop-hero__stat-icon" aria-hidden="true">
-            <el-icon><CircleCheck /></el-icon>
-          </div>
-          <div class="shop-hero__stat-body">
-            <div class="shop-hero__stat-label">{{ t('ecommerce.shop.statEnabled') }}</div>
-            <div class="shop-hero__stat-value is-enabled">{{ stats.enabled }}</div>
-          </div>
-        </div>
-        <div class="shop-hero__stat">
-          <div class="shop-hero__stat-icon" aria-hidden="true">
-            <el-icon><Grid /></el-icon>
-          </div>
-          <div class="shop-hero__stat-body">
-            <div class="shop-hero__stat-label">{{ t('ecommerce.shop.statPlatformCount') }}</div>
-            <div class="shop-hero__stat-value is-platform">{{ stats.platformCount }}</div>
+        <div class="shop-doodle-data-card__platforms">
+          <div class="shop-doodle-data-card__platforms-title">{{ t('ecommerce.shop.platformDistribution') }}</div>
+          <div class="shop-doodle-data-card__platform-row" v-for="item in platformStats" :key="item.platformId">
+            <span class="shop-doodle-data-card__platform-name">{{ item.icon }} {{ item.name }}</span>
+            <div class="shop-doodle-data-card__bar-wrap">
+              <div class="shop-doodle-data-card__bar" :style="{ width: item.percent + '%', background: item.color }"></div>
+            </div>
+            <span class="shop-doodle-data-card__platform-percent">{{ item.percent }}%</span>
           </div>
         </div>
-        <div class="shop-hero__stat">
-          <div class="shop-hero__stat-icon" aria-hidden="true">
-            <el-icon><DataAnalysis /></el-icon>
-          </div>
-          <div class="shop-hero__stat-body">
-            <div class="shop-hero__stat-label">{{ t('ecommerce.shop.statAvgFee') }}</div>
-            <div class="shop-hero__stat-value is-fee">{{ stats.avgFeePct }}</div>
-          </div>
-        </div>
-      </div>
-      <div class="shop-hero__divider" aria-hidden="true" />
-      <div class="shop-hero__chart-wrap">
-        <div class="shop-hero__chart-body">
-          <div class="shop-hero__chart">
-            <div ref="chartRef" class="shop-hero__chart-canvas" />
-            <div class="shop-hero__chart-center">
-              <div class="shop-hero__chart-center-value">{{ stats.total }}</div>
-              <div class="shop-hero__chart-center-label">{{ t('ecommerce.shop.statTotal') }}</div>
+      </EcDoodleCard>
+    </template>
+
+    <template v-else>
+      <section v-loading="loading" class="shop-hero">
+        <div class="shop-hero__stats">
+          <div class="shop-hero__stat">
+            <div class="shop-hero__stat-icon" aria-hidden="true">
+              <el-icon><Shop /></el-icon>
+            </div>
+            <div class="shop-hero__stat-body">
+              <div class="shop-hero__stat-label">{{ t('ecommerce.shop.statTotal') }}</div>
+              <div class="shop-hero__stat-value is-total">{{ stats.total }}</div>
             </div>
           </div>
-          <ul v-if="chartLegendItems.length" class="shop-hero__chart-legend">
-            <li v-for="item in chartLegendItems" :key="item.platformId" class="shop-hero__legend-item">
-              <span class="shop-hero__legend-dot" :style="{ background: item.color }" />
-              <span class="shop-hero__legend-name">{{ item.name }}</span>
-              <span class="shop-hero__legend-value">{{ item.count }} ({{ item.pct }}%)</span>
-            </li>
-          </ul>
+          <div class="shop-hero__stat">
+            <div class="shop-hero__stat-icon" aria-hidden="true">
+              <el-icon><CircleCheck /></el-icon>
+            </div>
+            <div class="shop-hero__stat-body">
+              <div class="shop-hero__stat-label">{{ t('ecommerce.shop.statEnabled') }}</div>
+              <div class="shop-hero__stat-value is-enabled">{{ stats.enabled }}</div>
+            </div>
+          </div>
+          <div class="shop-hero__stat">
+            <div class="shop-hero__stat-icon" aria-hidden="true">
+              <el-icon><Grid /></el-icon>
+            </div>
+            <div class="shop-hero__stat-body">
+              <div class="shop-hero__stat-label">{{ t('ecommerce.shop.statPlatformCount') }}</div>
+              <div class="shop-hero__stat-value is-platform">{{ stats.platformCount }}</div>
+            </div>
+          </div>
+          <div class="shop-hero__stat">
+            <div class="shop-hero__stat-icon" aria-hidden="true">
+              <el-icon><DataAnalysis /></el-icon>
+            </div>
+            <div class="shop-hero__stat-body">
+              <div class="shop-hero__stat-label">{{ t('ecommerce.shop.statAvgFee') }}</div>
+              <div class="shop-hero__stat-value is-fee">{{ stats.avgFeePct }}</div>
+            </div>
+          </div>
         </div>
-      </div>
-    </section>
+        <div class="shop-hero__divider" aria-hidden="true" />
+        <div class="shop-hero__chart-wrap">
+          <div class="shop-hero__chart-body">
+            <div class="shop-hero__chart">
+              <div ref="chartRef" class="shop-hero__chart-canvas" />
+              <div class="shop-hero__chart-center">
+                <div class="shop-hero__chart-center-value">{{ stats.total }}</div>
+                <div class="shop-hero__chart-center-label">{{ t('ecommerce.shop.statTotal') }}</div>
+              </div>
+            </div>
+            <ul v-if="chartLegendItems.length" class="shop-hero__chart-legend">
+              <li v-for="item in chartLegendItems" :key="item.platformId" class="shop-hero__legend-item">
+                <span class="shop-hero__legend-dot" :style="{ background: item.color }" />
+                <span class="shop-hero__legend-name">{{ item.name }}</span>
+                <span class="shop-hero__legend-value">{{ item.count }} ({{ item.pct }}%)</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </template>
 
     <div class="shop-dashboard__toolbar">
-      <el-input
-        v-model="keyword"
-        :placeholder="t('ecommerce.shop.searchPlaceholder')"
-        clearable
-        class="shop-dashboard__search"
-      />
+      <template v-if="doodle.enabled.value">
+        <SchemeADoodleFrame shape="pill" color="#2563eb" :shadow="false" class="shop-doodle-search">
+          <div class="shop-doodle-search__inner">
+            <img class="shop-doodle-search__icon" :src="schemeAAssets.search" alt="" />
+            <input
+              v-model="keyword"
+              type="search"
+              enterkeyhint="search"
+              :placeholder="t('ecommerce.shop.searchPlaceholder')"
+            />
+          </div>
+        </SchemeADoodleFrame>
+      </template>
+      <template v-else>
+        <el-input
+          v-model="keyword"
+          :placeholder="t('ecommerce.shop.searchPlaceholder')"
+          clearable
+          class="shop-dashboard__search"
+        />
+      </template>
       <div class="shop-filter-chips">
+        <template v-if="doodle.enabled.value">
+          <MobileDoodleChip
+            tag="button"
+            type="button"
+            class="shop-filter-chip shop-filter-chip--doodle"
+            color="#2563eb"
+            :seed="1"
+            :filled="activePlatformId === null"
+            fill-color="#eff6ff"
+            @click="activePlatformId = null"
+          >
+            {{ t('ecommerce.shop.filterAll') }}
+            <span class="shop-filter-chip__count">{{ filteredShops.length }}</span>
+          </MobileDoodleChip>
+          <MobileDoodleChip
+            v-for="group in platformGroups"
+            :key="group.platformId"
+            tag="button"
+            type="button"
+            class="shop-filter-chip shop-filter-chip--doodle"
+            color="#2563eb"
+            :seed="group.platformId"
+            :filled="activePlatformId === group.platformId"
+            fill-color="#eff6ff"
+            @click="activePlatformId = group.platformId"
+          >
+            <img
+              :src="resolvePlatformIcon(group.platformName, group.platformCode, group.platformAvatarUrl)"
+              alt=""
+              class="shop-filter-chip__icon"
+            />
+            {{ group.platformName }}
+            <span class="shop-filter-chip__count">{{ group.shops.length }}</span>
+          </MobileDoodleChip>
+        </template>
+        <template v-else>
         <button
           type="button"
           class="shop-filter-chip"
@@ -100,6 +198,7 @@
           {{ group.platformName }}
           <span class="shop-filter-chip__count">{{ group.shops.length }}</span>
         </button>
+        </template>
       </div>
       <div class="shop-dashboard__toolbar-actions">
         <el-button :icon="Setting" @click="platformDrawerVisible = true">
@@ -110,6 +209,40 @@
 
     <div v-loading="loading" class="shop-groups">
       <template v-if="visibleGroups.length">
+        <template v-if="doodle.enabled.value">
+          <div class="shop-grid">
+            <EcDoodleCard
+              v-for="shop in flattenedShops"
+              :key="shop.id"
+              class="shop-grid-card"
+              :class="{ 'shop-grid-card--disabled': shop.status !== 'ENABLED' }"
+              :seed="shop.id"
+              :color="shop.status === 'ENABLED' ? '#16a34a' : '#94a3b8'"
+              clickable
+              @click="openShopInfoSheet(shop)"
+            >
+              <div class="shop-grid-card__inner">
+                <img
+                  :src="resolveShopIcon(shop.name, shop.platformName, shop.platformCode, shop.avatarUrl)"
+                  alt=""
+                  class="shop-grid-card__icon"
+                  :class="{ 'is-avatar': Boolean(shop.avatarUrl?.trim()) }"
+                />
+                <div class="shop-grid-card__name" :title="shop.name">{{ shop.name }}</div>
+                <span class="shop-grid-card__platform">
+                  {{ shop.platformName }}
+                </span>
+                <span
+                  class="shop-grid-card__status"
+                  :class="shop.status === 'ENABLED' ? 'is-operating' : 'is-resting'"
+                >
+                  {{ shop.status === 'ENABLED' ? t('ecommerce.shop.statusOperating') : t('ecommerce.shop.statusResting') }}
+                </span>
+              </div>
+            </EcDoodleCard>
+          </div>
+        </template>
+        <template v-else>
         <section v-for="group in visibleGroups" :key="group.platformId" class="shop-group">
           <button
             type="button"
@@ -182,6 +315,7 @@
             </div>
           </div>
         </section>
+        </template>
       </template>
       <el-empty v-else :description="keyword.trim() ? t('ecommerce.shop.emptySearch') : t('ecommerce.shop.emptyShops')" />
     </div>
@@ -190,7 +324,6 @@
       {{ t('ecommerce.shop.add') }}
     </el-button>
 
-    <!-- 店铺表单 -->
     <ShopFormDialog
       v-model="shopDialogVisible"
       :shop="editingShop"
@@ -199,6 +332,8 @@
     />
 
     <PlatformManageDrawer v-model="platformDrawerVisible" @changed="onPlatformChanged" />
+
+    <MobileShopInfoSheet v-model="shopInfoSheetVisible" :shop-id="infoSheetShopId" />
   </div>
 </template>
 
@@ -219,8 +354,15 @@ import { resolvePlatformIcon } from '@/utils/platformVisual'
 import { resolveShopIcon } from '@/utils/shopVisual'
 import PlatformManageDrawer from './PlatformManageDrawer.vue'
 import ShopFormDialog from './ShopFormDialog.vue'
+import EcDoodleCard from '@/mobile/ecommerce/components/EcDoodleCard.vue'
+import MobileShopInfoSheet from '@/mobile/ecommerce/components/MobileShopInfoSheet.vue'
+import MobileDoodleChip from '@/mobile/components/MobileDoodleChip.vue'
+import SchemeADoodleFrame from '@/mobile/home/themes/scheme-a/SchemeADoodleFrame.vue'
+import { schemeAAssets } from '@/mobile/home/themes/scheme-a/assets'
+import { useMobileEcDoodle } from '@/composables/useMobileEcDoodle'
 
 const { t } = useI18n()
+const doodle = useMobileEcDoodle()
 
 const loading = ref(false)
 const keyword = ref('')
@@ -235,6 +377,8 @@ let chart: ECharts | null = null
 
 const shopDialogVisible = ref(false)
 const editingShop = ref<EcShop | null>(null)
+const shopInfoSheetVisible = ref(false)
+const infoSheetShopId = ref<number | null>(null)
 
 const PLATFORM_COLORS: Record<number, string> = {
   0: '#6b7280',
@@ -325,6 +469,32 @@ const chartLegendItems = computed(() => {
     pct: total > 0 ? ((g.shops.length / total) * 100).toFixed(1) : '0.0',
     color: platformColor(g.platformCode),
   }))
+})
+
+const PLATFORM_ICONS: Record<string, string> = {
+  '淘宝': '🛒',
+  '京东': '🏪',
+  '拼多多': '📱',
+  '抖音': '🎵',
+}
+
+const platformStats = computed(() => {
+  const total = allShops.value.length
+  if (total === 0) return []
+  return platformGroups.value.map((g) => {
+    const percent = Math.round((g.shops.length / total) * 100)
+    return {
+      platformId: g.platformId,
+      name: g.platformName,
+      icon: PLATFORM_ICONS[g.platformName] || '📦',
+      percent,
+      color: platformColor(g.platformCode),
+    }
+  })
+})
+
+const flattenedShops = computed(() => {
+  return visibleGroups.value.flatMap((group) => group.shops)
 })
 
 function computeTotalFeePct(shop: EcShop): number {
@@ -443,6 +613,11 @@ function openShopCreate() {
 function openShopEdit(row: EcShop) {
   editingShop.value = { ...row }
   shopDialogVisible.value = true
+}
+
+function openShopInfoSheet(shop: EcShop) {
+  infoSheetShopId.value = shop.id
+  shopInfoSheetVisible.value = true
 }
 
 async function onShopDelete(row: EcShop) {
@@ -705,7 +880,6 @@ defineExpose({ loadAll })
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 16px;
   flex-wrap: wrap;
 }
 
@@ -979,6 +1153,366 @@ defineExpose({ loadAll })
   border-radius: 22px;
   font-weight: 600;
   box-shadow: 0 8px 24px rgb(37 99 235 / 35%);
+}
+
+.shop-dashboard--doodle {
+  padding: 12px;
+  font-family: 'ZCOOL KuaiLe', 'Alibaba PuHuiTi', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  color: #1e293b;
+  background: #fff;
+
+  .shop-hero,
+  .shop-dashboard__toolbar-actions .el-button {
+    display: none;
+  }
+
+  .shop-dashboard__header {
+    margin-bottom: 14px;
+  }
+
+  .shop-dashboard__header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .shop-dashboard__back {
+    flex-shrink: 0;
+    margin-left: 12px;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    font-family: inherit;
+    font-size: 18px;
+    font-weight: 700;
+    color: #2563eb;
+
+    :deep(.sa-doodle-frame__body) {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      padding: 0;
+    }
+  }
+
+  .shop-dashboard__title {
+    font-size: 22px;
+    font-weight: 800;
+    color: #1e293b;
+  }
+
+  .shop-dashboard__subtitle {
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+  }
+
+  .shop-dashboard__toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .shop-dashboard__search {
+    width: 100%;
+  }
+
+  .shop-doodle-search {
+    margin-top: -4px;
+
+    :deep(.sa-doodle-frame__body) {
+      padding: 0;
+    }
+
+    &__inner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+
+      input {
+        flex: 1;
+        min-width: 0;
+        border: none;
+        outline: none;
+        background: transparent;
+        font-family: inherit;
+        font-size: 16px;
+        color: #1e293b;
+
+        &::placeholder {
+          color: #94a3b8;
+        }
+      }
+    }
+
+    &__icon {
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+  }
+
+  .shop-filter-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 12px;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .shop-filter-chip--doodle {
+    border: none !important;
+    background: transparent;
+    flex-shrink: 0;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    color: #2563eb;
+    cursor: pointer;
+
+    :deep(.sa-doodle-frame__body) {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+    }
+
+    &.mobile-doodle-chip--filled {
+      color: #991b1b;
+
+      .shop-filter-chip__count {
+        background: rgb(153 27 27 / 15%);
+        color: #991b1b;
+      }
+    }
+
+    .shop-filter-chip__count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 999px;
+      background: rgb(37 99 235 / 10%);
+      font-size: 11px;
+      font-weight: 800;
+      color: #2563eb;
+    }
+  }
+
+  .shop-doodle-data-card {
+    margin-bottom: 16px;
+    background: #fff;
+
+    :deep(.sa-doodle-frame__body) {
+      padding: 26px 32px;
+    }
+  }
+
+  .shop-doodle-data-card__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .shop-doodle-data-card__icon {
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .shop-doodle-data-card__title {
+    font-size: 16px;
+    font-weight: 800;
+    color: #2563eb;
+  }
+
+  .shop-doodle-data-card__stats {
+    display: flex;
+    justify-content: space-around;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px dashed #93c5fd;
+  }
+
+  .shop-doodle-data-card__stat {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+  }
+
+  .shop-doodle-data-card__stat-value {
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1.2;
+    color: #1e293b;
+    white-space: nowrap;
+  }
+
+  .shop-doodle-data-card__stat-label {
+    margin-top: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #64748b;
+    white-space: nowrap;
+  }
+
+  .shop-doodle-data-card__platforms {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .shop-doodle-data-card__platforms-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #475569;
+  }
+
+  .shop-doodle-data-card__platform-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .shop-doodle-data-card__platform-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: #374151;
+    min-width: 72px;
+    max-width: 96px;
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .shop-doodle-data-card__bar-wrap {
+    flex: 1;
+    height: 10px;
+    background: #dbeafe;
+    border-radius: 5px;
+    overflow: hidden;
+  }
+
+  .shop-doodle-data-card__bar {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.3s ease;
+  }
+
+  .shop-doodle-data-card__platform-percent {
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+    width: 36px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .shop-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .shop-grid-card {
+    background: #fff;
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+    &:active {
+      transform: scale(0.98);
+    }
+
+    &--disabled {
+      opacity: 0.65;
+      background: #f8fafc;
+    }
+
+    :deep(.sa-doodle-frame__body) {
+      padding: 10px 6px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 90px;
+    }
+
+    &__inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+    }
+
+    &__icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      object-fit: cover;
+      background: #f3f4f6;
+      margin-bottom: 6px;
+
+      &.is-avatar {
+        object-fit: cover;
+        border-radius: 50%;
+      }
+    }
+
+    &__name {
+      font-size: 12px;
+      font-weight: 800;
+      color: #1e293b;
+      text-align: center;
+      white-space: normal;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
+      width: 100%;
+      line-height: 1.3;
+    }
+
+    &__platform {
+      margin-top: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #64748b;
+    }
+
+    &__status {
+      margin-top: 4px;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 999px;
+
+      &.is-operating {
+        color: #16a34a;
+        background: #dcfce7;
+      }
+
+      &.is-resting {
+        color: #94a3b8;
+        background: #f1f5f9;
+      }
+    }
+  }
+
+  .shop-fab {
+    display: none;
+  }
 }
 
 @media (max-width: 768px) {

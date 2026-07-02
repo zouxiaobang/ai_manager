@@ -3,28 +3,32 @@
     <div class="war-room-panel war-room-panel--tabs">
       <el-tabs v-model="activeTab">
         <el-tab-pane :label="t('ecommerce.tabs.monthlySettlement')" name="monthlySettlement">
-          <MonthlySettlementPanel ref="monthlySettlementRef" />
+          <MonthlySettlementPanel v-if="activeTab === 'monthlySettlement'" ref="monthlySettlementRef" />
         </el-tab-pane>
         <el-tab-pane :label="t('ecommerce.tabs.order')" name="order">
-          <SalesOrderPanel ref="salesOrderRef" />
+          <SalesOrderPanel v-if="activeTab === 'order'" ref="salesOrderRef" />
         </el-tab-pane>
         <el-tab-pane :label="t('ecommerce.tabs.inventory')" name="inventory">
-          <InventoryPanel ref="inventoryRef" @view-product="onViewProduct" />
+          <InventoryPanel
+            v-if="activeTab === 'inventory'"
+            ref="inventoryRef"
+            @view-product="onViewProduct"
+          />
         </el-tab-pane>
         <el-tab-pane :label="t('ecommerce.tabs.product')" name="product">
-          <ProductPanel ref="productRef" />
+          <ProductPanel v-if="activeTab === 'product'" ref="productRef" />
         </el-tab-pane>
         <el-tab-pane :label="t('ecommerce.tabs.express')" name="express">
-          <ExpressPanel ref="expressRef" />
+          <ExpressPanel v-if="activeTab === 'express'" ref="expressRef" />
         </el-tab-pane>
         <el-tab-pane :label="t('ecommerce.tabs.factory')" name="factory">
-          <FactoryPanel ref="factoryRef" />
+          <FactoryPanel v-if="activeTab === 'factory'" ref="factoryRef" />
         </el-tab-pane>
         <el-tab-pane :label="t('ecommerce.tabs.platformShop')" name="platformShop">
-          <PlatformShopPanel ref="platformShopRef" />
+          <PlatformShopPanel v-if="activeTab === 'platformShop'" ref="platformShopRef" />
         </el-tab-pane>
         <el-tab-pane :label="t('ecommerce.tabs.carton')" name="carton">
-          <CartonPanel ref="cartonRef" />
+          <CartonPanel v-if="activeTab === 'carton'" ref="cartonRef" />
         </el-tab-pane>
       </el-tabs>
     </div>
@@ -32,18 +36,31 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { defineAsyncComponent, nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import WarRoomPage from '@/components/war-room/WarRoomPage.vue'
-import ProductPanel from './ProductPanel.vue'
-import PlatformShopPanel from './PlatformShopPanel.vue'
-import FactoryPanel from './FactoryPanel.vue'
-import CartonPanel from './CartonPanel.vue'
-import ExpressPanel from './ExpressPanel.vue'
-import InventoryPanel from './InventoryPanel.vue'
-import SalesOrderPanel from './SalesOrderPanel.vue'
-import MonthlySettlementPanel from './MonthlySettlementPanel.vue'
+
+const ProductPanel = defineAsyncComponent(() => import('./ProductPanel.vue'))
+const PlatformShopPanel = defineAsyncComponent(() => import('./PlatformShopPanel.vue'))
+const FactoryPanel = defineAsyncComponent(() => import('./FactoryPanel.vue'))
+const CartonPanel = defineAsyncComponent(() => import('./CartonPanel.vue'))
+const ExpressPanel = defineAsyncComponent(() => import('./ExpressPanel.vue'))
+const InventoryPanel = defineAsyncComponent(() => import('./InventoryPanel.vue'))
+const SalesOrderPanel = defineAsyncComponent(() => import('./SalesOrderPanel.vue'))
+const MonthlySettlementPanel = defineAsyncComponent(() => import('./MonthlySettlementPanel.vue'))
+
+interface EcommercePanelExpose {
+  loadProducts?: () => Promise<void>
+  loadAll?: () => Promise<void>
+  loadFactories?: () => Promise<void>
+  loadCartons?: () => Promise<void>
+  loadStations?: () => Promise<void>
+  loadInventories?: () => Promise<void>
+  load?: () => Promise<void>
+  enter?: () => Promise<void>
+  openEdit?: (id: number) => Promise<void>
+}
 
 const { t } = useI18n()
 const route = useRoute()
@@ -69,14 +86,14 @@ function resolveTab(tab: unknown): TabName {
 }
 
 const activeTab = ref<TabName>(resolveTab(route.query.tab))
-const productRef = ref<InstanceType<typeof ProductPanel> | null>(null)
-const platformShopRef = ref<InstanceType<typeof PlatformShopPanel> | null>(null)
-const factoryRef = ref<InstanceType<typeof FactoryPanel> | null>(null)
-const cartonRef = ref<InstanceType<typeof CartonPanel> | null>(null)
-const expressRef = ref<InstanceType<typeof ExpressPanel> | null>(null)
-const inventoryRef = ref<InstanceType<typeof InventoryPanel> | null>(null)
-const salesOrderRef = ref<InstanceType<typeof SalesOrderPanel> | null>(null)
-const monthlySettlementRef = ref<InstanceType<typeof MonthlySettlementPanel> | null>(null)
+const productRef = ref<EcommercePanelExpose | null>(null)
+const platformShopRef = ref<EcommercePanelExpose | null>(null)
+const factoryRef = ref<EcommercePanelExpose | null>(null)
+const cartonRef = ref<EcommercePanelExpose | null>(null)
+const expressRef = ref<EcommercePanelExpose | null>(null)
+const inventoryRef = ref<EcommercePanelExpose | null>(null)
+const salesOrderRef = ref<EcommercePanelExpose | null>(null)
+const monthlySettlementRef = ref<EcommercePanelExpose | null>(null)
 
 watch(
   () => route.query.tab,
@@ -88,27 +105,28 @@ watch(
 watch(activeTab, async (tab) => {
   await nextTick()
   if (tab === 'product') {
-    productRef.value?.loadProducts()
+    await productRef.value?.loadProducts?.()
   } else if (tab === 'platformShop') {
-    platformShopRef.value?.loadAll()
+    await platformShopRef.value?.loadAll?.()
   } else if (tab === 'factory') {
-    factoryRef.value?.loadFactories()
+    await factoryRef.value?.loadFactories?.()
   } else if (tab === 'carton') {
-    cartonRef.value?.loadCartons()
+    await cartonRef.value?.loadCartons?.()
   } else if (tab === 'express') {
-    expressRef.value?.loadStations()
+    await expressRef.value?.loadStations?.()
   } else if (tab === 'inventory') {
-    inventoryRef.value?.loadInventories()
+    await inventoryRef.value?.loadInventories?.()
   } else if (tab === 'order') {
-    salesOrderRef.value?.load()
+    await salesOrderRef.value?.load?.()
   } else if (tab === 'monthlySettlement') {
-    await monthlySettlementRef.value?.enter()
+    await monthlySettlementRef.value?.enter?.()
   }
 }, { immediate: true })
 
 async function onViewProduct(productId: number) {
   activeTab.value = 'product'
-  await productRef.value?.openEdit(productId)
+  await nextTick()
+  await productRef.value?.openEdit?.(productId)
 }
 </script>
 

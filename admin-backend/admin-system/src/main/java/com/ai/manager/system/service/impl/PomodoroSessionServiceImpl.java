@@ -20,6 +20,7 @@ import java.util.Set;
 public class PomodoroSessionServiceImpl implements PomodoroSessionService {
 
     private static final String REDIS_KEY = "pomodoro:session:active";
+    private static final String DEVICE_SEEN_KEY = "pomodoro:device:last_seen_ms";
     private static final Duration TTL = Duration.ofHours(24);
 
     private static final Set<String> PHASES = Set.of("IDLE", "WORK", "SHORT_BREAK", "LONG_BREAK");
@@ -36,6 +37,7 @@ public class PomodoroSessionServiceImpl implements PomodoroSessionService {
         if (session == null) {
             return null;
         }
+        attachDeviceLastSeen(session);
         return adjustRunningRemaining(session);
     }
 
@@ -44,6 +46,7 @@ public class PomodoroSessionServiceImpl implements PomodoroSessionService {
         validate(request);
         PomodoroSessionVO existing = toSession(redisTemplate.opsForValue().get(REDIS_KEY));
         String source = normalizeSource(request);
+        touchDeviceIfNeeded(source);
         String runState = request.getRunState().trim().toUpperCase();
         boolean takeControl = Boolean.TRUE.equals(request.getTakeControl());
         boolean deviceActive = "DEVICE".equals(source) && isActiveRunState(runState);
@@ -73,6 +76,7 @@ public class PomodoroSessionServiceImpl implements PomodoroSessionService {
 
         if (!takeControl && existing != null && StringUtils.hasText(existing.getController())
                 && !existing.getController().equals(source)) {
+            attachDeviceLastSeen(existing);
             return adjustRunningRemaining(existing);
         }
 
@@ -84,7 +88,31 @@ public class PomodoroSessionServiceImpl implements PomodoroSessionService {
         }
         session.setSyncedAtMs(System.currentTimeMillis());
         redisTemplate.opsForValue().set(REDIS_KEY, session, TTL);
+        attachDeviceLastSeen(session);
         return adjustRunningRemaining(session);
+    }
+
+    private void touchDeviceIfNeeded(String source) {
+        if (!"DEVICE".equals(source)) {
+            return;
+        }
+        redisTemplate.opsForValue().set(DEVICE_SEEN_KEY, System.currentTimeMillis(), TTL);
+    }
+
+    private void attachDeviceLastSeen(PomodoroSessionVO session) {
+        if (session == null) {
+            return;
+        }
+        Object seen = redisTemplate.opsForValue().get(DEVICE_SEEN_KEY);
+        if (seen instanceof Number number) {
+            session.setDeviceLastSeenMs(number.longValue());
+        } else if (seen != null) {
+            try {
+                session.setDeviceLastSeenMs(Long.parseLong(String.valueOf(seen)));
+            } catch (NumberFormatException ignored) {
+                // ignore malformed value
+            }
+        }
     }
 
     private PomodoroSessionVO buildSession(PomodoroSessionSyncRequest request, String source) {
@@ -150,7 +178,10 @@ public class PomodoroSessionServiceImpl implements PomodoroSessionService {
     }
 
     private static boolean isIdleSession(PomodoroSessionVO session) {
-        return session != null && "IDLE".equals(session.getRunState());
+        // 仅全空闲（IDLE/IDLE）可被副屏无 takeControl 抢占；WORK+IDLE 为阶段起点待开始
+        return session != null
+                && "IDLE".equals(session.getRunState())
+                && "IDLE".equals(session.getPhase());
     }
 
     private PomodoroSessionVO adjustRunningRemaining(PomodoroSessionVO session) {
@@ -178,6 +209,21 @@ public class PomodoroSessionServiceImpl implements PomodoroSessionService {
         copy.setController(session.getController() != null ? session.getController() : session.getSource());
         copy.setPendingPhase(session.getPendingPhase());
         copy.setSyncedAtMs(syncedAt);
+        copy.setDeviceLastSeenMs(session.getDeviceLastSeenMs());
         return copy;
+    }
+
+    @Override
+    public boolean isPlanEditBlocked() {
+        PomodoroSessionVO session = getActiveSession();
+        if (session == null) {
+            return false;
+        }
+        String runState = session.getRunState() != null ? session.getRunState().trim().toUpperCase() : "";
+        String phase = session.getPhase() != null ? session.getPhase().trim().toUpperCase() : "";
+        if (!"RUNNING".equals(runState)) {
+            return false;
+        }
+        return "WORK".equals(phase) || "SHORT_BREAK".equals(phase) || "LONG_BREAK".equals(phase);
     }
 }

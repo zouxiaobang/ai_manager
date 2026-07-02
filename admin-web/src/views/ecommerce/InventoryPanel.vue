@@ -1,5 +1,5 @@
 <template>
-  <div class="inventory-center">
+  <div class="inventory-center" :class="{ 'inventory-center--doodle': doodle.enabled.value }">
     <header class="inventory-center__header">
       <h2 class="inventory-center__title">{{ t('ecommerce.inventory.centerTitle') }}</h2>
       <p class="inventory-center__subtitle">{{ t('ecommerce.inventory.centerSubtitle') }}</p>
@@ -142,6 +142,66 @@
             </div>
 
             <div v-loading="loading" class="inventory-card-grid">
+              <template v-if="doodle.enabled.value">
+                <EcDoodleCard
+                  v-for="row in displayRecords"
+                  :key="row.listKey ?? row.id"
+                  class="inventory-card inventory-card--doodle"
+                  :class="{ 'is-alert': row.alertActive }"
+                  :seed="Number(row.id ?? row.listKey ?? 0)"
+                  :color="row.alertActive ? '#ef4444' : '#cbd5e1'"
+                  clickable
+                  @click="openDetail(row)"
+                >
+                  <div class="inventory-card__inner">
+                    <div class="inventory-card__head">
+                      <div class="inventory-card__sku">
+                        <span class="inventory-card__code">{{ row.skuCode }}</span>
+                        <span class="inventory-card__name">
+                          <template v-if="row.spuSkuCount && row.spuSkuCount > 1">
+                            {{ t('ecommerce.inventory.spuSkuCount', { count: row.spuSkuCount }) }}
+                          </template>
+                          <template v-else>{{ row.productName || row.specName || '—' }}</template>
+                        </span>
+                      </div>
+                      <el-tag v-if="row.alertActive" type="danger" size="small">{{ t('ecommerce.inventory.alerting') }}</el-tag>
+                      <el-tag v-else type="success" size="small">{{ t('ecommerce.inventory.normal') }}</el-tag>
+                    </div>
+                    <div class="inventory-card__qty">{{ row.quantity ?? 0 }}</div>
+                    <div class="inventory-card__meta">
+                      <span class="inventory-card__meta-item">{{ t('ecommerce.inventory.inTransit') }} {{ row.inTransitQty ?? 0 }}</span>
+                      <span class="inventory-card__meta-sep">·</span>
+                      <span class="inventory-card__value-wrap">
+                        <span class="inventory-card__meta-item">{{ t('ecommerce.inventory.stockValue') }}</span>
+                        <span class="inventory-card__value">
+                          <CnyAmount :value="stockValue(row)" />
+                        </span>
+                      </span>
+                    </div>
+                    <div class="inventory-card__progress">
+                      <div class="inventory-card__progress-bar">
+                        <span
+                          class="inventory-card__progress-fill"
+                          :class="{ 'is-danger': row.alertActive }"
+                          :style="{ width: `${stockLevelPct(row)}%` }"
+                        />
+                      </div>
+                      <span class="inventory-card__progress-label">
+                        {{ row.quantity ?? 0 }} / {{ row.alertThreshold ?? 0 }}
+                      </span>
+                    </div>
+                    <div class="inventory-card__actions inventory-card__actions--doodle" @click.stop>
+                      <MobileDoodleChip tag="button" type="button" color="#8b5cf6" :seed="Number(row.id) + 1" @click.stop="openDetail(row)">
+                        {{ t('ecommerce.inventory.detail') }}
+                      </MobileDoodleChip>
+                      <MobileDoodleChip tag="button" type="button" color="#2563eb" :seed="Number(row.id) + 2" @click.stop="openAdjust(row)">
+                        {{ t('ecommerce.inventory.adjust') }}
+                      </MobileDoodleChip>
+                    </div>
+                  </div>
+                </EcDoodleCard>
+              </template>
+              <template v-else>
               <div
                 v-for="row in displayRecords"
                 :key="row.listKey ?? row.id"
@@ -191,6 +251,7 @@
                   <el-button size="small" @click.stop="openLogs(row)">{{ t('ecommerce.inventory.logs') }}</el-button>
                 </div>
               </div>
+              </template>
               <el-empty v-if="!loading && !displayRecords.length" :description="t('ecommerce.inventory.noData')" />
             </div>
 
@@ -448,10 +509,14 @@ import StocktakeOrderDrawer from './StocktakeOrderDrawer.vue'
 import InventoryDetailDrawer from './InventoryDetailDrawer.vue'
 import InventoryAdjustDialog from './InventoryAdjustDialog.vue'
 import InventorySaveDialog from './InventorySaveDialog.vue'
+import EcDoodleCard from '@/mobile/ecommerce/components/EcDoodleCard.vue'
+import MobileDoodleChip from '@/mobile/components/MobileDoodleChip.vue'
+import { useMobileEcDoodle } from '@/composables/useMobileEcDoodle'
 
 const emit = defineEmits<{ viewProduct: [productId: number] }>()
 
 const { t } = useI18n()
+const doodle = useMobileEcDoodle()
 const ecSettings = useEcSettingsStore()
 
 const inventoryClassificationOptions = computed(() => ({
@@ -1363,6 +1428,44 @@ defineExpose({ loadInventories })
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.inventory-center--doodle {
+  .inventory-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .inventory-card--doodle {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .inventory-card__inner {
+    padding: 10px 12px;
+  }
+
+  .inventory-card__actions--doodle {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+
+    .mobile-doodle-chip {
+      flex: 1;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      background: #fff;
+
+      :deep(.sa-doodle-frame__body) {
+        padding: 5px 4px;
+        text-align: center;
+      }
+    }
+  }
 }
 
 .inventory-card-grid {

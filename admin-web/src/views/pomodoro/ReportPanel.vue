@@ -1,99 +1,153 @@
 <template>
-  <div>
-    <div class="panel-toolbar">
-      <el-date-picker
-        v-model="dateRange"
-        type="daterange"
-        value-format="YYYY-MM-DD"
-        :start-placeholder="t('pomodoro.report.start')"
-        :end-placeholder="t('pomodoro.report.end')"
-      />
-      <el-button type="primary" :loading="loading" @click="loadReport">
-        {{ t('pomodoro.report.query') }}
-      </el-button>
+  <div class="report-panel report-panel--pixel">
+    <header class="report-panel__toolbar">
+      <div class="report-panel__range-wrap pixel-panel-jagged">
+        <div class="pixel-panel-jagged__inner report-panel__range-inner">
+          <el-date-picker
+            v-model="dateRange"
+            class="report-panel__date-picker"
+            type="daterange"
+            value-format="YYYY-MM-DD"
+            :start-placeholder="t('pomodoro.report.start')"
+            :end-placeholder="t('pomodoro.report.end')"
+            :teleported="true"
+          />
+        </div>
+      </div>
+      <button
+        type="button"
+        class="report-panel__query"
+        :disabled="loading"
+        @click="loadReport"
+      >
+        <span class="report-panel__query__inner">{{ t('pomodoro.report.query') }}</span>
+      </button>
+    </header>
+
+    <div class="report-panel__kpis">
+      <div
+        v-for="kpi in kpiItems"
+        :key="kpi.key"
+        class="report-kpi pixel-panel-jagged"
+      >
+        <div class="pixel-panel-jagged__inner report-kpi__inner">
+          <p class="report-kpi__label">{{ kpi.label }}</p>
+          <p class="report-kpi__value" :class="`report-kpi__value--${kpi.tone}`">{{ kpi.value }}</p>
+        </div>
+      </div>
     </div>
 
-    <el-row :gutter="16" class="summary-row">
-      <el-col :xs="12" :sm="6">
-        <el-card shadow="never" class="stat-card">
-          <div class="stat-card__label">{{ t('pomodoro.report.totalRounds') }}</div>
-          <div class="stat-card__value">{{ summary?.totalWorkRounds ?? 0 }}</div>
-        </el-card>
-      </el-col>
-      <el-col :xs="12" :sm="6">
-        <el-card shadow="never" class="stat-card">
-          <div class="stat-card__label">{{ t('pomodoro.report.totalMinutes') }}</div>
-          <div class="stat-card__value">{{ summary?.totalWorkMinutes ?? 0 }}</div>
-        </el-card>
-      </el-col>
-      <el-col :xs="12" :sm="6">
-        <el-card shadow="never" class="stat-card">
-          <div class="stat-card__label">{{ t('pomodoro.report.activeDays') }}</div>
-          <div class="stat-card__value">{{ summary?.activeDays ?? 0 }}</div>
-        </el-card>
-      </el-col>
-      <el-col :xs="12" :sm="6">
-        <el-card shadow="never" class="stat-card">
-          <div class="stat-card__label">{{ t('pomodoro.report.avgMinutes') }}</div>
-          <div class="stat-card__value">
-            {{ (summary?.avgWorkMinutesPerDay ?? 0).toFixed(1) }}
+    <div class="report-panel__chart pixel-panel-jagged">
+      <div class="pixel-panel-jagged__inner report-panel__chart-inner">
+        <h3 class="report-panel__section-title">
+          <span class="pixel-spark">✦</span>
+          {{ t('pomodoro.report.chartRounds') }}
+          <span class="pixel-spark">✦</span>
+        </h3>
+        <div v-if="loading" class="report-panel__loading">{{ t('pomodoro.report.loading') }}</div>
+        <div v-else-if="dailyChronological.length === 0" class="report-panel__empty">
+          {{ t('pomodoro.report.noData') }}
+        </div>
+        <div v-else class="pixel-bar-chart">
+          <div
+            v-for="row in dailyChronological"
+            :key="row.statDate"
+            class="pixel-bar-chart__col"
+            :title="barHoverLabel(row.workRounds)"
+          >
+            <div class="pixel-bar-chart__tooltip" aria-hidden="true">
+              {{ barHoverLabel(row.workRounds) }}
+            </div>
+            <div class="pixel-bar-chart__bar-stack">
+              <div class="pixel-bar-chart__bar">
+                <span
+                  v-for="bi in barBlockCount(row.workRounds)"
+                  :key="bi"
+                  class="pixel-bar-chart__block"
+                />
+              </div>
+            </div>
+            <span class="pixel-bar-chart__label">{{ formatChartDate(row.statDate) }}</span>
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </div>
+      </div>
+    </div>
 
-    <el-row :gutter="16" class="charts-row">
-      <el-col :xs="24" :lg="14">
-        <el-card shadow="never" v-loading="loading">
-          <template #header>{{ t('pomodoro.report.chartTrend') }}</template>
-          <div ref="lineChartRef" class="chart-box" />
-        </el-card>
-      </el-col>
-      <el-col :xs="24" :lg="10">
-        <el-card shadow="never" v-loading="loading">
-          <template #header>{{ t('pomodoro.report.chartGauges') }}</template>
-          <div class="gauge-grid">
-            <div ref="avgGaugeRef" class="gauge-box" />
-            <div ref="periodGaugeRef" class="gauge-box" />
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <el-row :gutter="16" class="charts-row">
-      <el-col :span="24">
-        <el-card shadow="never" v-loading="loading">
-          <template #header>{{ t('pomodoro.report.chartRounds') }}</template>
-          <div ref="barChartRef" class="chart-box chart-box--bar" />
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <el-card shadow="never" style="margin-top: 16px">
-      <template #header>{{ t('pomodoro.report.dailyTable') }}</template>
-      <el-table v-loading="loading" :data="daily" stripe border>
-        <el-table-column prop="statDate" :label="t('pomodoro.report.date')" width="120" />
-        <el-table-column prop="workRounds" :label="t('pomodoro.report.rounds')" width="100" />
-        <el-table-column prop="workMinutes" :label="t('pomodoro.report.workMin')" width="120" />
-        <el-table-column prop="breakMinutes" :label="t('pomodoro.report.breakMin')" width="120" />
-        <el-table-column prop="totalMinutes" :label="t('pomodoro.report.totalMin')" width="120" />
-        <el-table-column :label="t('pomodoro.report.workBar')" min-width="200">
-          <template #default="{ row }">
-            <el-progress
-              :percentage="barPercent(row.workMinutes)"
-              :stroke-width="8"
-            />
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
+    <div class="report-panel__table-wrap pixel-panel-jagged">
+      <div class="pixel-panel-jagged__inner report-panel__table-inner">
+        <h3 class="report-panel__section-title">
+          <span class="pixel-spark">✦</span>
+          {{ t('pomodoro.report.dailyTable') }}
+          <span class="pixel-spark">✦</span>
+        </h3>
+        <div class="report-table-scroll">
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>{{ t('pomodoro.report.date') }}</th>
+                <th>{{ t('pomodoro.report.rounds') }}</th>
+                <th>{{ t('pomodoro.report.workMin') }}</th>
+                <th>{{ t('pomodoro.report.breakMin') }}</th>
+                <th class="report-table__progress-col">{{ t('pomodoro.report.workBar') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-if="loading">
+                <td colspan="5" class="report-table__state">{{ t('pomodoro.report.loading') }}</td>
+              </tr>
+              <tr v-else-if="dailyChronological.length === 0">
+                <td colspan="5" class="report-table__state">{{ t('pomodoro.report.noData') }}</td>
+              </tr>
+              <tr v-for="row in dailyPaged" v-else :key="row.statDate">
+                <td>{{ formatTableDate(row.statDate) }}</td>
+                <td class="report-table__num report-table__num--red">{{ row.workRounds }}</td>
+                <td>{{ row.workMinutes }}m</td>
+                <td>{{ row.breakMinutes }}m</td>
+                <td>
+                  <div class="pixel-progress">
+                    <div
+                      class="pixel-progress__fill"
+                      :style="{ width: `${barPercent(row.workMinutes)}%` }"
+                    />
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <nav
+          v-if="!loading && dailyChronological.length > TABLE_PAGE_SIZE"
+          class="report-pagination"
+          :aria-label="t('pomodoro.report.pagination')"
+        >
+          <button
+            type="button"
+            class="report-pagination__btn"
+            :disabled="tablePage <= 1"
+            @click="tablePage -= 1"
+          >
+            {{ t('pomodoro.report.prevPage') }}
+          </button>
+          <span class="report-pagination__info">
+            {{ t('pomodoro.report.pageIndicator', { page: tablePage, total: tablePageCount }) }}
+          </span>
+          <button
+            type="button"
+            class="report-pagination__btn"
+            :disabled="tablePage >= tablePageCount"
+            @click="tablePage += 1"
+          >
+            {{ t('pomodoro.report.nextPage') }}
+          </button>
+        </nav>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { ECharts } from 'echarts/core'
 import {
   fetchDailyStats,
   fetchDefaultPlan,
@@ -102,53 +156,65 @@ import {
   type PomodoroSummary,
 } from '@/api/pomodoro'
 import { addDays, formatDateParam } from '@/utils/date'
-import { echarts } from '@/utils/echarts'
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
 const loading = ref(false)
 const dateRange = ref<[string, string] | null>(null)
 const daily = ref<PomodoroDailyStat[]>([])
 const summary = ref<PomodoroSummary | null>(null)
 const goalMinutes = ref(200)
 
-const lineChartRef = ref<HTMLElement | null>(null)
-const barChartRef = ref<HTMLElement | null>(null)
-const avgGaugeRef = ref<HTMLElement | null>(null)
-const periodGaugeRef = ref<HTMLElement | null>(null)
+const TABLE_PAGE_SIZE = 10
+const tablePage = ref(1)
 
-let lineChart: ECharts | null = null
-let barChart: ECharts | null = null
-let avgGauge: ECharts | null = null
-let periodGauge: ECharts | null = null
-
-/** 折线/柱状图按时间正序 */
 const dailyChronological = computed(() =>
   [...daily.value].sort((a, b) => a.statDate.localeCompare(b.statDate)),
 )
 
-const rangeDayCount = computed(() => {
-  if (!dateRange.value || dateRange.value.length !== 2) return 1
-  const [start, end] = dateRange.value
-  const s = new Date(`${start}T00:00:00`)
-  const e = new Date(`${end}T00:00:00`)
-  const diff = Math.round((e.getTime() - s.getTime()) / 86400000) + 1
-  return diff > 0 ? diff : 1
+const tablePageCount = computed(() =>
+  Math.max(1, Math.ceil(dailyChronological.value.length / TABLE_PAGE_SIZE)),
+)
+
+const dailyPaged = computed(() => {
+  const start = (tablePage.value - 1) * TABLE_PAGE_SIZE
+  return dailyChronological.value.slice(start, start + TABLE_PAGE_SIZE)
 })
 
-const avgGoalPercent = computed(() => {
-  if (goalMinutes.value <= 0 || !summary.value) return 0
-  return Math.min(
-    100,
-    Math.round((summary.value.avgWorkMinutesPerDay / goalMinutes.value) * 100),
-  )
+const maxRounds = computed(() => {
+  const vals = dailyChronological.value.map((r) => r.workRounds)
+  return Math.max(1, ...vals, 1)
 })
 
-const periodGoalPercent = computed(() => {
-  if (goalMinutes.value <= 0 || !summary.value) return 0
-  const target = goalMinutes.value * rangeDayCount.value
-  if (target <= 0) return 0
-  return Math.min(100, Math.round((summary.value.totalWorkMinutes / target) * 100))
-})
+const BAR_STACK_H = 120
+const BAR_BLOCK_H = 8
+const BAR_BLOCK_GAP = 2
+
+const kpiItems = computed(() => [
+  {
+    key: 'rounds',
+    label: t('pomodoro.report.totalRoundsShort'),
+    value: String(summary.value?.totalWorkRounds ?? 0),
+    tone: 'red',
+  },
+  {
+    key: 'minutes',
+    label: t('pomodoro.report.totalMinutesShort'),
+    value: String(summary.value?.totalWorkMinutes ?? 0),
+    tone: 'green',
+  },
+  {
+    key: 'days',
+    label: t('pomodoro.report.activeDays'),
+    value: String(summary.value?.activeDays ?? 0),
+    tone: 'blue',
+  },
+  {
+    key: 'avg',
+    label: t('pomodoro.report.avgMinutesShort'),
+    value: String(Math.round(summary.value?.avgWorkMinutesPerDay ?? 0)),
+    tone: 'cyan',
+  },
+])
 
 function initRange() {
   const end = new Date()
@@ -156,212 +222,32 @@ function initRange() {
   dateRange.value = [formatDateParam(start), formatDateParam(end)]
 }
 
+function formatChartDate(statDate: string): string {
+  const parts = statDate.split('-')
+  if (parts.length >= 3) return `${parts[1]}-${parts[2]}`
+  return statDate
+}
+
+function formatTableDate(statDate: string): string {
+  return formatChartDate(statDate)
+}
+
+function barBlockCount(rounds: number): number {
+  if (rounds <= 0) return 0
+  const heightPx = Math.max(
+    BAR_BLOCK_H,
+    Math.round((rounds / maxRounds.value) * BAR_STACK_H),
+  )
+  return Math.ceil(heightPx / (BAR_BLOCK_H + BAR_BLOCK_GAP))
+}
+
+function barHoverLabel(rounds: number): string {
+  return t('pomodoro.report.chartBarRounds', { n: rounds })
+}
+
 function barPercent(workMinutes: number) {
   if (goalMinutes.value <= 0) return 0
   return Math.min(100, Math.round((workMinutes / goalMinutes.value) * 100))
-}
-
-function buildGaugeOption(value: number, title: string) {
-  return {
-    series: [
-      {
-        type: 'gauge',
-        min: 0,
-        max: 100,
-        radius: '88%',
-        center: ['50%', '58%'],
-        progress: { show: true, width: 10 },
-        axisLine: {
-          lineStyle: {
-            width: 10,
-            color: [
-              [0.35, '#e6a23c'],
-              [0.7, '#409eff'],
-              [1, '#67c23a'],
-            ],
-          },
-        },
-        axisTick: { show: false },
-        splitLine: { length: 8, lineStyle: { width: 1, color: '#999' } },
-        axisLabel: { distance: 14, fontSize: 10 },
-        pointer: { width: 5 },
-        title: {
-          show: true,
-          offsetCenter: [0, '78%'],
-          fontSize: 12,
-          color: '#606266',
-        },
-        detail: {
-          valueAnimation: true,
-          fontSize: 22,
-          fontWeight: 700,
-          offsetCenter: [0, '18%'],
-          formatter: '{value}%',
-        },
-        data: [{ value, name: title }],
-      },
-    ],
-  }
-}
-
-function buildLineOption() {
-  const rows = dailyChronological.value
-  const dates = rows.map((r) => r.statDate)
-  return {
-    tooltip: { trigger: 'axis' },
-    legend: {
-      data: [t('pomodoro.report.workMin'), t('pomodoro.report.breakMin')],
-      bottom: 0,
-    },
-    grid: { left: 48, right: 24, top: 24, bottom: 48 },
-    xAxis: {
-      type: 'category',
-      boundaryGap: false,
-      data: dates,
-      axisLabel: { rotate: dates.length > 10 ? 35 : 0 },
-    },
-    yAxis: {
-      type: 'value',
-      name: t('pomodoro.report.minutesUnit'),
-      minInterval: 1,
-    },
-    series: [
-      {
-        name: t('pomodoro.report.workMin'),
-        type: 'line',
-        smooth: true,
-        symbol: 'circle',
-        symbolSize: 7,
-        lineStyle: { width: 2 },
-        itemStyle: { color: '#f56c6c' },
-        areaStyle: { color: 'rgba(245, 108, 108, 0.12)' },
-        data: rows.map((r) => r.workMinutes),
-      },
-      {
-        name: t('pomodoro.report.breakMin'),
-        type: 'line',
-        smooth: true,
-        symbol: 'circle',
-        symbolSize: 7,
-        lineStyle: { width: 2 },
-        itemStyle: { color: '#67c23a' },
-        areaStyle: { color: 'rgba(103, 194, 58, 0.12)' },
-        data: rows.map((r) => r.breakMinutes),
-      },
-    ],
-  }
-}
-
-function buildBarOption() {
-  const rows = dailyChronological.value
-  return {
-    tooltip: { trigger: 'axis' },
-    grid: { left: 48, right: 24, top: 24, bottom: 40 },
-    xAxis: {
-      type: 'category',
-      data: rows.map((r) => r.statDate),
-      axisLabel: { rotate: rows.length > 12 ? 35 : 0 },
-    },
-    yAxis: {
-      type: 'value',
-      name: t('pomodoro.report.rounds'),
-      minInterval: 1,
-    },
-    series: [
-      {
-        name: t('pomodoro.report.rounds'),
-        type: 'bar',
-        barMaxWidth: 36,
-        itemStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: '#409eff' },
-            { offset: 1, color: '#79bbff' },
-          ]),
-          borderRadius: [4, 4, 0, 0],
-        },
-        data: rows.map((r) => r.workRounds),
-      },
-    ],
-  }
-}
-
-function ensureChart(
-  el: HTMLElement | null,
-  instance: ECharts | null,
-): ECharts | null {
-  if (!el) return null
-  if (instance) return instance
-  return echarts.init(el)
-}
-
-function renderCharts() {
-  const rows = dailyChronological.value
-
-  if (lineChartRef.value) {
-    lineChart = ensureChart(lineChartRef.value, lineChart)
-    if (lineChart) {
-      lineChart.setOption(buildLineOption(), true)
-      if (rows.length === 0) {
-        lineChart.showLoading({
-          text: t('pomodoro.report.noData'),
-          maskColor: 'rgba(255,255,255,0.6)',
-          textColor: '#909399',
-        })
-      } else {
-        lineChart.hideLoading()
-      }
-    }
-  }
-
-  if (barChartRef.value) {
-    barChart = ensureChart(barChartRef.value, barChart)
-    if (barChart) {
-      barChart.setOption(buildBarOption(), true)
-      if (rows.length === 0) {
-        barChart.showLoading({
-          text: t('pomodoro.report.noData'),
-          maskColor: 'rgba(255,255,255,0.6)',
-          textColor: '#909399',
-        })
-      } else {
-        barChart.hideLoading()
-      }
-    }
-  }
-
-  if (avgGaugeRef.value) {
-    avgGauge = ensureChart(avgGaugeRef.value, avgGauge)
-    avgGauge?.setOption(
-      buildGaugeOption(avgGoalPercent.value, t('pomodoro.report.gaugeAvgGoal')),
-      true,
-    )
-  }
-
-  if (periodGaugeRef.value) {
-    periodGauge = ensureChart(periodGaugeRef.value, periodGauge)
-    periodGauge?.setOption(
-      buildGaugeOption(periodGoalPercent.value, t('pomodoro.report.gaugePeriodGoal')),
-      true,
-    )
-  }
-}
-
-function resizeCharts() {
-  lineChart?.resize()
-  barChart?.resize()
-  avgGauge?.resize()
-  periodGauge?.resize()
-}
-
-function disposeCharts() {
-  lineChart?.dispose()
-  barChart?.dispose()
-  avgGauge?.dispose()
-  periodGauge?.dispose()
-  lineChart = null
-  barChart = null
-  avgGauge = null
-  periodGauge = null
 }
 
 async function loadReport() {
@@ -375,16 +261,11 @@ async function loadReport() {
     ])
     daily.value = dailyData
     summary.value = summaryData
-    await nextTick()
-    renderCharts()
+    tablePage.value = 1
   } finally {
     loading.value = false
   }
 }
-
-watch(locale, () => {
-  nextTick(() => renderCharts())
-})
 
 onMounted(async () => {
   initRange()
@@ -395,71 +276,11 @@ onMounted(async () => {
     /* use default */
   }
   await loadReport()
-  window.addEventListener('resize', resizeCharts)
 })
 
-onUnmounted(() => {
-  window.removeEventListener('resize', resizeCharts)
-  disposeCharts()
-})
+defineExpose({ loadReport })
 </script>
 
-<style scoped>
-.panel-toolbar {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-
-.summary-row {
-  margin-bottom: 8px;
-}
-
-.charts-row {
-  margin-top: 8px;
-}
-
-.stat-card {
-  text-align: center;
-  margin-bottom: 12px;
-}
-
-.stat-card__label {
-  font-size: 13px;
-  color: var(--el-text-color-secondary);
-}
-
-.stat-card__value {
-  font-size: 28px;
-  font-weight: 700;
-  margin-top: 8px;
-}
-
-.chart-box {
-  width: 100%;
-  height: 320px;
-}
-
-.chart-box--bar {
-  height: 260px;
-}
-
-.gauge-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  min-height: 320px;
-}
-
-.gauge-box {
-  width: 100%;
-  height: 300px;
-}
-
-@media (max-width: 992px) {
-  .gauge-grid {
-    grid-template-columns: 1fr;
-  }
-}
+<style scoped lang="scss">
+@use './pomodoro-pixel-report.scss';
 </style>
