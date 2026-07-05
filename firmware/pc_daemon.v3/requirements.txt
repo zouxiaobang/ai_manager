@@ -1,0 +1,5 @@
+winsdk>=1.0.0b1,<2.0.0
+pywin32>=300
+psutil>=5.9.0
+uiautomation>=2.0.0
+pyinstaller>=5.0.0

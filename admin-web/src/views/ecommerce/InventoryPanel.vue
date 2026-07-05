@@ -143,14 +143,15 @@
 
             <div v-loading="loading" class="inventory-card-grid">
               <template v-if="doodle.enabled.value">
-                <EcDoodleCard
+                <SchemeADoodleFrame
                   v-for="row in displayRecords"
                   :key="row.listKey ?? row.id"
                   class="inventory-card inventory-card--doodle"
                   :class="{ 'is-alert': row.alertActive }"
                   :seed="Number(row.id ?? row.listKey ?? 0)"
                   :color="row.alertActive ? '#ef4444' : '#cbd5e1'"
-                  clickable
+                  sketch
+                  :stroke-width="3"
                   @click="openDetail(row)"
                 >
                   <div class="inventory-card__inner">
@@ -199,7 +200,7 @@
                       </MobileDoodleChip>
                     </div>
                   </div>
-                </EcDoodleCard>
+                </SchemeADoodleFrame>
               </template>
               <template v-else>
               <div
@@ -509,7 +510,7 @@ import StocktakeOrderDrawer from './StocktakeOrderDrawer.vue'
 import InventoryDetailDrawer from './InventoryDetailDrawer.vue'
 import InventoryAdjustDialog from './InventoryAdjustDialog.vue'
 import InventorySaveDialog from './InventorySaveDialog.vue'
-import EcDoodleCard from '@/mobile/ecommerce/components/EcDoodleCard.vue'
+import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
 import MobileDoodleChip from '@/mobile/components/MobileDoodleChip.vue'
 import { useMobileEcDoodle } from '@/composables/useMobileEcDoodle'
 

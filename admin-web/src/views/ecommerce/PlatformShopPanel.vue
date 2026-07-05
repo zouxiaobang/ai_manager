@@ -20,7 +20,7 @@
     </header>
 
     <template v-if="doodle.enabled.value">
-      <EcDoodleCard color="#2563eb" :seed="999" class="shop-doodle-data-card">
+      <SchemeADoodleFrame color="#2563eb" :seed="999" class="shop-doodle-data-card" sketch :stroke-width="3">
         <div class="shop-doodle-data-card__header">
           <span class="shop-doodle-data-card__icon">📊</span>
           <span class="shop-doodle-data-card__title">{{ t('mobile.ecommerce.overviewTitle') }}</span>
@@ -49,7 +49,7 @@
             <span class="shop-doodle-data-card__platform-percent">{{ item.percent }}%</span>
           </div>
         </div>
-      </EcDoodleCard>
+      </SchemeADoodleFrame>
     </template>
 
     <template v-else>
@@ -142,7 +142,7 @@
             tag="button"
             type="button"
             class="shop-filter-chip shop-filter-chip--doodle"
-            color="#2563eb"
+            :color="activePlatformId === null ? '#2563eb' : '#94a3b8'"
             :seed="1"
             :filled="activePlatformId === null"
             fill-color="#eff6ff"
@@ -157,7 +157,7 @@
             tag="button"
             type="button"
             class="shop-filter-chip shop-filter-chip--doodle"
-            color="#2563eb"
+            :color="activePlatformId === group.platformId ? '#2563eb' : '#94a3b8'"
             :seed="group.platformId"
             :filled="activePlatformId === group.platformId"
             fill-color="#eff6ff"
@@ -171,6 +171,7 @@
             {{ group.platformName }}
             <span class="shop-filter-chip__count">{{ group.shops.length }}</span>
           </MobileDoodleChip>
+          <span class="shop-filter-chip__spacer"></span>
         </template>
         <template v-else>
         <button
@@ -211,14 +212,15 @@
       <template v-if="visibleGroups.length">
         <template v-if="doodle.enabled.value">
           <div class="shop-grid">
-            <EcDoodleCard
+            <SchemeADoodleFrame
               v-for="shop in flattenedShops"
               :key="shop.id"
               class="shop-grid-card"
               :class="{ 'shop-grid-card--disabled': shop.status !== 'ENABLED' }"
               :seed="shop.id"
               :color="shop.status === 'ENABLED' ? '#16a34a' : '#94a3b8'"
-              clickable
+              sketch
+              :stroke-width="3"
               @click="openShopInfoSheet(shop)"
             >
               <div class="shop-grid-card__inner">
@@ -239,7 +241,7 @@
                   {{ shop.status === 'ENABLED' ? t('ecommerce.shop.statusOperating') : t('ecommerce.shop.statusResting') }}
                 </span>
               </div>
-            </EcDoodleCard>
+            </SchemeADoodleFrame>
           </div>
         </template>
         <template v-else>
@@ -354,11 +356,10 @@ import { resolvePlatformIcon } from '@/utils/platformVisual'
 import { resolveShopIcon } from '@/utils/shopVisual'
 import PlatformManageDrawer from './PlatformManageDrawer.vue'
 import ShopFormDialog from './ShopFormDialog.vue'
-import EcDoodleCard from '@/mobile/ecommerce/components/EcDoodleCard.vue'
-import MobileShopInfoSheet from '@/mobile/ecommerce/components/MobileShopInfoSheet.vue'
+import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
+import MobileShopInfoSheet from '@/mobile/views/ecommerce/components/MobileShopInfoSheet.vue'
 import MobileDoodleChip from '@/mobile/components/MobileDoodleChip.vue'
-import SchemeADoodleFrame from '@/mobile/home/themes/scheme-a/SchemeADoodleFrame.vue'
-import { schemeAAssets } from '@/mobile/home/themes/scheme-a/assets'
+import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets'
 import { useMobileEcDoodle } from '@/composables/useMobileEcDoodle'
 
 const { t } = useI18n()
@@ -1174,26 +1175,36 @@ defineExpose({ loadAll })
     display: flex;
     align-items: center;
     gap: 12px;
+    padding: 12px 0 0 0;
   }
 
   .shop-dashboard__back {
     flex-shrink: 0;
     margin-left: 12px;
-    cursor: pointer;
-    background: transparent;
-    border: none;
-    font-family: inherit;
-    font-size: 18px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
     font-weight: 700;
     color: #2563eb;
+    cursor: pointer;
+    background: #fff;
+    transition: transform 0.2s ease;
 
     :deep(.sa-doodle-frame__body) {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 40px;
-      height: 40px;
+      width: 36px;
+      height: 36px;
       padding: 0;
+    }
+
+    &:active {
+      transform: scale(0.9);
     }
   }
 
@@ -1259,7 +1270,7 @@ defineExpose({ loadAll })
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
-    padding: 12px;
+    padding: 12px 24px 12px 12px;
 
     &::-webkit-scrollbar {
       display: none;
@@ -1273,7 +1284,7 @@ defineExpose({ loadAll })
     font-family: inherit;
     font-size: 13px;
     font-weight: 700;
-    color: #2563eb;
+    color: #94a3b8;
     cursor: pointer;
 
     :deep(.sa-doodle-frame__body) {
@@ -1300,11 +1311,16 @@ defineExpose({ loadAll })
       height: 18px;
       padding: 0 5px;
       border-radius: 999px;
-      background: rgb(37 99 235 / 10%);
+      background: rgb(148 163 184 / 10%);
       font-size: 11px;
       font-weight: 800;
-      color: #2563eb;
+      color: #94a3b8;
     }
+  }
+
+  .shop-filter-chip__spacer {
+    flex-shrink: 0;
+    width: 12px;
   }
 
   .shop-doodle-data-card {

@@ -8,6 +8,7 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $srcAssets = Join-Path $Root "sdcard_assets\assets"
 $srcLyrics = Join-Path $Root "sdcard_assets\lyrics"
+$srcConfig = Join-Path $Root "sdcard_assets\config"
 $dst = ($DriveLetter.TrimEnd(':') + ":\")
 
 if (-not (Test-Path $srcAssets)) {
@@ -19,7 +20,9 @@ if (-not (Test-Path $dst)) {
 
 $dstAssets = Join-Path $dst "assets"
 $dstLyrics = Join-Path $dst "lyrics"
-New-Item -ItemType Directory -Force -Path $dstAssets, $dstLyrics | Out-Null
+$dstConfig = Join-Path $dst "config"
+New-Item -ItemType Directory -Force -Path $dstAssets, $dstLyrics, $dstConfig | Out-Null
 Copy-Item -Path (Join-Path $srcAssets "*") -Destination $dstAssets -Force
 Copy-Item -Path (Join-Path $srcLyrics "*") -Destination $dstLyrics -Force
-Write-Host "Deployed to $dst (assets + lyrics)"
+Copy-Item -Path (Join-Path $srcConfig "*") -Destination $dstConfig -Force
+Write-Host "Deployed to $dst (assets + lyrics + config)"

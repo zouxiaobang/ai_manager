@@ -1,3 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap');
+
+$mobile-font: 'ZCOOL KuaiLe', 'Alibaba PuHuiTi', 'PingFang SC', sans-serif;
+
 .mobile-app {
   height: 100vh;
   height: 100dvh;
@@ -14,7 +18,9 @@
   --mobile-page-bg: #fafafa;
   --mobile-tabbar-height: calc(56px + env(safe-area-inset-bottom, 0px));
   --mobile-tab-active-color: #166534;
+  --mobile-font: #{$mobile-font};
   background: var(--mobile-page-bg);
+  font-family: var(--mobile-font);
 }
 
 /* 仅主内容区滚动，避免 PWA standalone 下 fixed 底栏随滑动收起 */
@@ -37,7 +43,45 @@ html.is-mobile-shell {
   textarea,
   select {
     font-size: 16px !important;
+    font-family: var(--mobile-font) !important;
   }
+}
+
+.mobile-app * {
+  font-family: inherit;
+}
+
+.mobile-app__main {
+  font-family: var(--mobile-font);
+}
+
+.mobile-app__header {
+  font-family: var(--mobile-font);
+}
+
+.mobile-app__tabbar {
+  font-family: var(--mobile-font);
+}
+
+.mobile-app :deep(.el-button) {
+  font-family: var(--mobile-font);
+}
+
+.mobile-app :deep(.el-input),
+.mobile-app :deep(.el-input__wrapper) {
+  font-family: var(--mobile-font);
+}
+
+.mobile-app :deep(.el-tabbar) {
+  font-family: var(--mobile-font);
+}
+
+.mobile-app :deep(.el-card) {
+  font-family: var(--mobile-font);
+}
+
+.mobile-app :deep(.el-dialog) {
+  font-family: var(--mobile-font);
 }
 
 html.dark .mobile-app {

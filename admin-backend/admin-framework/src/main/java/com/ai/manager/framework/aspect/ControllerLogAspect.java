@@ -57,11 +57,16 @@ public class ControllerLogAspect {
 
     /** 日志查看类接口会污染业务日志，跳过 AOP 记录 */
     private static boolean shouldSkipLog(String className, String methodName) {
-        if (!"DeployLogController".equals(className)) {
-            return false;
+        if ("DeployLogController".equals(className)) {
+            return switch (methodName) {
+                case "tail", "stats", "stream", "analyze" -> true;
+                default -> false;
+            };
         }
-        return switch (methodName) {
-            case "tail", "stats", "stream", "analyze" -> true;
+        return switch (className) {
+            case "PomodoroSessionController" -> "getActive".equals(methodName);
+            case "PomodoroRecordController" -> "today".equals(methodName);
+            case "NbTodoController" -> "today".equals(methodName) || "dueReminders".equals(methodName);
             default -> false;
         };
     }

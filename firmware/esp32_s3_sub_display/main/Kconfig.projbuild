@@ -49,7 +49,7 @@ menu "NetEase Media Sync"
 
     config MEDIA_API_HOST
         string "Media bridge host (fallback if no SD config)"
-        default "192.168.0.114"
+        default "192.168.0.122"
         depends on MEDIA_SYNC_ENABLE
         help
             IP of the PC running pc_daemon (NetEase bridge).

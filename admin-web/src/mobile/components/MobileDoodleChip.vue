@@ -24,8 +24,8 @@
 
 <script setup lang="ts">
 import { computed, useAttrs } from 'vue'
-import SchemeADoodleFrame from '@/mobile/home/themes/scheme-a/SchemeADoodleFrame.vue'
-import type { DoodleFrameShape } from '@/mobile/home/themes/scheme-a/doodlePaths'
+import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
+import type { DoodleFrameShape } from '@/mobile/views/home/themes/scheme-a/doodlePaths'
 
 const props = withDefaults(
   defineProps<{

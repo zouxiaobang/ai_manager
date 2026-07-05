@@ -16,20 +16,22 @@
 
     <section v-loading="overviewLoading" class="order-stat-cards">
       <template v-if="doodle.enabled.value">
-        <EcDoodleCard
+        <SchemeADoodleFrame
           v-for="card in statCards"
           :key="card.key"
           class="order-stat-card order-stat-card--doodle"
           :class="`is-${card.tone}`"
           :color="orderStatColor(card.tone)"
           :seed="doodleSeedFromKey(card.key)"
+          sketch
+          :stroke-width="3"
         >
           <div class="order-stat-card__inner">
             <div class="order-stat-card__label">{{ card.label }}</div>
             <div class="order-stat-card__value">{{ card.value }}</div>
             <p v-if="card.hint" class="order-stat-card__hint">{{ card.hint }}</p>
           </div>
-        </EcDoodleCard>
+        </SchemeADoodleFrame>
       </template>
       <template v-else>
       <div v-for="card in statCards" :key="card.key" class="order-stat-card" :class="`is-${card.tone}`">
@@ -44,14 +46,15 @@
       <h3 class="order-section-title">{{ t('ecommerce.salesOrder.shopImportSection') }}</h3>
       <div v-if="shopImportCards.length" class="order-shop-grid">
         <template v-if="doodle.enabled.value">
-          <EcDoodleCard
+          <SchemeADoodleFrame
             v-for="shop in shopImportCards"
             :key="shop.shopId"
             class="order-shop-card order-shop-card--doodle"
             :class="[`is-${shop.tone}`, { 'is-active': shopFilter === shop.shopId }]"
             :color="orderShopColor(shop.tone, shopFilter === shop.shopId)"
             :seed="shop.shopId"
-            clickable
+            sketch
+            :stroke-width="3"
             @click="onShopCardClick(shop)"
           >
             <div class="order-shop-card__inner">
@@ -90,7 +93,7 @@
                 </MobileDoodleChip>
               </div>
             </div>
-          </EcDoodleCard>
+          </SchemeADoodleFrame>
         </template>
         <template v-else>
         <div
@@ -699,7 +702,7 @@ import { resolvePlatformIconMeta } from '@/utils/platformVisual'
 import { usePagination } from '@/composables/usePagination'
 import { useMobileEcDoodle } from '@/composables/useMobileEcDoodle'
 import { doodleSeedFromKey } from '@/mobile/utils/doodleSeed'
-import EcDoodleCard from '@/mobile/ecommerce/components/EcDoodleCard.vue'
+import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
 import MobileDoodleChip from '@/mobile/components/MobileDoodleChip.vue'
 import { defaultOrderMonth, formatDateTime, formatMonthDay, monthDateRange, todayDateString } from '@/utils/date'
 import { normalizeLineStatus, type ImportLineStatus } from '@/constants/importStatusMapping'

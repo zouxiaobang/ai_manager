@@ -222,6 +222,8 @@ public class EcExpressStationServiceImpl extends ServiceImpl<EcExpressStationMap
         vo.setUpdateTime(station.getUpdateTime());
         vo.setPrices(prices);
         vo.setNotices(notices);
+        vo.setPriceCount(prices != null ? prices.size() : 0);
+        vo.setNoticeCount(notices != null ? notices.size() : 0);
         return vo;
     }
 

@@ -65,6 +65,7 @@ lv_obj_t *lyric_prev_btn = nullptr;
 lv_obj_t *lyric_play_btn = nullptr;
 lv_obj_t *lyric_play_btn_lbl = nullptr;
 lv_obj_t *lyric_next_btn = nullptr;
+lv_obj_t *lyric_reconnect_btn = nullptr;
 lv_obj_t *pomo_exit_btn = nullptr;
 lv_obj_t *pomo_lock_btn = nullptr;
 lv_obj_t *pomo_lock_btn_lbl = nullptr;
@@ -128,8 +129,8 @@ const DockItem kDock[] = {
     {DockId::Settings},
 };
 
-char lyric_title_buf[128] = "夜空中最亮的星";
-char lyric_body_buf[384] =
+char lyric_title_buf[256] = "夜空中最亮的星";
+char lyric_body_buf[768] =
     "能否听清\n"
     "那仰望的人\n"
     "心底的孤独和叹息\n"
@@ -264,27 +265,51 @@ void show_media_toast(const char *message, int duration_sec = 3) {
   media_toast_hide_tick = ui_tick_counter + duration_sec;
 }
 
+// Check if the artist text contains metadata labels (e.g. "作曲：", "作词：") from NetEase SMTC.
+static bool artist_has_meta_label(const char *artist) {
+  if (artist == nullptr) return false;
+  static const char *kMetaLabels[] = {
+    "\xe4\xbd\x9c\xe6\x9b\xb2",  // 作曲
+    "\xe4\xbd\x9c\xe8\xaf\x8d",  // 作词
+    "\xe7\xbc\x96\xe6\x9b\xb2",  // 编曲
+  };
+  for (auto label : kMetaLabels) {
+    if (std::strstr(artist, label) != nullptr) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void format_lyric_body(const MediaSnapshot &snap, char *out, size_t out_len, bool fullscreen) {
   if (out == nullptr || out_len == 0) {
     return;
   }
   out[0] = '\0';
-  if (snap.line[0] == '\0' && snap.prev_line[0] == '\0' && snap.next_line[0] == '\0') {
+  if (snap.line[0] == '\0' && snap.prev_line[0] == '\0' && snap.next_line[0] == '\0' &&
+      snap.prev_prev_line[0] == '\0' && snap.next_next_line[0] == '\0') {
     return;
   }
   if (fullscreen) {
-    if (snap.prev_line[0] != '\0') {
-      std::snprintf(out, out_len, "%s\n", snap.prev_line);
-      const size_t used = std::strlen(out);
-      if (snap.line[0] != '\0' && used < out_len) {
-        std::snprintf(out + used, out_len - used, "%s\n", snap.line);
-      }
-      const size_t used2 = std::strlen(out);
-      if (snap.next_line[0] != '\0' && used2 < out_len) {
-        std::snprintf(out + used2, out_len - used2, "%s", snap.next_line);
-      }
-    } else if (snap.line[0] != '\0') {
-      std::snprintf(out, out_len, "%s", snap.line);
+    size_t used = 0;
+    if (snap.prev_prev_line[0] != '\0') {
+      std::snprintf(out, out_len, "%s\n", snap.prev_prev_line);
+      used = std::strlen(out);
+    }
+    if (snap.prev_line[0] != '\0' && used < out_len) {
+      std::snprintf(out + used, out_len - used, "%s\n", snap.prev_line);
+      used = std::strlen(out);
+    }
+    if (snap.line[0] != '\0' && used < out_len) {
+      std::snprintf(out + used, out_len - used, "%s\n", snap.line);
+      used = std::strlen(out);
+    }
+    if (snap.next_line[0] != '\0' && used < out_len) {
+      std::snprintf(out + used, out_len - used, "%s\n", snap.next_line);
+      used = std::strlen(out);
+    }
+    if (snap.next_next_line[0] != '\0' && used < out_len) {
+      std::snprintf(out + used, out_len - used, "%s", snap.next_next_line);
     }
     return;
   }
@@ -295,12 +320,14 @@ void format_lyric_body(const MediaSnapshot &snap, char *out, size_t out_len, boo
   }
 }
 
+void refresh_lyric_play_btn_label();
+
 void refresh_lyrics_card() {
   MediaSnapshot snap = {};
   media_control_get_snapshot(&snap);
 
   if (snap.connected && (snap.title[0] != '\0' || snap.line[0] != '\0')) {
-    if (snap.title[0] != '\0' && snap.artist[0] != '\0') {
+    if (snap.title[0] != '\0' && snap.artist[0] != '\0' && !artist_has_meta_label(snap.artist)) {
       std::snprintf(lyric_title_buf, sizeof(lyric_title_buf), "%s - %s", snap.title, snap.artist);
     } else if (snap.title[0] != '\0') {
       std::strncpy(lyric_title_buf, snap.title, sizeof(lyric_title_buf) - 1);
@@ -309,14 +336,61 @@ void refresh_lyrics_card() {
       lyric_title_buf[0] = '\0';
     }
     format_lyric_body(snap, lyric_body_buf, sizeof(lyric_body_buf), lyric_fullscreen_mode);
+    if (lyric_reconnect_btn != nullptr) {
+      lv_obj_add_flag(lyric_reconnect_btn, LV_OBJ_FLAG_HIDDEN);
+    }
   } else {
-    char title[128];
-    char body[384];
-    if (assets_load_lyrics(title, sizeof(title), body, sizeof(body))) {
-      std::strncpy(lyric_title_buf, title, sizeof(lyric_title_buf) - 1);
+    bool loaded = false;
+    // 尝试从 TF 卡缓存加载 LRC
+    char cache_title[128];
+    char cache_body[4096];
+    if (load_lrc_from_sd(cache_title, sizeof(cache_title), cache_body, sizeof(cache_body))) {
+      std::strncpy(lyric_title_buf, cache_title, sizeof(lyric_title_buf) - 1);
       lyric_title_buf[sizeof(lyric_title_buf) - 1] = '\0';
-      std::strncpy(lyric_body_buf, body, sizeof(lyric_body_buf) - 1);
-      lyric_body_buf[sizeof(lyric_body_buf) - 1] = '\0';
+      LrcLine lrc_parse[MEDIA_LRC_LINES_MAX];
+      int count = parse_lrc_lines(cache_body, lrc_parse, MEDIA_LRC_LINES_MAX);
+      if (count > 0) {
+        int idx = 0;
+        for (int i = 0; i < count; i++) {
+          if (lrc_parse[i].start_ms <= snap.position_ms) idx = i;
+          else break;
+        }
+        if (idx < count) {
+          char tmp[2048] = "";
+          size_t used = 0;
+          if (idx >= 2 && used < sizeof(tmp))
+            used += std::snprintf(tmp + used, sizeof(tmp) - used, "%s\n", lrc_parse[idx - 2].text);
+          if (idx >= 1 && used < sizeof(tmp))
+            used += std::snprintf(tmp + used, sizeof(tmp) - used, "%s\n", lrc_parse[idx - 1].text);
+          if (used < sizeof(tmp))
+            used += std::snprintf(tmp + used, sizeof(tmp) - used, "%s\n", lrc_parse[idx].text);
+          if (idx + 1 < count && used < sizeof(tmp))
+            used += std::snprintf(tmp + used, sizeof(tmp) - used, "%s\n", lrc_parse[idx + 1].text);
+          if (idx + 2 < count && used < sizeof(tmp))
+            used += std::snprintf(tmp + used, sizeof(tmp) - used, "%s", lrc_parse[idx + 2].text);
+          std::strncpy(lyric_body_buf, tmp, sizeof(lyric_body_buf) - 1);
+          lyric_body_buf[sizeof(lyric_body_buf) - 1] = '\0';
+          loaded = true;
+        }
+      }
+    }
+    if (!loaded) {
+      char title[128];
+      char body[384];
+      if (assets_load_lyrics(title, sizeof(title), body, sizeof(body))) {
+        std::strncpy(lyric_title_buf, title, sizeof(lyric_title_buf) - 1);
+        lyric_title_buf[sizeof(lyric_title_buf) - 1] = '\0';
+        std::strncpy(lyric_body_buf, body, sizeof(lyric_body_buf) - 1);
+        lyric_body_buf[sizeof(lyric_body_buf) - 1] = '\0';
+      }
+    }
+    // GAVE_UP 时显示重连按钮
+    if (lyric_reconnect_btn != nullptr) {
+      if (media_sync_get_ws_state() == MEDIA_WS_GAVE_UP) {
+        lv_obj_clear_flag(lyric_reconnect_btn, LV_OBJ_FLAG_HIDDEN);
+      } else {
+        lv_obj_add_flag(lyric_reconnect_btn, LV_OBJ_FLAG_HIDDEN);
+      }
     }
   }
 
@@ -530,7 +604,6 @@ void apply_pomo_card_layout(bool fullscreen);
 void apply_lyric_card_layout(bool fullscreen);
 void layout_pomo_fullscreen_buttons();
 void layout_lyric_fullscreen_buttons();
-void refresh_lyric_play_btn_label();
 void apply_tool_button_accent(lv_obj_t *btn, lv_obj_t *lbl, uint32_t accent_color);
 void resize_tool_button(lv_obj_t *btn, lv_coord_t btn_w, lv_coord_t btn_h, uint32_t accent_color);
 void layout_lyric_control_buttons(int ctrl_h);
@@ -621,6 +694,7 @@ void lyric_prev_btn_event(lv_event_t *e) {
     return;
   }
   app_ui_notify_activity();
+  show_media_toast("\xe6\xad\xa3\xe5\x9c\xa8\xe5\x88\x87\xe6\x8d\xa2\xe4\xb8\x8a\xe4\xb8\x80\xe9\xa6\x96...", 5);
   media_control_send(MEDIA_CMD_PREVIOUS);
 }
 
@@ -630,9 +704,11 @@ void lyric_play_btn_event(lv_event_t *e) {
   }
   app_ui_notify_activity();
   if (!media_control_is_app_running() && !media_control_is_playing() && !media_control_is_starting()) {
-    show_media_toast("\xe6\xad\xa3\xe5\x9c\xa8\xe5\x90\xaf\xe5\x8a\xa8\xe7\xbd\x91\xe6\x98\x93\xe4\xba\x91\xe9\x9f\xb3\xe4\xb9\x90...");
+    show_media_toast("\xe6\xad\xa3\xe5\x9c\xa8\xe5\x90\xaf\xe5\x8a\xa8\xe7\xbd\x91\xe6\x98\x93\xe4\xba\x91\xe9\x9f\xb3\xe4\xb9\x90...", 10);
     media_control_request_start();
   } else {
+    bool is_play = media_control_is_playing();
+    show_media_toast(is_play ? "\xe6\xad\xa3\xe5\x9c\xa8\xe6\x9a\x82\xe5\x81\x9c..." : "\xe6\xad\xa3\xe5\x9c\xa8\xe6\x92\xad\xe6\x94\xbe...", 5);
     media_control_send(MEDIA_CMD_TOGGLE_PLAY_PAUSE);
   }
   refresh_lyric_play_btn_label();
@@ -643,7 +719,17 @@ void lyric_next_btn_event(lv_event_t *e) {
     return;
   }
   app_ui_notify_activity();
+  show_media_toast("\xe6\xad\xa3\xe5\x9c\xa8\xe5\x88\x87\xe6\x8d\xa2\xe4\xb8\x8b\xe4\xb8\x80\xe9\xa6\x96...", 5);
   media_control_send(MEDIA_CMD_NEXT);
+}
+
+void lyric_reconnect_btn_event(lv_event_t *e) {
+  if (lv_event_get_code(e) != LV_EVENT_PRESSED) {
+    return;
+  }
+  app_ui_notify_activity();
+  media_sync_request_reconnect();
+  show_media_toast("\xe6\xad\xa3\xe5\x9c\xa8\xe9\x87\x8d\xe8\xbf\x9e...", 3);
 }
 
 void pomo_touch_blocker_event(lv_event_t *e) {
@@ -1308,12 +1394,58 @@ void tick_cb(lv_timer_t *t) {
   refresh_pomodoro_card();
   if (media_sync_consume_dirty()) {
     refresh_lyrics_card();
-  } else if (media_control_is_playing() && (ui_tick_counter % 1) == 0) {
+  } else if (media_control_is_playing() || lyric_fullscreen_mode) {
     refresh_lyrics_card();
   }
-  if (media_toast != nullptr && media_toast_hide_tick > 0 && ui_tick_counter >= media_toast_hide_tick) {
-    lv_obj_add_flag(media_toast, LV_OBJ_FLAG_HIDDEN);
-    media_toast_hide_tick = 0;
+  // Track media command execution result and update toast accordingly
+  if (media_toast != nullptr) {
+    media_cmd_result_t cmd_result = media_sync_consume_cmd_result();
+    if (cmd_result == MEDIA_CMD_RESULT_SUCCESS) {
+      media_cmd_t cmd = media_sync_get_pending_cmd();
+      const char *success_msg = nullptr;
+      switch (cmd) {
+        case MEDIA_CMD_PREVIOUS:
+          success_msg = "\xe5\xb7\xb2\xe5\x88\x87\xe6\x8d\xa2\xe5\x88\xb0\xe4\xb8\x8a\xe4\xb8\x80\xe9\xa6\x96";
+          break;
+        case MEDIA_CMD_NEXT:
+          success_msg = "\xe5\xb7\xb2\xe5\x88\x87\xe6\x8d\xa2\xe5\x88\xb0\xe4\xb8\x8b\xe4\xb8\x80\xe9\xa6\x96";
+          break;
+        case MEDIA_CMD_TOGGLE_PLAY_PAUSE:
+          if (media_control_is_playing()) {
+            success_msg = "\xe5\xb7\xb2\xe6\x92\xad\xe6\x94\xbe";
+          } else {
+            success_msg = "\xe5\xb7\xb2\xe6\x9a\x82\xe5\x81\x9c";
+          }
+          break;
+        case MEDIA_CMD_START_APP:
+          success_msg = "\xe7\xbd\x91\xe6\x98\x93\xe4\xba\x91\xe9\x9f\xb3\xe4\xb9\x90\xe5\xb7\xb2\xe5\x90\xaf\xe5\x8a\xa8";
+          break;
+      }
+      if (success_msg != nullptr) {
+        show_media_toast(success_msg, 2);
+      }
+    } else if (cmd_result == MEDIA_CMD_RESULT_FAILED) {
+      media_cmd_t cmd = media_sync_get_pending_cmd();
+      const char *fail_msg = nullptr;
+      switch (cmd) {
+        case MEDIA_CMD_PREVIOUS:
+        case MEDIA_CMD_NEXT:
+        case MEDIA_CMD_TOGGLE_PLAY_PAUSE:
+          fail_msg = "\xe6\x93\x8d\xe4\xbd\x9c\xe5\xa4\xb1\xe8\xb4\xa5\xef\xbc\x8c\xe8\xaf\xb7\xe7\xa8\x8d\xe5\x90\x8e\xe9\x87\x8d\xe8\xaf\x95";
+          break;
+        case MEDIA_CMD_START_APP:
+          fail_msg = "\xe5\x90\xaf\xe5\x8a\xa8\xe5\xa4\xb1\xe8\xb4\xa5\xef\xbc\x8c\xe8\xaf\xb7\xe6\xa3\x80\xe6\x9f\xa5\xe7\xbd\x91\xe6\x98\x93\xe4\xba\x91\xe9\x9f\xb3\xe4\xb9\x90";
+          break;
+      }
+      if (fail_msg != nullptr) {
+        show_media_toast(fail_msg, 3);
+      }
+    }
+
+    if (media_toast_hide_tick > 0 && ui_tick_counter >= media_toast_hide_tick) {
+      lv_obj_add_flag(media_toast, LV_OBJ_FLAG_HIDDEN);
+      media_toast_hide_tick = 0;
+    }
   }
   if (focus_mode) {
     refresh_focus_mode_ui();
@@ -1642,9 +1774,13 @@ void build_lyric_control_buttons(lv_obj_t *card_parent) {
                                             lyric_play_btn_event, &lyric_play_btn_lbl, kLyricCtrlBtnW, kLyricEdgeBtnH);
   lyric_next_btn = create_lyric_ctrl_button(lyric_ctrl_row, "\xe4\xb8\x8b\xe4\xb8\x80\xe9\xa6\x96", kLyricNextColor,
                                             lyric_next_btn_event, nullptr, kLyricCtrlBtnW, kLyricEdgeBtnH);
+  lyric_reconnect_btn = create_lyric_ctrl_button(lyric_ctrl_row, "\xe9\x87\x8d\xe8\xbf\x9e", 0xff5252,
+                                                  lyric_reconnect_btn_event, nullptr, kLyricCtrlBtnW, kLyricEdgeBtnH);
   lv_obj_set_flex_grow(lyric_prev_btn, 0);
   lv_obj_set_flex_grow(lyric_play_btn, 1);
   lv_obj_set_flex_grow(lyric_next_btn, 0);
+  lv_obj_set_flex_grow(lyric_reconnect_btn, 0);
+  lv_obj_add_flag(lyric_reconnect_btn, LV_OBJ_FLAG_HIDDEN);
 }
 
 void ensure_lyric_control_buttons() {

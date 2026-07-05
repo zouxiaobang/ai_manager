@@ -81,7 +81,7 @@ import {
 import MobileTodoHeaderIcon from '@/mobile/components/MobileTodoHeaderIcon.vue'
 import { formatMobileHeaderDate } from '@/mobile/utils/headerDate'
 import { isMobileHomeRoute } from '@/mobile/utils/homeBackGuard'
-import { schemeAAssets } from '@/mobile/home/themes/scheme-a/assets'
+import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets'
 import { useAppStore } from '@/stores/app'
 import { useTodoReminders } from '@/composables/useTodoReminders'
 

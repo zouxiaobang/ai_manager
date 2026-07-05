@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>作家头像预览</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'ZCOOL KuaiLe', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: #faf8f5;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    h1 {
+      text-align: center;
+      color: #1e293b;
+      font-size: 32px;
+      margin-bottom: 40px;
+      letter-spacing: 2px;
+    }
+    .avatar-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 30px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .avatar-card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 30px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+      border: 2px solid #e8ecef;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .avatar-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+    .avatar-card svg {
+      width: 120px;
+      height: 120px;
+      margin-bottom: 16px;
+    }
+    .avatar-name {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 8px;
+    }
+    .avatar-desc {
+      font-size: 14px;
+      color: #64748b;
+      line-height: 1.5;
+    }
+    .color-tags {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .color-tag {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .footer {
+      text-align: center;
+      margin-top: 40px;
+      color: #94a3b8;
+      font-size: 14px;
+    }
+    @import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap');
+  </style>
+</head>
+<body>
+  <h1>📝 作家头像设计方案</h1>
+  <div class="avatar-grid">
+    <div class="avatar-card">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+        <circle cx="60" cy="60" r="45" fill="#fef3c7" stroke="#1e293b" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="35" cy="45" r="12" fill="#fff" stroke="#1e293b" stroke-width="2"/>
+        <circle cx="85" cy="45" r="12" fill="#fff" stroke="#1e293b" stroke-width="2"/>
+        <circle cx="35" cy="45" r="6" fill="#a855f7"/>
+        <circle cx="85" cy="45" r="6" fill="#a855f7"/>
+        <path d="M28 65c4 6 20 6 24 0" stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+        <path d="M68 65c4 6 20 6 24 0" stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+        <path d="M45 88c15 18 30 18 45 0" stroke="#1e293b" stroke-width="2.5" stroke-linecap="round"/>
+        <rect x="25" y="62" width="32" height="22" rx="3" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+        <path d="M31 69h18M31 75h12M31 81h16" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M85 55l8-8-6 10" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="90" cy="48" r="4" fill="#f97316"/>
+        <path d="M52 30c-2-4-8-2-10 0-2 2-2 6 0 8" stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+        <path d="M68 30c2-4 8-2 10 0 2 2 2 6 0 8" stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <div class="avatar-name">方案一：创意灵感</div>
+      <div class="avatar-desc">暖黄色背景，紫色眼睛，配有笔记本和铅笔元素，展现作家的创作灵感</div>
+      <div class="color-tags">
+        <span class="color-tag" style="background: #fef3c7;"></span>
+        <span class="color-tag" style="background: #a855f7;"></span>
+        <span class="color-tag" style="background: #2563eb;"></span>
+        <span class="color-tag" style="background: #f97316;"></span>
+      </div>
+    </div>
+
+    <div class="avatar-card">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+        <circle cx="60" cy="60" r="45" fill="#f0fdf4" stroke="#1e293b" stroke-width="2.5"/>
+        <circle cx="60" cy="55" r="28" fill="#fff" stroke="#1e293b" stroke-width="2"/>
+        <circle cx="50" cy="48" r="3" fill="#1e293b"/>
+        <circle cx="70" cy="48" r="3" fill="#1e293b"/>
+        <path d="M50 62c5 4 15 4 20 0" stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+        <path d="M35 35c5 25 40 25 50 0" stroke="#1e293b" stroke-width="2.5" stroke-linecap="round"/>
+        <ellipse cx="60" cy="78" rx="18" ry="12" fill="#fef3c7" stroke="#1e293b" stroke-width="2"/>
+        <path d="M45 85l30-6" stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+        <rect x="82" y="42" width="22" height="36" rx="2" fill="#eff6ff" stroke="#2563eb" stroke-width="2" transform="rotate(-15 93 60)"/>
+        <path d="M86 50h14M86 58h10M86 66h12" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round" transform="rotate(-15 93 60)"/>
+        <circle cx="98" cy="38" r="5" fill="#fbbf24"/>
+      </svg>
+      <div class="avatar-name">方案二：清新文艺</div>
+      <div class="avatar-desc">清新绿色背景，简洁线条风格，配有书籍和星星装饰，适合文艺气质</div>
+      <div class="color-tags">
+        <span class="color-tag" style="background: #f0fdf4;"></span>
+        <span class="color-tag" style="background: #fef3c7;"></span>
+        <span class="color-tag" style="background: #2563eb;"></span>
+        <span class="color-tag" style="background: #fbbf24;"></span>
+      </div>
+    </div>
+
+    <div class="avatar-card">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+        <circle cx="60" cy="60" r="45" fill="#fdf2f8" stroke="#1e293b" stroke-width="2.5"/>
+        <path d="M30 40c5 30 60 30 60 0" fill="#fff" stroke="#1e293b" stroke-width="2"/>
+        <circle cx="48" cy="50" r="4" fill="#1e293b"/>
+        <circle cx="72" cy="50" r="4" fill="#1e293b"/>
+        <circle cx="50" cy="48" r="1.5" fill="#fff"/>
+        <circle cx="74" cy="48" r="1.5" fill="#fff"/>
+        <path d="M52 65c8 5 16 5 24 0" stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+        <path d="M38 58c4 8 18 10 24 0" stroke="#ec4899" stroke-width="6" stroke-linecap="round"/>
+        <path d="M78 58c-4 8-18 10-24 0" stroke="#ec4899" stroke-width="6" stroke-linecap="round"/>
+        <path d="M55 80c0 15 10 15 20 0" stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+        <rect x="28" y="65" width="20" height="28" rx="2" fill="#fff" stroke="#1e293b" stroke-width="2"/>
+        <path d="M32 72h12M32 78h8M32 84h10" stroke="#1e293b" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M88 50l8-10-4 12" stroke="#f97316" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <div class="avatar-name">方案三：浪漫情怀</div>
+      <div class="avatar-desc">粉色浪漫背景，长发女性形象，配有腮红和书本元素，展现温柔气质</div>
+      <div class="color-tags">
+        <span class="color-tag" style="background: #fdf2f8;"></span>
+        <span class="color-tag" style="background: #ec4899;"></span>
+        <span class="color-tag" style="background: #f97316;"></span>
+      </div>
+    </div>
+
+    <div class="avatar-card">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+        <circle cx="60" cy="60" r="45" fill="#eff6ff" stroke="#1e293b" stroke-width="2.5"/>
+        <ellipse cx="60" cy="52" rx="25" ry="28" fill="#fff" stroke="#1e293b" stroke-width="2"/>
+        <circle cx="46" cy="48" r="4" fill="#1e293b"/>
+        <circle cx="74" cy="48" r="4" fill="#1e293b"/>
+        <path d="M50 62c10 6 20 6 30 0" stroke="#1e293b" stroke-width="2" stroke-linecap="round"/>
+        <path d="M40 35c-5 20 30 35 40 20" stroke="#1e293b" stroke-width="2.5"/>
+        <path d="M80 35c5 20-30 35-40 20" stroke="#1e293b" stroke-width="2.5"/>
+        <rect x="25" y="68" width="35" height="20" rx="4" fill="#fbbf24" stroke="#1e293b" stroke-width="2"/>
+        <path d="M31 76h23" stroke="#1e293b" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M85 45l6-6 4 8" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="93" cy="42" r="3" fill="#22c55e"/>
+        <circle cx="35" cy="75" r="6" fill="#a855f7"/>
+      </svg>
+      <div class="avatar-name">方案四：智慧学者</div>
+      <div class="avatar-desc">蓝色智慧背景，男性学者形象，配有领带和智慧之星，展现专业气质</div>
+      <div class="color-tags">
+        <span class="color-tag" style="background: #eff6ff;"></span>
+        <span class="color-tag" style="background: #fbbf24;"></span>
+        <span class="color-tag" style="background: #22c55e;"></span>
+        <span class="color-tag" style="background: #a855f7;"></span>
+      </div>
+    </div>
+  </div>
+  <div class="footer">
+    所有头像均采用手绘风格设计，与电商平台首页 Scheme A 设计语言保持一致
+  </div>
+</body>
+</html>
