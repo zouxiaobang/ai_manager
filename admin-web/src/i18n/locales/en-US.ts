@@ -1993,7 +1993,7 @@ export default {
       sellerRemarkManualHint: '1688 orders with seller remark require manual cost entry',
       importUnmatchedCostRequired: 'Enter manual cost (non-zero) for all unmatched rows',
       importAllMatched: 'All rows matched — you can commit directly',
-      searchPlaceholder: 'Search order no. / platform no. / buyer / tracking',
+      searchPlaceholder: 'Search order no. / platform no. / buyer / tracking / product / SKU',
       statusFilter: 'Status',
       shop: 'Shop',
       orderNo: 'Order no.',

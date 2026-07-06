@@ -59,9 +59,9 @@
 </template>
 
 <script setup lang="ts">
-import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets'
+import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets.ts'
 import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
-import type { EcExpressStation } from '@/api/ecommerce/express'
+import type { EcExpressStation } from '@/api/ecommerce/express.ts'
 
 defineProps<{
   deleteTarget: EcExpressStation | null

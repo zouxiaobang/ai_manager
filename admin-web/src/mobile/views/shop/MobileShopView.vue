@@ -84,17 +84,17 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
-import { useMobileShop } from '@/mobile/views/ecommerce/useMobileShop'
+import { useMobileShop } from '@/mobile/views/shop/useMobileShop.ts'
 import MobileCardGrid from '@/mobile/components/MobileCardGrid.vue'
 import MobileDoodleSearch from '@/mobile/components/MobileDoodleSearch.vue'
 import MobileCategoryTabs from '@/mobile/components/MobileCategoryTabs.vue'
 import MobileSectionHeader from '@/mobile/components/MobileSectionHeader.vue'
 import MobileDoodleChip from '@/mobile/components/MobileDoodleChip.vue'
-import MobileShopInfoSheet from '@/mobile/views/ecommerce/components/MobileShopInfoSheet.vue'
+import MobileShopInfoSheet from '@/mobile/views/shop/components/MobileShopInfoSheet.vue'
 import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
-import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets'
-import { resolveShopIcon } from '@/utils/shopVisual'
-import type { EcShop } from '@/api/ecommerce/shop'
+import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets.ts'
+import { resolveShopIcon } from '@/utils/shopVisual.ts'
+import type { EcShop } from '@/api/ecommerce/shop.ts'
 
 const shop = useMobileShop()
 const shopInfoSheetOpen = ref(false)

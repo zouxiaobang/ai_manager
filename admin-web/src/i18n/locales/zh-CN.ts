@@ -1996,7 +1996,7 @@ export default {
       sellerRemarkManualHint: '1688 订单含卖家备注时须手动填写成本',
       importUnmatchedCostRequired: '请为所有未匹配行填写手动成本（不能为 0）',
       importAllMatched: '全部行已匹配，可直接确认入库',
-      searchPlaceholder: '搜索单号、平台单号、买家、运单号',
+      searchPlaceholder: '搜索单号、平台单号、买家、运单号、商品名称、SKU名称',
       statusFilter: '订单状态',
       shop: '店铺',
       orderNo: '系统单号',

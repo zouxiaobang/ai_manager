@@ -12,8 +12,11 @@ import com.ai.manager.system.domain.vo.EcInventoryGlobalLogVO;
 import com.ai.manager.system.domain.vo.EcInventoryInboundValueSummaryVO;
 import com.ai.manager.system.domain.vo.EcInventoryListItemVO;
 import com.ai.manager.system.domain.vo.EcInventoryLogVO;
+import com.ai.manager.system.domain.vo.EcInventoryOverviewVO;
 import com.ai.manager.system.domain.vo.EcInventoryPackingEstimateVO;
+import com.ai.manager.system.domain.vo.EcInventorySummaryVO;
 import com.ai.manager.system.domain.vo.EcInventorySkuOptionVO;
+import com.ai.manager.system.domain.vo.EcInventorySpuStatusVO;
 import com.ai.manager.system.service.EcInventoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -35,8 +38,29 @@ public class EcInventoryController {
                                                                @RequestParam(required = false) Boolean inStockOnly,
                                                                @RequestParam(required = false) Long factoryId,
                                                                @RequestParam(required = false) Long page,
-                                                               @RequestParam(required = false) Long pageSize) {
-        return ApiResult.ok(ecInventoryService.pageInventories(keyword, alertOnly, inStockOnly, factoryId, page, pageSize));
+                                                               @RequestParam(required = false) Long pageSize,
+                                                               @RequestParam(required = false) Boolean groupBySpu) {
+        return ApiResult.ok(ecInventoryService.pageInventories(keyword, alertOnly, inStockOnly, factoryId, page, pageSize, groupBySpu));
+    }
+
+    @GetMapping("/overview")
+    public ApiResult<EcInventoryOverviewVO> overview() {
+        return ApiResult.ok(ecInventoryService.getInventoryOverview());
+    }
+
+    @GetMapping("/summary")
+    public ApiResult<EcInventorySummaryVO> summary(@RequestParam(required = false) Long factoryId) {
+        return ApiResult.ok(ecInventoryService.getInventorySummary(factoryId));
+    }
+
+    @GetMapping("/spu-status-counts")
+    public ApiResult<EcInventorySpuStatusVO> spuStatusCounts() {
+        return ApiResult.ok(ecInventoryService.getSpuStatusCounts());
+    }
+
+    @GetMapping("/by-product")
+    public ApiResult<List<EcInventoryListItemVO>> byProduct(@RequestParam Long productId) {
+        return ApiResult.ok(ecInventoryService.getInventoryByProduct(productId));
     }
 
     @GetMapping("/logs")

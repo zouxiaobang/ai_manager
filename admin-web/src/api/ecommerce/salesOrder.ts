@@ -180,6 +180,12 @@ export interface EcSalesOrderMonthlyOverview {
   totalShopCount: number
   pendingReviewCount: number
   lastImportTime?: string | null
+  /** 各状态订单数，如 { DRAFT: 5, PAID: 10 } */
+  statusCounts?: Record<string, number>
+  /** 总营收 */
+  totalRevenue?: number
+  /** 总利润 */
+  totalProfit?: number
   shops: EcSalesOrderShopImportStatus[]
 }
 

@@ -260,11 +260,11 @@ import {
 import { fetchInventories, fetchInventoryFactorySummary, type EcInventory } from '@/api/ecommerce/inventory'
 import { echarts } from '@/utils/echarts'
 import { ecommercePathForModule, type EcommerceWorkbenchModule } from '@/data/ecommerce-nav'
+import { useEcSettingsStore } from '@/stores/ecSettings'
 import {
   computeInventoryStats,
   type InventoryStatusKey,
 } from '@/utils/inventoryStats'
-import { useEcSettingsStore } from '@/stores/ecSettings'
 
 interface AggregatedSettlement {
   totalRevenue: number
@@ -281,12 +281,6 @@ interface AggregatedSettlement {
 const { t } = useI18n()
 const router = useRouter()
 const ecSettings = useEcSettingsStore()
-
-const inventoryClassificationOptions = computed(() => ({
-  defaultAlertThreshold: ecSettings.inventory.defaultAlertThreshold,
-  slowMovingDays: ecSettings.inventory.slowMovingDays,
-  slowMovingFallbackDays: ecSettings.inventory.slowMovingFallbackDays,
-}))
 
 const settlementMonth = ref(shiftMonth(formatMonth(new Date()), -1))
 const selectedShopIds = ref<number[]>([])
@@ -452,17 +446,16 @@ const inventoryDialogTitle = computed(() =>
 )
 
 const inventoryStatusStats = computed(() =>
-  computeInventoryStats(inventoryAllItems.value, inventoryClassificationOptions.value),
+  computeInventoryStats(inventoryAllItems.value),
 )
 
 const inventoryBreakdown = computed(() => {
   const stats = inventoryStatusStats.value
-  const max = Math.max(stats.normal, stats.low, stats.zero, stats.slow, 1)
+  const max = Math.max(stats.normal, stats.low, stats.zero, 1)
   const rows: Array<{ key: InventoryStatusKey; label: string; count: number; color: string; pct: number }> = [
     { key: 'normal', label: t('ecommerce.home.inventoryNormal'), count: stats.normal, color: '#2563eb', pct: 0 },
     { key: 'low', label: t('ecommerce.home.inventoryLow'), count: stats.low, color: '#ea580c', pct: 0 },
     { key: 'zero', label: t('ecommerce.home.inventoryZeroShort'), count: stats.zero, color: '#dc2626', pct: 0 },
-    { key: 'slow', label: t('ecommerce.home.inventorySlow'), count: stats.slow, color: '#9ca3af', pct: 0 },
   ]
   for (const row of rows) {
     row.pct = (row.count / max) * 100
@@ -654,7 +647,6 @@ function renderInventoryChart() {
     { value: stats.normal, name: t('ecommerce.home.inventoryNormal'), color: '#2563eb' },
     { value: stats.low, name: t('ecommerce.home.inventoryLow'), color: '#ea580c' },
     { value: stats.zero, name: t('ecommerce.home.inventoryZeroShort'), color: '#dc2626' },
-    { value: stats.slow, name: t('ecommerce.home.inventorySlow'), color: '#9ca3af' },
   ].filter((item) => item.value > 0)
 
   inventoryChart.setOption(

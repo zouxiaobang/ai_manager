@@ -6,14 +6,7 @@ import com.ai.manager.system.domain.dto.EcInventoryInboundRequest;
 import com.ai.manager.system.domain.dto.EcInventoryOutboundRequest;
 import com.ai.manager.system.domain.dto.EcInventorySaveRequest;
 import com.ai.manager.system.domain.entity.EcInventory;
-import com.ai.manager.system.domain.vo.EcInventoryDetailVO;
-import com.ai.manager.system.domain.vo.EcInventoryFactorySummaryVO;
-import com.ai.manager.system.domain.vo.EcInventoryGlobalLogVO;
-import com.ai.manager.system.domain.vo.EcInventoryListItemVO;
-import com.ai.manager.system.domain.vo.EcInventoryLogVO;
-import com.ai.manager.system.domain.vo.EcInventoryInboundValueSummaryVO;
-import com.ai.manager.system.domain.vo.EcInventoryPackingEstimateVO;
-import com.ai.manager.system.domain.vo.EcInventorySkuOptionVO;
+import com.ai.manager.system.domain.vo.*;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 import java.time.LocalDateTime;
@@ -22,7 +15,15 @@ import java.util.List;
 public interface EcInventoryService extends IService<EcInventory> {
 
     PageResult<EcInventoryListItemVO> pageInventories(String keyword, Boolean alertOnly, Boolean inStockOnly,
-                                                      Long factoryId, Long page, Long pageSize);
+                                                      Long factoryId, Long page, Long pageSize, Boolean groupBySpu);
+
+    EcInventoryOverviewVO getInventoryOverview();
+
+    EcInventorySummaryVO getInventorySummary(Long factoryId);
+
+    EcInventorySpuStatusVO getSpuStatusCounts();
+
+    List<EcInventoryListItemVO> getInventoryByProduct(Long productId);
 
     EcInventoryDetailVO getInventoryDetail(Long id);
 

@@ -29,37 +29,35 @@
               <option v-for="p in availableProvinces" :key="p" :value="p">{{ p }}</option>
             </select>
           </div>
-          <div class="express-calc-modal__calc-row express-calc-modal__calc-row--dims">
+          <div class="express-calc-modal__calc-row">
             <label class="express-calc-modal__calc-label">📏 尺寸(cm)</label>
             <div class="express-calc-modal__calc-dims">
-              <div class="express-calc-modal__calc-dim">
-                <input
-                  v-model.number="calcLength"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  placeholder="长"
-                  class="express-calc-modal__calc-input"
-                />
-                <span class="express-calc-modal__calc-dim-x">×</span>
-                <input
-                  v-model.number="calcWidth"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  placeholder="宽"
-                  class="express-calc-modal__calc-input"
-                />
-                <span class="express-calc-modal__calc-dim-x">×</span>
-                <input
-                  v-model.number="calcHeight"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  placeholder="高"
-                  class="express-calc-modal__calc-input"
-                />
-              </div>
+              <input
+                v-model.number="calcLength"
+                type="number"
+                min="0"
+                step="0.1"
+                placeholder="长"
+                class="express-calc-modal__calc-input"
+              />
+              <span class="express-calc-modal__calc-dim-x">×</span>
+              <input
+                v-model.number="calcWidth"
+                type="number"
+                min="0"
+                step="0.1"
+                placeholder="宽"
+                class="express-calc-modal__calc-input"
+              />
+              <span class="express-calc-modal__calc-dim-x">×</span>
+              <input
+                v-model.number="calcHeight"
+                type="number"
+                min="0"
+                step="0.1"
+                placeholder="高"
+                class="express-calc-modal__calc-input"
+              />
             </div>
           </div>
           <div class="express-calc-modal__calc-row">
@@ -90,13 +88,9 @@
             试算结果
           </div>
           <div class="express-calc-modal__calc-result-rows">
-            <div class="express-calc-modal__calc-result-row">
+            <div v-if="calcResult.volumetricWeight > 0" class="express-calc-modal__calc-result-row">
               <span>体积重</span>
               <span>{{ formatWeight(calcResult.volumetricWeight) }} kg</span>
-            </div>
-            <div v-if="calcResult.actualWeight != null" class="express-calc-modal__calc-result-row">
-              <span>实际重量</span>
-              <span>{{ formatWeight(calcResult.actualWeight) }} kg</span>
             </div>
             <div class="express-calc-modal__calc-result-row">
               <span>计费重量</span>
@@ -113,7 +107,10 @@
               <span>¥{{ formatPrice(calcResult.freight) }}</span>
             </div>
             <div v-if="calcResult.labelPrice > 0" class="express-calc-modal__calc-result-row">
-              <span>面单费</span>
+              <span>
+                面单费
+                <span class="express-calc-modal__calc-result-tip">（不含面单费）</span>
+              </span>
               <span>¥{{ formatPrice(calcResult.labelPrice) }}</span>
             </div>
             <div class="express-calc-modal__calc-result-row express-calc-modal__calc-result-row--total">
@@ -138,15 +135,15 @@
 import { computed, ref, watch } from 'vue'
 import MobileBottomSheet from '@/mobile/components/MobileBottomSheet.vue'
 import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
-import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets'
+import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets.ts'
 import {
   fetchExpressStation,
   fetchExpressStations,
   type EcExpressStation,
   type EcExpressPrice,
-} from '@/api/ecommerce/express'
+} from '@/api/ecommerce/express.ts'
 
-const VOLUMETRIC_DIVISOR = 6000
+const VOLUMETRIC_DIVISOR = 8000
 
 const props = defineProps<{
   modelValue: boolean
@@ -253,8 +250,20 @@ async function loadStationDetail(stationId: number) {
 
 async function handleCalculate() {
   if (calcStationId.value == null || !calcProvince.value) return
-  if (calcLength.value == null || calcWidth.value == null || calcHeight.value == null) return
-  if (calcLength.value <= 0 || calcWidth.value <= 0 || calcHeight.value <= 0) return
+
+  // 体积（长/宽/高全部填写）和重量至少填一项
+  const hasVolume = calcLength.value != null && calcWidth.value != null && calcHeight.value != null
+    && calcLength.value > 0 && calcWidth.value > 0 && calcHeight.value > 0
+  const hasWeight = calcWeight.value != null && calcWeight.value > 0
+  if (!hasVolume && !hasWeight) return
+
+  // 如果只填了体积，自动计算体积重并填入重量输入框
+  if (hasVolume && !hasWeight) {
+    const volWeight = Math.round(
+      (calcLength.value! * calcWidth.value! * calcHeight.value!) / VOLUMETRIC_DIVISOR * 1000
+    ) / 1000
+    calcWeight.value = volWeight
+  }
 
   calcLoading.value = true
   try {
@@ -273,10 +282,10 @@ async function handleCalculate() {
       return
     }
     calcResult.value = computeFreight(
-      calcLength.value,
-      calcWidth.value,
-      calcHeight.value,
-      calcWeight.value,
+      calcLength.value ?? 0,
+      calcWidth.value ?? 0,
+      calcHeight.value ?? 0,
+      calcWeight.value!,
       price,
       station.labelPrice ?? 0,
     )
@@ -289,14 +298,16 @@ function computeFreight(
   length: number,
   width: number,
   height: number,
-  actualWeight: number | null,
+  actualWeight: number,
   price: EcExpressPrice,
   labelPrice: number,
 ): CalcResult {
-  const volumetricWeight = (length * width * height) / VOLUMETRIC_DIVISOR
-  const billingWeight = actualWeight != null && actualWeight > 0
-    ? Math.max(actualWeight, volumetricWeight)
-    : volumetricWeight
+  // 如果有尺寸数据，计算体积重（仅用于展示）
+  const hasVolume = length > 0 && width > 0 && height > 0
+  const volumetricWeight = hasVolume ? (length * width * height) / VOLUMETRIC_DIVISOR : 0
+
+  // 计费重量直接使用解析后的重量
+  const billingWeight = actualWeight
 
   let freight = 0
   let tier = ''
@@ -343,7 +354,7 @@ function computeFreight(
     }
   }
 
-  const total = freight + labelPrice
+  const total = freight
   return {
     volumetricWeight,
     actualWeight: actualWeight ?? null,
@@ -394,7 +405,7 @@ function formatWeight(weight: number): string {
 
 .express-calc-modal__calc-box {
   :deep(.sa-doodle-frame__body) {
-    padding: 14px;
+    padding: 28px 14px 14px;
     background: #fff7ed;
   }
 }
@@ -403,16 +414,13 @@ function formatWeight(weight: number): string {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding: 20px;
 }
 
 .express-calc-modal__calc-row {
   display: flex;
   flex-direction: column;
   gap: 4px;
-
-  &--dims {
-    gap: 6px;
-  }
 }
 
 .express-calc-modal__calc-label {
@@ -450,28 +458,21 @@ function formatWeight(weight: number): string {
 .express-calc-modal__calc-dims {
   display: flex;
   align-items: center;
-  gap: 6px;
-}
-
-.express-calc-modal__calc-dim {
-  display: flex;
-  align-items: center;
   gap: 4px;
-  flex: 1;
 }
 
 .express-calc-modal__calc-input {
-  flex: 1;
-  min-width: 0;
   border: 1.5px dashed #fed7aa;
-  border-radius: 8px;
-  padding: 8px 6px;
-  font-size: 14px;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 11px;
   background: #fff;
   color: #1e293b;
   font-family: inherit;
   outline: none;
   text-align: center;
+  box-sizing: border-box;
+  width: 60px;
 
   &:focus {
     border-color: #f97316;
@@ -482,7 +483,7 @@ function formatWeight(weight: number): string {
 .express-calc-modal__calc-dim-x {
   color: #f97316;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 11px;
 }
 
 .express-calc-modal__calc-submit {
@@ -509,8 +510,7 @@ function formatWeight(weight: number): string {
 }
 
 .express-calc-modal__calc-result {
-  margin-top: 12px;
-  padding-top: 12px;
+  padding: 12px 20px 20px;
   border-top: 1.5px dashed #fed7aa;
 }
 
@@ -565,6 +565,13 @@ function formatWeight(weight: number): string {
   font-size: 18px;
   font-weight: 800;
   color: #f97316;
+}
+
+.express-calc-modal__calc-result-tip {
+  font-size: 10px;
+  color: #94a3b8;
+  font-weight: 400;
+  margin-left: 2px;
 }
 
 .express-calc-modal__calc-result-warning {

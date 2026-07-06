@@ -104,14 +104,14 @@
 
 <script setup lang="ts">
 import {computed, onMounted, ref} from 'vue'
-import {schemeAAssets as assets} from '@/mobile/views/home/themes/scheme-a/assets'
+import {schemeAAssets as assets} from '@/mobile/views/home/themes/scheme-a/assets.ts'
 import MobileDoodleSearch from '@/mobile/components/MobileDoodleSearch.vue'
 import MobileSectionHeader from '@/mobile/components/MobileSectionHeader.vue'
 import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
-import ExpressDetailModal from '@/mobile/views/ecommerce/components/ExpressDetailModal.vue'
-import ExpressCalcModal from '@/mobile/views/ecommerce/components/ExpressCalcModal.vue'
-import {type EcExpressStation, fetchExpressStations,} from '@/api/ecommerce/express'
-import {getEcommerceImageUrl} from '@/api/ecommerce/image'
+import ExpressDetailModal from '@/mobile/views/express/components/ExpressDetailModal.vue'
+import ExpressCalcModal from '@/mobile/views/express/components/ExpressCalcModal.vue'
+import {type EcExpressStation, fetchExpressStations,} from '@/api/ecommerce/express.ts'
+import {getEcommerceImageUrl} from '@/api/ecommerce/image.ts'
 import MobilePageHeader from "@/mobile/components/MobilePageHeader.vue";
 import MobileCardGrid from "@/mobile/components/MobileCardGrid.vue";
 

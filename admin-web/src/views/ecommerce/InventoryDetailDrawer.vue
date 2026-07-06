@@ -74,23 +74,38 @@
                   :class="{ 'is-alert': row.alertActive }"
                   @click="openSpuSkuCard(row)"
                 >
-                  <div class="inv-detail__sku-card-head">
-                    <span class="inv-detail__sku-card-spec">{{ row.specName || row.skuCode }}</span>
-                    <el-tag :type="row.alertActive ? 'danger' : 'success'" size="small">
-                      {{ row.alertActive ? t('ecommerce.inventory.alerting') : t('ecommerce.inventory.normal') }}
-                    </el-tag>
+                  <div class="inv-detail__sku-card-thumb">
+                    <el-image
+                      v-if="getEcommerceImageUrl(row.imageName)"
+                      :src="getEcommerceImageUrl(row.imageName)"
+                      fit="cover"
+                      class="inv-detail__sku-card-img"
+                    >
+                      <template #error>
+                        <div class="inv-detail__sku-card-img-fallback">{{ t('ecommerce.outbound.noSkuImage') }}</div>
+                      </template>
+                    </el-image>
+                    <div v-else class="inv-detail__sku-card-img-fallback">{{ t('ecommerce.outbound.noSkuImage') }}</div>
                   </div>
-                  <p class="inv-detail__sku-card-code">{{ row.skuCode }}</p>
-                  <p class="inv-detail__sku-card-qty">{{ row.quantity ?? 0 }}</p>
-                  <div class="inv-detail__sku-card-meta">
-                    <span>{{ t('ecommerce.inventory.inTransit') }} {{ row.inTransitQty ?? 0 }}</span>
-                    <span class="inv-detail__sku-card-meta-sep">·</span>
-                    <span class="inv-detail__sku-card-value-wrap">
-                      {{ t('ecommerce.inventory.stockValue') }}
-                      <span class="inv-detail__sku-card-value">
-                        <CnyAmount :value="skuStockValue(row)" />
+                  <div class="inv-detail__sku-card-body">
+                    <div class="inv-detail__sku-card-head">
+                      <span class="inv-detail__sku-card-spec">{{ row.specName || row.skuCode }}</span>
+                      <el-tag :type="row.alertActive ? 'danger' : 'success'" size="small">
+                        {{ row.alertActive ? t('ecommerce.inventory.alerting') : t('ecommerce.inventory.normal') }}
+                      </el-tag>
+                    </div>
+                    <p class="inv-detail__sku-card-code">{{ row.skuCode }}</p>
+                    <p class="inv-detail__sku-card-qty">{{ row.quantity ?? 0 }}</p>
+                    <div class="inv-detail__sku-card-meta">
+                      <span>{{ t('ecommerce.inventory.inTransit') }} {{ row.inTransitQty ?? 0 }}</span>
+                      <span class="inv-detail__sku-card-meta-sep">·</span>
+                      <span class="inv-detail__sku-card-value-wrap">
+                        {{ t('ecommerce.inventory.stockValue') }}
+                        <span class="inv-detail__sku-card-value">
+                          <CnyAmount :value="skuStockValue(row)" />
+                        </span>
                       </span>
-                    </span>
+                    </div>
                   </div>
                 </article>
               </div>
@@ -224,9 +239,26 @@
                 <CnyAmount v-if="metric.moneyValue != null" :value="metric.moneyValue" />
                 <template v-else>{{ metric.value }}</template>
               </strong>
+              <el-button
+                v-if="metric.key === 'quantity'"
+                type="primary"
+                size="small"
+                plain
+                class="inv-detail__metric-btn"
+                @click="openAdjust"
+              >
+                {{ t('ecommerce.inventory.adjust') }}
+              </el-button>
             </div>
           </article>
         </div>
+
+        <InventoryAdjustDialog
+          v-model="adjustVisible"
+          :inventory="adjustTarget"
+          @refreshed="onAdjustRefreshed"
+          @view-product="(id) => emit('viewProduct', id)"
+        />
 
         <section class="inv-detail__alert-card">
           <h4 class="inv-detail__alert-title">{{ t('ecommerce.inventory.alertSettings') }}</h4>
@@ -378,6 +410,7 @@ import {
   type EcInventoryLog,
   type EcInventoryPackingEstimate,
 } from '@/api/ecommerce/inventory'
+import InventoryAdjustDialog from '@/views/ecommerce/InventoryAdjustDialog.vue'
 import { getEcommerceImageUrl } from '@/api/ecommerce/image'
 import CnyAmount from '@/components/CnyAmount.vue'
 import { formatDateTime } from '@/utils/date'
@@ -409,8 +442,15 @@ const outboundQty = ref(1)
 const spuSkuDrillId = ref<number | null>(null)
 const activeTab = ref('logs')
 const savingAlert = ref(false)
+const adjustVisible = ref(false)
 
 const skuAlertDraft = reactive({ alertThreshold: 0, ignoreAlert: false })
+
+const adjustTarget = computed(() => (showSkuDetail.value ? detail.value : null))
+
+function openAdjust() {
+  adjustVisible.value = true
+}
 
 const isSpuMode = computed(() => (props.spuItems?.length ?? 0) > 0)
 const showSpuOverview = computed(() => isSpuMode.value && !spuSkuDrillId.value)
@@ -573,6 +613,11 @@ async function openSpuSkuCard(row: EcInventory) {
   } finally {
     loading.value = false
   }
+}
+
+function onAdjustRefreshed() {
+  void reloadDrawer()
+  emit('refreshed')
 }
 
 function backToSpuOverview() {
@@ -999,6 +1044,8 @@ function formatVolume(value?: number | null) {
 .inv-detail__metric-body {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .inv-detail__metric-label-row {
@@ -1029,6 +1076,10 @@ function formatVolume(value?: number | null) {
   &.is-compact {
     font-size: 18px;
   }
+}
+
+.inv-detail__metric-btn {
+  margin-top: 8px;
 }
 
 .inv-detail__tabs {
@@ -1229,6 +1280,8 @@ function formatVolume(value?: number | null) {
 }
 
 .inv-detail__sku-card {
+  display: flex;
+  gap: 12px;
   padding: 14px;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
@@ -1245,6 +1298,40 @@ function formatVolume(value?: number | null) {
     border-color: #fecaca;
     background: #fffbfb;
   }
+}
+
+.inv-detail__sku-card-thumb {
+  flex-shrink: 0;
+  width: 72px;
+  height: 72px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  background: #f3f4f6;
+}
+
+.inv-detail__sku-card-img {
+  width: 72px;
+  height: 72px;
+}
+
+.inv-detail__sku-card-img-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  padding: 4px;
+  font-size: 11px;
+  color: #9ca3af;
+  text-align: center;
+  line-height: 1.3;
+  background: #f3f4f6;
+}
+
+.inv-detail__sku-card-body {
+  flex: 1;
+  min-width: 0;
 }
 
 .inv-detail__sku-card-head {

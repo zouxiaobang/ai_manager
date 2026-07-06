@@ -102,10 +102,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import MobileBottomSheet from '@/mobile/components/MobileBottomSheet.vue'
-import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets'
-import { fetchShop } from '@/api/ecommerce/shop'
-import type { EcShop } from '@/api/ecommerce/shop'
-import { resolveShopIcon } from '@/utils/shopVisual'
+import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets.ts'
+import { fetchShop } from '@/api/ecommerce/shop.ts'
+import type { EcShop } from '@/api/ecommerce/shop.ts'
+import { resolveShopIcon } from '@/utils/shopVisual.ts'
 
 const props = defineProps<{
   modelValue: boolean

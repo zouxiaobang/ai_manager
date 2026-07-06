@@ -40,8 +40,8 @@
 
 <script setup lang="ts">
 import { inject } from 'vue'
-import { MOBILE_ECOMMERCE_KEY } from '../mobileEcommerceContext'
-import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets'
+import { MOBILE_ECOMMERCE_KEY } from '../../ecommerce/mobileEcommerceContext.ts'
+import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets.ts'
 import MobileDoodleChip from '@/mobile/components/MobileDoodleChip.vue'
 import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
 

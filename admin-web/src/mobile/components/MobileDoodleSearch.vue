@@ -3,6 +3,7 @@
     shape="pill"
     :color="color"
     sketch
+    :shadow="shadow"
     class="mobile-doodle-search"
     :class="classList"
   >
@@ -38,11 +39,13 @@ const props = withDefaults(
     modelValue: string
     placeholder?: string
     color?: string
+    shadow?: boolean
     class?: string
   }>(),
   {
     placeholder: '搜索...',
     color: '#2563eb',
+    shadow: false,
   },
 )
 

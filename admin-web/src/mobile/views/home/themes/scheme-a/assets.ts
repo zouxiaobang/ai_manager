@@ -28,6 +28,7 @@ export const schemeAAssets = {
   tabNotebook: `${SCHEME_A_BASE}/tab-notebook.svg`,
   tabTodos: `${SCHEME_A_BASE}/tab-todos.svg`,
   tabMore: `${SCHEME_A_BASE}/tab-more.svg`,
+  chevronDown: `${SCHEME_A_BASE}/deco-chevron-down.svg`,
 } as const
 
 export const schemeAModuleIcons: Record<string, string> = {

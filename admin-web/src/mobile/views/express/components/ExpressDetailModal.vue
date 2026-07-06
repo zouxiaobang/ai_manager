@@ -82,7 +82,6 @@
               class="express-detail-modal__notice"
               :class="{ 'express-detail-modal__notice--highlight': notice.highlightRed }"
             >
-              <span class="express-detail-modal__notice-bullet">•</span>
               <span class="express-detail-modal__notice-content">{{ notice.content }}</span>
             </div>
           </SchemeADoodleFrame>
@@ -171,9 +170,9 @@ import { computed, ref, watch } from 'vue'
 import MobileBottomSheet from '@/mobile/components/MobileBottomSheet.vue'
 import MobileDoodleSearch from '@/mobile/components/MobileDoodleSearch.vue'
 import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
-import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets'
-import { fetchExpressStation, type EcExpressStation } from '@/api/ecommerce/express'
-import { getEcommerceImageUrl } from '@/api/ecommerce/image'
+import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets.ts'
+import { fetchExpressStation, type EcExpressStation } from '@/api/ecommerce/express.ts'
+import { getEcommerceImageUrl } from '@/api/ecommerce/image.ts'
 
 const props = defineProps<{
   modelValue: boolean
@@ -430,6 +429,7 @@ function formatPrice(price?: number | null): string {
   gap: 8px;
   font-size: 13px;
   color: #475569;
+  padding: 12px;
 
   &--highlight {
     font-weight: 700;
@@ -457,7 +457,7 @@ function formatPrice(price?: number | null): string {
   }
 
   :deep(.sa-doodle-frame__body) {
-    padding: 12px;
+    padding: 24px;
     background: #f0fdf4;
   }
 }

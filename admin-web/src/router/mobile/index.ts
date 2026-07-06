@@ -1,16 +1,33 @@
-import { createRouter, createWebHashHistory } from 'vue-router'
+import { createRouter, createWebHashHistory, type RouteLocationNormalized } from 'vue-router'
 import MobileLayout from '@/mobile/layouts/MobileLayout.vue'
+
+/** 保存每个路由路径的滚动位置，用于返回时恢复 */
+const scrollPositions = new Map<string, number>()
+
+function saveScrollPosition(route: RouteLocationNormalized) {
+  if (!route.path) return
+  const main = document.querySelector('.mobile-app__main')
+  if (main) {
+    scrollPositions.set(route.path, main.scrollTop)
+  }
+}
+
+function restoreScrollPosition(route: RouteLocationNormalized) {
+  const saved = scrollPositions.get(route.path)
+  if (saved !== undefined && saved > 0) {
+    requestAnimationFrame(() => {
+      const main = document.querySelector('.mobile-app__main')
+      if (main) {
+        main.scrollTop = saved
+      }
+    })
+  }
+}
 
 const router = createRouter({
   history: createWebHashHistory(),
-  scrollBehavior(to) {
-    if (to.hash) {
-      return {
-        el: to.hash,
-        behavior: 'smooth',
-      }
-    }
-    return { top: 0, behavior: 'smooth' }
+  scrollBehavior() {
+    // 不在这里处理滚动，使用 beforeEach/afterEach 手动管理
   },
   routes: [
     {
@@ -67,38 +84,38 @@ const router = createRouter({
         {
           path: 'ecommerce/monthly-settlement',
           name: 'mobile-ecommerce-monthly-settlement',
-          component: () => import('@/mobile/views/ecommerce/MobileEcommerceModuleView.vue'),
-          meta: { titleKey: 'ecommerce.nav.monthlySettlement', hideTabBar: true, module: 'monthlySettlement' },
+          component: () => import('@/mobile/views/monthly-settlement/MobileMonthlySettlementView.vue'),
+          meta: { titleKey: 'ecommerce.nav.monthlySettlement', hideTabBar: true, hideAppHeader: true },
         },
         {
           path: 'ecommerce/orders',
           name: 'mobile-ecommerce-orders',
-          component: () => import('@/mobile/views/ecommerce/MobileEcommerceModuleView.vue'),
-          meta: { titleKey: 'ecommerce.nav.order', hideTabBar: true, module: 'order' },
+          component: () => import('@/mobile/views/order/MobileOrderView.vue'),
+          meta: { titleKey: 'ecommerce.nav.order', hideTabBar: true, hideAppHeader: true },
         },
         {
           path: 'ecommerce/inventory',
           name: 'mobile-ecommerce-inventory',
-          component: () => import('@/mobile/views/ecommerce/MobileEcommerceModuleView.vue'),
-          meta: { titleKey: 'ecommerce.nav.inventory', hideTabBar: true, module: 'inventory' },
+          component: () => import('@/mobile/views/inventory/MobileInventoryView.vue'),
+          meta: { titleKey: 'ecommerce.nav.inventory', hideTabBar: true, hideAppHeader: true },
         },
         {
           path: 'ecommerce/products',
           name: 'mobile-ecommerce-products',
-          component: () => import('@/mobile/views/ecommerce/MobileEcommerceModuleView.vue'),
-          meta: { titleKey: 'ecommerce.nav.product', hideTabBar: true, module: 'product' },
+          component: () => import('@/mobile/views/products/MobileProductsView.vue'),
+          meta: { titleKey: 'ecommerce.nav.product', hideTabBar: true, hideAppHeader: true },
         },
         {
           path: 'ecommerce/express',
           name: 'mobile-ecommerce-express',
-          component: () => import('@/mobile/views/ecommerce/MobileExpressView.vue'),
+          component: () => import('@/mobile/views/express/MobileExpressView.vue'),
           meta: { titleKey: 'ecommerce.nav.express', hideTabBar: true, hideAppHeader: true },
         },
         
         {
           path: 'ecommerce/shops',
           name: 'mobile-ecommerce-shops',
-          component: () => import('@/mobile/views/ecommerce/MobileShopView.vue'),
+          component: () => import('@/mobile/views/shop/MobileShopView.vue'),
           meta: { titleKey: 'ecommerce.nav.platformShop', hideTabBar: true, hideAppHeader: true },
         },
         {
@@ -176,24 +193,46 @@ const router = createRouter({
         {
           path: 'shop-design-preview',
           name: 'mobile-shop-design-preview',
-          component: () => import('@/mobile/views/ecommerce/MobileShopDesignPreview.vue'),
+          component: () => import('@/mobile/views/shop/MobileShopDesignPreview.vue'),
           meta: { titleKey: '店铺管理设计预览', hideTabBar: true },
         },
         {
           path: 'express-design-preview',
           name: 'mobile-express-design-preview',
-          component: () => import('@/mobile/views/ecommerce/MobileExpressDesignPreview.vue'),
+          component: () => import('@/mobile/views/express/MobileExpressDesignPreview.vue'),
           meta: { titleKey: '快递管理设计预览', hideTabBar: true },
         },
         {
           path: 'inventory-design-preview',
           name: 'mobile-inventory-design-preview',
-          component: () => import('@/mobile/views/ecommerce/MobileInventoryDesignPreview.vue'),
+          component: () => import('@/mobile/views/inventory/MobileInventoryDesignPreview.vue'),
           meta: { titleKey: '库存中心设计预览', hideTabBar: true },
+        },
+        {
+          path: 'order-design-preview',
+          name: 'mobile-order-design-preview',
+          component: () => import('@/mobile/views/order/MobileOrderDesignPreview.vue'),
+          meta: { titleKey: '订单中心设计预览', hideTabBar: true },
+        },
+        {
+          path: 'monthly-settlement-design-preview',
+          name: 'mobile-monthly-settlement-design-preview',
+          component: () => import('@/mobile/views/monthly-settlement/MobileMonthlySettlementDesignPreview.vue'),
+          meta: { titleKey: '月结统计设计预览', hideTabBar: true },
         },
       ],
     },
   ],
+})
+
+// 离开页面时保存滚动位置
+router.beforeEach((to, from) => {
+  saveScrollPosition(from)
+})
+
+// 进入页面时恢复滚动位置
+router.afterEach((to) => {
+  restoreScrollPosition(to)
 })
 
 router.beforeEach((to, _from, next) => {

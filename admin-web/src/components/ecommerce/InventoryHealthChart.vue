@@ -33,29 +33,28 @@ import { useI18n } from 'vue-i18n'
 import * as echarts from 'echarts'
 import { CircleCheckFilled, InfoFilled } from '@element-plus/icons-vue'
 import {
-  computeInventoryHealthScore,
-  computeInventoryStats,
   inventoryStatusPercent,
   type InventoryStatusKey,
 } from '@/utils/inventoryStats'
-import type { EcInventory } from '@/api/ecommerce/inventory'
-import { useEcSettingsStore } from '@/stores/ecSettings'
+import type { EcInventorySummary } from '@/api/ecommerce/inventory'
 
-const props = defineProps<{ items: EcInventory[] }>()
+const props = defineProps<{ summary: EcInventorySummary | null }>()
 
 const { t } = useI18n()
-const ecSettings = useEcSettingsStore()
 const chartRef = ref<HTMLElement | null>(null)
 let chart: echarts.ECharts | null = null
 
-const classificationOptions = computed(() => ({
-  defaultAlertThreshold: ecSettings.inventory.defaultAlertThreshold,
-  slowMovingDays: ecSettings.inventory.slowMovingDays,
-  slowMovingFallbackDays: ecSettings.inventory.slowMovingFallbackDays,
-}))
-
-const stats = computed(() => computeInventoryStats(props.items, classificationOptions.value))
-const healthScore = computed(() => computeInventoryHealthScore(stats.value))
+const stats = computed(() => {
+  const s = props.summary
+  if (!s) return { total: 0, normal: 0, low: 0, zero: 0 }
+  return {
+    total: s.skuCount,
+    normal: s.statusCounts.normal ?? 0,
+    low: s.statusCounts.low ?? 0,
+    zero: s.statusCounts.zero ?? 0,
+  }
+})
+const healthScore = computed(() => props.summary?.healthScore ?? 100)
 
 const legendItems = computed(() => {
   const s = stats.value
@@ -63,7 +62,6 @@ const legendItems = computed(() => {
     { key: 'normal', label: t('ecommerce.home.inventoryNormal'), color: '#2563eb', count: s.normal, pct: 0 },
     { key: 'low', label: t('ecommerce.home.inventoryLow'), color: '#ea580c', count: s.low, pct: 0 },
     { key: 'zero', label: t('ecommerce.home.inventoryZeroShort'), color: '#dc2626', count: s.zero, pct: 0 },
-    { key: 'slow', label: t('ecommerce.home.inventorySlow'), color: '#9ca3af', count: s.slow, pct: 0 },
   ]
   for (const row of rows) {
     row.pct = inventoryStatusPercent(s, row.key)
@@ -87,7 +85,6 @@ function renderChart() {
     { value: stats.value.normal, name: t('ecommerce.home.inventoryNormal'), color: '#2563eb' },
     { value: stats.value.low, name: t('ecommerce.home.inventoryLow'), color: '#ea580c' },
     { value: stats.value.zero, name: t('ecommerce.home.inventoryZeroShort'), color: '#dc2626' },
-    { value: stats.value.slow, name: t('ecommerce.home.inventorySlow'), color: '#9ca3af' },
   ].filter((item) => item.value > 0)
 
   chart.setOption(

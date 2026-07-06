@@ -44,7 +44,7 @@
 
 <script setup lang="ts">
 import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
-import type { EcExpressStation } from '@/api/ecommerce/express'
+import type { EcExpressStation } from '@/api/ecommerce/express.ts'
 
 defineProps<{
   station: EcExpressStation

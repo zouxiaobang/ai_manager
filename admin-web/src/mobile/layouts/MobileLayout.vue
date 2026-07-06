@@ -34,7 +34,11 @@
       class="mobile-app__main"
       :class="{ 'mobile-app__main--with-tabbar': showTabBar }"
     >
-      <router-view />
+      <router-view v-slot="{ Component }">
+        <keep-alive :include="cachedComponents">
+          <component :is="Component" />
+        </keep-alive>
+      </router-view>
     </main>
 
     <nav v-if="showTabBar" class="mobile-app__tabbar">
@@ -68,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
@@ -90,6 +94,9 @@ const router = useRouter()
 const { t } = useI18n()
 const appStore = useAppStore()
 const { todayTodoCount, refreshTodayCount } = useTodoReminders()
+
+/** 需要 keep-alive 缓存的组件名称列表 */
+const cachedComponents = ref<string[]>(['MobileEcommerceView'])
 
 const useSchemeATabbar = computed(() => appStore.mobileHomeTheme === 'scheme-a')
 

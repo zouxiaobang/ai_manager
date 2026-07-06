@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>商品中心 · 移动端界面设计</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:'ZCOOL KuaiLe',system-ui,-apple-system,sans-serif;
+      background:#faf8f5;min-height:100vh;padding:32px 24px 24px;color:#1e293b
+    }
+    ::-webkit-scrollbar{width:6px;height:6px}
+    ::-webkit-scrollbar-track{background:#f1f5f9;border-radius:3px}
+    ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+
+    /* Header */
+    .page-header{text-align:center;margin-bottom:28px}
+    .page-header h1{font-size:34px;color:#1e293b;display:flex;align-items:center;justify-content:center;gap:10px}
+    .doodle-line{display:inline-block;width:50px;height:4px;background:#2563eb;border-radius:2px;position:relative}
+    .doodle-line::before,.doodle-line::after{content:'';position:absolute;width:8px;height:8px;border-radius:50%;top:-2px}
+    .doodle-line::before{left:-4px;background:#f59e0b}
+    .doodle-line::after{right:-4px;background:#ef4444}
+    .page-subtitle{font-size:14px;color:#64748b;margin-top:6px}
+
+    /* Divider */
+    .doodle-divider{width:100%;max-width:520px;height:20px;margin:0 auto 20px;display:block}
+
+    /* Tabs */
+    .scheme-tabs{display:flex;justify-content:center;gap:10px;margin-bottom:28px;flex-wrap:wrap}
+    .scheme-tab{
+      padding:10px 20px;border-radius:999px;border:2.5px solid #1e293b;background:#fff;
+      font-family:'ZCOOL KuaiLe',sans-serif;font-size:15px;color:#1e293b;cursor:pointer;
+      transition:all .25s cubic-bezier(.34,1.56,.64,1);position:relative
+    }
+    .scheme-tab:hover{transform:scale(1.04);border-color:#2563eb;color:#2563eb}
+    .scheme-tab.active{background:#1e293b;color:#faf8f5;border-color:#1e293b;box-shadow:0 4px 16px rgba(30,41,59,.25)}
+    .scheme-tab .badge{display:inline-block;font-size:9px;background:#ef4444;color:#fff;border-radius:999px;padding:1px 7px;margin-left:5px;vertical-align:middle}
+    .scheme-tab.active .badge{background:#f59e0b}
+
+    /* Layout */
+    .preview-layout{display:flex;justify-content:center;gap:36px;flex-wrap:wrap;align-items:flex-start}
+
+    /* Mobile Mockup */
+    .mobile-mockup{
+      width:375px;height:812px;border-radius:44px;background:#1e293b;
+      box-shadow:0 24px 80px rgba(0,0,0,.25),0 0 0 1px rgba(255,255,255,.08) inset;
+      overflow:hidden;position:relative;flex-shrink:0
+    }
+    .mockup-top{height:47px;background:#faf8f5;display:flex;justify-content:center;align-items:center;position:relative}
+    .mockup-time{position:absolute;left:28px;top:14px;font-size:14px;font-weight:600;color:#1e293b;font-family:system-ui,sans-serif}
+    .mockup-notch{width:150px;height:33px;border-radius:0 0 20px 20px;background:#1e293b;position:relative}
+    .mockup-notch::before{content:'';position:absolute;width:10px;height:10px;background:#2563eb;border-radius:50%;top:50%;left:50%;transform:translate(-50%,-50%)}
+    .mockup-battery{position:absolute;right:24px;top:16px;display:flex;align-items:center;gap:4px}
+    .mockup-battery span{font-size:10px;color:#1e293b;font-family:system-ui,sans-serif}
+    .mockup-battery-icon{width:22px;height:11px;border:1.5px solid #1e293b;border-radius:2px;position:relative}
+    .mockup-battery-icon::after{content:'';position:absolute;right:-4px;top:2px;width:3px;height:5px;background:#1e293b;border-radius:0 1px 1px 0}
+    .mockup-battery-icon .fill{position:absolute;left:2px;top:2px;width:70%;height:5px;background:#22c55e;border-radius:1px}
+
+    /* Page content */
+    .scheme-page{
+      height:calc(100% - 47px - 20px);overflow-y:auto;background:#faf8f5;
+      padding:14px 14px 20px;scroll-behavior:smooth
+    }
+    .scheme-page::-webkit-scrollbar{width:3px}
+    .scheme-page::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:2px}
+    .mockup-home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:134px;height:5px;border-radius:999px;background:#333}
+
+    /* Doodle frame (SVG overlay) */
+    .d-frame{position:relative;background:transparent;border:none;outline:none;overflow:visible}
+    .d-frame>svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+    .d-frame>.fc{position:relative;z-index:1;width:100%;height:100%}
+
+    /* ===================================================== */
+    /*  SCHEME A — SPU列表风 (Product List with SKU badges)   */
+    /* ===================================================== */
+    .sch-a .top-bar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+    .sch-a .top-bar h2{font-size:20px;color:#1e293b}
+    .sch-a .top-bar .add-btn{
+      margin-left:auto;width:36px;height:36px;border-radius:50%;background:#2563eb;
+      color:#fff;border:none;font-size:20px;cursor:default;
+      box-shadow:0 3px 10px rgba(37,99,235,.3);display:flex;align-items:center;justify-content:center
+    }
+    .sch-a .spu-search{padding:9px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+    .sch-a .spu-search input{flex:1;border:none;outline:none;background:transparent;font-family:'ZCOOL KuaiLe',sans-serif;font-size:12px;color:#1e293b}
+    .sch-a .spu-search input::placeholder{color:#94a3b8}
+    .sch-a .spu-search svg{width:16px;height:16px;flex-shrink:0}
+
+    .sch-a .spu-item{padding:12px;margin-bottom:10px;cursor:default;transition:transform .15s}
+    .sch-a .spu-item:hover{transform:scale(.98)}
+    .sch-a .spu-item .spu-row{display:flex;gap:10px}
+    .sch-a .spu-item .spu-img{
+      width:64px;height:64px;border-radius:10px;flex-shrink:0;
+      background:linear-gradient(135deg,#e2e8f0,#cbd5e1);
+      display:flex;align-items:center;justify-content:center;font-size:24px
+    }
+    .sch-a .spu-item .spu-info{flex:1;min-width:0}
+    .sch-a .spu-item .spu-info .spu-name{font-size:14px;color:#1e293b;margin-bottom:2px}
+    .sch-a .spu-item .spu-info .spu-factory{font-size:10px;color:#64748b;margin-bottom:4px}
+    .sch-a .spu-item .spu-info .spu-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .sch-a .spu-item .spu-info .spu-meta .spu-tag{font-size:9px;padding:2px 8px;border-radius:999px;font-family:'ZCOOL KuaiLe',sans-serif}
+    .sch-a .spu-item .spu-info .spu-meta .spu-tag.ok{background:#f0fdf4;color:#22c55e;border:1px solid #bbf7d0}
+    .sch-a .spu-item .spu-info .spu-meta .spu-tag.off{background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0}
+    .sch-a .spu-item .spu-info .spu-meta .spu-rebate{font-size:10px;color:#f59e0b}
+    .sch-a .spu-item .spu-info .spu-meta .spu-sku-count{font-size:10px;color:#64748b}
+    .sch-a .spu-item .spu-info .spu-skus{display:flex;gap:4px;margin-top:5px;overflow-x:auto;padding-bottom:2px}
+    .sch-a .spu-item .spu-info .spu-skus::-webkit-scrollbar{height:0}
+    .sch-a .spu-item .spu-info .spu-skus .sku-mini{
+      flex-shrink:0;font-size:9px;padding:2px 7px;border-radius:6px;
+      background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;font-family:'ZCOOL KuaiLe',sans-serif
+    }
+    .sch-a .spu-item .spu-info .spu-skus .sku-mini.on{background:#eff6ff;color:#2563eb;border-color:#bfdbfe}
+
+    /* ===================================================== */
+    /*  SCHEME B — SKU明细风 (SKU Detail Cards)              */
+    /* ===================================================== */
+    .sch-b .page-title-area{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+    .sch-b .page-title-area h2{font-size:18px;color:#1e293b}
+    .sch-b .page-title-area .back-btn{width:28px;height:28px;border-radius:50%;border:2px solid #2563eb;display:flex;align-items:center;justify-content:center;color:#2563eb;font-size:14px;cursor:default}
+
+    .sch-b .sku-hero{padding:14px;margin-bottom:12px}
+    .sch-b .sku-hero .hero-row{display:flex;gap:10px}
+    .sch-b .sku-hero .hero-img{
+      width:72px;height:72px;border-radius:10px;flex-shrink:0;
+      background:linear-gradient(135deg,#dbeafe,#bfdbfe);
+      display:flex;align-items:center;justify-content:center;font-size:28px
+    }
+    .sch-b .sku-hero .hero-info{flex:1;min-width:0}
+    .sch-b .sku-hero .hero-info .hero-name{font-size:16px;color:#1e293b;margin-bottom:2px}
+    .sch-b .sku-hero .hero-info .hero-factory{font-size:11px;color:#64748b;margin-bottom:4px}
+    .sch-b .sku-hero .hero-info .hero-badges{display:flex;gap:4px;flex-wrap:wrap}
+    .sch-b .sku-hero .hero-info .hero-badges span{font-size:9px;padding:2px 8px;border-radius:999px;font-family:'ZCOOL KuaiLe',sans-serif}
+    .sch-b .sku-hero .hero-info .hero-badges .b-enabled{background:#f0fdf4;color:#22c55e;border:1px solid #bbf7d0}
+    .sch-b .sku-hero .hero-info .hero-badges .b-disabled{background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0}
+    .sch-b .sku-hero .hero-info .hero-badges .b-draft{background:#fffbeb;color:#f59e0b;border:1px solid #fde68a}
+
+    .sch-b .sku-tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto}
+    .sch-b .sku-tabs::-webkit-scrollbar{height:0}
+    .sch-b .sku-tabs .st{
+      flex-shrink:0;padding:6px 12px;border-radius:999px;border:1.5px solid #2563eb;
+      font-family:'ZCOOL KuaiLe',sans-serif;font-size:11px;color:#2563eb;background:#fff;cursor:default
+    }
+    .sch-b .sku-tabs .st.active{background:#2563eb;color:#fff}
+    .sch-b .sku-tabs .st .st-badge{font-size:8px;background:#f59e0b;color:#fff;border-radius:999px;padding:0 5px;margin-left:4px}
+    .sch-b .sku-tabs .st.active .st-badge{background:#facc15;color:#1e293b}
+
+    .sch-b .sku-detail-card{padding:14px;margin-bottom:10px}
+    .sch-b .sku-detail-card .sd-title{font-size:13px;color:#1e293b;margin-bottom:8px}
+    .sch-b .sku-detail-card .sd-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+    .sch-b .sku-detail-card .sd-grid .sd-item{font-size:11px;display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dashed #e2e8f0}
+    .sch-b .sku-detail-card .sd-grid .sd-item .sd-label{color:#64748b}
+    .sch-b .sku-detail-card .sd-grid .sd-item .sd-val{color:#1e293b;font-weight:600}
+    .sch-b .sku-detail-card .sd-grid .sd-item .sd-val.price{color:#ef4444}
+    .sch-b .sku-detail-card .sd-grid .sd-item .sd-val.rebate{color:#f59e0b}
+
+    .sch-b .carton-info{padding:10px 12px;margin-top:8px;display:flex;align-items:center;gap:8px}
+    .sch-b .carton-info .ci-icon{font-size:16px}
+    .sch-b .carton-info .ci-text{font-size:11px;color:#64748b;flex:1}
+    .sch-b .carton-info .ci-text strong{color:#1e293b}
+    .sch-b .carton-info .ci-badge{font-size:9px;padding:2px 8px;border-radius:999px;background:#f0fdf4;color:#22c55e;font-family:'ZCOOL KuaiLe',sans-serif}
+
+    /* ===================================================== */
+    /*  SCHEME C — 工厂视角风 (Factory Product View)         */
+    /* ===================================================== */
+    .sch-c .factory-poster{padding:16px;margin-bottom:12px;min-height:120px}
+    .sch-c .factory-poster .fp-title{font-size:18px;color:#1e293b;margin-bottom:2px}
+    .sch-c .factory-poster .fp-sub{font-size:11px;color:#64748b;margin-bottom:8px}
+    .sch-c .factory-poster .fp-stats{display:flex;gap:10px}
+    .sch-c .factory-poster .fp-stats .fp-stat{flex:1;text-align:center;padding:6px 4px;background:rgba(37,99,235,.06);border-radius:10px}
+    .sch-c .factory-poster .fp-stats .fp-stat .fp-num{font-size:16px;font-weight:800;color:#1e293b}
+    .sch-c .factory-poster .fp-stats .fp-stat .fp-label{font-size:9px;color:#64748b}
+
+    .sch-c .factory-select{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto}
+    .sch-c .factory-select::-webkit-scrollbar{height:0}
+    .sch-c .factory-select .fs-item{
+      flex-shrink:0;padding:6px 14px;border-radius:999px;border:1.5px solid #94a3b8;
+      font-family:'ZCOOL KuaiLe',sans-serif;font-size:11px;color:#64748b;background:#fff;cursor:default
+    }
+    .sch-c .factory-select .fs-item.active{background:#1e293b;color:#faf8f5;border-color:#1e293b}
+
+    .sch-c .product-row{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+    .sch-c .product-row::-webkit-scrollbar{height:0}
+    .sch-c .product-row .prod-mini-card{
+      flex-shrink:0;width:130px;padding:10px;cursor:default;transition:transform .15s
+    }
+    .sch-c .product-row .prod-mini-card:hover{transform:scale(.97)}
+    .sch-c .product-row .prod-mini-card .pm-img{
+      width:100%;height:80px;border-radius:8px;
+      background:linear-gradient(135deg,#fef3c7,#fde68a);
+      display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:6px
+    }
+    .sch-c .product-row .prod-mini-card .pm-name{font-size:11px;color:#1e293b}
+    .sch-c .product-row .prod-mini-card .pm-skus{font-size:9px;color:#64748b}
+    .sch-c .product-row .prod-mini-card .pm-rebate{font-size:10px;color:#f59e0b}
+
+    .sch-c .section-label{font-size:13px;color:#1e293b;margin:14px 0 8px;display:flex;align-items:center;gap:6px}
+    .sch-c .section-label .sl-count{margin-left:auto;font-size:10px;color:#94a3b8}
+
+    .sch-c .factory-table{display:flex;flex-direction:column;gap:6px}
+    .sch-c .factory-table .ft-row{
+      display:flex;align-items:center;padding:8px 10px;gap:8px;cursor:default
+    }
+    .sch-c .factory-table .ft-row .ft-icon{font-size:14px;width:24px;text-align:center}
+    .sch-c .factory-table .ft-row .ft-name{flex:1;font-size:12px;color:#1e293b}
+    .sch-c .factory-table .ft-row .ft-count{font-size:10px;color:#64748b}
+    .sch-c .factory-table .ft-row .ft-status{font-size:9px;padding:2px 8px;border-radius:999px;font-family:'ZCOOL KuaiLe',sans-serif}
+    .sch-c .factory-table .ft-row .ft-status.on{background:#f0fdf4;color:#22c55e}
+    .sch-c .factory-table .ft-row .ft-status.off{background:#f1f5f9;color:#94a3b8}
+
+    /* ===================================================== */
+    /*  SCHEME D — 退点看板风 (Rebate Dashboard)             */
+    /* ===================================================== */
+    .sch-d .db-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .sch-d .db-header h2{font-size:18px;color:#1e293b}
+    .sch-d .db-header .db-period{font-size:10px;padding:3px 10px;border-radius:999px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;font-family:'ZCOOL KuaiLe',sans-serif}
+
+    .sch-d .rebate-hero{padding:14px;margin-bottom:12px;text-align:center}
+    .sch-d .rebate-hero .rh-big{font-size:32px;font-weight:800;color:#1e293b}
+    .sch-d .rebate-hero .rh-big .unit{font-size:16px;color:#64748b}
+    .sch-d .rebate-hero .rh-label{font-size:11px;color:#64748b;margin-top:2px}
+    .sch-d .rebate-hero .rh-stat-row{display:flex;gap:10px;margin-top:10px;padding-top:10px;border-top:1.5px dashed #e2e8f0}
+    .sch-d .rebate-hero .rh-stat-row .rh-stat{flex:1;text-align:center}
+    .sch-d .rebate-hero .rh-stat-row .rh-stat .rhv{font-size:14px;font-weight:700;color:#1e293b}
+    .sch-d .rebate-hero .rh-stat-row .rh-stat .rhl{font-size:9px;color:#64748b}
+
+    .sch-d .rebate-list{display:flex;flex-direction:column;gap:8px}
+    .sch-d .rebate-list .rb-item{padding:10px 12px;display:flex;align-items:center;gap:10px;cursor:default}
+    .sch-d .rebate-list .rb-item .rb-rank{width:20px;text-align:center;font-size:12px;color:#64748b}
+    .sch-d .rebate-list .rb-item .rb-rank.gold{color:#f59e0b}
+    .sch-d .rebate-list .rb-item .rb-rank.silver{color:#94a3b8}
+    .sch-d .rebate-list .rb-item .rb-rank.bronze{color:#d97706}
+    .sch-d .rebate-list .rb-item .rb-info{flex:1}
+    .sch-d .rebate-list .rb-item .rb-info .rb-name{font-size:12px;color:#1e293b}
+    .sch-d .rebate-list .rb-item .rb-info .rb-factory{font-size:9px;color:#64748b}
+    .sch-d .rebate-list .rb-item .rb-pct{font-size:14px;font-weight:700;color:#f59e0b}
+    .sch-d .rebate-list .rb-item .rb-pct .rb-detail{font-size:9px;font-weight:400;color:#94a3b8;display:block;text-align:right}
+
+    .sch-d .db-filter{display:flex;gap:6px;margin-top:12px;overflow-x:auto}
+    .sch-d .db-filter::-webkit-scrollbar{height:0}
+    .sch-d .db-filter .dbf{
+      flex-shrink:0;padding:5px 10px;border-radius:999px;border:1.5px solid #e2e8f0;
+      font-family:'ZCOOL KuaiLe',sans-serif;font-size:10px;color:#64748b;background:#fff;cursor:default
+    }
+    .sch-d .db-filter .dbf.active{background:#1e293b;color:#faf8f5;border-color:#1e293b}
+
+    /* Info Panel */
+    .scheme-info{max-width:320px;flex-shrink:0}
+    .scheme-info .ic{
+      background:#fff;border-radius:20px;padding:22px 20px;
+      box-shadow:0 2px 20px rgba(0,0,0,.06);border:2px solid #e2e8f0;position:relative
+    }
+    .scheme-info .ic::before{
+      content:'';position:absolute;top:-8px;left:24px;width:36px;height:14px;
+      background:#faf8f5;border:2px solid #e2e8f0;border-bottom:none;border-radius:8px 8px 0 0
+    }
+    .scheme-info .ic .in{font-size:18px;color:#1e293b;margin-bottom:2px}
+    .scheme-info .ic .id{font-size:12px;color:#64748b;margin-bottom:12px}
+    .scheme-info .ic .tr{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+    .scheme-info .ic .tr .tg{font-size:9px;padding:2px 9px;border-radius:999px;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0}
+    .scheme-info .ic .tr .tg.hot{background:#fef2f2;color:#ef4444;border-color:#fecaca}
+    .scheme-info .ic .ifeat{list-style:none;padding:0}
+    .scheme-info .ic .ifeat li{
+      padding:7px 10px;margin-bottom:6px;background:#f8fafc;border-radius:8px;
+      border-left:3px solid #2563eb;font-size:12px;color:#475569;line-height:1.5
+    }
+
+    @media(max-width:860px){
+      body{padding:20px 12px}
+      .page-header h1{font-size:26px;flex-wrap:wrap}
+      .mobile-mockup{width:340px;height:740px;border-radius:36px}
+      .scheme-info{max-width:340px}
+    }
+    @media(max-width:480px){
+      .mobile-mockup{width:100%;max-width:375px;height:720px;border-radius:28px}
+      .scheme-tab{font-size:13px;padding:8px 14px}
+    }
+  </style>
+</head>
+<body>
+
+<header class="page-header">
+  <h1>
+    <span class="doodle-line"></span>
+    商品中心 · 界面设计
+    <span class="doodle-line"></span>
+  </h1>
+  <p class="page-subtitle">基于实际 SPU-SKU 商品逻辑 · 多方案对比</p>
+</header>
+
+<svg class="doodle-divider" viewBox="0 0 400 20" fill="none">
+  <path d="M20 10 C50 3,80 17,110 10 C140 3,170 17,200 10 C230 3,260 17,290 10 C320 3,350 17,380 10" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <circle cx="20" cy="10" r="3.5" fill="#f59e0b"/>
+  <circle cx="110" cy="10" r="3" fill="#22c55e"/>
+  <circle cx="200" cy="10" r="3.5" fill="#ef4444"/>
+  <circle cx="290" cy="10" r="3" fill="#8b5cf6"/>
+  <circle cx="380" cy="10" r="3.5" fill="#f59e0b"/>
+</svg>
+
+<nav class="scheme-tabs" id="schemeTabs">
+  <button class="scheme-tab active" data-scheme="sch-a">方案 A · SPU列表 <span class="badge">推荐</span></button>
+  <button class="scheme-tab" data-scheme="sch-b">方案 B · SKU明细</button>
+  <button class="scheme-tab" data-scheme="sch-c">方案 C · 工厂视角</button>
+  <button class="scheme-tab" data-scheme="sch-d">方案 D · 退点看板</button>
+</nav>
+
+<div class="preview-layout">
+
+  <!-- ========== MOBILE MOCKUP ========== -->
+  <div class="mobile-mockup">
+    <div class="mockup-top">
+      <span class="mockup-time">9:41</span>
+      <div class="mockup-notch"></div>
+      <div class="mockup-battery"><span>5G</span><div class="mockup-battery-icon"><div class="fill"></div></div></div>
+    </div>
+
+    <!-- ====== SCHEME A: SPU列表 ====== -->
+    <div class="scheme-page sch-a" id="sch-a">
+      <!-- Top bar -->
+      <div class="top-bar">
+        <h2>📦 商品列表</h2>
+        <div class="add-btn">＋</div>
+      </div>
+      <!-- Search -->
+      <div class="d-frame spu-search">
+        <svg viewBox="0 0 345 38" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+          <rect x="1" y="1" width="343" height="36" rx="18" fill="#fff" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round"/>
+          <circle cx="316" cy="18" r="2.5" fill="#2563eb" opacity=".3"/>
+          <path d="M320 16 L326 22" stroke="#2563eb" stroke-width="1.2" stroke-linecap="round" opacity=".3"/>
+        </svg>
+        <svg viewBox="0 0 16 16" fill="none" style="width:15px;height:15px;flex-shrink:0;">
+          <circle cx="6.5" cy="6.5" r="5" stroke="#94a3b8" stroke-width="1.3"/>
+          <path d="M10 10L14.5 14.5" stroke="#94a3b8" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+        <input type="text" placeholder="搜索商品名称/工厂..." readonly>
+      </div>
+
+      <!-- SPU Item 1 -->
+      <div class="d-frame spu-item">
+        <svg viewBox="0 0 347 100" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+          <rect x="1" y="1" width="345" height="98" rx="12" fill="#fff" stroke="#22c55e" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M4 14 C4 8, 9 4, 15 4" stroke="#22c55e" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="fc spu-row">
+          <div class="spu-img">👕</div>
+          <div class="spu-info">
+            <div class="spu-name">纯棉圆领短袖T恤</div>
+            <div class="spu-factory">🏭 广州恒达服装厂</div>
+            <div class="spu-meta">
+              <span class="spu-tag ok">ENABLED</span>
+              <span class="spu-rebate">退点 5.00%</span>
+              <span class="spu-sku-count">3 SKU</span>
+            </div>
+            <div class="spu-skus">
+              <span class="sku-mini on">白/L · ¥59</span>
+              <span class="sku-mini on">白/XL · ¥62</span>
+              <span class="sku-mini">黑/L · ¥59</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SPU Item 2 -->
+      <div class="d-frame spu-item">
+        <svg viewBox="0 0 347 100" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+          <rect x="1" y="1" width="345" height="98" rx="12" fill="#fff" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <div class="fc spu-row">
+          <div class="spu-img">👟</div>
+          <div class="spu-info">
+            <div class="spu-name">轻便缓震运动跑鞋</div>
+            <div class="spu-factory">🏭 泉州远足体育用品</div>
+            <div class="spu-meta">
+              <span class="spu-tag ok">ENABLED</span>
+              <span class="spu-rebate">退点 8.50%</span>
+              <span class="spu-sku-count">4 SKU</span>
+            </div>
+            <div class="spu-skus">
+              <span class="sku-mini on">黑/42 · ¥299</span>
+              <span class="sku-mini on">白/42 · ¥299</span>
+              <span class="sku-mini">黑/43 · ¥309</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SPU Item 3 -->
+      <div class="d-frame spu-item">
+        <svg viewBox="0 0 347 100" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+          <rect x="1" y="1" width="345" height="98" rx="12" fill="#fff" stroke="#ef4444" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <div class="fc spu-row">
+          <div class="spu-img">👖</div>
+          <div class="spu-info">
+            <div class="spu-name">修身直筒牛仔裤</div>
+            <div class="spu-factory">🏭 中山力织服装</div>
+            <div class="spu-meta">
+              <span class="spu-tag off">DISABLED</span>
+              <span class="spu-rebate">退点 6.00%</span>
+              <span class="spu-sku-count">2 SKU</span>
+            </div>
+            <div class="spu-skus">
+              <span class="sku-mini">蓝/32 · ¥129</span>
+              <span class="sku-mini">黑/32 · ¥129</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SPU Item 4 -->
+      <div class="d-frame spu-item">
+        <svg viewBox="0 0 347 100" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+          <rect x="1" y="1" width="345" height="98" rx="12" fill="#fff" stroke="#2563eb" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <div class="fc spu-row">
+          <div class="spu-img">👜</div>
+          <div class="spu-info">
+            <div class="spu-name">帆布单肩托特包</div>
+            <div class="spu-factory">🏭 广州博雅皮具</div>
+            <div class="spu-meta">
+              <span class="spu-tag ok">ENABLED</span>
+              <span class="spu-rebate">退点 4.00%</span>
+              <span class="spu-sku-count">2 SKU</span>
+            </div>
+            <div class="spu-skus">
+              <span class="sku-mini on">黑/大 · ¥89</span>
+              <span class="sku-mini">白/大 · ¥89</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== SCHEME B: SKU明细 ====== -->
+    <div class="scheme-page sch-b" id="sch-b" style="display:none;">
+      <div class="page-title-area">
+        <div class="back-btn">←</div>
+        <h2>📋 商品SKU详情</h2>
+      </div>
+
+      <!-- SKU Hero (SPU header) -->
+      <div class="d-frame sku-hero">
+        <svg viewBox="0 0 347 98" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+          <rect x="1" y="1" width="345" height="96" rx="14" fill="#fff" stroke="#2563eb" stroke-width="2" stroke-linecap="round"/>
+          <path d="M4 18 C4 10,10 4,20 4" stroke="#2563eb" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="fc">
+          <div class="hero-row">
+            <div class="hero-img">👕</div>
+            <div class="hero-info">
+              <div class="hero-name">纯棉圆领短袖T恤</div>
+              <div class="hero-factory">广州恒达服装厂 · 3 SKU</div>
+              <div class="hero-badges">
+                <span class="b-enabled">ENABLED</span>
+                <span class="b-draft">退点 5.00%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SKU tabs -->
+      <div class="sku-tabs">
+        <div class="st active">全部 <span class="st-badge">3</span></div>
+        <div class="st">ON_SALE <span class="st-badge">2</span></div>
+        <div class="st">DRAFT <span class="st-badge">1</span></div>
+        <div class="st">OFF_SALE</div>
+      </div>
+
+      <!-- SKU Detail Card 1 -->
+      <div class="d-frame sku-detail-card">
+        <svg viewBox="0 0 347 176" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+          <rect x="1" y="1" width="345" height="174" rx="12" fill="#fff" stroke="#22c55e" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <div class="fc">
+          <div class="sd-title">SKU-001 · 白色 L码 <span style="font-size:10px;color:#22c55e;background:#f0fdf4;padding:1px 8px;border-radius:999px;margin-left:6px">ON_SALE</span></div>
+          <div class="sd-grid">
+            <div class="sd-item"><span class="sd-label">SKU编码</span><span class="sd-val">TS-WHT-L-001</span></div>
+            <div class="sd-item"><span class="sd-label">售价</span><span class="sd-val price">¥59.00</span></div>
+            <div class="sd-item"><span class="sd-label">规格</span><span class="sd-val">白色 / L码</span></div>
+            <div class="sd-item"><span class="sd-label">退点</span><span class="sd-val rebate">5.00%</span></div>
+            <div class="sd-item"><span class="sd-label">产品尺寸</span><span class="sd-val">68×52×2 cm</span></div>
+            <div class="sd-item"><span class="sd-label">每箱数量</span><span class="sd-val">50 件/箱</span></div>
+          </div>
+          <div class="d-frame carton-info">
+            <svg viewBox="0 0 325 34" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+              <rect x="1" y="1" width="323" height="32" rx="8" fill="#f8fafc" stroke="#22c55e" stroke-width="1" stroke-linecap="round"/>
+            </svg>
+            <div class="fc" style="display:flex;align-items:center;gap:8px;padding:6px 10px;">
+              <span class="ci-icon">📦</span>
+              <span class="ci-text">纸箱匹配: <strong>5号标准箱</strong> (70×55×30cm, 毛重12.5kg)</span>
+              <span class="ci-badge">已匹配</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SKU Detail Card 2 -->
+      <div class="d-frame sku-detail-card">
+        <svg viewBox="0 0 347 176" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+          <rect x="1" y="1" width="345" height="174" rx="12" fill="#fff" stroke="#22c55e" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <div class="fc">
+          <div class="sd-title">SKU-002 · 白色 XL码 <span style="font-size:10px;color:#22c55e;background:#f0fdf4;padding:1px 8px;border-radius:999px;margin-left:6px">ON_SALE</span></div>
+          <div class="sd-grid">
+            <div class="sd-item"><span class="sd-label">SKU编码</span><span class="sd-val">TS-WHT-XL-002</span></div>
+            <div class="sd-item"><span class="sd-label">售价</span><span class="sd-val price">¥62.00</span></div>
+            <div class="sd-item"><span class="sd-label">规格</span><span class="sd-val">白色 / XL码</span></div>
+            <div class="sd-item"><span class="sd-label">退点</span><span class="sd-val rebate">5.00%</span></div>
+            <div class="sd-item"><span class="sd-label">产品尺寸</span><span class="sd-val">70×54×2 cm</span></div>
+            <div class="sd-item"><span class="sd-label">每箱数量</span><span class="sd-val">40 件/箱</span></div>
+          </div>
+          <div class="d-frame carton-info">
+            <svg viewBox="0 0 325 34" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+              <rect x="1" y="1" width="323" height="32" rx="8" fill="#f8fafc" stroke="#22c55e" stroke-width="1" stroke-linecap="round"/>
+            </svg>
+            <div class="fc" style="display:flex;align-items:center;gap:8px;padding:6px 10px;">
+              <span class="ci-icon">📦</span>
+              <span class="ci-text">纸箱匹配: <strong>5号标准箱</strong> (70×55×30cm, 毛重11.8kg)</span>
+              <span class="ci-badge">已匹配</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SKU Detail Card 3 -->
+      <div class="d-frame sku-detail-card">
+        <svg viewBox="0 0 347 128" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+          <rect x="1" y="1" width="345" height="126" rx="12" fill="#fff" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <div class="fc">
+          <div class="sd-title">SKU-003 · 黑色 L码 <span style="font-size:10px;color:#f59e0b;background:#fffbeb;padding:1px 8px;border-radius:999px;margin-left:6px">DRAFT</span></div>
+          <div class="sd-grid">
+            <div class="sd-item"><span class="sd-label">SKU编码</span><span class="sd-val">TS-BLK-L-003</span></div>
+            <div class="sd-item"><span class="sd-label">售价</span><span class="sd-val price">¥59.00</span></div>
+            <div class="sd-item"><span class="sd-label">规格</span><span class="sd-val">黑色 / L码</span></div>
+            <div class="sd-item"><span class="sd-label">退点</span><span class="sd-val rebate">5.00%</span></div>
+            <div class="sd-item"><span class="sd-label">产品尺寸</span><span class="sd-val">68×52×2 cm</span></div>
+            <div class="sd-item"><span class="sd-label">每箱数量</span><span class="sd-val">50 件/箱</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== SCHEME C: 工厂视角 ====== -->
+    <div class="scheme-page sch-c" id="sch-c" style="display:none;">
+      <div class="d-frame factory-poster">
+        <svg viewBox="0 0 347 126" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+          <rect x="1" y="1" width="345" height="124" rx="14" fill="#fff" stroke="#10b981" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="330" cy="110" r="5" fill="#10b981" opacity=".3"/>
+          <path d="M4 16 C4 8,10 4,20 4" stroke="#10b981" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="fc">
+          <div class="fp-title">🏭 工厂商品总览</div>
+          <div class="fp-sub">按工厂维度管理商品与SKU</div>
+          <div class="fp-stats">
+            <div class="fp-stat"><div class="fp-num">8</div><div class="fp-label">工厂数</div></div>
+            <div class="fp-stat"><div class="fp-num">24</div><div class="fp-label">SPU数</div></div>
+            <div class="fp-stat"><div class="fp-num">68</div><div class="fp-label">SKU数</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="factory-select">
+        <div class="fs-item active">全部工厂</div>
+        <div class="fs-item">🏭 恒达服装</div>
+        <div class="fs-item">🏭 远足体育</div>
+        <div class="fs-item">🏭 力织服装</div>
+        <div class="fs-item">🏭 博雅皮具</div>
+      </div>
+
+      <div class="section-label">
+        👕 广州恒达服装厂 <span class="sl-count">5 SPU · 12 SKU</span>
+      </div>
+      <div class="product-row">
+        <div class="d-frame prod-mini-card">
+          <svg viewBox="0 0 130 136" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+            <rect x="1" y="1" width="128" height="134" rx="10" fill="#fff" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <div class="fc" style="position:relative;z-index:1;">
+            <div class="pm-img">👕</div>
+            <div class="pm-name">纯棉T恤</div>
+            <div class="pm-skus">3 SKU · ¥59起</div>
+            <div class="pm-rebate">退点 5%</div>
+          </div>
+        </div>
+        <div class="d-frame prod-mini-card">
+          <svg viewBox="0 0 130 136" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+            <rect x="1" y="1" width="128" height="134" rx="10" fill="#fff" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <div class="fc" style="position:relative;z-index:1;">
+            <div class="pm-img">🧥</div>
+            <div class="pm-name">休闲外套</div>
+            <div class="pm-skus">2 SKU · ¥199起</div>
+            <div class="pm-rebate">退点 6%</div>
+          </div>
+        </div>
+        <div class="d-frame prod-mini-card">
+          <svg viewBox="0 0 130 136" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+            <rect x="1" y="1" width="128" height="134" rx="10" fill="#fff" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <div class="fc" style="position:relative;z-index:1;">
+            <div class="pm-img">👗</div>
+            <div class="pm-name">连衣裙</div>
+            <div class="pm-skus">2 SKU · ¥169起</div>
+            <div class="pm-rebate">退点 4.5%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">
+        👟 泉州远足体育用品 <span class="sl-count">3 SPU · 8 SKU</span>
+      </div>
+      <div class="product-row">
+        <div class="d-frame prod-mini-card">
+          <svg viewBox="0 0 130 136" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+            <rect x="1" y="1" width="128" height="134" rx="10" fill="#fff" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <div class="fc" style="position:relative;z-index:1;">
+            <div class="pm-img">👟</div>
+            <div class="pm-name">运动跑鞋</div>
+            <div class="pm-skus">4 SKU · ¥299起</div>
+            <div class="pm-rebate">退点 8.5%</div>
+          </div>
+        </div>
+        <div class="d-frame prod-mini-card">
+          <svg viewBox="0 0 130 136" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+            <rect x="1" y="1" width="128" height="134" rx="10" fill="#fff" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <div class="fc" style="position:relative;z-index:1;">
+            <div class="pm-img">🩳</div>
+            <div class="pm-name">运动短裤</div>
+            <div class="pm-skus">2 SKU · ¥79起</div>
+            <div class="pm-rebate">退点 7%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">
+        📋 工厂列表
+      </div>
+      <div class="factory-table">
+        <div class="d-frame ft-row">
+          <svg viewBox="0 0 347 40" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+            <rect x="1" y="1" width="345" height="38" rx="8" fill="#fff" stroke="#e2e8f0" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+          <div class="fc" style="display:flex;align-items:center;gap:8px;padding:6px 10px;">
+            <span class="ft-icon">🏭</span>
+            <span class="ft-name">广州恒达服装厂</span>
+            <span class="ft-count">12 SKU</span>
+            <span class="ft-status on">ENABLED</span>
+          </div>
+        </div>
+        <div class="d-frame ft-row">
+          <svg viewBox="0 0 347 40" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+            <rect x="1" y="1" width="345" height="38" rx="8" fill="#fff" stroke="#e2e8f0" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+          <div class="fc" style="display:flex;align-items:center;gap:8px;padding:6px 10px;">
+            <span class="ft-icon">🏭</span>
+            <span class="ft-name">泉州远足体育用品</span>
+            <span class="ft-count">8 SKU</span>
+            <span class="ft-status on">ENABLED</span>
+          </div>
+        </div>
+        <div class="d-frame ft-row">
+          <svg viewBox="0 0 347 40" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+            <rect x="1" y="1" width="345" height="38" rx="8" fill="#fff" stroke="#e2e8f0" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+          <div class="fc" style="display:flex;align-items:center;gap:8px;padding:6px 10px;">
+            <span class="ft-icon">🏭</span>
+            <span class="ft-name">中山力织服装</span>
+            <span class="ft-count">5 SKU</span>
+            <span class="ft-status off">DISABLED</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== SCHEME D: 退点看板 ====== -->
+    <div class="scheme-page sch-d" id="sch-d" style="display:none;">
+      <div class="db-header">
+        <h2>📊 退点看板</h2>
+        <span class="db-period">本月</span>
+      </div>
+
+      <div class="d-frame rebate-hero">
+        <svg viewBox="0 0 347 134" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+          <rect x="1" y="1" width="345" height="132" rx="14" fill="#fff" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+          <path d="M4 18 C4 10,10 4,20 4" stroke="#f59e0b" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        </svg>
+        <div class="fc" style="padding:10px 0;">
+          <div class="rh-big">8.50%<span class="unit"> 平均退点</span></div>
+          <div class="rh-label">全平台 SKU 退点率 · 环比 +0.3%</div>
+          <div class="rh-stat-row">
+            <div class="rh-stat"><div class="rhv">5.0%</div><div class="rhl">最低</div></div>
+            <div class="rh-stat"><div class="rhv">12.3%</div><div class="rhl">最高</div></div>
+            <div class="rh-stat"><div class="rhv">68</div><div class="rhl">SKU数</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="db-filter">
+        <div class="dbf active">全部工厂</div>
+        <div class="dbf">恒达服装</div>
+        <div class="dbf">远足体育</div>
+        <div class="dbf">力织服装</div>
+      </div>
+
+      <div class="rebate-list">
+        <div class="d-frame rb-item">
+          <svg viewBox="0 0 347 46" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+            <rect x="1" y="1" width="345" height="44" rx="10" fill="#fff" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/>
+            <rect x="2" y="2" width="4" height="42" rx="2" fill="#f59e0b"/>
+          </svg>
+          <div class="fc" style="display:flex;align-items:center;gap:10px;padding:8px 10px;">
+            <span class="rb-rank gold">🥇</span>
+            <div class="rb-info">
+              <div class="rb-name">轻便缓震运动跑鞋</div>
+              <div class="rb-factory">泉州远足体育用品</div>
+            </div>
+            <div class="rb-pct">12.3%<span class="rb-detail">4 SKU</span></div>
+          </div>
+        </div>
+
+        <div class="d-frame rb-item">
+          <svg viewBox="0 0 347 46" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+            <rect x="1" y="1" width="345" height="44" rx="10" fill="#fff" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round"/>
+            <rect x="2" y="2" width="4" height="42" rx="2" fill="#94a3b8"/>
+          </svg>
+          <div class="fc" style="display:flex;align-items:center;gap:10px;padding:8px 10px;">
+            <span class="rb-rank silver">🥈</span>
+            <div class="rb-info">
+              <div class="rb-name">修身直筒牛仔裤</div>
+              <div class="rb-factory">中山力织服装</div>
+            </div>
+            <div class="rb-pct">6.0%<span class="rb-detail">2 SKU</span></div>
+          </div>
+        </div>
+
+        <div class="d-frame rb-item">
+          <svg viewBox="0 0 347 46" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+            <rect x="1" y="1" width="345" height="44" rx="10" fill="#fff" stroke="#22c55e" stroke-width="1.5" stroke-linecap="round"/>
+            <rect x="2" y="2" width="4" height="42" rx="2" fill="#22c55e"/>
+          </svg>
+          <div class="fc" style="display:flex;align-items:center;gap:10px;padding:8px 10px;">
+            <span class="rb-rank">🥉</span>
+            <div class="rb-info">
+              <div class="rb-name">纯棉圆领短袖T恤</div>
+              <div class="rb-factory">广州恒达服装厂</div>
+            </div>
+            <div class="rb-pct">5.0%<span class="rb-detail">3 SKU</span></div>
+          </div>
+        </div>
+
+        <div class="d-frame rb-item">
+          <svg viewBox="0 0 347 46" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+            <rect x="1" y="1" width="345" height="44" rx="10" fill="#fff" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <div class="fc" style="display:flex;align-items:center;gap:10px;padding:8px 10px;">
+            <span class="rb-rank">4</span>
+            <div class="rb-info">
+              <div class="rb-name">帆布单肩托特包</div>
+              <div class="rb-factory">广州博雅皮具</div>
+            </div>
+            <div class="rb-pct">4.0%<span class="rb-detail">2 SKU</span></div>
+          </div>
+        </div>
+
+        <div class="d-frame rb-item">
+          <svg viewBox="0 0 347 46" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;">
+            <rect x="1" y="1" width="345" height="44" rx="10" fill="#fff" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+          <div class="fc" style="display:flex;align-items:center;gap:10px;padding:8px 10px;">
+            <span class="rb-rank">5</span>
+            <div class="rb-info">
+              <div class="rb-name">休闲外套</div>
+              <div class="rb-factory">广州恒达服装厂</div>
+            </div>
+            <div class="rb-pct">6.0%<span class="rb-detail">2 SKU</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mockup-home"></div>
+  </div>
+
+  <!-- ========== INFO PANEL ========== -->
+  <div class="scheme-info" id="schemeInfo">
+    <div class="ic">
+      <h3 class="in" id="infoName">方案 A · SPU列表风</h3>
+      <p class="id" id="infoDesc">按商品(SPU)维度聚合展示，含SKU快照</p>
+      <div class="tr" id="tagRow">
+        <span class="tg hot">🔥 推荐</span>
+        <span class="tg">📦 SPU+SKU层级</span>
+        <span class="tg">🏷️ 状态标签</span>
+      </div>
+      <ul class="ifeat" id="infoFeatures">
+        <li>📦 以 SPU 为主线展示商品列表，每个商品显示工厂、状态、退点率</li>
+        <li>🏷️ 内嵌 SKU 迷你标签行，展示各 SKU 规格、售价和在线状态</li>
+        <li>🎨 不同库存/状态使用不同颜色手绘边框（绿/蓝/黄/红）</li>
+        <li>🔍 支持按商品名称或工厂名称搜索</li>
+        <li>➕ 右下角 FAB 新增按钮，符合移动端操作习惯</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const data = {
+    'sch-a':{
+      name:'方案 A · SPU列表风',
+      desc:'按商品(SPU)维度聚合展示，含SKU快照',
+      tags:['🔥 推荐','📦 SPU+SKU层级','🏷️ 状态标签','🎨 退点显示'],
+      features:[
+        '📦 以 SPU 为主线展示商品列表，每个商品显示工厂、状态、退点率',
+        '🏷️ 内嵌 SKU 迷你标签行，展示各 SKU 规格、售价和在线状态',
+        '🎨 不同状态使用不同颜色手绘边框（绿=ENABLED/黄=低库存/红=DISABLED）',
+        '🔍 支持按商品名称或工厂名称搜索',
+        '➕ FAB 新增按钮，符合移动端操作习惯'
+      ]},
+    'sch-b':{
+      name:'方案 B · SKU明细风',
+      desc:'聚焦SKU维度，展示完整商品规格与纸箱信息',
+      tags:['📋 SKU详情','📦 纸箱匹配','📐 尺寸信息'],
+      features:[
+        '📋 顶部 SPU 概览卡 + SKU 状态筛选标签（ON_SALE/DRAFT/OFF_SALE）',
+        '💰 每个 SKU 展示完整信息：编码、售价、规格、退点率',
+        '📐 产品尺寸（L/W/H）和每箱数量清晰展示',
+        '📦 纸箱自动匹配结果卡片，显示匹配的箱型和毛重',
+        '🔴 不同 SKU 状态用颜色区分（绿=ON_SALE/黄=DRAFT/灰=OFF_SALE）'
+      ]},
+    'sch-c':{
+      name:'方案 C · 工厂视角风',
+      desc:'按工厂维度组织商品，适合供应商管理',
+      tags:['🏭 工厂维度','👥 供应商管理','📊 分组展示'],
+      features:[
+        '🏭 顶部工厂总览卡片，显示工厂数/SPU数/SKU数',
+        '👥 工厂快速切换标签，按工厂筛选商品',
+        '📦 每个工厂下横向滚动商品卡片，显示SKU数量和起售价',
+        '📋 底部工厂列表，展示各工厂状态（ENABLED/DISABLED）',
+        '🎨 使用绿色主题手绘边框，与"工厂管理"调性一致'
+      ]},
+    'sch-d':{
+      name:'方案 D · 退点看板风',
+      desc:'以退点(rebate)为核心的数据看板',
+      tags:['📈 退点分析','🏆 排行对比','📊 数据驱动'],
+      features:[
+        '📊 顶部大卡片展示全平台平均退点率、最高/最低值',
+        '🏆 排行榜形式列出各商品的退点率，支持工厂筛选',
+        '🎨 金/银/铜牌高亮前三名，左边框颜色标示排名',
+        '📈 展示环比变化，帮助快速掌握退点趋势',
+        '🔍 支持按工厂筛选退点数据，便于定向分析'
+      ]}
+  };
+
+  const tabs = document.querySelectorAll('.scheme-tab');
+  const pages = { 'sch-a':document.getElementById('sch-a'), 'sch-b':document.getElementById('sch-b'), 'sch-c':document.getElementById('sch-c'), 'sch-d':document.getElementById('sch-d') };
+  const infoName = document.getElementById('infoName');
+  const infoDesc = document.getElementById('infoDesc');
+  const tagRow = document.getElementById('tagRow');
+  const infoFeatures = document.getElementById('infoFeatures');
+
+  function switchScheme(sid) {
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.scheme === sid));
+    Object.keys(pages).forEach(id => pages[id].style.display = id === sid ? 'block' : 'none');
+    const d = data[sid];
+    if (d) {
+      infoName.textContent = d.name;
+      infoDesc.textContent = d.desc;
+      tagRow.innerHTML = d.tags.map(t => `<span class="tg${t.includes('推荐')?' hot':''}">${t}</span>`).join('');
+      infoFeatures.innerHTML = d.features.map(f => `<li>${f}</li>`).join('');
+    }
+  }
+
+  tabs.forEach(tab => tab.addEventListener('click', () => switchScheme(tab.dataset.scheme)));
+
+  const ids = Object.keys(data);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      const active = document.querySelector('.scheme-tab.active');
+      const idx = ids.indexOf(active.dataset.scheme);
+      if (idx < ids.length - 1) { switchScheme(ids[idx + 1]); e.preventDefault(); }
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      const active = document.querySelector('.scheme-tab.active');
+      const idx = ids.indexOf(active.dataset.scheme);
+      if (idx > 0) { switchScheme(ids[idx - 1]); e.preventDefault(); }
+    }
+  });
+})();
+</script>
+</body>
+</html>

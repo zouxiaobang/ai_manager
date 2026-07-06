@@ -26,8 +26,11 @@ import com.ai.manager.system.domain.vo.EcInventoryInboundValueSummaryVO;
 import com.ai.manager.system.domain.vo.EcInventoryOutboundBriefVO;
 import com.ai.manager.system.domain.vo.EcInventoryListItemVO;
 import com.ai.manager.system.domain.vo.EcInventoryLogVO;
+import com.ai.manager.system.domain.vo.EcInventoryOverviewVO;
 import com.ai.manager.system.domain.vo.EcInventoryPackingEstimateVO;
+import com.ai.manager.system.domain.vo.EcInventorySummaryVO;
 import com.ai.manager.system.domain.vo.EcInventorySkuOptionVO;
+import com.ai.manager.system.domain.vo.EcInventorySpuStatusVO;
 import com.ai.manager.system.mapper.EcCartonMapper;
 import com.ai.manager.system.mapper.EcFactoryMapper;
 import com.ai.manager.system.mapper.EcInboundOrderLineMapper;
@@ -56,6 +59,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -89,7 +93,11 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
 
     @Override
     public PageResult<EcInventoryListItemVO> pageInventories(String keyword, Boolean alertOnly, Boolean inStockOnly,
-                                                               Long factoryId, Long page, Long pageSize) {
+                                                               Long factoryId, Long page, Long pageSize,
+                                                               Boolean groupBySpu) {
+        if (Boolean.TRUE.equals(groupBySpu)) {
+            return pageInventoriesGroupedBySpu(keyword, alertOnly, inStockOnly, factoryId, page, pageSize);
+        }
         long p = PageUtils.normalizePage(page);
         long ps = PageUtils.normalizePageSize(pageSize);
         LambdaQueryWrapper<EcInventory> wrapper = buildInventoryQueryWrapper(keyword, factoryId, alertOnly, inStockOnly);
@@ -122,6 +130,312 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
         }
         PageResult<EcInventoryListItemVO> result = PageUtils.of(
                 records, entityPage.getTotal(), entityPage.getCurrent(), entityPage.getSize());
+        result.setExtra(extra);
+        return result;
+    }
+
+    @Override
+    public EcInventoryOverviewVO getInventoryOverview() {
+        List<EcInventory> all = list();
+        int skuCount = all.size();
+        long totalQuantity = 0;
+        long totalStockValue = 0;
+        int normal = 0, low = 0, zero = 0;
+
+        // 加载 SKU 价格信息（EcInventory 表不含 salePrice，需从 ec_sku 关联获取）
+        List<String> allSkuCodes = all.stream()
+                .map(EcInventory::getSkuCode)
+                .collect(Collectors.toList());
+        Map<String, SkuBrief> skuBriefMap = loadSkuBriefMap(allSkuCodes);
+
+        for (EcInventory inv : all) {
+            int qty = inv.getQuantity() != null ? inv.getQuantity() : 0;
+            totalQuantity += qty;
+
+            // 库存价值
+            SkuBrief brief = skuBriefMap.get(inv.getSkuCode());
+            if (brief != null && brief.salePrice != null) {
+                totalStockValue += (long) (qty * brief.salePrice.doubleValue());
+            }
+
+            // 状态分类
+            if (qty <= 0) {
+                zero++;
+            } else if (isAlertActive(inv)) {
+                low++;
+            } else {
+                normal++;
+            }
+        }
+
+        Map<String, Integer> statusCounts = new HashMap<>();
+        statusCounts.put("normal", normal);
+        statusCounts.put("low", low);
+        statusCounts.put("zero", zero);
+
+        EcInventoryOverviewVO vo = new EcInventoryOverviewVO();
+        vo.setSkuCount(skuCount);
+        vo.setTotalQuantity((int) totalQuantity);
+        vo.setTotalStockValue((int) totalStockValue);
+        vo.setStatusCounts(statusCounts);
+        return vo;
+    }
+
+    @Override
+    public EcInventorySummaryVO getInventorySummary(Long factoryId) {
+        // 按工厂过滤
+        LambdaQueryWrapper<EcInventory> wrapper = new LambdaQueryWrapper<>();
+        if (factoryId != null) {
+            Set<String> allowed = resolveAllowedSkuCodes(null, factoryId);
+            if (allowed != null && allowed.isEmpty()) {
+                return emptySummary();
+            }
+            if (allowed != null) {
+                wrapper.in(EcInventory::getSkuCode, allowed);
+            }
+        }
+        List<EcInventory> all = list(wrapper);
+        if (all.isEmpty()) {
+            return emptySummary();
+        }
+
+        Map<String, SkuBrief> skuBriefMap = loadSkuBriefMap(
+                all.stream().map(EcInventory::getSkuCode).distinct().toList());
+
+        int skuCount = all.size();
+        long totalQuantity = 0;
+        long totalStockValue = 0;
+        int alertCount = 0;
+        int normal = 0, low = 0, zero = 0;
+
+        for (EcInventory inv : all) {
+            int qty = inv.getQuantity() != null ? inv.getQuantity() : 0;
+            totalQuantity += qty;
+
+            // 库存价值
+            SkuBrief brief = skuBriefMap.get(inv.getSkuCode());
+            if (brief != null && brief.salePrice != null) {
+                totalStockValue += (long) (qty * brief.salePrice.doubleValue());
+            }
+
+            // 状态分类 & 预警计数
+            if (qty <= 0) {
+                zero++;
+            } else if (isAlertActive(inv)) {
+                low++;
+                alertCount++;
+            } else {
+                normal++;
+            }
+        }
+
+        Map<String, Integer> statusCounts = new HashMap<>();
+        statusCounts.put("normal", normal);
+        statusCounts.put("low", low);
+        statusCounts.put("zero", zero);
+
+        // 健康度评分（与前端 computeInventoryHealthScore 口径一致）
+        int healthScore = 100;
+        if (skuCount > 0) {
+            healthScore = Math.round((normal * 100f + low * 55f) / skuCount);
+        }
+
+        // 入库货值
+        BigDecimal inboundValue = BigDecimal.ZERO;
+        try {
+            inboundValue = summarizeHistoricalInboundValue(factoryId).getTotalInboundValue();
+        } catch (Exception ignored) {
+            // 孤立异常不影响主数据
+        }
+
+        EcInventorySummaryVO vo = new EcInventorySummaryVO();
+        vo.setSkuCount(skuCount);
+        vo.setTotalQuantity((int) totalQuantity);
+        vo.setTotalStockValue(totalStockValue);
+        vo.setAlertCount(alertCount);
+        vo.setStatusCounts(statusCounts);
+        vo.setHealthScore(healthScore);
+        vo.setInboundValue(inboundValue);
+        return vo;
+    }
+
+    private EcInventorySummaryVO emptySummary() {
+        EcInventorySummaryVO vo = new EcInventorySummaryVO();
+        vo.setSkuCount(0);
+        vo.setTotalQuantity(0);
+        vo.setTotalStockValue(0);
+        vo.setAlertCount(0);
+        Map<String, Integer> emptyMap = new HashMap<>();
+        emptyMap.put("normal", 0);
+        emptyMap.put("low", 0);
+        emptyMap.put("zero", 0);
+        vo.setStatusCounts(emptyMap);
+        vo.setHealthScore(100);
+        vo.setInboundValue(BigDecimal.ZERO);
+        return vo;
+    }
+
+    @Override
+    public EcInventorySpuStatusVO getSpuStatusCounts() {
+        List<EcInventory> all = list();
+        List<String> allSkuCodes = all.stream().map(EcInventory::getSkuCode).distinct().toList();
+        Map<String, SkuBrief> skuBriefMap = loadSkuBriefMap(allSkuCodes);
+
+        // 按 productId 分组
+        Map<String, List<EcInventory>> spuGroups = new LinkedHashMap<>();
+        for (EcInventory inv : all) {
+            SkuBrief brief = skuBriefMap.get(inv.getSkuCode());
+            String groupKey = brief != null && brief.productId != null
+                    ? "p:" + brief.productId
+                    : "s:" + inv.getSkuCode();
+            spuGroups.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(inv);
+        }
+
+        int normal = 0, low = 0, zero = 0;
+        for (Map.Entry<String, List<EcInventory>> entry : spuGroups.entrySet()) {
+            List<EcInventory> groupItems = entry.getValue();
+            boolean allZero = groupItems.stream().allMatch(i -> (i.getQuantity() != null ? i.getQuantity() : 0) <= 0);
+            boolean hasAlert = groupItems.stream().anyMatch(this::isAlertActive);
+
+            if (allZero) {
+                zero++;
+            } else if (hasAlert) {
+                low++;
+            } else {
+                normal++;
+            }
+        }
+
+        EcInventorySpuStatusVO vo = new EcInventorySpuStatusVO();
+        vo.setTotal(spuGroups.size());
+        vo.setNormal(normal);
+        vo.setLow(low);
+        vo.setZero(zero);
+        return vo;
+    }
+
+    @Override
+    public List<EcInventoryListItemVO> getInventoryByProduct(Long productId) {
+        if (productId == null) return List.of();
+        List<EcSku> skus = ecSkuMapper.selectList(
+                new LambdaQueryWrapper<EcSku>().eq(EcSku::getProductId, productId));
+        if (skus.isEmpty()) return List.of();
+
+        List<String> skuCodes = skus.stream().map(EcSku::getSkuCode).toList();
+        List<EcInventory> inventories = list(new LambdaQueryWrapper<EcInventory>()
+                .in(EcInventory::getSkuCode, skuCodes)
+                .orderByAsc(EcInventory::getSkuCode));
+
+        if (inventories.isEmpty()) return List.of();
+
+        Map<String, SkuBrief> skuBriefMap = loadSkuBriefMap(
+                inventories.stream().map(EcInventory::getSkuCode).toList());
+        Map<String, Integer> inTransitMap = loadInTransitMap(
+                inventories.stream().map(EcInventory::getSkuCode).toList());
+
+        List<EcInventoryListItemVO> list = new ArrayList<>();
+        for (EcInventory inv : inventories) {
+            SkuBrief brief = skuBriefMap.get(inv.getSkuCode());
+            EcInventoryListItemVO item = toListItemVO(inv, brief, List.of());
+            item.setInTransitQty(inTransitMap.getOrDefault(inv.getSkuCode(), 0));
+            list.add(item);
+        }
+        return list;
+    }
+
+    private PageResult<EcInventoryListItemVO> pageInventoriesGroupedBySpu(
+            String keyword, Boolean alertOnly, Boolean inStockOnly,
+            Long factoryId, Long page, Long pageSize) {
+        long p = PageUtils.normalizePage(page);
+        long ps = PageUtils.normalizePageSize(pageSize);
+
+        LambdaQueryWrapper<EcInventory> wrapper = buildInventoryQueryWrapper(keyword, factoryId, alertOnly, inStockOnly);
+        Set<String> allowedSkuCodes = resolveAllowedSkuCodes(keyword, factoryId);
+        if (allowedSkuCodes != null && allowedSkuCodes.isEmpty()) {
+            return PageResult.empty(p, ps);
+        }
+
+        // 获取所有匹配的 SKU 级库存
+        List<EcInventory> allInventories = list(wrapper);
+        if (allInventories.isEmpty()) {
+            return PageResult.empty(p, ps);
+        }
+
+        // 加载 SKU 信息（含 productId/productName）
+        List<String> allSkuCodes = allInventories.stream().map(EcInventory::getSkuCode).distinct().toList();
+        Map<String, SkuBrief> skuBriefMap = loadSkuBriefMap(allSkuCodes);
+        Map<String, Integer> inTransitMap = loadInTransitMap(allSkuCodes);
+
+        // 按 productId 分组（无 productId 的用 skuCode 作为独立组）
+        Map<String, List<EcInventory>> spuGroups = new LinkedHashMap<>();
+        for (EcInventory inv : allInventories) {
+            SkuBrief brief = skuBriefMap.get(inv.getSkuCode());
+            String groupKey = brief != null && brief.productId != null
+                    ? "p:" + brief.productId
+                    : "s:" + inv.getSkuCode();
+            spuGroups.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(inv);
+        }
+
+        // 构建 SPU 级记录
+        List<EcInventoryListItemVO> spuRecords = new ArrayList<>();
+        for (Map.Entry<String, List<EcInventory>> entry : spuGroups.entrySet()) {
+            List<EcInventory> groupItems = entry.getValue();
+            EcInventory first = groupItems.get(0);
+            SkuBrief brief = skuBriefMap.get(first.getSkuCode());
+
+            int totalQty = groupItems.stream().mapToInt(i -> i.getQuantity() != null ? i.getQuantity() : 0).sum();
+            int totalInTransit = groupItems.stream()
+                    .mapToInt(i -> inTransitMap.getOrDefault(i.getSkuCode(), 0)).sum();
+            int totalThreshold = groupItems.stream().mapToInt(i -> i.getAlertThreshold() != null ? i.getAlertThreshold() : 0).sum();
+            boolean hasAlert = groupItems.stream().anyMatch(this::isAlertActive);
+            boolean anyIgnoreAlert = groupItems.stream().anyMatch(i -> i.getIgnoreAlert() != null && i.getIgnoreAlert() == 1);
+
+            EcInventoryListItemVO vo = new EcInventoryListItemVO();
+            vo.setId(first.getId());
+            vo.setSkuCode(brief != null && brief.productName != null ? brief.productName : first.getSkuCode());
+            vo.setProductName(brief != null ? brief.productName : null);
+            vo.setProductId(brief != null ? brief.productId : null);
+            vo.setQuantity(totalQty);
+            vo.setInTransitQty(totalInTransit);
+            vo.setAlertThreshold(totalThreshold);
+            vo.setAlertActive(hasAlert);
+            vo.setIgnoreAlert(anyIgnoreAlert);
+            vo.setSalePrice(brief != null ? brief.salePrice : null);
+            vo.setUpdateTime(groupItems.stream()
+                    .map(EcInventory::getUpdateTime)
+                    .filter(Objects::nonNull)
+                    .max(LocalDateTime::compareTo)
+                    .orElse(null));
+            vo.setSpuSkuCount(groupItems.size());
+            spuRecords.add(vo);
+        }
+
+        // SPU 级排序：按数量降序
+        spuRecords.sort((a, b) -> Integer.compare(
+                b.getQuantity() != null ? b.getQuantity() : 0,
+                a.getQuantity() != null ? a.getQuantity() : 0));
+
+        // 内存分页
+        int totalSpu = spuRecords.size();
+        int fromIndex = (int) ((p - 1) * ps);
+        if (fromIndex >= totalSpu) {
+            return PageUtils.of(List.of(), (long) totalSpu, p, ps);
+        }
+        int toIndex = Math.min(fromIndex + (int) ps, totalSpu);
+        List<EcInventoryListItemVO> pageRecords = spuRecords.subList(fromIndex, toIndex);
+
+        // extra 汇总
+        Map<String, Object> extra = new HashMap<>();
+        extra.put("totalSkuCount", allInventories.size());
+        extra.put("totalQuantity", spuRecords.stream().mapToInt(i -> i.getQuantity() != null ? i.getQuantity() : 0).sum());
+        extra.put("totalStockValue", spuRecords.stream()
+                .map(i -> {
+                    BigDecimal qty = BigDecimal.valueOf(i.getQuantity() != null ? i.getQuantity() : 0);
+                    return i.getSalePrice() != null ? i.getSalePrice().multiply(qty) : BigDecimal.ZERO;
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
+
+        PageResult<EcInventoryListItemVO> result = PageUtils.of(pageRecords, (long) totalSpu, p, ps);
         result.setExtra(extra);
         return result;
     }
@@ -827,6 +1141,8 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
             SkuBrief brief = new SkuBrief();
             brief.specName = sku.getSpecName();
             brief.productName = productNameMap.get(sku.getProductId());
+            brief.productId = sku.getProductId();
+            brief.imageName = sku.getImageName();
             brief.salePrice = sku.getSalePrice();
             result.put(sku.getSkuCode().trim(), brief);
         }
@@ -951,7 +1267,9 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
         if (brief != null) {
             vo.setSpecName(brief.specName);
             vo.setProductName(brief.productName);
+            vo.setProductId(brief.productId);
             vo.setSalePrice(brief.salePrice);
+            vo.setImageName(brief.imageName);
         }
         vo.setQuantity(inventory.getQuantity());
         vo.setIgnoreAlert(inventory.getIgnoreAlert() != null && inventory.getIgnoreAlert() == 1);
@@ -1286,6 +1604,8 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
     private static final class SkuBrief {
         private String specName;
         private String productName;
+        private Long productId;
+        private String imageName;
         private java.math.BigDecimal salePrice;
     }
 

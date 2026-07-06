@@ -128,6 +128,7 @@ export function fetchInventories(
   factoryId?: number,
   pageQuery?: PageQuery,
   inStockOnly?: boolean,
+  groupBySpu?: boolean,
 ) {
   return getData<PageResult<EcInventory>>('/api/ecommerce/inventories', {
     ...(keyword ? { keyword } : {}),
@@ -135,6 +136,7 @@ export function fetchInventories(
     ...(inStockOnly ? { inStockOnly: true } : {}),
     ...(factoryId ? { factoryId } : {}),
     ...(pageQuery ?? {}),
+    ...(groupBySpu ? { groupBySpu: true } : {}),
   })
 }
 
@@ -176,6 +178,48 @@ export function fetchInventoryInboundValueSummary(factoryId?: number) {
   return getData<EcInventoryInboundValueSummary>('/api/ecommerce/inventories/inbound-value-summary', {
     ...(factoryId ? { factoryId } : {}),
   })
+}
+
+export interface EcInventoryOverview {
+  skuCount: number
+  totalQuantity: number
+  totalStockValue: number
+  statusCounts: Record<string, number>
+}
+
+export function fetchInventoryOverview() {
+  return getData<EcInventoryOverview>('/api/ecommerce/inventories/overview')
+}
+
+export interface EcInventorySpuStatus {
+  total: number
+  normal: number
+  low: number
+  zero: number
+}
+
+export function fetchSpuStatusCounts() {
+  return getData<EcInventorySpuStatus>('/api/ecommerce/inventories/spu-status-counts')
+}
+
+export interface EcInventorySummary {
+  skuCount: number
+  totalQuantity: number
+  totalStockValue: number
+  alertCount: number
+  statusCounts: Record<string, number>
+  healthScore: number
+  inboundValue: number | null
+}
+
+export function fetchInventorySummary(factoryId?: number) {
+  return getData<EcInventorySummary>('/api/ecommerce/inventories/summary', {
+    ...(factoryId ? { factoryId } : {}),
+  })
+}
+
+export function fetchInventoryByProduct(productId: number) {
+  return getData<EcInventory[]>('/api/ecommerce/inventories/by-product', { productId })
 }
 
 export function fetchPackingEstimate(skuCode: string, outboundQty?: number) {

@@ -400,7 +400,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
-import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets'
+import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets.ts'
 
 const assets = schemeAAssets
 

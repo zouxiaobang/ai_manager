@@ -66,6 +66,7 @@ import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -141,10 +142,26 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         applyOrderTimeRangeFilter(wrapper, orderTimeFrom, orderTimeTo);
         if (StringUtils.hasText(keyword)) {
             String kw = keyword.trim();
-            wrapper.and(w -> w.like(EcSalesOrder::getOrderNo, kw)
-                    .or().like(EcSalesOrder::getPlatformOrderNo, kw)
-                    .or().like(EcSalesOrder::getBuyerName, kw)
-                    .or().like(EcSalesOrder::getTrackingNumber, kw));
+            // 同时在订单行表中搜索商品名称和 SKU 名称
+            List<EcSalesOrderLine> matchedLines = ecSalesOrderLineMapper.selectList(
+                    new LambdaQueryWrapper<EcSalesOrderLine>()
+                            .select(EcSalesOrderLine::getOrderId)
+                            .like(EcSalesOrderLine::getLinkName, kw)
+                            .or()
+                            .like(EcSalesOrderLine::getSkuSpecName, kw));
+            List<Long> matchedOrderIds = matchedLines.stream()
+                    .map(EcSalesOrderLine::getOrderId)
+                    .distinct()
+                    .toList();
+            wrapper.and(w -> {
+                w.like(EcSalesOrder::getOrderNo, kw)
+                        .or().like(EcSalesOrder::getPlatformOrderNo, kw)
+                        .or().like(EcSalesOrder::getBuyerName, kw)
+                        .or().like(EcSalesOrder::getTrackingNumber, kw);
+                if (!matchedOrderIds.isEmpty()) {
+                    w.or().in(EcSalesOrder::getId, matchedOrderIds);
+                }
+            });
         }
         Page<EcSalesOrder> entityPage = page(new Page<>(p, ps), wrapper);
         if (entityPage.getRecords().isEmpty()) {
@@ -243,6 +260,23 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         vo.setPendingReviewCount(pendingReviewCount);
         vo.setLastImportTime(lastImportTime);
         vo.setShops(shopStatuses);
+
+        // 按状态统计订单数、营收、利润
+        List<Map<String, Object>> statusRows = baseMapper.countOrdersByStatusGroup(start, end, shopId);
+        Map<String, Integer> statusCounts = new HashMap<>();
+        BigDecimal totalRevenue = BigDecimal.ZERO;
+        BigDecimal totalProfit = BigDecimal.ZERO;
+        for (Map<String, Object> row : statusRows) {
+            String status = (String) row.get("status");
+            int count = ((Number) row.get("count")).intValue();
+            statusCounts.put(status, count);
+            totalRevenue = totalRevenue.add((BigDecimal) row.get("revenue"));
+            totalProfit = totalProfit.add((BigDecimal) row.get("profit"));
+        }
+        vo.setStatusCounts(statusCounts);
+        vo.setTotalRevenue(totalRevenue);
+        vo.setTotalProfit(totalProfit);
+
         return vo;
     }
 

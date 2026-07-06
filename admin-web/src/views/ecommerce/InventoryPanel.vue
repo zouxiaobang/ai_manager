@@ -32,7 +32,6 @@
                 <el-option :label="t('ecommerce.home.inventoryNormal')" value="normal" />
                 <el-option :label="t('ecommerce.home.inventoryLow')" value="low" />
                 <el-option :label="t('ecommerce.home.inventoryZeroShort')" value="zero" />
-                <el-option :label="t('ecommerce.home.inventorySlow')" value="slow" />
               </el-select>
               <el-select
                 v-model="alertFilter"
@@ -48,7 +47,7 @@
 
             <div class="inventory-center__stats">
               <div class="inventory-center__health">
-                <InventoryHealthChart :items="statsItems" />
+                <InventoryHealthChart :summary="statsSummary" />
               </div>
               <div class="inventory-center__metrics">
                 <div
@@ -147,9 +146,9 @@
                   v-for="row in displayRecords"
                   :key="row.listKey ?? row.id"
                   class="inventory-card inventory-card--doodle"
-                  :class="{ 'is-alert': row.alertActive }"
+                  :class="stockCardClass(row)"
                   :seed="Number(row.id ?? row.listKey ?? 0)"
-                  :color="row.alertActive ? '#ef4444' : '#cbd5e1'"
+                  :color="stockDoodleColor(row)"
                   sketch
                   :stroke-width="3"
                   @click="openDetail(row)"
@@ -165,7 +164,7 @@
                           <template v-else>{{ row.productName || row.specName || '—' }}</template>
                         </span>
                       </div>
-                      <el-tag v-if="row.alertActive" type="danger" size="small">{{ t('ecommerce.inventory.alerting') }}</el-tag>
+                      <el-tag v-if="row.alertActive" :type="stockAlertType(row)" size="small">{{ t('ecommerce.inventory.alerting') }}</el-tag>
                       <el-tag v-else type="success" size="small">{{ t('ecommerce.inventory.normal') }}</el-tag>
                     </div>
                     <div class="inventory-card__qty">{{ row.quantity ?? 0 }}</div>
@@ -183,7 +182,7 @@
                       <div class="inventory-card__progress-bar">
                         <span
                           class="inventory-card__progress-fill"
-                          :class="{ 'is-danger': row.alertActive }"
+                          :class="{ 'is-danger': (row.quantity ?? 0) === 0, 'is-warning': (row.quantity ?? 0) > 0 && row.alertActive }"
                           :style="{ width: `${stockLevelPct(row)}%` }"
                         />
                       </div>
@@ -195,7 +194,7 @@
                       <MobileDoodleChip tag="button" type="button" color="#8b5cf6" :seed="Number(row.id) + 1" @click.stop="openDetail(row)">
                         {{ t('ecommerce.inventory.detail') }}
                       </MobileDoodleChip>
-                      <MobileDoodleChip tag="button" type="button" color="#2563eb" :seed="Number(row.id) + 2" @click.stop="openAdjust(row)">
+                      <MobileDoodleChip v-if="!row.spuSkuCount" tag="button" type="button" color="#2563eb" :seed="Number(row.id) + 2" @click.stop="openAdjust(row)">
                         {{ t('ecommerce.inventory.adjust') }}
                       </MobileDoodleChip>
                     </div>
@@ -207,7 +206,7 @@
                 v-for="row in displayRecords"
                 :key="row.listKey ?? row.id"
                 class="inventory-card"
-                :class="{ 'is-alert': row.alertActive }"
+                :class="stockCardClass(row)"
                 @click="openDetail(row)"
               >
                 <div class="inventory-card__head">
@@ -220,7 +219,7 @@
                       <template v-else>{{ row.productName || row.specName || '—' }}</template>
                     </span>
                   </div>
-                  <el-tag v-if="row.alertActive" type="danger" size="small">{{ t('ecommerce.inventory.alerting') }}</el-tag>
+                  <el-tag v-if="row.alertActive" :type="stockAlertType(row)" size="small">{{ t('ecommerce.inventory.alerting') }}</el-tag>
                   <el-tag v-else type="success" size="small">{{ t('ecommerce.inventory.normal') }}</el-tag>
                 </div>
                 <div class="inventory-card__qty">{{ row.quantity ?? 0 }}</div>
@@ -238,7 +237,7 @@
                   <div class="inventory-card__progress-bar">
                     <span
                       class="inventory-card__progress-fill"
-                      :class="{ 'is-danger': row.alertActive }"
+                      :class="{ 'is-danger': (row.quantity ?? 0) === 0, 'is-warning': (row.quantity ?? 0) > 0 && row.alertActive }"
                       :style="{ width: `${stockLevelPct(row)}%` }"
                     />
                   </div>
@@ -248,7 +247,7 @@
                 </div>
                 <div class="inventory-card__actions" @click.stop>
                   <el-button size="small" @click.stop="openDetail(row)">{{ t('ecommerce.inventory.detail') }}</el-button>
-                  <el-button size="small" @click.stop="openAdjust(row)">{{ t('ecommerce.inventory.adjust') }}</el-button>
+                  <el-button v-if="!row.spuSkuCount" size="small" @click.stop="openAdjust(row)">{{ t('ecommerce.inventory.adjust') }}</el-button>
                   <el-button size="small" @click.stop="openLogs(row)">{{ t('ecommerce.inventory.logs') }}</el-button>
                 </div>
               </div>
@@ -475,13 +474,14 @@ import {
 } from '@element-plus/icons-vue'
 import {
   fetchInventories,
-  fetchInventoryInboundValueSummary,
   fetchInventoryLogs,
   fetchInventorySkuOptions,
+  fetchInventorySummary,
   quickInbound,
   type EcInventory,
   type EcInventoryLog,
   type EcInventorySkuOption,
+  type EcInventorySummary,
 } from '@/api/ecommerce/inventory'
 import { fetchFactoryOptions, type EcFactory } from '@/api/ecommerce/factory'
 import InventoryHealthChart from '@/components/ecommerce/InventoryHealthChart.vue'
@@ -496,8 +496,7 @@ import {
   parseInventoryLogRemark,
   type LogRemarkParts,
 } from '@/utils/inventoryLogDisplay'
-import { classifyInventory, groupInventoriesBySpu, inventorySpuGroupKey, type InventoryListRow } from '@/utils/inventoryStats'
-import { useEcSettingsStore } from '@/stores/ecSettings'
+import { classifyInventory, inventorySpuGroupKey, type InventoryListRow } from '@/utils/inventoryStats'
 import {
   buildInventoryWeekCompares,
   getPreviousWeekSnapshot,
@@ -518,21 +517,13 @@ const emit = defineEmits<{ viewProduct: [productId: number] }>()
 
 const { t } = useI18n()
 const doodle = useMobileEcDoodle()
-const ecSettings = useEcSettingsStore()
-
-const inventoryClassificationOptions = computed(() => ({
-  defaultAlertThreshold: ecSettings.inventory.defaultAlertThreshold,
-  slowMovingDays: ecSettings.inventory.slowMovingDays,
-  slowMovingFallbackDays: ecSettings.inventory.slowMovingFallbackDays,
-}))
 
 const statusFilter = ref<string | undefined>()
 const alertFilter = ref<string | undefined>()
 const displayMode = ref<'spu' | 'sku'>('spu')
 const listStockFilter = ref<'inStock' | 'alert' | 'all'>('all')
-const statsItems = ref<EcInventory[]>([])
+const statsSummary = ref<EcInventorySummary | null>(null)
 const statsLoading = ref(false)
-const totalInboundValue = ref<number | null>(null)
 const weekCompares = ref<ReturnType<typeof buildInventoryWeekCompares>>({
   sku: null,
   qty: null,
@@ -554,7 +545,6 @@ const total = ref(0)
 const records = ref<EcInventory[]>([])
 const extra = ref<Record<string, unknown> | undefined>()
 const loading = ref(false)
-const spuAllRows = ref<InventoryListRow[]>([])
 const allSkuRowsCache = ref<EcInventory[]>([])
 
 function inventoryFetchParams(pageNo: number, pageSizeNo: number) {
@@ -567,56 +557,12 @@ function inventoryFetchParams(pageNo: number, pageSizeNo: number) {
   } as const
 }
 
-async function fetchAllMatchingInventories() {
-  const all: EcInventory[] = []
-  let p = 1
-  const ps = 200
-  while (true) {
-    const params = inventoryFetchParams(p, ps)
-    const result = await fetchInventories(
-      params.keyword,
-      params.alertOnly,
-      params.factoryId,
-      params.pageQuery,
-      params.inStockOnly,
-    )
-    all.push(...result.records)
-    if (result.records.length === 0 || all.length >= result.total) break
-    p += 1
-  }
-  return all
-}
-
-function applyListClientFilters(rows: EcInventory[]) {
-  let filtered = rows
-  if (statusFilter.value) {
-    filtered = filtered.filter(
-      (row) => classifyInventory(row, inventoryClassificationOptions.value) === statusFilter.value,
-    )
-  }
-  if (alertFilter.value === 'normal') {
-    filtered = filtered.filter((row) => !row.alertActive)
-  }
-  return filtered
-}
-
-function applySpuGrouping() {
-  spuAllRows.value = groupInventoriesBySpu(applyListClientFilters(allSkuRowsCache.value))
-  total.value = spuAllRows.value.length
-}
-
 async function loadList(resetPage = false) {
   if (resetPage) {
     page.value = 1
   }
   loading.value = true
   try {
-    if (displayMode.value === 'spu') {
-      allSkuRowsCache.value = await fetchAllMatchingInventories()
-      applySpuGrouping()
-      return
-    }
-
     const params = inventoryFetchParams(page.value, pageSize.value)
     const result = await fetchInventories(
       params.keyword,
@@ -624,13 +570,13 @@ async function loadList(resetPage = false) {
       params.factoryId,
       params.pageQuery,
       params.inStockOnly,
+      displayMode.value === 'spu', // groupBySpu: server-side SPU aggregation
     )
     records.value = result.records
     total.value = result.total
     page.value = result.page
     pageSize.value = result.pageSize
     extra.value = result.extra
-    spuAllRows.value = []
     allSkuRowsCache.value = []
   } finally {
     loading.value = false
@@ -639,17 +585,13 @@ async function loadList(resetPage = false) {
 
 function onListPageChange(value: number) {
   page.value = value
-  if (displayMode.value === 'sku') {
-    loadList()
-  }
+  loadList()
 }
 
 function onListSizeChange(value: number) {
   pageSize.value = value
   page.value = 1
-  if (displayMode.value === 'sku') {
-    loadList()
-  }
+  loadList()
 }
 
 const adjustVisible = ref(false)
@@ -691,20 +633,17 @@ const selectedSkuOption = computed(() =>
 )
 
 const displayRecords = computed((): InventoryListRow[] => {
-  if (displayMode.value === 'spu') {
-    const start = (page.value - 1) * pageSize.value
-    return spuAllRows.value.slice(start, start + pageSize.value)
-  }
-
   let rows = records.value
   if (statusFilter.value) {
-    rows = rows.filter((row) => classifyInventory(row, inventoryClassificationOptions.value) === statusFilter.value)
+    rows = rows.filter((row) => classifyInventory(row) === statusFilter.value)
   }
   if (alertFilter.value === 'normal') {
     rows = rows.filter((row) => !row.alertActive)
   }
-
-  return rows.map((row) => ({ ...row, listKey: `sku:${row.id}` }))
+  return rows.map((row) => ({
+    ...row,
+    listKey: displayMode.value === 'spu' ? `spu:${row.id}` : `sku:${row.id}`,
+  }))
 })
 
 const displayListCount = computed(() => total.value)
@@ -737,16 +676,17 @@ function cycleListStockFilter() {
 }
 
 const mainSummaryMetrics = computed(() => {
-  const totalQty = Number(extra.value?.totalQuantity ?? 0)
-  const totalStockValue = Number(extra.value?.totalStockValue ?? 0)
-  const alertCount = statsItems.value.filter((row) => row.alertActive).length
+  const summary = statsSummary.value
+  const totalQty = summary?.totalQuantity ?? 0
+  const totalStockValue = summary?.totalStockValue ?? 0
+  const alertCount = summary?.alertCount ?? 0
   const compares = weekCompares.value
   return [
     {
       key: 'sku',
       tone: 'blue',
       label: t('ecommerce.inventory.metricSkuCount'),
-      value: String(total.value),
+      value: String(summary?.skuCount ?? total.value),
       unit: t('ecommerce.inventory.unitCount'),
       icon: markRaw(Goods),
       weekCompare: compares.sku,
@@ -786,7 +726,7 @@ const inboundValueMetric = computed(() => ({
   label: factoryId.value
     ? t('ecommerce.inventory.metricInboundValueFactory')
     : t('ecommerce.inventory.metricInboundValue'),
-  moneyValue: totalInboundValue.value ?? undefined,
+  moneyValue: statsSummary.value?.inboundValue ?? undefined,
 }))
 
 const inboundValueWeekCompare = computed(() => weekCompares.value.inbound ?? null)
@@ -812,6 +752,26 @@ function stockLevelPct(row: EcInventory) {
   const threshold = Math.max(row.alertThreshold ?? 0, 1)
   const max = Math.max(threshold * 2, qty, 1)
   return Math.min(100, Math.round((qty / max) * 100))
+}
+
+/** 零库存 → danger，低库存（>0 且预警）→ warning，正常 → normal */
+function stockAlertType(row: EcInventory): 'danger' | 'warning' {
+  return (row.quantity ?? 0) === 0 ? 'danger' : 'warning'
+}
+
+function stockCardClass(row: EcInventory): Record<string, boolean> {
+  const qty = row.quantity ?? 0
+  return {
+    'is-alert': qty === 0,
+    'is-limit': qty > 0 && !!row.alertActive,
+  }
+}
+
+function stockDoodleColor(row: EcInventory): string {
+  const qty = row.quantity ?? 0
+  if (qty === 0) return '#ef4444'
+  if (row.alertActive) return '#f59e0b'
+  return '#cbd5e1'
 }
 
 function skuOptionLabel(opt: EcInventorySkuOption) {
@@ -861,27 +821,17 @@ async function onQuickInbound() {
   }
 }
 
-async function loadInboundValueSummary() {
-  try {
-    const summary = await fetchInventoryInboundValueSummary(factoryId.value)
-    const raw = summary.totalInboundValue
-    totalInboundValue.value = raw == null ? null : Number(raw)
-  } catch {
-    totalInboundValue.value = null
-  }
-}
-
 async function loadStatsItems() {
   statsLoading.value = true
   try {
-    const result = await fetchInventories(undefined, false, factoryId.value, { page: 1, pageSize: 500 })
-    await loadInboundValueSummary()
-    statsItems.value = result.records
-    const skuCount = result.total
-    const totalQty = Number(result.extra?.totalQuantity ?? 0)
-    const totalStockValue = Number(result.extra?.totalStockValue ?? 0)
-    const alertCount = result.records.filter((row) => row.alertActive).length
-    const inboundValue = totalInboundValue.value ?? 0
+    statsSummary.value = await fetchInventorySummary(factoryId.value)
+
+    const s = statsSummary.value
+    const skuCount = s.skuCount
+    const totalQty = s.totalQuantity
+    const totalStockValue = s.totalStockValue
+    const alertCount = s.alertCount
+    const inboundValue = s.inboundValue ?? 0
 
     const previous = getPreviousWeekSnapshot(factoryId.value)
     weekCompares.value = buildInventoryWeekCompares(
@@ -933,10 +883,7 @@ watch(alertFilter, () => loadList(true))
 watch(listStockFilter, () => loadList(true))
 
 watch(statusFilter, () => {
-  if (displayMode.value === 'spu') {
-    page.value = 1
-    applySpuGrouping()
-  }
+  // Client-side filter, handled by displayRecords computed
 })
 
 async function openCreate() {
@@ -949,30 +896,45 @@ function openAdjust(row: EcInventory) {
   adjustVisible.value = true
 }
 
-function resolveSpuItems(row: InventoryListRow): EcInventory[] {
+async function resolveSpuSkuItems(row: EcInventory): Promise<EcInventory[]> {
   const key = inventorySpuGroupKey(row)
-  const source = allSkuRowsCache.value.length ? allSkuRowsCache.value : records.value
-  const items = source.filter((item) => inventorySpuGroupKey(item) === key)
-  return items.length ? items : [row]
+  // Use cache if available
+  if (allSkuRowsCache.value.length) {
+    const items = allSkuRowsCache.value.filter((item) => inventorySpuGroupKey(item) === key)
+    if (items.length) return items
+  }
+  // Otherwise fetch SKU items for this product from the server
+  try {
+    const result = await fetchInventories(
+      row.productName || row.skuCode,
+      undefined,
+      row.factoryId,
+      { page: 1, pageSize: 200 },
+    )
+    const items = result.records.filter((item) => inventorySpuGroupKey(item) === key)
+    return items.length ? items : [row]
+  } catch {
+    return [row]
+  }
 }
 
-function openDetail(row: EcInventory) {
+async function openDetail(row: EcInventory) {
   detailInventoryId.value = row.id
-  detailSpuItems.value = displayMode.value === 'spu' ? resolveSpuItems(row as InventoryListRow) : null
+  if (displayMode.value === 'spu') {
+    detailSpuItems.value = await resolveSpuSkuItems(row)
+  } else {
+    detailSpuItems.value = null
+  }
   detailDrawerVisible.value = true
 }
 
 async function onDetailRefreshed() {
-  if (displayMode.value === 'spu') {
-    const key = detailSpuItems.value?.[0] ? inventorySpuGroupKey(detailSpuItems.value[0]) : null
-    await loadList()
-    if (key) {
-      detailSpuItems.value = allSkuRowsCache.value.filter((item) => inventorySpuGroupKey(item) === key)
-    }
-  } else {
-    await loadList()
-  }
+  await loadList()
   await loadStatsItems()
+  // Re-resolve SPU items if in SPU mode
+  if (displayMode.value === 'spu' && detailSpuItems.value?.[0]) {
+    detailSpuItems.value = await resolveSpuSkuItems(detailSpuItems.value[0])
+  }
 }
 
 async function onViewInboundOrder(orderId: number) {
@@ -1493,6 +1455,11 @@ defineExpose({ loadInventories })
     border-color: #fecaca;
     background: #fffbfb;
   }
+
+  &.is-limit {
+    border-color: #fed7aa;
+    background: #fffcf5;
+  }
 }
 
 .inventory-card__head {
@@ -1583,6 +1550,10 @@ defineExpose({ loadInventories })
 
   &.is-danger {
     background: #dc2626;
+  }
+
+  &.is-warning {
+    background: #f59e0b;
   }
 }
 

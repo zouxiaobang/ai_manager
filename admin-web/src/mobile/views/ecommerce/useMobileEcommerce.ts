@@ -211,12 +211,7 @@ export function useMobileEcommerce() {
       fetchInventories(undefined, false, undefined, { page: 1, pageSize: 200 }),
     ])
     inventoryAlertCount.value = alertPage.total ?? 0
-    const options = {
-      defaultAlertThreshold: ecSettings.inventory.defaultAlertThreshold,
-      slowMovingDays: ecSettings.inventory.slowMovingDays,
-      slowMovingFallbackDays: ecSettings.inventory.slowMovingFallbackDays,
-    }
-    computeInventoryStats(allPage.records ?? [], options)
+    computeInventoryStats(allPage.records ?? [])
     const warnings: typeof inventoryWarnings.value = []
     for (const row of alertPage.records ?? []) {
       if ((row.quantity ?? 0) <= 0) {

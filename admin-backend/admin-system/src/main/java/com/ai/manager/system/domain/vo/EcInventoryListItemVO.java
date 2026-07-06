@@ -17,6 +17,8 @@ public class EcInventoryListItemVO {
 
     private String productName;
 
+    private Long productId;
+
     private Integer quantity;
 
     /** SKU 售价，用于前端计算存货价值 */
@@ -25,6 +27,9 @@ public class EcInventoryListItemVO {
     private Boolean ignoreAlert;
 
     private Integer alertThreshold;
+
+    /** 图片文件名 */
+    private String imageName;
 
     /** 是否处于预警状态 */
     private Boolean alertActive;
@@ -35,4 +40,7 @@ public class EcInventoryListItemVO {
     private LocalDateTime updateTime;
 
     private List<EcInventoryLogVO> recentLogs;
+
+    /** 该 SPU 下的 SKU 数量（仅 groupBySpu 时有值） */
+    private Integer spuSkuCount;
 }

@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
-import { fetchShopOptions, type EcShop } from '@/api/ecommerce/shop'
-import { fetchPlatformOptions, type EcPlatform } from '@/api/ecommerce/platform'
+import { fetchShopOptions, type EcShop } from '@/api/ecommerce/shop.ts'
+import { fetchPlatformOptions, type EcPlatform } from '@/api/ecommerce/platform.ts'
 
 const PLATFORM_ICONS: Record<string, string> = {
   '淘宝': '🛒',

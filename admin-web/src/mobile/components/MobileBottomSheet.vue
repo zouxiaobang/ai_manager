@@ -12,6 +12,7 @@
                 </slot>
               </div>
               <button
+                v-if="showClose"
                 type="button"
                 class="mobile-bottom-sheet__close"
                 aria-label="关闭"
@@ -45,11 +46,13 @@ withDefaults(defineProps<{
   loading?: boolean
   loadingText?: string
   transitionName?: string
+  showClose?: boolean
 }>(), {
   title: '',
   loading: false,
   loadingText: '加载中...',
   transitionName: 'mobile-bottom-sheet',
+  showClose: false,
 })
 
 const emit = defineEmits<{

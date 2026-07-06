@@ -409,7 +409,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
-import { schemeAAssets as assets } from '@/mobile/views/home/themes/scheme-a/assets'
+import { schemeAAssets as assets } from '@/mobile/views/home/themes/scheme-a/assets.ts'
 
 const schemes = [
   {

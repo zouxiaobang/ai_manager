@@ -1,0 +1,44 @@
+@use '@/mobile/views/home/styles/doodle-tokens' as *;
+
+// ===== 手绘风格 Mixins =====
+@mixin doodle-divider($color: #93c5fd) {
+  height: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    $color,
+    $color 6px,
+    transparent 6px,
+    transparent 10px
+  );
+}
+
+@mixin doodle-dashed-border($color: #e2e8f0) {
+  border: 1.5px dashed $color;
+}
+
+@mixin doodle-card-bg {
+  background: $doodle-cream;
+}
+
+// ===== 全局应用 =====
+.mpr-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: $doodle-cream;
+  padding-bottom: 24px;
+}
+
+.mpr-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 16px 16px;
+  margin-top: 2px;
+  position: relative;
+  z-index: 2;
+}
+
+.mpr-section {
+  width: 100%;
+}

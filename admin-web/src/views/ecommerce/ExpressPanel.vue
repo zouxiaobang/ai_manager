@@ -23,6 +23,7 @@
         {{ t('ecommerce.express.filterDefaultOnly') }}
       </el-checkbox>
       <div class="express-panel__toolbar-spacer" />
+      <el-button plain @click="openCalcDialog">🧮 试算</el-button>
       <el-button type="primary" @click="openCreate">{{ t('ecommerce.express.add') }}</el-button>
     </div>
 
@@ -665,6 +666,98 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 运费试算弹窗 -->
+    <el-dialog
+      v-model="calcDialogVisible"
+      title="🧮 运费试算"
+      width="520px"
+      destroy-on-close
+      append-to-body
+      class="express-calc-dialog"
+    >
+      <div v-if="calcStations.length" class="express-calc-dialog__body">
+        <el-form label-width="100px" class="express-calc-dialog__form">
+          <el-form-item label="快递公司">
+            <el-select v-model.number="calcStationId" placeholder="请选择快递公司" style="width:100%">
+              <el-option v-for="s in calcStations" :key="s.id" :label="s.name" :value="s.id" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="省份">
+            <el-select v-model="calcProvince" placeholder="请选择省份" style="width:100%">
+              <el-option v-for="p in availableProvinces" :key="p" :label="p" :value="p" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="尺寸(cm)">
+            <div class="express-calc-dialog__dims">
+              <el-input v-model.number="calcLength" placeholder="长" type="number" min="0" step="0.1" />
+              <span class="express-calc-dialog__dim-x">×</span>
+              <el-input v-model.number="calcWidth" placeholder="宽" type="number" min="0" step="0.1" />
+              <span class="express-calc-dialog__dim-x">×</span>
+              <el-input v-model.number="calcHeight" placeholder="高" type="number" min="0" step="0.1" />
+            </div>
+          </el-form-item>
+          <el-form-item label="实际重量(kg)">
+            <el-input
+              v-model.number="calcWeight"
+              placeholder="选填，默认按体积重计算"
+              type="number"
+              min="0"
+              step="0.01"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="calcLoading" @click="handleCalculate">
+              开始试算
+            </el-button>
+          </el-form-item>
+        </el-form>
+
+        <!-- 试算结果 -->
+        <div v-if="calcResult" class="express-calc-dialog__result">
+          <div class="express-calc-dialog__result-title">
+            试算结果
+          </div>
+          <div class="express-calc-dialog__result-rows">
+            <div v-if="calcResult.volumetricWeight > 0" class="express-calc-dialog__result-row">
+              <span>体积重</span>
+              <span>{{ formatCalcWeight(calcResult.volumetricWeight) }} kg</span>
+            </div>
+            <div class="express-calc-dialog__result-row">
+              <span>计费重量</span>
+              <span class="express-calc-dialog__result-strong">
+                {{ formatCalcWeight(calcResult.billingWeight) }} kg
+              </span>
+            </div>
+            <div class="express-calc-dialog__result-row">
+              <span>计费档位</span>
+              <span>{{ calcResult.tier }}</span>
+            </div>
+            <div class="express-calc-dialog__result-row">
+              <span>运费</span>
+              <span>¥{{ formatCalcPrice(calcResult.freight) }}</span>
+            </div>
+            <div v-if="calcResult.labelPrice > 0" class="express-calc-dialog__result-row">
+              <span>
+                面单费
+                <span class="express-calc-dialog__result-tip">（不含面单费）</span>
+              </span>
+              <span>¥{{ formatCalcPrice(calcResult.labelPrice) }}</span>
+            </div>
+            <div class="express-calc-dialog__result-row express-calc-dialog__result-row--total">
+              <span>预计总计</span>
+              <span class="express-calc-dialog__result-total">¥{{ formatCalcPrice(calcResult.total) }}</span>
+            </div>
+          </div>
+          <div v-if="calcResult.warning" class="express-calc-dialog__result-warning">
+            ⚠️ {{ calcResult.warning }}
+          </div>
+        </div>
+      </div>
+      <div v-else class="express-calc-dialog__loading">
+        加载中...
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -847,6 +940,220 @@ const noticeForm = reactive({
   highlightRed: false,
   sortOrder: 0,
 })
+
+// ===== 运费试算 =====
+const VOLUMETRIC_DIVISOR_CALC = 8000
+
+interface CalcResult {
+  volumetricWeight: number
+  billingWeight: number
+  tier: string
+  freight: number
+  labelPrice: number
+  total: number
+  warning?: string
+}
+
+const calcDialogVisible = ref(false)
+const calcStations = ref<EcExpressStation[]>([])
+const calcStationCache = ref<Map<number, EcExpressStation>>(new Map())
+const calcStationId = ref<number | null>(null)
+const calcProvince = ref('')
+const calcLength = ref<number | null>(null)
+const calcWidth = ref<number | null>(null)
+const calcHeight = ref<number | null>(null)
+const calcWeight = ref<number | null>(null)
+const calcLoading = ref(false)
+const calcResult = ref<CalcResult | null>(null)
+
+const calcStationDetail = computed<EcExpressStation | null>(() => {
+  if (calcStationId.value == null) return null
+  return calcStationCache.value.get(calcStationId.value) ?? null
+})
+
+const availableProvinces = computed(() => {
+  if (!calcStationDetail.value?.prices?.length) return []
+  return calcStationDetail.value.prices.map((p) => p.provinceName).sort()
+})
+
+async function openCalcDialog() {
+  calcStationId.value = null
+  calcProvince.value = ''
+  calcLength.value = null
+  calcWidth.value = null
+  calcHeight.value = null
+  calcWeight.value = null
+  calcResult.value = null
+  calcLoading.value = false
+
+  try {
+    const page = await fetchExpressStations(undefined, { page: 1, size: 100 })
+    calcStations.value = page.records || []
+
+    // 默认选中默认快递公司
+    const defaultStation = calcStations.value.find((s) => s.isDefault)
+    if (defaultStation) {
+      // 预加载详情到缓存，避免 watch 重复请求
+      if (!calcStationCache.value.has(defaultStation.id)) {
+        const detail = await fetchExpressStation(defaultStation.id)
+        calcStationCache.value.set(defaultStation.id, detail)
+      }
+      calcStationId.value = defaultStation.id
+      // 等 watch 执行完后设置默认省份
+      await nextTick()
+      const detail = calcStationCache.value.get(defaultStation.id)
+      if (detail?.prices?.some((p) => p.provinceName === '广东')) {
+        calcProvince.value = '广东'
+      }
+    } else if (calcStations.value.length > 0) {
+      calcStationId.value = calcStations.value[0].id
+      await nextTick()
+      const detail = calcStationCache.value.get(calcStations.value[0].id)
+      if (detail?.prices?.some((p) => p.provinceName === '广东')) {
+        calcProvince.value = '广东'
+      }
+    }
+  } catch {
+    calcStations.value = []
+  }
+  calcDialogVisible.value = true
+}
+
+watch(calcStationId, async (newId, oldId) => {
+  if (newId == null || newId === oldId) return
+  calcResult.value = null
+  calcProvince.value = ''
+  if (calcStationCache.value.has(newId)) return
+  try {
+    const detail = await fetchExpressStation(newId)
+    calcStationCache.value.set(newId, detail)
+  } catch {
+    // ignore
+  }
+})
+
+async function handleCalculate() {
+  if (calcStationId.value == null || !calcProvince.value) return
+
+  const hasVolume = calcLength.value != null && calcWidth.value != null && calcHeight.value != null
+    && calcLength.value > 0 && calcWidth.value > 0 && calcHeight.value > 0
+  const hasWeight = calcWeight.value != null && calcWeight.value > 0
+  if (!hasVolume && !hasWeight) return
+
+  if (hasVolume && !hasWeight) {
+    const volWeight = Math.round(
+      (calcLength.value! * calcWidth.value! * calcHeight.value!) / VOLUMETRIC_DIVISOR_CALC * 1000
+    ) / 1000
+    calcWeight.value = volWeight
+  }
+
+  calcLoading.value = true
+  try {
+    const stationId = calcStationId.value
+    if (!calcStationCache.value.has(stationId)) {
+      const detail = await fetchExpressStation(stationId)
+      calcStationCache.value.set(stationId, detail)
+    }
+    const station = calcStationCache.value.get(stationId)
+    if (!station) {
+      calcResult.value = null
+      return
+    }
+    const price = station.prices?.find((p) => p.provinceName === calcProvince.value)
+    if (!price) {
+      calcResult.value = null
+      return
+    }
+    calcResult.value = computeCalcFreight(
+      calcLength.value ?? 0,
+      calcWidth.value ?? 0,
+      calcHeight.value ?? 0,
+      calcWeight.value!,
+      price,
+      station.labelPrice ?? 0,
+    )
+  } finally {
+    calcLoading.value = false
+  }
+}
+
+function computeCalcFreight(
+  length: number,
+  width: number,
+  height: number,
+  actualWeight: number,
+  price: EcExpressPrice,
+  labelPrice: number,
+): CalcResult {
+  const hasVolume = length > 0 && width > 0 && height > 0
+  const volumetricWeight = hasVolume ? (length * width * height) / VOLUMETRIC_DIVISOR_CALC : 0
+  const billingWeight = actualWeight
+
+  let freight = 0
+  let tier = ''
+  const warnings: string[] = []
+
+  if (billingWeight <= 0.3) {
+    freight = price.priceW03Kg ?? 0
+    tier = '≤0.3kg'
+    if (price.priceW03Kg == null) warnings.push('该地区未配置 ≤0.3kg 价格')
+  } else if (billingWeight <= 0.5) {
+    freight = price.priceW05Kg ?? 0
+    tier = '≤0.5kg'
+    if (price.priceW05Kg == null) warnings.push('该地区未配置 ≤0.5kg 价格')
+  } else if (billingWeight <= 1) {
+    freight = price.priceW1Kg ?? 0
+    tier = '≤1kg'
+    if (price.priceW1Kg == null) warnings.push('该地区未配置 ≤1kg 价格')
+  } else if (billingWeight <= 1.5) {
+    freight = price.priceW15Kg ?? 0
+    tier = '≤1.5kg'
+    if (price.priceW15Kg == null) warnings.push('该地区未配置 ≤1.5kg 价格')
+  } else if (billingWeight <= 2) {
+    freight = price.priceW2Kg ?? 0
+    tier = '≤2kg'
+    if (price.priceW2Kg == null) warnings.push('该地区未配置 ≤2kg 价格')
+  } else if (billingWeight <= 2.5) {
+    freight = price.priceW25Kg ?? 0
+    tier = '≤2.5kg'
+    if (price.priceW25Kg == null) warnings.push('该地区未配置 ≤2.5kg 价格')
+  } else if (billingWeight <= 3) {
+    freight = price.priceW3Kg ?? 0
+    tier = '≤3kg'
+    if (price.priceW3Kg == null) warnings.push('该地区未配置 ≤3kg 价格')
+  } else {
+    if (price.over3FirstPrice == null) {
+      warnings.push('该地区未配置续重价格，无法计算 >3kg 运费')
+      tier = '>3kg'
+    } else {
+      const over = billingWeight - 3
+      const additionalKg = Math.ceil(over)
+      const additionalPrice = price.over3AdditionalPrice ?? 0
+      freight = price.over3FirstPrice + additionalKg * additionalPrice
+      tier = `>3kg（首重¥${price.over3FirstPrice.toFixed(2)} + 续重${additionalKg}kg×¥${additionalPrice.toFixed(2)}）`
+    }
+  }
+
+  const total = freight
+  return {
+    volumetricWeight,
+    billingWeight,
+    tier,
+    freight,
+    labelPrice,
+    total,
+    warning: warnings.length ? warnings.join('；') : undefined,
+  }
+}
+
+function formatCalcPrice(price?: number | null): string {
+  if (price == null) return '0.00'
+  return Number(price).toFixed(2)
+}
+
+function formatCalcWeight(weight: number): string {
+  return Number(weight).toFixed(3)
+}
 
 const noticePreviewText = computed(() => {
   const text = noticeForm.content.trim()
@@ -2314,5 +2621,113 @@ defineExpose({ loadStations })
   .express-expand {
     grid-template-columns: 1fr;
   }
+}
+
+// ===== 运费试算弹窗 =====
+.express-calc-dialog {
+  :deep(.el-dialog__body) {
+    padding-top: 8px;
+  }
+}
+
+.express-calc-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.express-calc-dialog__loading {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+  font-size: 14px;
+}
+
+.express-calc-dialog__dims {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+
+  .el-input {
+    width: 80px;
+  }
+}
+
+.express-calc-dialog__dim-x {
+  color: #409eff;
+  font-weight: 700;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.express-calc-dialog__result {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--wr-border, #e8ecef);
+}
+
+.express-calc-dialog__result-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--wr-text, #333);
+  margin-bottom: 10px;
+  padding-left: 10px;
+  border-left: 3px solid var(--el-color-primary, #409eff);
+}
+
+.express-calc-dialog__result-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--wr-bg, #f9f9fa);
+  border-radius: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--wr-border, #e8ecef);
+}
+
+.express-calc-dialog__result-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--wr-muted, #999);
+
+  &--total {
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid var(--wr-border, #e8ecef);
+    font-size: 14px;
+    color: var(--wr-text, #333);
+  }
+}
+
+.express-calc-dialog__result-strong {
+  font-weight: 700;
+  color: var(--el-color-primary, #409eff);
+}
+
+.express-calc-dialog__result-total {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--el-color-primary, #409eff);
+}
+
+.express-calc-dialog__result-tip {
+  font-size: 11px;
+  color: var(--wr-muted, #999);
+  font-weight: 400;
+  margin-left: 2px;
+}
+
+.express-calc-dialog__result-warning {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #fef2f2;
+  border-radius: 6px;
+  border: 1px solid #fecaca;
+  font-size: 12px;
+  color: #ef4444;
+  font-weight: 500;
 }
 </style>
