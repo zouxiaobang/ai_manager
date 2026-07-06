@@ -54,37 +54,56 @@ try_remote_build() {
 # 策略 2：Pi 本地构建
 # ============================================================
 ensure_swap() {
-  # 可用内存 < 2GB 时添加 2GB swap
   local mem_mb
   mem_mb=$(free -m | awk '/^Mem:/{print $2}')
-  if [[ -z "$mem_mb" || "$mem_mb" -ge 2048 ]]; then
-    return 0
-  fi
+  echo "==> 物理内存：${mem_mb}MB"
 
-  echo "==> 可用内存 ${mem_mb}MB < 2GB，配置 2GB swap..."
-  if grep -q '/swapfile' /proc/swaps 2>/dev/null; then
-    echo "    已有 swapfile，跳过"
+  # 总可用内存（物理 + swap）< 3GB 时添加/扩增 swap
+  local swap_mb
+  swap_mb=$(free -m | awk '/^Swap:/{print $2}')
+  local total_mb=$(( mem_mb + swap_mb ))
+  local target_swap=$(( 3 * 1024 - mem_mb ))
+  [[ "$target_swap" -lt 0 ]] && target_swap=0
+
+  echo "    当前 swap：${swap_mb}MB，目标总内存 ≥ 3GB，需添加 swap：${target_swap}MB"
+  if [[ "$target_swap" -le 0 ]]; then
     return 0
   fi
 
   # 检查磁盘空间
   local avail_mb
   avail_mb=$(df -m / 2>/dev/null | awk 'NR==2{print $4}')
-  if [[ -n "$avail_mb" && "$avail_mb" -lt 2560 ]]; then
-    echo "    警告：磁盘剩余仅 ${avail_mb}MB，可能不足 2GB swap" >&2
+  local need_mb=$(( target_swap + 512 ))
+  if [[ -n "$avail_mb" && "$avail_mb" -lt "$need_mb" ]]; then
+    echo "    警告：磁盘剩余仅 ${avail_mb}MB，可能不足" >&2
   fi
 
-  sudo fallocate -l 2G /swapfile 2>/dev/null || sudo dd if=/dev/zero of=/swapfile bs=1M count=2048 status=none
+  # 已有 swapfile 但不够大 → 先关掉重建
+  if grep -q '/swapfile' /proc/swaps 2>/dev/null; then
+    local existing_size_mb
+    existing_size_mb=$(stat -c%s /swapfile 2>/dev/null | awk '{print $1/1024/1024}' || echo 0)
+    if (( $(echo "$existing_size_mb >= $target_swap" | bc -l 2>/dev/null || echo 1) )); then
+      echo "    已有 swapfile（${existing_size_mb}MB），足够使用"
+      return 0
+    fi
+    echo "    现有 swapfile 不足（${existing_size_mb}MB），重建为 ${target_swap}MB..."
+    sudo swapoff /swapfile 2>/dev/null || true
+    sudo rm -f /swapfile
+  fi
+
+  echo "==> 配置 ${target_swap}MB swap..."
+  sudo fallocate -l "${target_swap}M" /swapfile 2>/dev/null \
+    || sudo dd if=/dev/zero of=/swapfile bs=1M count="$target_swap" status=none
   sudo chmod 600 /swapfile
   sudo mkswap /swapfile 2>/dev/null
-  sudo swapon /swapfile 2>/dev/null && echo "    swap 已激活"
+  sudo swapon /swapfile 2>/dev/null && echo "    swap 已激活（${target_swap}MB）"
 }
 
 build_locally() {
   cd "${ROOT}/admin-web"
 
-  # 极低内存模式 — 512MB 堆上限、单线程、低优先级
-  export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=512}"
+  # Pi 低内存构建：1024MB 堆上限、单线程、低优先级
+  export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=1024}"
   export npm_config_jobs="${npm_config_jobs:-1}"
   export PI_BUILD=1
 

@@ -20,6 +20,7 @@ kyle ALL=(ALL) NOPASSWD: /usr/bin/rsync
 kyle ALL=(ALL) NOPASSWD: /usr/bin/fallocate
 kyle ALL=(ALL) NOPASSWD: /usr/bin/dd
 kyle ALL=(ALL) NOPASSWD: /sbin/mkswap
+kyle ALL=(ALL) NOPASSWD: /sbin/swapoff
 kyle ALL=(ALL) NOPASSWD: /sbin/swapon
 kyle ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart ai-manager-backend
 kyle ALL=(ALL) NOPASSWD: /usr/bin/systemctl status ai-manager-backend
