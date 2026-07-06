@@ -445,7 +445,8 @@ const products = [
     stock: 156,
     price: 59,
     status: 'healthy' as const,
-    category: 'clothing'
+    category: 'clothing',
+    image: ''
   },
   {
     id: 2,
@@ -454,7 +455,8 @@ const products = [
     stock: 23,
     price: 129,
     status: 'low' as const,
-    category: 'clothing'
+    category: 'clothing',
+    image: ''
   },
   {
     id: 3,
@@ -463,7 +465,8 @@ const products = [
     stock: 0,
     price: 299,
     status: 'out' as const,
-    category: 'shoes'
+    category: 'shoes',
+    image: ''
   },
   {
     id: 4,
@@ -472,7 +475,8 @@ const products = [
     stock: 89,
     price: 199,
     status: 'healthy' as const,
-    category: 'clothing'
+    category: 'clothing',
+    image: ''
   },
   {
     id: 5,
@@ -481,7 +485,8 @@ const products = [
     stock: 15,
     price: 79,
     status: 'low' as const,
-    category: 'shoes'
+    category: 'shoes',
+    image: ''
   },
   {
     id: 6,
@@ -490,7 +495,8 @@ const products = [
     stock: 0,
     price: 169,
     status: 'out' as const,
-    category: 'clothing'
+    category: 'clothing',
+    image: ''
   },
   {
     id: 7,
@@ -499,7 +505,8 @@ const products = [
     stock: 67,
     price: 89,
     status: 'healthy' as const,
-    category: 'bags'
+    category: 'bags',
+    image: ''
   },
   {
     id: 8,
@@ -508,7 +515,8 @@ const products = [
     stock: 8,
     price: 39,
     status: 'low' as const,
-    category: 'accessories'
+    category: 'accessories',
+    image: ''
   }
 ]
 

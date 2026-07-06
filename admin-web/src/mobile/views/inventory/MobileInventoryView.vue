@@ -103,18 +103,18 @@
                     :seed="item.id"
                     tag="button" type="button"
                     class="alert-card"
-                    :color="(item.quantity ?? 0) <= 0 ? '#ef4444' : '#f59e0b'"
+                    :color="(asInventory(item).quantity ?? 0) <= 0 ? '#ef4444' : '#f59e0b'"
                     sketch :stroke-width="2"
                     :shadow="false"
-                    @click="handleItemClick(item)"
+                    @click="handleItemClick(asInventory(item))"
                 >
                   <div class="alert-card__inner">
-                    <div class="alert-card__icon">{{ (item.quantity ?? 0) <= 0 ? '🚨' : '⚠️' }}</div>
+                    <div class="alert-card__icon">{{ (asInventory(item).quantity ?? 0) <= 0 ? '🚨' : '⚠️' }}</div>
                     <div class="alert-card__content">
-                      <div class="alert-card__name">{{ item.productName || item.skuCode }}</div>
-                      <div class="alert-card__spec">{{ item.specName }}</div>
+                      <div class="alert-card__name">{{ asInventory(item).productName || asInventory(item).skuCode }}</div>
+                      <div class="alert-card__spec">{{ asInventory(item).specName }}</div>
                       <div class="alert-card__qty">
-                        <span class="alert-card__qty-num">{{ item.quantity }}</span>件
+                        <span class="alert-card__qty-num">{{ asInventory(item).quantity }}</span>件
                       </div>
                     </div>
                   </div>
@@ -167,7 +167,7 @@
             <div class="inventory-list">
             <SchemeADoodleFrame
               v-for="item in displayItems"
-              :key="item.listKey ?? item.id"
+              :key="item.id"
               tag="button" type="button"
               class="inventory-card"
               :seed="Number(item.id)"
@@ -182,10 +182,7 @@
                   <div class="inventory-card__sku">
                     <span class="inventory-card__code">{{ item.skuCode }}</span>
                     <span class="inventory-card__name">
-                      {{ item.spuSkuCount && item.spuSkuCount > 1
-                        ? `共 ${item.spuSkuCount} 个规格`
-                        : (item.productName || item.specName || '—')
-                      }}
+                      {{ item.productName || item.specName || '—' }}
                     </span>
                   </div>
                   <span
@@ -506,6 +503,11 @@ const alertItems = computed(() => {
 const hasMore = computed(() => records.value.length < total.value)
 
 // ====== 工具函数 ======
+/** MobileCardGrid slot 的 item 类型为 GridItem，实际数据是 EcInventory */
+function asInventory(item: { id: string | number }): EcInventory {
+  return item as unknown as EcInventory
+}
+
 const STATUS_LABELS: Record<InventoryStatusKey, string> = {
   normal: '正常',
   low: '不足',

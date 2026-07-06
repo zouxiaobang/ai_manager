@@ -24,5 +24,7 @@ public class NbTreeNodeVO {
 
     private Integer isFavorite;
 
+    private String contentExcerpt;
+
     private List<NbTreeNodeVO> children = new ArrayList<>();
 }

@@ -32,7 +32,7 @@
           </div>
 
           <!-- Body -->
-          <div class="mpr-sku-sheet__body">
+          <div v-if="sku" class="mpr-sku-sheet__body">
             <!-- SKU 基本信息 -->
             <SchemeADoodleFrame
               class="mpr-sku-sheet__section-card"

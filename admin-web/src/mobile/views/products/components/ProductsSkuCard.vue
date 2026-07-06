@@ -14,7 +14,7 @@
         </div>
 
         <!-- 可截屏区域 -->
-        <div class="mpr-sku-card__scroll-area">
+        <div v-if="sku" class="mpr-sku-card__scroll-area">
           <div ref="cardRef" class="mpr-sku-card">
             <!-- 顶部装饰条 -->
             <div class="mpr-sku-card__top-bar">
@@ -123,7 +123,6 @@ const emit = defineEmits<{
 
 const cardRef = ref<HTMLElement | null>(null)
 const imageBroken = ref(false)
-const capturing = ref(false)
 
 const skuImageUrl = computed(() => getEcommerceImageUrl(props.sku?.imageName))
 

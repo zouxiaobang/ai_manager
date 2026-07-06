@@ -41,7 +41,7 @@
       </router-view>
     </main>
 
-    <nav v-if="showTabBar" class="mobile-app__tabbar">
+    <nav v-show="showTabBar" class="mobile-app__tabbar">
       <button
         v-for="tab in tabs"
         :key="tab.key"

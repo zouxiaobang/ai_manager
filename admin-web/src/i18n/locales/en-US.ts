@@ -745,6 +745,7 @@ export default {
     deleteFolder: 'Delete folder',
     deleteNoteConfirm: 'Move this note to trash?',
     deleteFolderConfirm: 'This will delete the folder and all nested items. Continue?',
+    deleteSuccess: 'Deleted successfully',
     tags: 'Tags',
     tagManage: 'Manage tags',
     newTag: 'New tag',
@@ -2650,6 +2651,10 @@ export default {
     notebook: {
       pinned: 'Pinned',
       allNotes: 'All notes',
+      search: 'Search',
+      searchPlaceholder: 'Search note title or content…',
+      noResults: 'No matching notes found',
+      searchHint: 'Enter keywords to search notes',
     },
     more: {
       functions: 'Features',

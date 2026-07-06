@@ -83,7 +83,7 @@ const passthroughAttrs = computed(() => {
 
 const pathD = computed(() => {
   if (props.shape === 'rect' && props.seed != null) {
-    return resolveDoodleRectPath(props.seed)
+    return resolveDoodleRectPath(typeof props.seed === 'number' ? props.seed : undefined)
   }
   return DOODLE_FRAME_PATHS[props.shape]
 })

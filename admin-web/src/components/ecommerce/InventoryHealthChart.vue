@@ -126,7 +126,7 @@ function onResize() {
   chart?.resize()
 }
 
-watch([() => props.items, healthScore], () => renderChart(), { deep: true })
+watch([() => props.summary, healthScore], () => renderChart(), { deep: true })
 
 onMounted(() => {
   renderChart()

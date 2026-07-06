@@ -118,7 +118,7 @@
                   <div class="order-card__footer">
                     <span class="order-card__time">{{ order.time }}</span>
                     <span class="order-card__status" :style="{ color: orderStatusColor(order.status) }">
-                      {{ order.statusLabel }}
+                      {{ getOrderStatusLabel(order) }}
                     </span>
                   </div>
                 </div>
@@ -169,7 +169,7 @@
                 </div>
                 <div class="timeline-group__orders">
                   <div
-                    v-for="(order, oIdx) in group.orders"
+                    v-for="order in group.orders"
                     :key="order.id"
                     class="doodle-frame timeline-card"
                     :style="{ borderColor: orderStatusColor(order.status) }"
@@ -186,7 +186,7 @@
                       <div class="timeline-card__right">
                         <div class="timeline-card__amount">￥{{ order.amount }}</div>
                         <div class="timeline-card__status" :style="{ background: orderStatusColor(order.status) }">
-                          {{ order.statusLabel }}
+                          {{ getOrderStatusLabel(order) }}
                         </div>
                       </div>
                     </div>
@@ -329,7 +329,7 @@
                   <div class="recent-order__no">#{{ order.orderNo }}</div>
                   <div class="recent-order__amount">￥{{ order.amount }}</div>
                   <span class="order-card__status" style="font-size: 11px;" :style="{ color: orderStatusColor(order.status) }">
-                    {{ order.statusLabel }}
+                    {{ getOrderStatusLabel(order) }}
                   </span>
                 </div>
               </div>
@@ -500,6 +500,10 @@ const orderStatusConfig: Record<OrderStatus, { label: string; color: string }> =
 
 function orderStatusColor(status: OrderStatus): string {
   return orderStatusConfig[status]?.color ?? '#94a3b8'
+}
+
+function getOrderStatusLabel(order: { status: OrderStatus }): string {
+  return orderStatusConfig[order.status]?.label ?? ''
 }
 
 // ────────── 模拟订单数据 ──────────

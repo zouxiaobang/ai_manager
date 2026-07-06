@@ -908,7 +908,7 @@ async function resolveSpuSkuItems(row: EcInventory): Promise<EcInventory[]> {
     const result = await fetchInventories(
       row.productName || row.skuCode,
       undefined,
-      row.factoryId,
+      row.factoryId ?? undefined,
       { page: 1, pageSize: 200 },
     )
     const items = result.records.filter((item) => inventorySpuGroupKey(item) === key)

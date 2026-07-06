@@ -15,6 +15,8 @@ public interface NbNoteService extends IService<NbNote> {
 
     List<NbNoteDetailVO> listRecent(int limit);
 
+    List<NbNoteDetailVO> searchNotes(String keyword);
+
     NbNoteDetailVO createNote(NbNoteSaveRequest request);
 
     NbNoteDetailVO updateNote(Long id, NbNoteSaveRequest request);

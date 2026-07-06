@@ -1,0 +1,1849 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>移动端笔记界面设计 - 方案预览</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=ZCOOL+KuaiLe&family=Liu+Jian+Mao+Cao&display=swap" rel="stylesheet">
+<style>
+  /* ============================
+     GLOBAL STYLES
+     ============================ */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f0ede8;
+    --surface: #faf8f5;
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    --blue: #2563eb;
+    --blue-light: #dbeafe;
+    --orange: #f97316;
+    --orange-light: #fff7ed;
+    --yellow: #fbbf24;
+    --yellow-light: #fffbeb;
+    --green: #22c55e;
+    --green-light: #f0fdf4;
+    --red: #ef4444;
+    --purple: #8b5cf6;
+    --purple-light: #f5f3ff;
+    --border: #e2e8f0;
+    --shadow: 0 4px 14px rgba(0,0,0,0.06);
+    --radius: 16px;
+    --font-display: 'ZCOOL KuaiLe', cursive;
+    --font-body: 'Noto Sans SC', -apple-system, sans-serif;
+    --font-handwrite: 'Liu Jian Mao Cao', cursive;
+  }
+
+  body {
+    background: var(--bg);
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    padding: 40px 20px;
+    min-height: 100vh;
+  }
+
+  /* ============================
+     PAGE HEADER
+     ============================ */
+  .page-header {
+    max-width: 1400px;
+    margin: 0 auto 32px;
+    text-align: center;
+  }
+
+  .page-header h1 {
+    font-family: var(--font-display);
+    font-size: 36px;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    letter-spacing: 2px;
+  }
+
+  .page-header p {
+    font-size: 15px;
+    color: var(--text-secondary);
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  .page-header .note-icon {
+    font-size: 48px;
+    display: block;
+    margin-bottom: 12px;
+  }
+
+  .page-header .divider {
+    width: 80px;
+    height: 3px;
+    background: linear-gradient(90deg, var(--blue), var(--orange));
+    border-radius: 2px;
+    margin: 16px auto;
+  }
+
+  /* ============================
+     NAV TABS
+     ============================ */
+  .scheme-tabs {
+    max-width: 1400px;
+    margin: 0 auto 32px;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .scheme-tab {
+    padding: 12px 28px;
+    border: 2px solid var(--border);
+    border-radius: 100px;
+    background: white;
+    font-family: var(--font-body);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .scheme-tab:hover {
+    border-color: var(--blue);
+    color: var(--blue);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow);
+  }
+
+  .scheme-tab.active {
+    border-color: var(--blue);
+    background: var(--blue);
+    color: white;
+    box-shadow: 0 4px 14px rgba(37,99,235,0.25);
+  }
+
+  .scheme-tab .badge {
+    font-size: 11px;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+
+  .scheme-tab:not(.active) .badge {
+    background: var(--blue-light);
+    color: var(--blue);
+  }
+
+  /* ============================
+     PHONE FRAME
+     ============================ */
+  .phone-wrapper {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+  }
+
+  .phone-frame {
+    width: 390px;
+    height: 780px;
+    background: var(--surface);
+    border-radius: 44px;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.08),
+      0 20px 60px rgba(0,0,0,0.12),
+      0 8px 24px rgba(0,0,0,0.08);
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ============================
+     STATUS BAR
+     ============================ */
+  .status-bar {
+    height: 44px;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-primary);
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .status-bar .time { font-weight: 700; font-size: 14px; }
+  .status-bar .icons { display: flex; gap: 4px; font-size: 12px; }
+  .status-bar .notch {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 28px;
+    background: #1a1a2e;
+    border-radius: 0 0 16px 16px;
+  }
+
+  /* ============================
+     APP CONTENT - Each scheme
+     ============================ */
+  .app-content {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .scheme-panel {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+  }
+
+  .scheme-panel.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .scheme-panel::-webkit-scrollbar { width: 0; }
+
+  /* ============================
+     SCHEME A - 沉浸式树形导航
+     ============================ */
+  .scheme-a {
+    background: #f8f6f3;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .scheme-a .nav-bar {
+    padding: 4px 16px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .scheme-a .nav-bar .title {
+    font-family: var(--font-display);
+    font-size: 22px;
+    color: var(--text-primary);
+  }
+
+  .scheme-a .nav-bar .actions {
+    display: flex;
+    gap: 12px;
+    font-size: 20px;
+    cursor: pointer;
+  }
+
+  .scheme-a .search-bar {
+    margin: 0 16px 8px;
+    padding: 10px 16px;
+    background: white;
+    border-radius: 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .scheme-a .search-bar .icon { color: var(--text-muted); font-size: 16px; }
+  .scheme-a .search-bar input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 13px;
+    color: var(--text-primary);
+    font-family: var(--font-body);
+  }
+
+  .scheme-a .tree-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 8px 8px;
+  }
+
+  .scheme-a .tree-node {
+    user-select: none;
+    transition: all 0.2s ease;
+  }
+
+  .scheme-a .tree-node-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    position: relative;
+  }
+
+  .scheme-a .tree-node-row:hover {
+    background: rgba(37,99,235,0.06);
+  }
+
+  .scheme-a .tree-node-row:active {
+    transform: scale(0.98);
+  }
+
+  .scheme-a .tree-node-row .toggle {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--text-muted);
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+  }
+
+  .scheme-a .tree-node-row .toggle.expanded {
+    transform: rotate(90deg);
+  }
+
+  .scheme-a .tree-node-row .toggle.leaf {
+    visibility: hidden;
+  }
+
+  .scheme-a .tree-node-row .icon {
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .scheme-a .tree-node-row .label {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .scheme-a .tree-node-row .meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .scheme-a .tree-node-row .pin-badge {
+    font-size: 12px;
+    color: var(--yellow);
+  }
+
+  .scheme-a .tree-children {
+    overflow: hidden;
+    transition: all 0.25s ease;
+    padding-left: 20px;
+  }
+
+  .scheme-a .tree-children.collapsed {
+    display: none;
+  }
+
+  .scheme-a .tree-node.folder-root > .tree-node-row {
+    font-weight: 600;
+  }
+
+  .scheme-a .folder-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    background: var(--orange-light);
+    color: var(--orange);
+  }
+
+  .scheme-a .note-indicator {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--blue);
+    flex-shrink: 0;
+  }
+
+  .scheme-a .fab {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--blue);
+    color: white;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(37,99,235,0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    z-index: 10;
+  }
+
+  .scheme-a .fab:hover { transform: scale(1.05); box-shadow: 0 6px 20px rgba(37,99,235,0.45); }
+
+  /* Pin badge style */
+  .scheme-a .tree-node-row.pinned {
+    background: var(--yellow-light);
+    border-radius: 12px;
+  }
+  .scheme-a .tree-node-row.pinned:hover {
+    background: #fef3c7;
+  }
+
+  /* ============================
+     SCHEME B - 底部Tab分类导航
+     ============================ */
+  .scheme-b {
+    background: #faf8f5;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .scheme-b .nav-bar {
+    padding: 4px 16px 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .scheme-b .nav-bar .title {
+    font-family: var(--font-display);
+    font-size: 20px;
+    color: var(--text-primary);
+  }
+
+  .scheme-b .nav-bar .menu-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 2px solid var(--border);
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    cursor: pointer;
+  }
+
+  .scheme-b .breadcrumb {
+    padding: 0 16px 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .scheme-b .breadcrumb span.current {
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .scheme-b .category-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 0 16px 12px;
+    overflow-x: auto;
+    flex-shrink: 0;
+    scrollbar-width: none;
+  }
+
+  .scheme-b .category-tabs::-webkit-scrollbar { display: none; }
+
+  .scheme-b .category-tab {
+    padding: 8px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    background: white;
+    color: var(--text-secondary);
+    border: 1.5px solid var(--border);
+    font-family: var(--font-body);
+  }
+
+  .scheme-b .category-tab.active {
+    background: var(--blue);
+    color: white;
+    border-color: var(--blue);
+    box-shadow: 0 2px 10px rgba(37,99,235,0.2);
+  }
+
+  .scheme-b .category-tab.folder-tab {
+    background: var(--orange-light);
+    color: var(--orange);
+    border-color: #fed7aa;
+  }
+
+  .scheme-b .category-tab.folder-tab.active {
+    background: var(--orange);
+    color: white;
+    border-color: var(--orange);
+  }
+
+  .scheme-b .content-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 16px;
+  }
+
+  .scheme-b .section-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  .scheme-b .card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .scheme-b .card-item {
+    background: white;
+    border-radius: 14px;
+    padding: 14px;
+    border: 1.5px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .scheme-b .card-item:hover { border-color: var(--blue); box-shadow: var(--shadow); }
+  .scheme-b .card-item:active { transform: scale(0.98); }
+
+  .scheme-b .card-item .card-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .scheme-b .card-item .card-icon.folder {
+    background: var(--orange-light);
+  }
+
+  .scheme-b .card-item .card-icon.note {
+    background: var(--blue-light);
+  }
+
+  .scheme-b .card-item .card-icon.pinned {
+    background: var(--yellow-light);
+  }
+
+  .scheme-b .card-item .card-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .scheme-b .card-item .card-body .name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  .scheme-b .card-item .card-body .desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .scheme-b .card-item .card-body .path {
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg);
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 6px;
+    margin-top: 4px;
+  }
+
+  .scheme-b .card-item .card-action {
+    font-size: 16px;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: opacity 0.2s;
+    padding: 4px;
+  }
+
+  .scheme-b .card-item:hover .card-action { opacity: 1; }
+
+  .scheme-b .bottom-tabs {
+    display: flex;
+    border-top: 1px solid var(--border);
+    background: white;
+    flex-shrink: 0;
+  }
+
+  .scheme-b .bottom-tab {
+    flex: 1;
+    padding: 8px 0 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    font-size: 10px;
+    color: var(--text-muted);
+    transition: all 0.2s;
+    border: none;
+    background: transparent;
+    font-family: var(--font-body);
+    font-weight: 500;
+  }
+
+  .scheme-b .bottom-tab .tab-icon { font-size: 20px; }
+  .scheme-b .bottom-tab.active { color: var(--blue); }
+  .scheme-b .bottom-tab.active .tab-icon { transform: scale(1.1); }
+
+  /* ============================
+     SCHEME C - 智能工作台模式
+     ============================ */
+  .scheme-c {
+    background: #f5f7fa;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .scheme-c .header-bg {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+    padding: 0 16px 20px;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .scheme-c .header-bg::before {
+    content: '';
+    position: absolute;
+    top: -40%;
+    right: -20%;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: rgba(37,99,235,0.1);
+  }
+
+  .scheme-c .header-bg::after {
+    content: '';
+    position: absolute;
+    bottom: -30%;
+    left: -10%;
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: rgba(249,115,22,0.08);
+  }
+
+  .scheme-c .header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0 12px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .scheme-c .header-top .greeting {
+    font-size: 13px;
+    color: rgba(255,255,255,0.6);
+  }
+
+  .scheme-c .header-top .greeting strong {
+    color: white;
+    font-weight: 600;
+  }
+
+  .scheme-c .header-top .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--blue);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 600;
+  }
+
+  .scheme-c .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .scheme-c .stat-item {
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(8px);
+    border-radius: 12px;
+    padding: 10px 8px;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .scheme-c .stat-item .stat-icon { font-size: 18px; margin-bottom: 4px; }
+  .scheme-c .stat-item .stat-val { font-size: 20px; font-weight: 700; color: white; }
+  .scheme-c .stat-item .stat-label { font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+
+  .scheme-c .quick-actions {
+    display: flex;
+    gap: 10px;
+    padding: 14px 16px;
+    flex-shrink: 0;
+  }
+
+  .scheme-c .quick-btn {
+    flex: 1;
+    padding: 12px;
+    border-radius: 14px;
+    border: none;
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .scheme-c .quick-btn:active { transform: scale(0.97); }
+  .scheme-c .quick-btn.primary { background: var(--blue); color: white; box-shadow: 0 4px 12px rgba(37,99,235,0.25); }
+  .scheme-c .quick-btn.secondary { background: white; color: var(--text-primary); border: 1.5px solid var(--border); }
+
+  .scheme-c .content-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 16px;
+  }
+
+  .scheme-c .section-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 0 10px;
+  }
+
+  .scheme-c .section-title h3 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .scheme-c .section-title .more {
+    font-size: 12px;
+    color: var(--text-muted);
+    cursor: pointer;
+  }
+
+  .scheme-c .recent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .scheme-c .recent-item {
+    padding: 12px 14px;
+    background: white;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .scheme-c .recent-item:active { transform: scale(0.99); }
+  .scheme-c .recent-item:hover { border-color: var(--blue); }
+
+  .scheme-c .recent-item .r-icon { font-size: 16px; flex-shrink: 0; }
+  .scheme-c .recent-item .r-info { flex: 1; min-width: 0; }
+  .scheme-c .recent-item .r-info .r-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .scheme-c .recent-item .r-info .r-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .scheme-c .recent-item .r-time { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+
+  .scheme-c .tag-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 4px 0 16px;
+  }
+
+  .scheme-c .tag-item {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .scheme-c .tag-item:active { transform: scale(0.95); }
+
+  /* ============================
+     SCHEME D - 侧栏抽屉+内容流
+     ============================ */
+  .scheme-d {
+    background: white;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .scheme-d .drawer-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 20;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+
+  .scheme-d .drawer-overlay.open { opacity: 1; pointer-events: auto; }
+
+  .scheme-d .drawer {
+    position: absolute;
+    top: 0; left: 0;
+    width: 280px;
+    height: 100%;
+    background: #f8f6f3;
+    z-index: 25;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.1);
+  }
+
+  .scheme-d .drawer.open { transform: translateX(0); }
+
+  .scheme-d .drawer-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .scheme-d .drawer-header .d-title {
+    font-family: var(--font-display);
+    font-size: 18px;
+    color: var(--text-primary);
+  }
+
+  .scheme-d .drawer-header .d-close {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+  }
+
+  .scheme-d .drawer-header .d-close:hover { background: var(--border); }
+
+  .scheme-d .drawer-tree {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+  }
+
+  .scheme-d .drawer-node {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 14px;
+    color: var(--text-primary);
+  }
+
+  .scheme-d .drawer-node:hover { background: rgba(37,99,235,0.06); }
+  .scheme-d .drawer-node:active { background: rgba(37,99,235,0.1); }
+  .scheme-d .drawer-node.active { background: var(--blue-light); color: var(--blue); font-weight: 600; }
+  .scheme-d .drawer-node .d-icon { font-size: 16px; flex-shrink: 0; }
+  .scheme-d .drawer-node .d-count {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--border);
+    padding: 1px 8px;
+    border-radius: 8px;
+  }
+
+  .scheme-d .drawer-children { padding-left: 24px; }
+
+  .scheme-d .main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .scheme-d .d-nav-bar {
+    padding: 4px 16px 6px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .scheme-d .d-nav-bar .hamburger {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-primary);
+  }
+
+  .scheme-d .d-nav-bar .hamburger:hover { background: var(--bg); }
+
+  .scheme-d .d-nav-bar .d-title {
+    font-family: var(--font-display);
+    font-size: 20px;
+    color: var(--text-primary);
+    flex: 1;
+  }
+
+  .scheme-d .d-nav-bar .d-search-icon {
+    font-size: 18px;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 6px;
+  }
+
+  .scheme-d .d-nav-bar .d-search-icon:hover { color: var(--text-primary); }
+
+  .scheme-d .d-current-path {
+    padding: 0 16px 6px;
+    font-size: 12px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .scheme-d .d-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 16px;
+    background: var(--bg);
+  }
+
+  .scheme-d .d-card {
+    background: white;
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .scheme-d .d-card:hover { border-color: var(--blue); box-shadow: var(--shadow); }
+  .scheme-d .d-card:active { transform: scale(0.99); }
+
+  .scheme-d .d-card.d-card-folder {
+    border-left: 4px solid var(--orange);
+  }
+
+  .scheme-d .d-card.d-card-note {
+    border-left: 4px solid var(--blue);
+  }
+
+  .scheme-d .d-card.d-card-pinned {
+    border-left: 4px solid var(--yellow);
+    background: var(--yellow-light);
+  }
+
+  .scheme-d .d-card .dc-top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .scheme-d .d-card .dc-top .dc-icon { font-size: 16px; }
+
+  .scheme-d .d-card .dc-top .dc-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+  }
+
+  .scheme-d .d-card .dc-preview {
+    font-size: 12px;
+    color: var(--text-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.5;
+  }
+
+  .scheme-d .d-card .dc-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .scheme-d .d-card .dc-meta .dc-tag {
+    padding: 1px 8px;
+    border-radius: 8px;
+    background: var(--blue-light);
+    color: var(--blue);
+    font-size: 10px;
+  }
+
+  /* ============================
+     LABEL OVERLAY
+     ============================ */
+  .scheme-label {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 4px 16px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    color: white;
+    z-index: 15;
+    letter-spacing: 0.5px;
+    pointer-events: none;
+    opacity: 0.9;
+  }
+
+  .scheme-label.a { background: var(--blue); }
+  .scheme-label.b { background: var(--orange); }
+  .scheme-label.c { background: #1e293b; }
+  .scheme-label.d { background: var(--purple); }
+
+  /* ============================
+     RESPONSIVE
+     ============================ */
+  @media (max-width: 480px) {
+    body { padding: 16px 8px; }
+    .phone-frame { width: 100%; height: 700px; border-radius: 24px; }
+    .page-header h1 { font-size: 24px; }
+    .scheme-tab { padding: 8px 16px; font-size: 13px; }
+    .scheme-c .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (min-width: 481px) and (max-width: 768px) {
+    .phone-frame { height: 740px; }
+  }
+
+  /* ============================
+     ANIMATIONS
+     ============================ */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .scheme-panel.active .tree-node { animation: fadeInUp 0.3s ease forwards; opacity: 0; }
+  .scheme-panel.active .tree-node:nth-child(1) { animation-delay: 0.05s; }
+  .scheme-panel.active .tree-node:nth-child(2) { animation-delay: 0.08s; }
+  .scheme-panel.active .tree-node:nth-child(3) { animation-delay: 0.11s; }
+  .scheme-panel.active .tree-node:nth-child(4) { animation-delay: 0.14s; }
+  .scheme-panel.active .tree-node:nth-child(5) { animation-delay: 0.17s; }
+
+  .scheme-panel.active .card-item { animation: fadeInUp 0.3s ease forwards; opacity: 0; }
+  .scheme-panel.active .card-item:nth-child(1) { animation-delay: 0.05s; }
+  .scheme-panel.active .card-item:nth-child(2) { animation-delay: 0.1s; }
+  .scheme-panel.active .card-item:nth-child(3) { animation-delay: 0.15s; }
+
+  .scheme-panel.active .stat-item { animation: fadeInUp 0.3s ease forwards; opacity: 0; }
+  .scheme-panel.active .stat-item:nth-child(1) { animation-delay: 0.05s; }
+  .scheme-panel.active .stat-item:nth-child(2) { animation-delay: 0.1s; }
+  .scheme-panel.active .stat-item:nth-child(3) { animation-delay: 0.15s; }
+  .scheme-panel.active .stat-item:nth-child(4) { animation-delay: 0.2s; }
+
+  .scheme-panel.active .recent-item { animation: fadeInUp 0.3s ease forwards; opacity: 0; }
+  .scheme-panel.active .recent-item:nth-child(1) { animation-delay: 0.05s; }
+  .scheme-panel.active .recent-item:nth-child(2) { animation-delay: 0.1s; }
+  .scheme-panel.active .recent-item:nth-child(3) { animation-delay: 0.15s; }
+
+  .scheme-panel.active .d-card { animation: fadeInUp 0.25s ease forwards; opacity: 0; }
+  .scheme-panel.active .d-card:nth-child(1) { animation-delay: 0.05s; }
+  .scheme-panel.active .d-card:nth-child(2) { animation-delay: 0.1s; }
+  .scheme-panel.active .d-card:nth-child(3) { animation-delay: 0.15s; }
+  .scheme-panel.active .d-card:nth-child(4) { animation-delay: 0.2s; }
+
+  /* Tag colors */
+  .tag-blue { background: var(--blue-light); color: var(--blue); }
+  .tag-orange { background: var(--orange-light); color: var(--orange); }
+  .tag-green { background: var(--green-light); color: var(--green); }
+  .tag-purple { background: var(--purple-light); color: var(--purple); }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <span class="note-icon">📓</span>
+  <h1>移动端笔记界面 · 设计方案</h1>
+  <div class="divider"></div>
+  <p>基于PC端笔记本的文件夹/笔记层级关系，重新设计4套移动端界面方案</p>
+</div>
+
+<div class="scheme-tabs" id="schemeTabs">
+  <button class="scheme-tab active" data-scheme="a">
+    🌳 方案A
+    <span class="badge">树形导航</span>
+  </button>
+  <button class="scheme-tab" data-scheme="b">
+    📑 方案B
+    <span class="badge">Tab分类</span>
+  </button>
+  <button class="scheme-tab" data-scheme="c">
+    🚀 方案C
+    <span class="badge">工作台</span>
+  </button>
+  <button class="scheme-tab" data-scheme="d">
+    🗂️ 方案D
+    <span class="badge">抽屉+内容流</span>
+  </button>
+</div>
+
+<div class="phone-wrapper">
+  <div class="phone-frame">
+    <div class="status-bar">
+      <span class="time">9:41</span>
+      <div class="notch"></div>
+      <span class="icons">📶 🔋</span>
+    </div>
+    <div class="app-content">
+
+      <!-- ======================== -->
+      <!-- SCHEME A: 沉浸式树形导航  -->
+      <!-- ======================== -->
+      <div class="scheme-panel scheme-a active" id="schemeA">
+        <div class="scheme-label a">🌳 方案A · 沉浸式树形导航</div>
+        <div class="nav-bar">
+          <span class="title">我的笔记</span>
+          <span class="actions">🔍 ⋯</span>
+        </div>
+        <div class="search-bar">
+          <span class="icon">🔍</span>
+          <input type="text" placeholder="搜索笔记或文件夹..." readonly>
+        </div>
+
+        <div class="tree-area" id="treeAreaA">
+          <!-- Pinned section -->
+          <div class="tree-node folder-root">
+            <div class="tree-node-row pinned" onclick="toggleTreeNode(this)">
+              <span class="toggle leaf">▶</span>
+              <span class="icon">📌</span>
+              <span class="label">置顶笔记</span>
+              <span class="meta"><span class="folder-badge">3 条</span></span>
+            </div>
+            <div class="tree-children">
+              <div class="tree-node">
+                <div class="tree-node-row" onclick="event.stopPropagation(); alert('打开笔记：项目规划')">
+                  <span class="toggle leaf">▶</span>
+                  <span class="pin-badge">📌</span>
+                  <span class="label">📄 项目规划 v2.0</span>
+                  <span class="meta">5分钟前</span>
+                </div>
+              </div>
+              <div class="tree-node">
+                <div class="tree-node-row" onclick="event.stopPropagation(); alert('打开笔记：会议纪要')">
+                  <span class="toggle leaf">▶</span>
+                  <span class="pin-badge">📌</span>
+                  <span class="label">📄 会议纪要-产品评审</span>
+                  <span class="meta">20分钟前</span>
+                </div>
+              </div>
+              <div class="tree-node">
+                <div class="tree-node-row" onclick="event.stopPropagation(); alert('打开笔记：周报')">
+                  <span class="toggle leaf">▶</span>
+                  <span class="pin-badge">📌</span>
+                  <span class="label">📄 本周工作总结</span>
+                  <span class="meta">1小时前</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Folder: 工作笔记 -->
+          <div class="tree-node folder-root">
+            <div class="tree-node-row" onclick="toggleTreeNode(this)">
+              <span class="toggle expanded">▶</span>
+              <span class="icon">📂</span>
+              <span class="label">工作笔记</span>
+              <span class="meta"><span class="folder-badge">12 项</span></span>
+            </div>
+            <div class="tree-children">
+              <!-- Subfolder: 项目文档 -->
+              <div class="tree-node">
+                <div class="tree-node-row" onclick="toggleTreeNode(this)">
+                  <span class="toggle expanded">▶</span>
+                  <span class="icon">📁</span>
+                  <span class="label">项目文档</span>
+                  <span class="meta">📄 5</span>
+                </div>
+                <div class="tree-children">
+                  <div class="tree-node"><div class="tree-node-row" onclick="event.stopPropagation(); alert('打开笔记')"><span class="toggle leaf">▶</span><span class="icon">📄</span><span class="label">API 设计文档</span></div></div>
+                  <div class="tree-node"><div class="tree-node-row" onclick="event.stopPropagation(); alert('打开笔记')"><span class="toggle leaf">▶</span><span class="icon">📄</span><span class="label">数据库设计 v3</span></div></div>
+                  <div class="tree-node"><div class="tree-node-row" onclick="event.stopPropagation(); alert('打开笔记')"><span class="toggle leaf">▶</span><span class="icon">📄</span><span class="label">技术方案评审</span></div></div>
+                </div>
+              </div>
+              <!-- Subfolder: 会议记录 -->
+              <div class="tree-node">
+                <div class="tree-node-row" onclick="toggleTreeNode(this)">
+                  <span class="toggle">▶</span>
+                  <span class="icon">📁</span>
+                  <span class="label">会议记录</span>
+                  <span class="meta">📄 3</span>
+                </div>
+                <div class="tree-children collapsed">
+                  <div class="tree-node"><div class="tree-node-row"><span class="toggle leaf">▶</span><span class="icon">📄</span><span class="label">周一晨会</span></div></div>
+                  <div class="tree-node"><div class="tree-node-row"><span class="toggle leaf">▶</span><span class="icon">📄</span><span class="label">需求评审会</span></div></div>
+                </div>
+              </div>
+              <!-- Direct notes -->
+              <div class="tree-node"><div class="tree-node-row" onclick="event.stopPropagation(); alert('打开笔记')"><span class="toggle leaf">▶</span><span class="icon">📄</span><span class="label">代码审查记录</span></div></div>
+              <div class="tree-node"><div class="tree-node-row" onclick="event.stopPropagation(); alert('打开笔记')"><span class="toggle leaf">▶</span><span class="icon">📄</span><span class="label">Sprint 回顾</span></div></div>
+            </div>
+          </div>
+
+          <!-- Folder: 个人笔记 -->
+          <div class="tree-node folder-root">
+            <div class="tree-node-row" onclick="toggleTreeNode(this)">
+              <span class="toggle">▶</span>
+              <span class="icon">📂</span>
+              <span class="label">个人笔记</span>
+              <span class="meta"><span class="folder-badge">8 项</span></span>
+            </div>
+            <div class="tree-children collapsed">
+              <div class="tree-node"><div class="tree-node-row"><span class="toggle leaf">▶</span><span class="icon">📄</span><span class="label">学习笔记 - Vue3</span></div></div>
+              <div class="tree-node"><div class="tree-node-row"><span class="toggle leaf">▶</span><span class="icon">📄</span><span class="label">读书笔记</span></div></div>
+              <div class="tree-node"><div class="tree-node-row"><span class="toggle leaf">▶</span><span class="icon">📁</span><span class="label">理财记录</span></div></div>
+            </div>
+          </div>
+
+          <!-- Folder: 技术研究 -->
+          <div class="tree-node folder-root">
+            <div class="tree-node-row" onclick="toggleTreeNode(this)">
+              <span class="toggle">▶</span>
+              <span class="icon">📂</span>
+              <span class="label">技术研究</span>
+              <span class="meta"><span class="folder-badge">6 项</span></span>
+            </div>
+            <div class="tree-children collapsed">
+              <div class="tree-node"><div class="tree-node-row"><span class="toggle leaf">▶</span><span class="icon">📄</span><span class="label">Redis 深度解析</span></div></div>
+              <div class="tree-node"><div class="tree-node-row"><span class="toggle leaf">▶</span><span class="icon">📄</span><span class="label">K8s 学习笔记</span></div></div>
+            </div>
+          </div>
+
+          <!-- Folder: 设计稿 -->
+          <div class="tree-node folder-root">
+            <div class="tree-node-row" onclick="toggleTreeNode(this)">
+              <span class="toggle">▶</span>
+              <span class="icon">📂</span>
+              <span class="label">设计稿</span>
+              <span class="meta"><span class="folder-badge">4 项</span></span>
+            </div>
+            <div class="tree-children collapsed">
+              <div class="tree-node"><div class="tree-node-row"><span class="toggle leaf">▶</span><span class="icon">📄</span><span class="label">首页改版方案</span></div></div>
+              <div class="tree-node"><div class="tree-node-row"><span class="toggle leaf">▶</span><span class="icon">📄</span><span class="label">移动端适配稿</span></div></div>
+            </div>
+          </div>
+        </div>
+
+        <button class="fab" onclick="alert('新建笔记')" title="新建笔记">+</button>
+      </div>
+
+      <!-- ======================== -->
+      <!-- SCHEME B: Tab分类导航     -->
+      <!-- ======================== -->
+      <div class="scheme-panel scheme-b" id="schemeB">
+        <div class="scheme-label b">📑 方案B · 底部Tab分类导航</div>
+        <div class="nav-bar">
+          <button class="menu-btn">☰</button>
+          <span class="title">我的笔记</span>
+          <span class="menu-btn">⋮</span>
+        </div>
+        <div class="breadcrumb">
+          📁 全部笔记 <span style="color:var(--text-muted)">/</span> <span class="current">工作笔记</span>
+        </div>
+        <div class="category-tabs" id="categoryTabs">
+          <button class="category-tab active" onclick="switchCategory(this)">📋 全部</button>
+          <button class="category-tab folder-tab" onclick="switchCategory(this)">📂 工作笔记</button>
+          <button class="category-tab folder-tab" onclick="switchCategory(this)">📂 个人笔记</button>
+          <button class="category-tab folder-tab" onclick="switchCategory(this)">📂 技术研究</button>
+          <button class="category-tab" onclick="switchCategory(this)">🏷️ 标签</button>
+        </div>
+        <div class="content-area" id="contentAreaB">
+          <!-- Pinned -->
+          <div class="section-label" style="color:var(--yellow);">⭐ 置顶笔记</div>
+          <div class="card-list">
+            <div class="card-item" onclick="alert('打开笔记：项目规划 v2.0')">
+              <div class="card-icon pinned">📌</div>
+              <div class="card-body">
+                <div class="name">项目规划 v2.0</div>
+                <div class="desc">2025年Q2产品路线图与里程碑规划...</div>
+                <span class="path">📁 工作笔记 / 项目文档</span>
+              </div>
+              <span class="card-action">⋮</span>
+            </div>
+            <div class="card-item" onclick="alert('打开笔记：会议纪要')">
+              <div class="card-icon pinned">📌</div>
+              <div class="card-body">
+                <div class="name">会议纪要-产品评审</div>
+                <div class="desc">参与人：张三、李四、王五，主要议题...</div>
+                <span class="path">📁 工作笔记 / 会议记录</span>
+              </div>
+              <span class="card-action">⋮</span>
+            </div>
+          </div>
+
+          <div class="section-label" style="color:var(--orange);">📁 文件夹</div>
+          <div class="card-list">
+            <div class="card-item" onclick="switchCategory(document.querySelector('.category-tab.folder-tab'))">
+              <div class="card-icon folder">📂</div>
+              <div class="card-body">
+                <div class="name">工作笔记</div>
+                <div class="desc">12 项 · 项目文档 · 会议记录 · 代码审查</div>
+              </div>
+              <span class="card-action">›</span>
+            </div>
+            <div class="card-item" onclick="switchCategory(document.querySelectorAll('.category-tab.folder-tab')[1])">
+              <div class="card-icon folder">📂</div>
+              <div class="card-body">
+                <div class="name">个人笔记</div>
+                <div class="desc">8 项 · 学习 · 读书 · 理财</div>
+              </div>
+              <span class="card-action">›</span>
+            </div>
+            <div class="card-item" onclick="switchCategory(document.querySelectorAll('.category-tab.folder-tab')[2])">
+              <div class="card-icon folder">📂</div>
+              <div class="card-body">
+                <div class="name">技术研究</div>
+                <div class="desc">6 项 · Redis · K8s · 架构设计</div>
+              </div>
+              <span class="card-action">›</span>
+            </div>
+          </div>
+
+          <div class="section-label" style="color:var(--blue);">📄 最近笔记</div>
+          <div class="card-list">
+            <div class="card-item" onclick="alert('打开笔记')">
+              <div class="card-icon note">📄</div>
+              <div class="card-body">
+                <div class="name">API 设计文档</div>
+                <div class="desc">定义了用户模块、订单模块的 RESTful API 接口...</div>
+              </div>
+              <span class="card-action">⋮</span>
+            </div>
+            <div class="card-item" onclick="alert('打开笔记')">
+              <div class="card-icon note">📄</div>
+              <div class="card-body">
+                <div class="name">数据库设计 v3</div>
+                <div class="desc">新增 inventory 表，修改 orders 表结构...</div>
+              </div>
+              <span class="card-action">⋮</span>
+            </div>
+          </div>
+        </div>
+        <div class="bottom-tabs">
+          <button class="bottom-tab active" onclick="switchBottomTab(this)">
+            <span class="tab-icon">📁</span>
+            文件夹
+          </button>
+          <button class="bottom-tab" onclick="switchBottomTab(this)">
+            <span class="tab-icon">📄</span>
+            笔记
+          </button>
+          <button class="bottom-tab" onclick="switchBottomTab(this)">
+            <span class="tab-icon">🏷️</span>
+            标签
+          </button>
+          <button class="bottom-tab" onclick="switchBottomTab(this)">
+            <span class="tab-icon">⚙️</span>
+            管理
+          </button>
+        </div>
+      </div>
+
+      <!-- ======================== -->
+      <!-- SCHEME C: 智能工作台      -->
+      <!-- ======================== -->
+      <div class="scheme-panel scheme-c" id="schemeC">
+        <div class="scheme-label c">🚀 方案C · 智能工作台模式</div>
+        <div class="header-bg">
+          <div class="header-top">
+            <div class="greeting">
+              上午好 👋<br>
+              <strong>欢迎回来</strong>
+            </div>
+            <div class="avatar">K</div>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-item">
+              <div class="stat-icon">📄</div>
+              <div class="stat-val">24</div>
+              <div class="stat-label">笔记</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-icon">📁</div>
+              <div class="stat-val">8</div>
+              <div class="stat-label">文件夹</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-icon">🏷️</div>
+              <div class="stat-val">12</div>
+              <div class="stat-label">标签</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-icon">📌</div>
+              <div class="stat-val">3</div>
+              <div class="stat-label">置顶</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="quick-actions">
+          <button class="quick-btn primary" onclick="alert('新建笔记')">✏️ 新建笔记</button>
+          <button class="quick-btn secondary" onclick="alert('新建文件夹')">📁 新建文件夹</button>
+        </div>
+
+        <div class="content-scroll">
+          <div class="section-title">
+            <h3>📌 最近编辑</h3>
+            <span class="more">查看全部 →</span>
+          </div>
+          <div class="recent-list">
+            <div class="recent-item" onclick="alert('打开笔记')">
+              <span class="r-icon">📄</span>
+              <div class="r-info">
+                <div class="r-title">API 设计文档</div>
+                <div class="r-meta">📁 工作笔记 / 项目文档</div>
+              </div>
+              <span class="r-time">5分钟前</span>
+            </div>
+            <div class="recent-item" onclick="alert('打开笔记')">
+              <span class="r-icon">📄</span>
+              <div class="r-info">
+                <div class="r-title">项目规划 v2.0 ⭐</div>
+                <div class="r-meta">📁 工作笔记</div>
+              </div>
+              <span class="r-time">20分钟前</span>
+            </div>
+            <div class="recent-item" onclick="alert('打开笔记')">
+              <span class="r-icon">📄</span>
+              <div class="r-info">
+                <div class="r-title">Redis 深度解析</div>
+                <div class="r-meta">📁 技术研究</div>
+              </div>
+              <span class="r-time">2小时前</span>
+            </div>
+          </div>
+
+          <div class="section-title">
+            <h3>📁 快捷文件夹</h3>
+            <span class="more">全部 →</span>
+          </div>
+          <div class="card-list" style="margin-bottom: 8px;">
+            <div class="card-item" onclick="alert('打开文件夹')" style="background: var(--orange-light);">
+              <div class="card-icon folder">📂</div>
+              <div class="card-body">
+                <div class="name">工作笔记</div>
+                <div class="desc">12 项内容</div>
+              </div>
+              <span style="font-size:18px;color:var(--orange)">›</span>
+            </div>
+            <div class="card-item" onclick="alert('打开文件夹')" style="background: var(--blue-light);">
+              <div class="card-icon note">📂</div>
+              <div class="card-body">
+                <div class="name">技术研究</div>
+                <div class="desc">6 项内容</div>
+              </div>
+              <span style="font-size:18px;color:var(--blue)">›</span>
+            </div>
+          </div>
+
+          <div class="section-title">
+            <h3>🏷️ 热门标签</h3>
+          </div>
+          <div class="tag-cloud">
+            <span class="tag-item tag-blue" onclick="alert('筛选标签')">Vue3 (3)</span>
+            <span class="tag-item tag-orange" onclick="alert('筛选标签')">架构设计 (2)</span>
+            <span class="tag-item tag-green" onclick="alert('筛选标签')">数据库 (2)</span>
+            <span class="tag-item tag-purple" onclick="alert('筛选标签')">产品需求 (3)</span>
+            <span class="tag-item tag-blue" onclick="alert('筛选标签')">Redis (1)</span>
+            <span class="tag-item tag-orange" onclick="alert('筛选标签')">会议 (4)</span>
+          </div>
+
+          <div style="height: 16px;"></div>
+        </div>
+      </div>
+
+      <!-- ======================== -->
+      <!-- SCHEME D: 侧栏抽屉+内容流 -->
+      <!-- ======================== -->
+      <div class="scheme-panel scheme-d" id="schemeD">
+        <div class="scheme-label d">🗂️ 方案D · 侧栏抽屉+内容流</div>
+        <div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+        <div class="drawer" id="drawer">
+          <div class="drawer-header">
+            <span class="d-title">📓 所有文件夹</span>
+            <button class="d-close" onclick="closeDrawer()">✕</button>
+          </div>
+          <div class="drawer-tree">
+            <div class="drawer-node active" onclick="closeDrawer(); selectDrawerNode(this)">
+              <span class="d-icon">📋</span>
+              全部笔记
+              <span class="d-count">24</span>
+            </div>
+            <div class="drawer-node" onclick="toggleDrawerNode(this); event.stopPropagation();">
+              <span class="d-icon">📂</span>
+              工作笔记
+              <span class="d-count">12</span>
+            </div>
+            <div class="drawer-children" style="display:none;">
+              <div class="drawer-node" onclick="closeDrawer()">
+                <span class="d-icon">📁</span>
+                项目文档
+                <span class="d-count">5</span>
+              </div>
+              <div class="drawer-node" onclick="closeDrawer()">
+                <span class="d-icon">📁</span>
+                会议记录
+                <span class="d-count">3</span>
+              </div>
+              <div class="drawer-node" onclick="closeDrawer()">
+                <span class="d-icon">📁</span>
+                代码审查
+                <span class="d-count">2</span>
+              </div>
+            </div>
+            <div class="drawer-node" onclick="toggleDrawerNode(this); event.stopPropagation();">
+              <span class="d-icon">📂</span>
+              个人笔记
+              <span class="d-count">8</span>
+            </div>
+            <div class="drawer-children" style="display:none;">
+              <div class="drawer-node" onclick="closeDrawer()">
+                <span class="d-icon">📁</span>
+                学习笔记
+                <span class="d-count">4</span>
+              </div>
+              <div class="drawer-node" onclick="closeDrawer()">
+                <span class="d-icon">📁</span>
+                理财记录
+                <span class="d-count">2</span>
+              </div>
+            </div>
+            <div class="drawer-node" onclick="toggleDrawerNode(this); event.stopPropagation();">
+              <span class="d-icon">📂</span>
+              技术研究
+              <span class="d-count">6</span>
+            </div>
+            <div class="drawer-children" style="display:none;">
+              <div class="drawer-node" onclick="closeDrawer()">
+                <span class="d-icon">📁</span>
+                Redis
+                <span class="d-count">2</span>
+              </div>
+              <div class="drawer-node" onclick="closeDrawer()">
+                <span class="d-icon">📁</span>
+                K8s
+                <span class="d-count">2</span>
+              </div>
+            </div>
+            <div class="drawer-node" onclick="closeDrawer()">
+              <span class="d-icon">🗑️</span>
+              回收站
+              <span class="d-count">3</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="main-content">
+          <div class="d-nav-bar">
+            <button class="hamburger" onclick="openDrawer()">☰</button>
+            <span class="d-title">全部笔记</span>
+            <span class="d-search-icon">🔍</span>
+          </div>
+          <div class="d-current-path">
+            📁 全部笔记 <span style="color:var(--text-muted)">· 24 条笔记</span>
+          </div>
+          <div class="d-content">
+            <!-- Pinned card -->
+            <div class="d-card d-card-pinned" onclick="alert('打开笔记')">
+              <div class="dc-top">
+                <span class="dc-icon">📌</span>
+                <span class="dc-title">项目规划 v2.0</span>
+              </div>
+              <div class="dc-preview">2025年Q2产品路线图与里程碑规划，包含核心功能优先级排序...</div>
+              <div class="dc-meta">
+                <span>⭐ 置顶</span>
+                <span>📁 工作笔记 / 项目文档</span>
+              </div>
+            </div>
+            <div class="d-card d-card-pinned" onclick="alert('打开笔记')">
+              <div class="dc-top">
+                <span class="dc-icon">📌</span>
+                <span class="dc-title">会议纪要-产品评审</span>
+              </div>
+              <div class="dc-preview">参与人：张三、李四、王五，主要讨论了Q2产品路线图和需求优先级...</div>
+              <div class="dc-meta">
+                <span>⭐ 置顶</span>
+                <span>📁 工作笔记 / 会议记录</span>
+              </div>
+            </div>
+
+            <!-- Folder card -->
+            <div class="d-card d-card-folder" onclick="openDrawer()">
+              <div class="dc-top">
+                <span class="dc-icon">📂</span>
+                <span class="dc-title">工作笔记</span>
+              </div>
+              <div class="dc-meta">
+                <span>📄 8 笔记</span>
+                <span>📁 3 子文件夹</span>
+                <span class="dc-tag">最近更新</span>
+              </div>
+            </div>
+            <div class="d-card d-card-folder" onclick="openDrawer()">
+              <div class="dc-top">
+                <span class="dc-icon">📂</span>
+                <span class="dc-title">个人笔记</span>
+              </div>
+              <div class="dc-meta">
+                <span>📄 5 笔记</span>
+                <span>📁 2 子文件夹</span>
+              </div>
+            </div>
+
+            <!-- Normal note cards -->
+            <div class="d-card d-card-note" onclick="alert('打开笔记')">
+              <div class="dc-top">
+                <span class="dc-icon">📄</span>
+                <span class="dc-title">API 设计文档</span>
+              </div>
+              <div class="dc-preview">定义了用户模块、订单模块的 RESTful API 接口规范...</div>
+              <div class="dc-meta">
+                <span>📁 工作笔记</span>
+                <span>5分钟前</span>
+                <span class="dc-tag">Vue3</span>
+              </div>
+            </div>
+            <div class="d-card d-card-note" onclick="alert('打开笔记')">
+              <div class="dc-top">
+                <span class="dc-icon">📄</span>
+                <span class="dc-title">Redis 深度解析</span>
+              </div>
+              <div class="dc-preview">Redis 数据结构、持久化机制、集群模式全面分析...</div>
+              <div class="dc-meta">
+                <span>📁 技术研究</span>
+                <span>2小时前</span>
+                <span class="dc-tag">缓存</span>
+              </div>
+            </div>
+            <div class="d-card d-card-note" onclick="alert('打开笔记')">
+              <div class="dc-top">
+                <span class="dc-icon">📄</span>
+                <span class="dc-title">本周工作总结</span>
+              </div>
+              <div class="dc-preview">完成了笔记模块移动端适配、修复了3个bug...</div>
+              <div class="dc-meta">
+                <span>📁 工作笔记</span>
+                <span>1小时前</span>
+                <span class="dc-tag">周报</span>
+              </div>
+            </div>
+            <div class="d-card d-card-note" onclick="alert('打开笔记')">
+              <div class="dc-top">
+                <span class="dc-icon">📄</span>
+                <span class="dc-title">移动端笔记设计稿</span>
+              </div>
+              <div class="dc-preview">基于PC端笔记本逻辑重新设计移动端界面方案</div>
+              <div class="dc-meta">
+                <span>📁 设计稿</span>
+                <span>3小时前</span>
+                <span class="dc-tag">设计</span>
+              </div>
+            </div>
+
+            <div style="height: 20px;"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;margin-top:24px;color:var(--text-muted);font-size:13px;">
+  💡 点击模拟器中的交互元素可查看交互效果 · 切换Tab查看不同设计方案
+</div>
+
+<script>
+// ============================
+// SCHEME SWITCHING
+// ============================
+function switchScheme(schemeId) {
+  document.querySelectorAll('.scheme-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.scheme-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('scheme' + schemeId.toUpperCase()).classList.add('active');
+  document.querySelector('.scheme-tab[data-scheme="' + schemeId + '"]').classList.add('active');
+}
+
+document.querySelectorAll('.scheme-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const scheme = tab.dataset.scheme;
+    switchScheme(scheme);
+  });
+});
+
+// ============================
+// SCHEME A: Tree toggle
+// ============================
+function toggleTreeNode(row) {
+  const children = row.parentElement.querySelector('.tree-children');
+  const toggle = row.querySelector('.toggle');
+  if (!children) return;
+  if (children.classList.contains('collapsed')) {
+    children.classList.remove('collapsed');
+    toggle.classList.add('expanded');
+  } else {
+    children.classList.add('collapsed');
+    toggle.classList.remove('expanded');
+  }
+}
+
+// ============================
+// SCHEME B: Category tabs
+// ============================
+function switchCategory(btn) {
+  document.querySelectorAll('.category-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+
+  // Update breadcrumb
+  const breadcrumb = btn.closest('.scheme-b').querySelector('.breadcrumb .current');
+  if (btn.textContent.includes('全部')) {
+    breadcrumb.textContent = '全部笔记';
+  } else if (btn.textContent.includes('标签')) {
+    breadcrumb.textContent = '标签';
+  } else {
+    breadcrumb.textContent = btn.textContent.trim();
+  }
+}
+
+function switchBottomTab(btn) {
+  document.querySelectorAll('.bottom-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+// ============================
+// SCHEME D: Drawer
+// ============================
+function openDrawer() {
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('open');
+}
+
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('open');
+}
+
+function toggleDrawerNode(node) {
+  const children = node.parentElement.querySelector('.drawer-children');
+  if (children) {
+    if (children.style.display === 'none' || !children.style.display) {
+      children.style.display = 'block';
+    } else {
+      children.style.display = 'none';
+    }
+  }
+}
+
+function selectDrawerNode(node) {
+  document.querySelectorAll('.drawer-node').forEach(n => n.classList.remove('active'));
+  node.classList.add('active');
+  const title = node.textContent.trim().replace(/\d+$/, '').trim();
+  document.querySelector('#schemeD .d-title').textContent = title;
+}
+
+// Keyboard navigation
+document.addEventListener('keydown', (e) => {
+  const tabs = ['a', 'b', 'c', 'd'];
+  const idx = tabs.indexOf(e.key.toLowerCase());
+  if (idx >= 0) {
+    switchScheme(tabs[idx]);
+  }
+});
+</script>
+
+</body>
+</html>

@@ -70,18 +70,18 @@
               shape="rect"
               color="#16a34a"
               class="shop-card"
-              @click="handleCardClick(item)"
+              @click="handleCardClick(asStation(item))"
             >
               <img
-                :src="resolveExpressIcon(item as any)"
-                :alt="item.name"
+                :src="resolveExpressIcon(asStation(item))"
+                :alt="asStation(item).name"
                 class="shop-card__icon"
-                :class="{ 'is-avatar': Boolean(item.avatarUrl?.trim()) }"
+                :class="{ 'is-avatar': Boolean(asStation(item).avatarUrl?.trim()) }"
               />
-              <div class="shop-card__name">{{ item.name }}</div>
-              <div class="shop-card__contact">{{ item.contact || '-' }}</div>
-              <div class="shop-card__price">¥{{ formatPrice(item.labelPrice) }}</div>
-              <div class="shop-card__province">📍{{ item.priceCount || 0 }}省</div>
+              <div class="shop-card__name">{{ asStation(item).name }}</div>
+              <div class="shop-card__contact">{{ asStation(item).contact || '-' }}</div>
+              <div class="shop-card__price">¥{{ formatPrice(asStation(item).labelPrice) }}</div>
+              <div class="shop-card__province">📍{{ asStation(item).priceCount || 0 }}省</div>
             </SchemeADoodleFrame>
           </template>
         </MobileCardGrid>
@@ -165,6 +165,11 @@ function resolveExpressIcon(station: EcExpressStation): string {
 function formatPrice(price?: number | null): string {
   if (price == null) return '0.00'
   return price.toFixed(2)
+}
+
+/** MobileCardGrid slot 的 item 类型为 GridItem，实际数据是 EcExpressStation */
+function asStation(item: { id: string | number }): EcExpressStation {
+  return item as unknown as EcExpressStation
 }
 
 async function loadStations() {

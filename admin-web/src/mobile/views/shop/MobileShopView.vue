@@ -36,7 +36,7 @@
         <MobileCardGrid
           :items="shop.filteredShops.value"
           empty-text="暂无店铺"
-          @select="handleSelectShop"
+          @select="(item) => handleSelectShop(item as any)"
         >
           <template #empty>
             <span class="shop-empty__icon">📭</span>

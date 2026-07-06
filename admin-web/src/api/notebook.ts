@@ -1,7 +1,6 @@
 import { deleteData, getData, postData, putData } from './request'
 
 export interface NbTreeNode {
-
   nodeKey: string
   nodeType: 'FOLDER' | 'NOTE'
   notebookId?: number
@@ -11,6 +10,7 @@ export interface NbTreeNode {
   isPinned?: number
   isFavorite?: number
   children?: NbTreeNode[]
+  contentExcerpt?: string
 }
 
 export interface NbNoteTag {
@@ -118,6 +118,10 @@ export function fetchBaiduPanStatus() {
 
 export function fetchRecentNotes(limit = 20) {
   return getData<NbNoteDetail[]>('/api/notes/recent', { limit })
+}
+
+export function searchNotes(keyword: string) {
+  return getData<NbNoteDetail[]>('/api/notes/search', { keyword })
 }
 
 export async function createNoteRequest(body: NbNoteSaveRequest) {

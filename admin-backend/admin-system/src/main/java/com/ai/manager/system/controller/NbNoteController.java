@@ -19,6 +19,11 @@ public class NbNoteController {
 
     private final NbNoteService nbNoteService;
 
+    @GetMapping("/search")
+    public ApiResult<List<NbNoteDetailVO>> search(@RequestParam String keyword) {
+        return ApiResult.ok(nbNoteService.searchNotes(keyword));
+    }
+
     @GetMapping("/recent")
     public ApiResult<List<NbNoteDetailVO>> recent(@RequestParam(required = false, defaultValue = "20") int limit) {
         return ApiResult.ok(nbNoteService.listRecent(limit));

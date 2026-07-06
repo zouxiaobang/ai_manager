@@ -143,7 +143,7 @@ const currentYear = new Date().getFullYear()
 const currentMonth = new Date().getMonth() + 1
 
 // Parse current value or default to current year
-const [initYear, initMonth] = props.modelValue
+const [initYear] = props.modelValue
   ? props.modelValue.split('-').map(Number)
   : [currentYear, currentMonth]
 

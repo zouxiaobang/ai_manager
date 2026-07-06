@@ -2,17 +2,17 @@
   <div class="mobile-category-tabs" :class="classList">
     <MobileDoodleChip
       v-for="cat in categories"
-      :key="cat.id"
+      :key="cat.id ?? ''"
       tag="button"
       type="button"
       shape="pill"
       :color="activeValue === cat.id ? activeColor : inactiveColor"
-      :seed="typeof cat.id === 'string' ? cat.id.charCodeAt(0) : cat.id"
+      :seed="resolveSeed(cat.id)"
       :filled="activeValue === cat.id"
       :fill-color="fillColor"
       class="mobile-category-tab"
       :class="{ active: activeValue === cat.id }"
-      @click="$emit('update:activeValue', cat.id)"
+      @click="handleCatClick(cat)"
     >
       <span v-if="cat.icon" class="mobile-category-tab__icon">{{ cat.icon }}</span>
       <span class="mobile-category-tab__name">{{ cat.name }}</span>
@@ -50,9 +50,20 @@ const props = withDefaults(
   },
 )
 
-defineEmits<{
+const emit = defineEmits<{
   'update:activeValue': [value: string | number]
 }>()
+
+function handleCatClick(cat: CategoryItem) {
+  if (cat.id != null) {
+    emit('update:activeValue', cat.id)
+  }
+}
+
+function resolveSeed(id: string | number | null): number | undefined {
+  if (id == null) return undefined
+  return typeof id === 'string' ? id.charCodeAt(0) : id
+}
 
 const classList = computed(() => ({
   [props.class as string]: !!props.class,

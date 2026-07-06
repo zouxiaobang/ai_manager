@@ -77,7 +77,21 @@ public class NbNoteServiceImpl extends ServiceImpl<NbNoteMapper, NbNote> impleme
 
 
     @Override
+    public List<NbNoteDetailVO> searchNotes(String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return List.of();
+        }
+        String kw = keyword.trim();
+        List<NbNote> notes = list(new LambdaQueryWrapper<NbNote>()
+                .like(NbNote::getTitle, kw)
+                .or()
+                .like(NbNote::getContentExcerpt, kw)
+                .orderByDesc(NbNote::getUpdateTime)
+                .last("LIMIT 50"));
+        return notes.stream().map(note -> toDetailVO(note, false)).toList();
+    }
 
+    @Override
     public NbNoteDetailVO getNoteDetail(Long id) {
 
         NbNote note = getById(id);

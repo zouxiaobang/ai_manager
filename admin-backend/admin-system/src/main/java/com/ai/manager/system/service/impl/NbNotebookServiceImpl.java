@@ -159,6 +159,7 @@ public class NbNotebookServiceImpl extends ServiceImpl<NbNotebookMapper, NbNoteb
             node.setName(StringUtils.hasText(note.getTitle()) ? note.getTitle() : "无标题");
             node.setIsPinned(note.getIsPinned());
             node.setIsFavorite(note.getIsFavorite());
+            node.setContentExcerpt(note.getContentExcerpt());
             nodes.add(node);
         }
         return nodes;

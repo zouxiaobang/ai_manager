@@ -744,6 +744,7 @@ export default {
     deleteFolder: '删除文件夹',
     deleteNoteConfirm: '确定将笔记移入回收站吗？',
     deleteFolderConfirm: '删除文件夹将同时删除其下所有子文件夹和笔记，确定继续吗？',
+    deleteSuccess: '删除成功',
     tags: '标签',
     tagManage: '管理标签',
     newTag: '新建标签',
@@ -2653,6 +2654,10 @@ export default {
     notebook: {
       pinned: '置顶笔记',
       allNotes: '全部笔记',
+      search: '搜索笔记',
+      searchPlaceholder: '搜索笔记标题或内容…',
+      noResults: '未找到匹配的笔记',
+      searchHint: '输入关键词搜索笔记',
     },
     more: {
       functions: '功能列表',

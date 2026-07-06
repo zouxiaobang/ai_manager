@@ -45,19 +45,25 @@ const router = createRouter({
           path: 'notebook',
           name: 'mobile-notebook',
           component: () => import('@/mobile/views/notebook/MobileNotebookView.vue'),
-          meta: { titleKey: 'portal.menu.notebook', tab: 'notebook' },
+          meta: { titleKey: 'portal.menu.notebook', tab: 'notebook', hideAppHeader: true },
         },
         {
           path: 'notebook/:id',
           name: 'mobile-note-detail',
           component: () => import('@/mobile/views/notebook/MobileNoteDetailView.vue'),
-          meta: { titleKey: 'notebook.title', hideTabBar: true },
+          meta: { titleKey: 'notebook.title', hideTabBar: true, hideAppHeader: true },
         },
         {
           path: 'notebook/folder/:folderKey',
           name: 'mobile-notebook-folder',
           component: () => import('@/mobile/views/notebook/MobileNotebookFolderView.vue'),
-          meta: { titleKey: 'mobile.notebook.folder', hideTabBar: true },
+          meta: { titleKey: 'mobile.notebook.folder', hideTabBar: true, hideAppHeader: true },
+        },
+        {
+          path: 'notebook/search',
+          name: 'mobile-note-search',
+          component: () => import('@/mobile/views/notebook/MobileNoteSearchView.vue'),
+          meta: { titleKey: 'mobile.notebook.search', hideTabBar: true, hideAppHeader: true },
         },
         {
           path: 'todos',
@@ -226,7 +232,7 @@ const router = createRouter({
 })
 
 // 离开页面时保存滚动位置
-router.beforeEach((to, from) => {
+router.beforeEach((_to, from) => {
   saveScrollPosition(from)
 })
 
