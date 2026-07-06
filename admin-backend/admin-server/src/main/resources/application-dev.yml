@@ -16,7 +16,8 @@ ai-manager:
       user: ${PI_USER:kyle}
       host: ${PI_HOST:192.168.0.114}
       password: ${PI_PASSWORD:Asd123456}
-    backend-dir: ${DEPLOY_BACKEND_DIR:.deploy}
+    # 远程部署到 Pi 的目标目录（本地日志路径见上方 logging.file.name）
+    backend-dir: ${DEPLOY_BACKEND_DIR:/opt/ai-manager/backend}
     web-root: ${DEPLOY_WEB_ROOT:/var/www/ai-manager}
     runner:
       enabled: true
