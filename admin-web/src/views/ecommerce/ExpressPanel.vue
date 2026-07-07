@@ -23,7 +23,7 @@
         {{ t('ecommerce.express.filterDefaultOnly') }}
       </el-checkbox>
       <div class="express-panel__toolbar-spacer" />
-      <el-button plain @click="openCalcDialog">🧮 试算</el-button>
+      <el-button plain @click="openCalcDialog">{{ t('ecommerce.express.calcButton') }}</el-button>
       <el-button type="primary" @click="openCreate">{{ t('ecommerce.express.add') }}</el-button>
     </div>
 
@@ -670,7 +670,7 @@
     <!-- 运费试算弹窗 -->
     <el-dialog
       v-model="calcDialogVisible"
-      title="🧮 运费试算"
+      :title="t('ecommerce.express.calcDialogTitle')"
       width="520px"
       destroy-on-close
       append-to-body
@@ -678,29 +678,29 @@
     >
       <div v-if="calcStations.length" class="express-calc-dialog__body">
         <el-form label-width="100px" class="express-calc-dialog__form">
-          <el-form-item label="快递公司">
-            <el-select v-model.number="calcStationId" placeholder="请选择快递公司" style="width:100%">
+          <el-form-item :label="t('ecommerce.express.calcExpressCompany')">
+            <el-select v-model.number="calcStationId" :placeholder="t('ecommerce.express.calcExpressCompanyPlaceholder')" style="width:100%">
               <el-option v-for="s in calcStations" :key="s.id" :label="s.name" :value="s.id" />
             </el-select>
           </el-form-item>
-          <el-form-item label="省份">
-            <el-select v-model="calcProvince" placeholder="请选择省份" style="width:100%">
+          <el-form-item :label="t('ecommerce.express.calcProvince')">
+            <el-select v-model="calcProvince" :placeholder="t('ecommerce.express.calcProvincePlaceholder')" style="width:100%">
               <el-option v-for="p in availableProvinces" :key="p" :label="p" :value="p" />
             </el-select>
           </el-form-item>
-          <el-form-item label="尺寸(cm)">
+          <el-form-item :label="t('ecommerce.express.calcSizeCm')">
             <div class="express-calc-dialog__dims">
-              <el-input v-model.number="calcLength" placeholder="长" type="number" min="0" step="0.1" />
+              <el-input v-model.number="calcLength" :placeholder="t('ecommerce.express.calcLength')" type="number" min="0" step="0.1" />
               <span class="express-calc-dialog__dim-x">×</span>
-              <el-input v-model.number="calcWidth" placeholder="宽" type="number" min="0" step="0.1" />
+              <el-input v-model.number="calcWidth" :placeholder="t('ecommerce.express.calcWidth')" type="number" min="0" step="0.1" />
               <span class="express-calc-dialog__dim-x">×</span>
-              <el-input v-model.number="calcHeight" placeholder="高" type="number" min="0" step="0.1" />
+              <el-input v-model.number="calcHeight" :placeholder="t('ecommerce.express.calcHeight')" type="number" min="0" step="0.1" />
             </div>
           </el-form-item>
-          <el-form-item label="实际重量(kg)">
+          <el-form-item :label="t('ecommerce.express.calcWeightKg')">
             <el-input
               v-model.number="calcWeight"
-              placeholder="选填，默认按体积重计算"
+              :placeholder="t('ecommerce.express.calcWeightPlaceholder')"
               type="number"
               min="0"
               step="0.01"
@@ -708,7 +708,7 @@
           </el-form-item>
           <el-form-item>
             <el-button type="primary" :loading="calcLoading" @click="handleCalculate">
-              开始试算
+              {{ t('ecommerce.express.calcStart') }}
             </el-button>
           </el-form-item>
         </el-form>
@@ -716,36 +716,36 @@
         <!-- 试算结果 -->
         <div v-if="calcResult" class="express-calc-dialog__result">
           <div class="express-calc-dialog__result-title">
-            试算结果
+            {{ t('ecommerce.express.calcResultTitle') }}
           </div>
           <div class="express-calc-dialog__result-rows">
             <div v-if="calcResult.volumetricWeight > 0" class="express-calc-dialog__result-row">
-              <span>体积重</span>
+              <span>{{ t('ecommerce.express.calcVolumetricWeight') }}</span>
               <span>{{ formatCalcWeight(calcResult.volumetricWeight) }} kg</span>
             </div>
             <div class="express-calc-dialog__result-row">
-              <span>计费重量</span>
+              <span>{{ t('ecommerce.express.calcBillingWeight') }}</span>
               <span class="express-calc-dialog__result-strong">
                 {{ formatCalcWeight(calcResult.billingWeight) }} kg
               </span>
             </div>
             <div class="express-calc-dialog__result-row">
-              <span>计费档位</span>
+              <span>{{ t('ecommerce.express.calcTier') }}</span>
               <span>{{ calcResult.tier }}</span>
             </div>
             <div class="express-calc-dialog__result-row">
-              <span>运费</span>
+              <span>{{ t('ecommerce.express.calcFreight') }}</span>
               <span>¥{{ formatCalcPrice(calcResult.freight) }}</span>
             </div>
             <div v-if="calcResult.labelPrice > 0" class="express-calc-dialog__result-row">
               <span>
-                面单费
-                <span class="express-calc-dialog__result-tip">（不含面单费）</span>
+                {{ t('ecommerce.express.calcLabelPrice') }}
+                <span class="express-calc-dialog__result-tip">{{ t('ecommerce.express.calcLabelPriceHint') }}</span>
               </span>
               <span>¥{{ formatCalcPrice(calcResult.labelPrice) }}</span>
             </div>
             <div class="express-calc-dialog__result-row express-calc-dialog__result-row--total">
-              <span>预计总计</span>
+              <span>{{ t('ecommerce.express.calcTotal') }}</span>
               <span class="express-calc-dialog__result-total">¥{{ formatCalcPrice(calcResult.total) }}</span>
             </div>
           </div>

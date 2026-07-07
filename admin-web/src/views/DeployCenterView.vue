@@ -1,3 +1,8 @@
+<!--
+ * 部署中心页面组件
+ * 展示系统部署状态、版本管理和健康检查信息
+ * 支持服务节点状态监控、版本升级和部署验证
+ -->
 <template>
   <div class="deploy-center war-room-page">
     <div class="deploy-center__shell">

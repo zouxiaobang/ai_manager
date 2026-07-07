@@ -170,19 +170,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { useI18n } from 'vue-i18n'
+import {computed, onMounted, reactive, ref} from 'vue'
+import {ElMessage, ElMessageBox} from 'element-plus'
+import {useI18n} from 'vue-i18n'
+import type {NbTodoItem, NbTodoSaveRequest} from '@/api/notebook/todo'
 import {
-  fetchTodos,
   createTodo as apiCreateTodo,
-  updateTodo as apiUpdateTodo,
+  fetchTodos,
   removeTodo as apiRemoveTodo,
+  updateTodo as apiUpdateTodo,
 } from '@/api/notebook/todo'
-import type { NbTodoItem, NbTodoSaveRequest } from '@/api/notebook/todo'
-import { classifyTodo, isToday, isOverdue, formatDateTime } from '@/views/notebook/todoGroup'
+import {formatDateTime, isOverdue, isToday} from '@/views/notebook/todoGroup'
 import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
-import { doodleSeedFromKey } from '@/mobile/utils/doodleSeed'
+import {doodleSeedFromKey} from '@/mobile/utils/doodleSeed'
 
 const { t } = useI18n()
 

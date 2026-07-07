@@ -1,3 +1,8 @@
+<!--
+ * 存储中心页面组件
+ * 管理云存储资源，包括百度网盘绑定状态、存储空间使用统计
+ * 提供文件管理和存储配置功能
+ -->
 <template>
   <div class="storage-center war-room-page">
     <header class="storage-center__header">

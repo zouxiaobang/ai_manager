@@ -1,3 +1,8 @@
+<!--
+ * 图片空间页面组件
+ * 展示和管理系统中的图片资源，包括商品图片、封面图等
+ * 支持图片上传、预览、删除和分类管理
+ -->
 <template>
   <div class="image-space war-room-page">
     <header class="image-space__header">

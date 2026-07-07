@@ -1,3 +1,8 @@
+<!--
+ * 番茄钟页面组件
+ * 提供专注计时功能，支持工作/休息阶段切换、副屏同步、统计报表
+ * 采用像素风格设计，包含计时器、计划管理和数据报告三个标签页
+ -->
 <template>
   <div class="pomo-pixel-page war-room-page--fill">
     <div class="pomo-pixel-page__stars" aria-hidden="true" />

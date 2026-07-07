@@ -1,3 +1,7 @@
+<!--
+ * 系统设置页面组件
+ * 管理应用全局配置，包括语言切换、主题切换、移动端首页主题设置等
+ -->
 <template>
   <WarRoomPage :title="t('portal.menu.settings')">
     <div class="war-room-panel">
@@ -8,8 +12,8 @@
             style="width: 200px"
             @change="onLocaleChange"
           >
-            <el-option label="中文" value="zh-CN" />
-            <el-option label="English" value="en-US" />
+            <el-option :label="t('app.languageChinese')" value="zh-CN" />
+            <el-option :label="t('app.languageEnglish')" value="en-US" />
           </el-select>
         </el-form-item>
         <el-form-item :label="t('portal.settings.theme')">

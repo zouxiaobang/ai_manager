@@ -1,3 +1,8 @@
+<!--
+ * 用户列表页面组件
+ * 展示系统用户列表，支持用户信息查看和权限管理
+ * 提供用户数据刷新功能
+ -->
 <template>
   <WarRoomPage :title="t('portal.menu.permission')">
     <div class="war-room-panel">

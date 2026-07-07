@@ -1,3 +1,8 @@
+<!--
+ * 待办页面组件
+ * 展示和管理个人待办任务，支持任务创建、完成、筛选和排序
+ * 内嵌 NotebookTodosView 组件实现核心待办功能
+ -->
 <template>
   <WarRoomPage :title="t('portal.menu.todos')" fill>
     <div class="todos-page war-room-panel">

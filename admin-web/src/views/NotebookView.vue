@@ -1,3 +1,8 @@
+<!--
+ * 笔记本页面组件
+ * 提供笔记管理功能，包括笔记列表、富文本编辑、文件夹管理、标签管理
+ * 支持百度网盘同步、正文格式优化等功能
+ -->
 <template>
   <WarRoomPage :title="t('notebook.title')" fill>
     <div class="notebook-page war-room-panel war-room-panel--notebook">

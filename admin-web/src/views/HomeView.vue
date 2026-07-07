@@ -1,3 +1,8 @@
+<!--
+ * 首页仪表盘组件
+ * 展示系统整体概览，包括待办、库存、订单、快递等核心业务数据统计卡片
+ * 提供快捷导航入口和数据刷新功能
+ -->
 <template>
   <div class="war-room-page">
     <header class="war-room-page__header">

@@ -348,7 +348,7 @@ function onNotebookImagePicked(fileName: string) {
 }
 
 const editorConfig: Partial<IEditorConfig> = {
-  placeholder: props.placeholder ?? '开始记录…',
+  placeholder: props.placeholder ?? t('notebook.contentPlaceholder'),
   readOnly: false,
   autoFocus: true,
   MENU_CONF: {
