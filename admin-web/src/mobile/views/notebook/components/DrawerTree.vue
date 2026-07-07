@@ -54,7 +54,7 @@ import type { NbTreeNode } from '@/api/notebook'
 
 defineOptions({ name: 'DrawerTree' })
 
-const props = withDefaults(defineProps<{
+withDefaults(defineProps<{
   nodes: NbTreeNode[]
   expandedKeys: Set<string>
   depth?: number

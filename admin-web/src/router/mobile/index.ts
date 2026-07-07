@@ -69,7 +69,7 @@ const router = createRouter({
           path: 'todos',
           name: 'mobile-todos',
           component: () => import('@/mobile/views/todos/MobileTodosView.vue'),
-          meta: { titleKey: 'portal.menu.todos', tab: 'todos' },
+          meta: { titleKey: 'portal.menu.todos', tab: 'todos', hideAppHeader: true },
         },
         {
           path: 'pomodoro',
@@ -225,6 +225,12 @@ const router = createRouter({
           name: 'mobile-monthly-settlement-design-preview',
           component: () => import('@/mobile/views/monthly-settlement/MobileMonthlySettlementDesignPreview.vue'),
           meta: { titleKey: '月结统计设计预览', hideTabBar: true },
+        },
+        {
+          path: 'todos-design-preview',
+          name: 'mobile-todos-design-preview',
+          component: () => import('@/mobile/views/todos/MobileTodosDesignPreview.vue'),
+          meta: { titleKey: '待办事项设计预览', hideTabBar: true },
         },
       ],
     },
