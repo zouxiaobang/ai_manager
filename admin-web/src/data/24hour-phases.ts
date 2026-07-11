@@ -55,7 +55,7 @@ export const phases: PhaseDef[] = [
     hourEnd: 14,
     items: [
       { key: 'midday_lunch', label: '午饭并休息' },
-      { key: 'midday_review', label: '三行复位复盘' },
+      { key: 'midday_review', label: '三行复位复盘', hasContent: true },
       { key: 'midday_desk', label: '桌面整理进入状态' },
     ],
   },
@@ -68,8 +68,8 @@ export const phases: PhaseDef[] = [
     hourEnd: 18,
     desc: '不随意切换方向',
     items: [
-      { key: 'afternoon_deep_done', label: '需有可交付的完结内容' },
-      { key: 'afternoon_tomorrow_reminder', label: '明日继续工作的提醒' },
+      { key: 'afternoon_deep_done', label: '需有可交付的完结内容', hasContent: true },
+      { key: 'afternoon_tomorrow_reminder', label: '明日继续工作的提醒', hasContent: true },
     ],
   },
   {
