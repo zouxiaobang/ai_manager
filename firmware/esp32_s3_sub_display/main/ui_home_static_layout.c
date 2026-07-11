@@ -6,6 +6,7 @@
 #include "assets_loader.h"
 #include "lv_font_cn_gb2312.h"
 #include "panel_config.h"
+#include "pixel_dog_sprite.h"
 #include "pixel_ui.h"
 #include "pomodoro_bar.h"
 #include "sd_assets.h"
@@ -38,9 +39,11 @@ typedef struct {
   const char *icon;
 } dock_def_t;
 
+#define COL_DOG 0xff8a65
+
 static const dock_def_t k_dock[] = {
     {COL_GREEN, "番茄钟", SD_ASSET_DOCK_POMO},
-    {COL_BLUE, "歌词", SD_ASSET_DOCK_LYRICS},
+    {COL_DOG, "像素狗", SD_ASSET_DOCK_PIXEL_DOG},
     {0xce93d8, "首页", SD_ASSET_DOCK_HOME},
     {0x42a5f5, "专注", SD_ASSET_DOCK_LOCK},
     {0x42a5f5, "设置", SD_ASSET_DOCK_SETTINGS},
@@ -259,57 +262,114 @@ static void build_pomo_card(lv_obj_t *parent, ui_home_widgets_t *out) {
   strip_clickable_descendants(card);
 }
 
-static void build_lyric_card(lv_obj_t *parent, ui_home_widgets_t *out) {
+static void build_dog_card(lv_obj_t *parent, ui_home_widgets_t *out) {
   const int x = UI_CARD_LEFT_X + UI_HOME_CARD_W + UI_HOME_CARD_GAP;
   lv_obj_t *inner = NULL;
   lv_obj_t *border = NULL;
-  lv_obj_t *card = make_card(parent, x, UI_HOME_CARDS_Y, UI_HOME_CARD_W, UI_HOME_CARD_H, COL_BLUE, &inner, &border);
+  lv_obj_t *card = make_card(parent, x, UI_HOME_CARDS_Y, UI_HOME_CARD_W, UI_HOME_CARD_H, COL_DOG, &inner, &border);
+  
   if (out) {
-    out->card_lyric = card;
-    out->card_lyric_inner = inner;
-    out->card_lyric_border = border;
+    out->card_dog = card;
+    out->card_dog_inner = inner;
+    out->card_dog_border = border;
   }
-  add_card_header(inner, "歌词", COL_BLUE, SD_ASSET_DECO_DIAMOND_BLUE);
+  add_card_header(inner, "像素狗", COL_DOG, SD_ASSET_DECO_DIAMOND_BLUE);
 
-  lv_obj_t *title_row = lv_obj_create(inner);
-  lv_obj_set_size(title_row, UI_HOME_CARD_W - UI_CARD_INNER_PAD * 2 - 20, 24);
-  strip_scroll(title_row);
-  lv_obj_set_style_bg_opa(title_row, LV_OPA_TRANSP, 0);
-  lv_obj_set_style_border_width(title_row, 0, 0);
-  lv_obj_set_layout(title_row, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(title_row, LV_FLEX_FLOW_ROW);
-  lv_obj_set_flex_align(title_row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_set_style_pad_column(title_row, 6, 0);
-
-  if (place_img(title_row, SD_ASSET_ICON_EQ, 16, 14) == NULL) {
-    pixel_create_eq_icon(title_row, 0, 0, 1, lv_color_hex(COL_BLUE));
+  lv_obj_t *sprite_wrap = lv_obj_create(inner);
+  clear_obj(sprite_wrap);
+  lv_obj_set_size(sprite_wrap, 120, 120);
+  lv_obj_set_style_bg_opa(sprite_wrap, LV_OPA_TRANSP, 0);
+  lv_obj_t *sprite = dog_sprite_create(sprite_wrap, 5);
+  if (sprite != NULL) {
+    lv_obj_center(sprite);
   }
-
-  lv_obj_t *title = lv_label_create(title_row);
-  lv_label_set_text(title, "\xe5\xa4\x9c\xe7\xa9\xba\xe4\xb8\xad\xe6\x9c\x80\xe4\xba\xae\xe7\x9a\x84\xe6\x98\x9f");
-  style_label(title, font_cn(), COL_BLUE);
   if (out) {
-    out->lbl_lyric_title = title;
+    out->dog_sprite = sprite;
+    out->dog_sprite_wrap = sprite_wrap;
   }
 
-  lv_obj_t *body = lv_label_create(inner);
-  lv_label_set_text(body,
-                    "\xe8\x83\xbd\xe5\x90\xac\xe6\xb8\x85\n"
-                    "\xe9\x82\xa3\xe4\xbb\xb0\xe6\x9c\x9b\xe7\x9a\x84\xe4\xba\xba\n"
-                    "\xe5\xbf\x83\xe5\xba\x95\xe7\x9a\x84\xe5\xad\xa4\xe7\x8b\xac\xe5\x92\x8c\xe5\x8f\xb9\xe6\x81\xaf\n"
-                    "\xe5\xa4\x9c\xe7\xa9\xba\xe4\xb8\xad\xe6\x9c\x80\xe4\xba\xae\xe7\x9a\x84\xe6\x98\x9f\n"
-                    "\xe8\x83\xbd\xe5\x90\xa6\xe8\xae\xb0\xe8\xb5\xb7\n"
-                    "\xe6\x9b\xbe\xe4\xb8\x8e\xe6\x88\x91\xe5\x90\x8c\xe8\xa1\x8c\n"
-                    "\xe6\xb6\x88\xe5\xa4\xb1\xe5\x9c\xa8\xe9\xa3\x8e\xe9\x87\x8c\xe7\x9a\x84\xe8\xba\xab\xe5\xbd\xb1\n"
-                    "...");
-  style_label(body, font_cn(), COL_LYRIC_DIM);
-  lv_obj_set_width(body, UI_HOME_CARD_W - UI_CARD_INNER_PAD * 2 - 28);
-  lv_label_set_long_mode(body, LV_LABEL_LONG_WRAP);
-  lv_obj_set_style_text_align(body, LV_TEXT_ALIGN_CENTER, 0);
-  lv_obj_set_style_text_line_space(body, 6, 0);
+  lv_obj_t *speech_lbl = lv_label_create(inner);
+  lv_label_set_text(speech_lbl, "\xe4\xbb\x8a\xe5\xa4\xa9\xe4\xb9\x9f\xe8\xa6\x81\xe5\x8a\xa0\xe6\xb2\xb9\xe5\x93\xa6\xef\xbc\x81");
+  style_label(speech_lbl, font_cn(), COL_DOG);
+  lv_obj_set_width(speech_lbl, UI_HOME_CARD_W - UI_CARD_INNER_PAD * 2 - 28);
+  lv_label_set_long_mode(speech_lbl, LV_LABEL_LONG_WRAP);
+  lv_obj_set_style_text_align(speech_lbl, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_style_text_line_space(speech_lbl, 6, 0);
   if (out) {
-    out->lbl_lyric_body = body;
+    out->lbl_dog_speech = speech_lbl;
   }
+
+  lv_obj_t *btn_row = lv_obj_create(inner);
+  lv_obj_set_size(btn_row, UI_HOME_CARD_W - UI_CARD_INNER_PAD * 2 - 20, 40);
+  strip_scroll(btn_row);
+  lv_obj_set_style_bg_opa(btn_row, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_width(btn_row, 0, 0);
+  lv_obj_set_layout(btn_row, LV_LAYOUT_FLEX);
+  lv_obj_set_flex_flow(btn_row, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(btn_row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_set_style_pad_column(btn_row, 6, 0);
+
+  lv_obj_t *pet_btn = lv_button_create(btn_row);
+  lv_obj_set_size(pet_btn, 68, 36);
+  lv_obj_set_style_bg_opa(pet_btn, LV_OPA_20, 0);
+  lv_obj_set_style_bg_color(pet_btn, lv_color_hex(COL_DOG), 0);
+  lv_obj_set_style_border_width(pet_btn, 2, 0);
+  lv_obj_set_style_border_color(pet_btn, lv_color_hex(COL_DOG), 0);
+  lv_obj_set_style_radius(pet_btn, 6, 0);
+  lv_obj_t *pet_lbl = lv_label_create(pet_btn);
+  lv_label_set_text(pet_lbl, "\xe6\x91\xb8\xe6\x91\xb8\xe5\xa4\xb4");
+  style_label(pet_lbl, font_cn(), COL_DOG);
+  lv_obj_center(pet_lbl);
+  if (out) {
+    out->dog_pet_btn = pet_btn;
+  }
+
+  lv_obj_t *greet_btn = lv_button_create(btn_row);
+  lv_obj_set_size(greet_btn, 68, 36);
+  lv_obj_set_style_bg_opa(greet_btn, LV_OPA_20, 0);
+  lv_obj_set_style_bg_color(greet_btn, lv_color_hex(COL_DOG), 0);
+  lv_obj_set_style_border_width(greet_btn, 2, 0);
+  lv_obj_set_style_border_color(greet_btn, lv_color_hex(COL_DOG), 0);
+  lv_obj_set_style_radius(greet_btn, 6, 0);
+  lv_obj_t *greet_lbl = lv_label_create(greet_btn);
+  lv_label_set_text(greet_lbl, "\xe9\x97\xae\xe5\xa5\xbd");
+  style_label(greet_lbl, font_cn(), COL_DOG);
+  lv_obj_center(greet_lbl);
+  if (out) {
+    out->dog_greet_btn = greet_btn;
+  }
+
+  lv_obj_t *nuzzle_btn = lv_button_create(btn_row);
+  lv_obj_set_size(nuzzle_btn, 68, 36);
+  lv_obj_set_style_bg_opa(nuzzle_btn, LV_OPA_20, 0);
+  lv_obj_set_style_bg_color(nuzzle_btn, lv_color_hex(COL_DOG), 0);
+  lv_obj_set_style_border_width(nuzzle_btn, 2, 0);
+  lv_obj_set_style_border_color(nuzzle_btn, lv_color_hex(COL_DOG), 0);
+  lv_obj_set_style_radius(nuzzle_btn, 6, 0);
+  lv_obj_t *nuzzle_lbl = lv_label_create(nuzzle_btn);
+  lv_label_set_text(nuzzle_lbl, "\xe8\xb9\xad\xe8\xb9\xad");
+  style_label(nuzzle_lbl, font_cn(), COL_DOG);
+  lv_obj_center(nuzzle_lbl);
+  if (out) {
+    out->dog_nuzzle_btn = nuzzle_btn;
+  }
+
+  lv_obj_t *hug_btn = lv_button_create(btn_row);
+  lv_obj_set_size(hug_btn, 68, 36);
+  lv_obj_set_style_bg_opa(hug_btn, LV_OPA_20, 0);
+  lv_obj_set_style_bg_color(hug_btn, lv_color_hex(0xff5252), 0);
+  lv_obj_set_style_border_width(hug_btn, 2, 0);
+  lv_obj_set_style_border_color(hug_btn, lv_color_hex(0xff5252), 0);
+  lv_obj_set_style_radius(hug_btn, 6, 0);
+  lv_obj_t *hug_lbl = lv_label_create(hug_btn);
+  lv_label_set_text(hug_lbl, "\xe6\x8a\xb1\xe6\x8a\xb1");
+  style_label(hug_lbl, font_cn(), 0xff5252);
+  lv_obj_center(hug_lbl);
+  if (out) {
+    out->dog_hug_btn = hug_btn;
+  }
+
+  strip_clickable_descendants(card);
 }
 
 static void build_dock_item(lv_obj_t *dock, int index, ui_home_widgets_t *out) {
@@ -428,7 +488,7 @@ lv_obj_t *ui_home_static_build(lv_obj_t *parent, ui_home_widgets_t *out) {
 
   build_status_bar(parent, out);
   build_pomo_card(parent, out);
-  build_lyric_card(parent, out);
+  build_dog_card(parent, out);
 
   lv_obj_t *dock = lv_obj_create(parent);
   if (out) {

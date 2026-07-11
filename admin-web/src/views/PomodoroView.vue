@@ -4,31 +4,45 @@
  * 采用像素风格设计，包含计时器、计划管理和数据报告三个标签页
  -->
 <template>
+  <!-- 页面主容器：番茄钟页面整体布局，像素风格设计 -->
   <div class="pomo-pixel-page war-room-page--fill">
+    <!-- 星空背景装饰层 -->
     <div class="pomo-pixel-page__stars" aria-hidden="true" />
 
+    <!-- 计时器页面顶部留白区域（仅计时器标签页显示） -->
     <div v-if="activeTab === 'timer'" class="pomo-pixel-page__before" aria-hidden="true" />
 
+    <!-- 内容区域：根据当前激活标签页显示对应面板 -->
     <div
       class="pomo-pixel-page__content"
       :class="{ 'pomo-pixel-page__content--fill': activeTab !== 'timer' }"
     >
+      <!-- 计时器面板：专注计时核心功能 -->
       <TimerPanel v-show="activeTab === 'timer'" ref="timerRef" />
+      <!-- 报告面板：番茄钟数据统计报表 -->
       <div v-show="activeTab === 'report'" class="pomo-pixel-subpanel">
         <ReportPanel ref="reportRef" />
       </div>
+      <!-- 计划面板：番茄钟计划管理 -->
       <div v-show="activeTab === 'plan'" class="pomo-pixel-subpanel">
         <PlanPanel ref="planRef" />
       </div>
     </div>
 
+    <!-- 计时器页面底部留白区域（仅计时器标签页显示） -->
     <div v-if="activeTab === 'timer'" class="pomo-pixel-page__after" aria-hidden="true" />
 
+    <!-- 底部导航栏：计时器、报告、计划三个标签页切换 -->
     <PomoPixelNav v-model="activeTab" :items="navItems" />
   </div>
 </template>
 
 <script setup lang="ts">
+/**
+ * 番茄钟页面组件
+ * 提供专注计时功能，支持工作/休息阶段切换、副屏同步、统计报表
+ * 采用像素风格设计，包含计时器、计划管理和数据报告三个标签页
+ */
 import { computed, defineAsyncComponent, onMounted, provide, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -51,12 +65,12 @@ interface PomodoroPanelExpose {
   onPlansChanged?: (planId?: number) => Promise<void>
 }
 
-const { t } = useI18n()
-const route = useRoute()
-const activeTab = ref<PomoNavTabId>('timer')
-const timerRef = ref<PomodoroPanelExpose | null>(null)
-const reportRef = ref<PomodoroPanelExpose | null>(null)
-const planRef = ref<PomodoroPanelExpose | null>(null)
+const { t } = useI18n() // 国际化函数
+const route = useRoute() // 路由实例
+const activeTab = ref<PomoNavTabId>('timer') // 当前激活的标签页
+const timerRef = ref<PomodoroPanelExpose | null>(null) // 计时器面板引用
+const reportRef = ref<PomodoroPanelExpose | null>(null) // 报告面板引用
+const planRef = ref<PomodoroPanelExpose | null>(null) // 计划面板引用
 
 provide(POMODORO_PLAN_CONTEXT_KEY, {
   checkEditable: async () => {
@@ -82,6 +96,7 @@ const navItems = computed(() => [
 ])
 
 function onTabActivated(tab: PomoNavTabId) {
+  // 标签页激活时的处理逻辑，刷新对应面板数据
   if (tab === 'timer') {
     timerRef.value?.loadPlans?.()
     timerRef.value?.refreshToday?.()

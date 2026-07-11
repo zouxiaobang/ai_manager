@@ -1,7 +1,10 @@
 <template>
+  <!-- 销售订单面板主容器 -->
   <div class="sales-order-panel" :class="{ 'sales-order-panel--doodle': doodle.enabled.value }">
+    <!-- 顶部工具栏：月份选择和刷新按钮 -->
     <div class="order-workbench-header">
       <div class="order-workbench-header__main">
+        <!-- 月份选择器 -->
         <el-date-picker
           v-model="orderMonth"
           type="month"
@@ -9,11 +12,13 @@
           :placeholder="t('ecommerce.salesOrder.monthPlaceholder')"
           class="order-workbench-header__month"
         />
+        <!-- 刷新按钮 -->
         <el-button :loading="overviewLoading" @click="refreshAll">{{ t('ecommerce.salesOrder.refresh') }}</el-button>
       </div>
       <p class="order-workbench-hint">{{ t('ecommerce.salesOrder.dataHint') }}</p>
     </div>
 
+    <!-- 统计卡片区域：订单核心数据统计 -->
     <section v-loading="overviewLoading" class="order-stat-cards">
       <template v-if="doodle.enabled.value">
         <SchemeADoodleFrame
@@ -42,8 +47,10 @@
       </template>
     </section>
 
+    <!-- 店铺导入区域：各店铺订单导入状态 -->
     <section v-loading="overviewLoading" class="order-shop-section">
       <h3 class="order-section-title">{{ t('ecommerce.salesOrder.shopImportSection') }}</h3>
+      <!-- 店铺卡片网格 -->
       <div v-if="shopImportCards.length" class="order-shop-grid">
         <template v-if="doodle.enabled.value">
           <SchemeADoodleFrame
@@ -141,10 +148,13 @@
       <el-empty v-else :description="t('ecommerce.salesOrder.noShops')" :image-size="64" />
     </section>
 
+    <!-- 订单列表区域：订单筛选和列表展示 -->
     <section class="order-list-section">
       <h3 class="order-section-title">{{ t('ecommerce.salesOrder.orderListSection') }}</h3>
+      <!-- 筛选工具栏 -->
       <div class="panel-toolbar">
         <span class="panel-toolbar__label">{{ t('ecommerce.salesOrder.orderTimeFilter') }}</span>
+        <!-- 时间范围筛选 -->
         <el-date-picker
           v-model="orderTimeRange"
           type="daterange"
@@ -656,6 +666,11 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 销售订单面板组件
+ * 管理电商销售订单，支持订单导入、订单列表查看和编辑
+ * 提供月度统计、店铺导入状态、订单筛选等功能
+ */
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -708,8 +723,8 @@ import { defaultOrderMonth, formatDateTime, formatMonthDay, monthDateRange, toda
 import { normalizeLineStatus, type ImportLineStatus } from '@/constants/importStatusMapping'
 import { parseProvinceFromAddress } from '@/utils/addressProvince'
 
-const { t } = useI18n()
-const doodle = useMobileEcDoodle()
+const { t } = useI18n() // 国际化函数
+const doodle = useMobileEcDoodle() // 涂鸦风格主题
 
 function orderStatColor(tone: string) {
   if (tone === 'green') return '#22c55e'

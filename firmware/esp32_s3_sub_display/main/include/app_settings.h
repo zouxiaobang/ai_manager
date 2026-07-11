@@ -6,7 +6,7 @@ struct AppSettings {
   uint8_t brightness = 100;
   uint8_t dim_brightness = 30;
   uint8_t idle_dim_minutes = 5;
-  bool night_dim_enable = true;
+  bool night_dim_enable = false;
   uint8_t night_start_hour = 22;
   uint8_t night_start_min = 0;
   uint8_t night_end_hour = 8;

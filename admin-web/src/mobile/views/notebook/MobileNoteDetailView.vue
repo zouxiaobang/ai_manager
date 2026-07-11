@@ -1,20 +1,25 @@
 <template>
+  <!-- 移动端笔记详情页容器 -->
   <div class="mobile-note-detail">
-    <!-- Header with back button -->
+    <!-- 页面头部：返回按钮 + 笔记标题 -->
     <div class="mobile-note-detail__header">
+      <!-- 返回按钮：返回上一页 -->
       <button class="mobile-note-detail__back" @click="goBack">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="15 18 9 12 15 6" />
         </svg>
       </button>
+      <!-- 笔记标题区域 -->
       <div class="mobile-note-detail__title"><h2>{{ title }}</h2></div>
     </div>
 
-
+    <!-- 笔记内容编辑/展示区域 -->
     <div class="mobile-note-detail__editor">
+      <!-- 内容加载中状态 -->
       <div v-if="contentLoading" class="mobile-note-detail__loading">
         {{ t('notebook.contentLoading') }}
       </div>
+      <!-- 笔记内容展示区：富文本HTML渲染 -->
       <div
         v-show="!contentLoading"
         class="mobile-note-detail__content"
@@ -25,30 +30,40 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 移动端笔记详情视图组件
+ * 功能说明：
+ * - 展示单条笔记的详细内容
+ * - 支持富文本HTML内容渲染
+ * - 提供返回按钮进行页面导航
+ * - 处理内容加载状态和加载失败状态
+ */
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { APP_FONT_FAMILY } from '@/constants/font-family'
 import { fetchNote } from '@/api/notebook'
 
-const route = useRoute()
-const router = useRouter()
-const { t } = useI18n()
+const route = useRoute() // 当前路由信息
+const router = useRouter() // 路由实例
+const { t } = useI18n() // 国际化翻译函数
 
-const noteId = Number(route.params.id)
-const title = ref('')
-const content = ref('')
-const contentLoading = ref(true)
+const noteId = Number(route.params.id) // 笔记ID（从路由参数获取）
+const title = ref('') // 笔记标题
+const content = ref('') // 笔记内容（HTML格式）
+const contentLoading = ref(true) // 内容加载状态
 
+// 返回上一页
 function goBack() {
   router.back()
 }
 
+// 加载笔记详情数据
 async function loadNote() {
   if (!Number.isFinite(noteId) || noteId <= 0) return
   contentLoading.value = true
   try {
-    const detail = await fetchNote(noteId)
+    const detail = await fetchNote(noteId) // 请求笔记详情API
     title.value = detail.title
     content.value = detail.content ?? ''
   } catch {
@@ -59,7 +74,7 @@ async function loadNote() {
 }
 
 onMounted(() => {
-  void loadNote()
+  void loadNote() // 组件挂载时加载笔记数据
 })
 </script>
 

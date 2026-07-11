@@ -127,28 +127,6 @@ bool assets_load_text_file(const char *relative_path, char *out, size_t out_size
   return n > 0;
 }
 
-bool assets_load_lyrics(char *title, size_t title_size, char *body, size_t body_size) {
-  bool ok = false;
-  if (title != nullptr && title_size > 0) {
-    if (assets_load_text_file(SD_LYRICS_META, title, title_size)) {
-      ok = true;
-    } else {
-      title[0] = '\0';
-    }
-  }
-  if (body != nullptr && body_size > 0) {
-    if (assets_load_text_file(SD_LYRICS_BODY, body, body_size)) {
-      ok = true;
-    } else {
-      body[0] = '\0';
-    }
-  }
-  if (ok) {
-    ESP_LOGI(TAG, "Lyrics loaded from SD");
-  }
-  return ok;
-}
-
 bool assets_set_image_src(lv_obj_t *img, const char *relative_path) {
   if (img == nullptr || relative_path == nullptr) {
     return false;

@@ -1,5 +1,7 @@
 <template>
+  <!-- 商品管理面板主容器 -->
   <div class="product-panel">
+    <!-- 商品链接关联对话框 -->
     <ListingLinkPanel
       ref="listingDialogRef"
       class="product-listing-dialog-host"
@@ -7,21 +9,29 @@
       @saved="onProductListingLinkSaved"
     />
 
+    <!-- 标签页导航：商品列表和其他 -->
     <el-tabs v-model="innerTab" class="product-panel__tabs">
+      <!-- 商品列表标签页 -->
       <el-tab-pane :label="t('ecommerce.product.tabProducts')" name="products">
+        <!-- 左右分栏布局：左侧列表 + 右侧详情 -->
         <div class="product-split">
           <!-- 左侧商品列表 -->
           <aside class="product-split__list">
+            <!-- 搜索工具栏：搜索框和新增按钮 -->
             <div class="product-list-toolbar">
+              <!-- 搜索框 -->
               <el-input
                 v-model="keyword"
                 :placeholder="t('ecommerce.product.searchPlaceholder')"
                 clearable
               />
+              <!-- 新增商品按钮 -->
               <el-button type="primary" @click="openCreate">{{ t('ecommerce.product.add') }}</el-button>
             </div>
 
+            <!-- 商品列表滚动区域 -->
             <div v-loading="loading" class="product-list-scroll">
+              <!-- 商品列表项 -->
               <div
                 v-for="row in records"
                 :key="row.id"
@@ -68,6 +78,7 @@
               />
             </div>
 
+            <!-- 分页组件 -->
             <TablePagination
               class="product-list-pagination"
               :page="page"
@@ -78,18 +89,22 @@
             />
           </aside>
 
-          <!-- 右侧详情 -->
+          <!-- 右侧详情面板：商品编辑表单 -->
           <main class="product-split__detail">
+            <!-- 空状态：未选择商品时显示 -->
             <div v-if="!detailOpen" class="product-detail-empty">
               <el-empty :description="t('ecommerce.product.selectProductHint')" :image-size="100" />
             </div>
 
+            <!-- 商品详情编辑区域 -->
             <div v-else v-loading="detailLoading" class="product-detail">
+              <!-- 详情头部：标题和操作按钮 -->
               <header class="product-detail__header">
                 <h2 class="product-detail__title">
                   {{ editingId ? (form.name || t('ecommerce.product.editTitle')) : t('ecommerce.product.createTitle') }}
                 </h2>
                 <div class="product-detail__actions">
+                  <!-- 删除按钮 -->
                   <el-button v-if="editingId" link type="danger" :title="t('ecommerce.product.delete')" @click="onDeleteCurrent">
                     <el-icon><Delete /></el-icon>
                   </el-button>
@@ -547,6 +562,11 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 商品管理面板组件
+ * 管理电商商品信息，包括SPU/SKU管理、商品图片、工厂关联等
+ * 支持商品搜索、新增、编辑、删除和分页功能
+ */
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -575,37 +595,38 @@ import ListingLinkPanel from './ListingLinkPanel.vue'
 import ListingLinkDetailDrawer from './ListingLinkDetailDrawer.vue'
 import { fetchListingLinksByProduct, type EcListingLink } from '@/api/ecommerce/listingLink'
 
-const innerTab = ref('products')
-const listingRef = ref<InstanceType<typeof ListingLinkPanel> | null>(null)
-const listingDialogRef = ref<InstanceType<typeof ListingLinkPanel> | null>(null)
+const innerTab = ref('products') // 当前标签页
+const listingRef = ref<InstanceType<typeof ListingLinkPanel> | null>(null) // 商品链接面板引用
+const listingDialogRef = ref<InstanceType<typeof ListingLinkPanel> | null>(null) // 商品链接对话框引用
 
 import { useEcSettingsStore } from '@/stores/ecSettings'
 
-const { t } = useI18n()
-const route = useRoute()
-const ecSettings = useEcSettingsStore()
+const { t } = useI18n() // 国际化函数
+const route = useRoute() // 路由实例
+const ecSettings = useEcSettingsStore() // 电商设置状态
 
-const saving = ref(false)
-const keyword = ref('')
-const factoryOptions = ref<EcFactory[]>([])
+const saving = ref(false) // 保存状态
+const keyword = ref('') // 搜索关键词
+const factoryOptions = ref<EcFactory[]>([]) // 工厂选项列表
 const { page, pageSize, total, records, loading, load, onPageChange } = usePagination(
+  // 分页获取商品列表
   (p, ps) => fetchProducts(keyword.value.trim() || undefined, { page: p, pageSize: ps }),
 )
 
-const detailOpen = ref(false)
-const detailLoading = ref(false)
-const editingId = ref<number | null>(null)
-const activeSkuTab = ref('0')
-const listImageBrokenIds = ref<Set<number>>(new Set())
-const listImagePreviewVisible = ref(false)
-const listImagePreviewTitle = ref('')
-const listImagePreviewUrl = ref('')
-const listImagePreviewBroken = ref(false)
-const productListingLinks = ref<EcListingLink[]>([])
-const listingDetailVisible = ref(false)
-const listingDetailLinkId = ref<number | null>(null)
-const skuCardVisible = ref(false)
-const pendingInitialSelect = ref(true)
+const detailOpen = ref(false) // 详情面板是否打开
+const detailLoading = ref(false) // 详情加载状态
+const editingId = ref<number | null>(null) // 正在编辑的商品ID
+const activeSkuTab = ref('0') // 当前激活的SKU标签
+const listImageBrokenIds = ref<Set<number>>(new Set()) // 列表中图片加载失败的ID集合
+const listImagePreviewVisible = ref(false) // 图片预览是否可见
+const listImagePreviewTitle = ref('') // 图片预览标题
+const listImagePreviewUrl = ref('') // 图片预览URL
+const listImagePreviewBroken = ref(false) // 预览图片是否加载失败
+const productListingLinks = ref<EcListingLink[]>([]) // 商品链接列表
+const listingDetailVisible = ref(false) // 链接详情是否可见
+const listingDetailLinkId = ref<number | null>(null) // 链接详情ID
+const skuCardVisible = ref(false) // SKU卡片是否可见
+const pendingInitialSelect = ref(true) // 是否等待初始选中
 
 const form = reactive<EcProductSaveRequest>({
   name: '',

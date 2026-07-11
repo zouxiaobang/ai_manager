@@ -8,6 +8,7 @@
 #include "gt911_touch.h"
 
 #include "nvs_flash.h"
+#include "pixel_dog_sync.h"
 #include "pomodoro_sync.h"
 #include "pomodoro_plan_cache.h"
 #include "pomodoro_model.h"
@@ -50,7 +51,9 @@ extern "C" void app_main(void) {
     ESP_LOGW(TAG, "Pomodoro sync not started (disabled or WiFi not configured)");
   }
 
-
+  if (dog_sync_start() != ESP_OK) {
+    ESP_LOGW(TAG, "Pixel Dog sync not started (disabled or WiFi not configured)");
+  }
 
   if (sd_storage_is_mounted()) {
     board_sd_cs_set(true);

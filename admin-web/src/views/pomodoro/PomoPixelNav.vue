@@ -17,20 +17,20 @@
 </template>
 
 <script setup lang="ts">
-export type PomoNavTabId = 'timer' | 'report' | 'plan'
+export type PomoNavTabId = string
 
 export interface PomoNavItem {
-  id: PomoNavTabId
+  id: string
   icon: string
   label: string
 }
 
 defineProps<{
-  modelValue: PomoNavTabId
+  modelValue: string
   items: PomoNavItem[]
 }>()
 
 const emit = defineEmits<{
-  'update:modelValue': [id: PomoNavTabId]
+  'update:modelValue': [id: string]
 }>()
 </script>

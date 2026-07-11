@@ -1,8 +1,10 @@
 <template>
+  <!-- 移动端订单管理页主容器 -->
   <div v-loading="loading" class="mobile-order-view">
-    <!-- 顶部导航栏 -->
+    <!-- 顶部导航栏：返回按钮 + 页面标题 -->
     <div class="mobile-order-view__header">
       <div class="mobile-order-view__header-left">
+        <!-- 返回按钮：返回上一页 -->
         <MobileDoodleChip
           tag="button" type="button"
           shape="pill" color="#3b82f6"
@@ -16,13 +18,15 @@
     </div>
 
     <div class="mobile-order-view__content">
-      <!-- ===== 月份 + 店铺筛选行 ===== -->
+      <!-- 筛选栏：月份选择器 + 店铺筛选 -->
       <div class="filter-bar">
+        <!-- 月份选择器：左右切换月份 -->
         <div class="month-picker">
           <button class="month-arrow" @click="shiftMonth(-1)" :disabled="loadingList">‹</button>
           <MobileMonthPicker v-model="orderMonth" class="month-label" />
           <button class="month-arrow" @click="shiftMonth(1)" :disabled="loadingList">›</button>
         </div>
+        <!-- 店铺筛选下拉框 -->
         <div class="shop-picker">
           <select v-model="shopFilter" class="shop-select" @change="onShopFilterChange">
             <option value="">全部店铺</option>
@@ -31,14 +35,14 @@
         </div>
       </div>
 
-      <!-- ===== 搜索框 ===== -->
+      <!-- 搜索框：搜索订单号/买家/平台单号/商品名称/SKU -->
       <MobileDoodleSearch
           v-model="keyword"
           placeholder="搜索订单号 / 买家 / 平台单号 / 商品名称 / SKU..."
           color="#3b82f6"
       />
 
-      <!-- ===== 统计数据方块 ===== -->
+      <!-- 统计数据概览卡片：展示总订单/待发货/已完成/总营收 -->
       <SchemeADoodleFrame color="#3b82f6" class="stats-overview" sketch :stroke-width="2">
         <div class="stats-overview__inner">
           <div class="stats-grid">
@@ -55,7 +59,7 @@
         </div>
       </SchemeADoodleFrame>
 
-      <!-- ===== 状态标签 ===== -->
+      <!-- 订单状态标签栏：按状态筛选订单 -->
       <MobileCategoryTabs
         :categories="statusTabs"
         v-model:active-value="activeStatus"
@@ -63,8 +67,9 @@
         inactive-color="#94a3b8"
       />
 
-      <!-- ===== 订单列表 ===== -->
+      <!-- 订单列表区域 -->
       <div class="order-section">
+        <!-- 列表头部：标题 + 订单总数 -->
         <MobileSectionHeader
           iconText="📋"
           title="订单列表"
@@ -72,12 +77,15 @@
           count-unit="单"
         />
 
+        <!-- 列表加载中状态 -->
         <div v-if="loadingList && !orders.length" class="list-loading">
           <span>加载中...</span>
         </div>
 
         <template v-else>
+          <!-- 订单卡片列表 -->
           <div class="order-list">
+            <!-- 订单卡片：展示单条订单信息 -->
             <SchemeADoodleFrame
               v-for="order in displayOrders"
               :key="order.id"
@@ -90,31 +98,31 @@
               :stroke-width="2"
             >
               <div class="order-card__inner">
-                <!-- 头部：订单号 + 店铺 -->
+                <!-- 订单卡片头部：平台订单号 + 店铺名称 -->
                 <div class="order-card__head">
                   <span class="order-card__no">#{{ order.platformOrderNo }}</span>
                   <span class="order-card__shop">{{ order.shopName || order.platformName || '—' }}</span>
                 </div>
 
-                <!-- 运单号 -->
+                <!-- 运单号行：快递单号 + 快递站点 -->
                 <div v-if="order.trackingNumber" class="order-card__head">
                   <span class="order-card__no">#{{ order.trackingNumber }}</span>
                   <span class="order-card__express">{{ order.expressStationName || '—' }}</span>
                 </div>
 
-                <!-- 买家信息 + 金额 -->
+                <!-- 订单卡片主体：商品链接 + 订单金额 -->
                 <div class="order-card__body">
                   <span class="order-card__link">{{ order.linkName || order.lines?.[0]?.linkName || '' }}</span>
                   <span class="order-card__amount">￥{{ order.receivedAmount ?? '—' }}</span>
                 </div>
 
-                <!-- 商品信息 -->
+                <!-- 商品信息行：SKU规格 + 商品件数 -->
                 <div class="order-card__products" v-if="order.linkName || order.lines?.length">
                   <span class="order-card__link">{{ order.skuSpecName || order.lines?.[0]?.skuSpecName || '' }}</span>
                   <span v-if="order.lineCount" class="order-card__line-count">共{{ order.lineCount }}件</span>
                 </div>
 
-                <!-- 尾部：时间 + 状态 -->
+                <!-- 订单卡片尾部：下单时间 + 订单状态标签 -->
                 <div class="order-card__footer">
                   <span class="order-card__time">{{ formatTime(order.orderTime) }}</span>
                   <span class="order-card__status" :style="{ background: statusColor(order.status) }">
@@ -125,7 +133,7 @@
             </SchemeADoodleFrame>
           </div>
 
-          <!-- 加载更多 -->
+          <!-- 加载更多按钮：分页加载更多订单 -->
           <div v-if="hasMore" class="load-more">
             <MobileDoodleChip
               tag="button" type="button"
@@ -137,7 +145,7 @@
             </MobileDoodleChip>
           </div>
 
-          <!-- 空状态 -->
+          <!-- 空状态：暂无订单数据 -->
           <div v-if="!displayOrders.length" class="empty-state">
             <span class="empty-state__icon">📭</span>
             <span class="empty-state__text">暂无订单数据</span>
@@ -149,6 +157,15 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 移动端订单管理视图组件
+ * 功能说明：
+ * - 展示销售订单列表，支持按月份、店铺、状态筛选
+ * - 提供订单搜索功能（订单号、买家、平台单号、商品名称、SKU）
+ * - 顶部展示订单统计概览（总订单、待发货、已完成、总营收）
+ * - 支持分页加载更多订单
+ * - 手绘风格的卡片式UI展示
+ */
 import { computed, ref, watch, onMounted } from 'vue'
 import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
 import MobileDoodleSearch from '@/mobile/components/MobileDoodleSearch.vue'
@@ -165,13 +182,14 @@ import {
 } from '@/api/ecommerce/salesOrder.ts'
 import { fetchShopOptions, type EcShop } from '@/api/ecommerce/shop.ts'
 
-// ─── 工具函数 ─────────────────────────
+// 工具函数：格式化月份为 YYYY-MM 格式
 function formatMonth(d: Date) {
   const y = d.getFullYear()
   const m = `${d.getMonth() + 1}`.padStart(2, '0')
   return `${y}-${m}`
 }
 
+// 工具函数：格式化时间为 MM-DD hh:mm 格式
 function formatTime(t?: string) {
   if (!t) return '—'
   try {
@@ -186,7 +204,7 @@ function formatTime(t?: string) {
   }
 }
 
-// ─── 订单状态配置 ──────────────────────
+// 订单状态配置：状态值对应标签文字和颜色
 const STATUS_CFG: Record<EcSalesOrderStatus, { label: string; color: string }> = {
   DRAFT:          { label: '草稿',     color: '#94a3b8' },
   PAID:           { label: '待发货',   color: '#f97316' },
@@ -198,34 +216,36 @@ const STATUS_CFG: Record<EcSalesOrderStatus, { label: string; color: string }> =
   REFUNDED:       { label: '已退款',   color: '#ef4444' },
 }
 
+// 根据订单状态获取颜色
 function statusColor(status: EcSalesOrderStatus): string {
   return STATUS_CFG[status]?.color ?? '#94a3b8'
 }
+// 根据订单状态获取文字标签
 function statusLabel(status: EcSalesOrderStatus): string {
   return STATUS_CFG[status]?.label ?? status
 }
 
-// ─── 响应式状态 ────────────────────────
-const loading = ref(true)
-const loadingList = ref(false)
-const loadingMore = ref(false)
+// 响应式状态：加载状态
+const loading = ref(true) // 页面整体加载状态
+const loadingList = ref(false) // 列表加载状态
+const loadingMore = ref(false) // 加载更多状态
 
 // 筛选条件
-const keyword = ref('')
-const activeStatus = ref<string | number | null>('all')
-const orderMonth = ref(formatMonth(new Date()))
-const shopFilter = ref<number | ''>('')
+const keyword = ref('') // 搜索关键词
+const activeStatus = ref<string | number | null>('all') // 当前选中的订单状态
+const orderMonth = ref(formatMonth(new Date())) // 当前选中的月份
+const shopFilter = ref<number | ''>('') // 店铺筛选条件
 
-// 店铺选项
+// 店铺选项列表
 const shopOptions = ref<EcShop[]>([])
 
 // 分页 & 订单数据
-const page = ref(1)
-const pageSize = 20
-const total = ref(0)
-const orders = ref<EcSalesOrder[]>([])
+const page = ref(1) // 当前页码
+const pageSize = 20 // 每页数量
+const total = ref(0) // 总记录数
+const orders = ref<EcSalesOrder[]>([]) // 订单列表数据
 
-// 统计
+// 统计卡片数据
 const statCards = ref<Array<{ key: string; value: string; label: string; color: string }>>([
   { key: 'total',       value: '—', label: '总订单',   color: '#3b82f6' },
   { key: 'pendingShip', value: '—', label: '待发货',   color: '#f97316' },
@@ -233,7 +253,7 @@ const statCards = ref<Array<{ key: string; value: string; label: string; color: 
   { key: 'revenue',     value: '—', label: '总营收',   color: '#8b5cf6' },
 ])
 
-// ─── 状态标签 ──────────────────────────
+// 状态标签计算属性：生成状态筛选Tabs数据
 const statusTabs = computed<CategoryItem[]>(() => {
   const s = monthlyStatusCounts.value
   return [
@@ -249,7 +269,7 @@ const statusTabs = computed<CategoryItem[]>(() => {
   ]
 })
 
-// ─── 全月各状态订单数（从 loadStats 中获取准确值） ──
+// 全月各状态订单数统计接口
 interface StatusCounts {
   total: number
   draft: number
@@ -262,6 +282,7 @@ interface StatusCounts {
   cancelled: number
 }
 
+// 月度各状态订单计数
 const monthlyStatusCounts = ref<StatusCounts>({
   total: 0,
   draft: 0,
@@ -274,10 +295,10 @@ const monthlyStatusCounts = ref<StatusCounts>({
   cancelled: 0,
 })
 
-// ─── 筛选 & 展示 ───────────────────────
+// 筛选与展示：客户端关键词过滤
 const displayOrders = computed(() => {
   let items = orders.value
-  // 关键词过滤（客户端补充）
+  // 关键词过滤（客户端补充过滤）
   const kw = keyword.value.trim().toLowerCase()
   if (kw) {
     items = items.filter(o =>
@@ -291,32 +312,34 @@ const displayOrders = computed(() => {
   return items
 })
 
+// 是否还有更多数据
 const hasMore = computed(() => orders.value.length < total.value)
 
-// ─── 月份切换 ──────────────────────────
+// 月份切换：向前/向后切换月份
 function shiftMonth(delta: number) {
   const [y, m] = orderMonth.value.split('-').map(Number)
   const d = new Date(y, m - 1 + delta, 1)
   orderMonth.value = formatMonth(d)
 }
 
-// 状态标签切换时重新加载
+// 监听状态切换：状态变化时重新加载订单列表
 watch(activeStatus, () => {
   loadOrders(true)
 })
 
-// 月份变化时重新加载数据
+// 监听月份变化：月份变化时重新加载订单和统计数据
 watch(orderMonth, () => {
   loadOrders(true)
   loadStats()
 })
 
+// 店铺筛选变化时重新加载数据
 function onShopFilterChange() {
   loadOrders(true)
   loadStats()
 }
 
-// ─── API 请求 ──────────────────────────
+// API请求：加载订单列表
 async function loadOrders(resetPage = false) {
   if (resetPage) {
     page.value = 1
@@ -325,9 +348,9 @@ async function loadOrders(resetPage = false) {
   loadingList.value = true
   try {
     const prefix = orderMonth.value
-    const from = `${prefix}-01`
+    const from = `${prefix}-01` // 月份起始日期
     const lastDay = new Date(Number(prefix.split('-')[0]), Number(prefix.split('-')[1]), 0).getDate()
-    const to = `${prefix}-${lastDay}`
+    const to = `${prefix}-${lastDay}` // 月份结束日期
     const result = await fetchSalesOrders(
       keyword.value.trim() || undefined,
       activeStatus.value !== 'all' ? String(activeStatus.value) : undefined,
@@ -339,18 +362,19 @@ async function loadOrders(resetPage = false) {
     if (resetPage) {
       orders.value = result.records ?? []
     } else {
-      orders.value = [...orders.value, ...(result.records ?? [])]
+      orders.value = [...orders.value, ...(result.records ?? [])] // 追加数据
     }
     total.value = result.total
     page.value = result.page
   } catch {
-    // 静默
+    // 静默失败
   } finally {
     loadingList.value = false
     loading.value = false
   }
 }
 
+// 加载更多订单（分页）
 async function loadMore() {
   if (loadingMore.value || !hasMore.value) return
   loadingMore.value = true
@@ -376,6 +400,7 @@ async function loadMore() {
   }
 }
 
+// 加载统计数据：月度概览和各状态计数
 async function loadStats() {
   try {
     const overview = await fetchSalesOrderMonthlyOverview(orderMonth.value, shopFilter.value || undefined)
@@ -399,6 +424,7 @@ async function loadStats() {
       const completed = sc.COMPLETED ?? 0
       const revenue = overview.totalRevenue ?? 0
 
+      // 更新统计卡片数据
       statCards.value = [
         { key: 'total',       value: String(overview.totalOrderCount),            label: '总订单',   color: '#3b82f6' },
         { key: 'pendingShip', value: String(paid),                               label: '待发货',   color: '#f97316' },
@@ -407,10 +433,11 @@ async function loadStats() {
       ]
     }
   } catch {
-    // 静默
+    // 静默失败
   }
 }
 
+// 格式化金额：大于1万显示为X.X万
 function formatCompactMoney(value: number) {
   if (value >= 10000) {
     return `¥${(value / 10000).toFixed(1)}万`
@@ -418,25 +445,26 @@ function formatCompactMoney(value: number) {
   return `¥${Math.round(value).toLocaleString('zh-CN')}`
 }
 
-// ─── 搜索防抖 ───────────────────────────
+// 搜索防抖：300ms延迟后执行搜索
 let kwTimer: ReturnType<typeof setTimeout> | null = null
 watch(keyword, () => {
   if (kwTimer) clearTimeout(kwTimer)
   kwTimer = setTimeout(() => loadOrders(true), 300)
 })
 
-// ─── 初始化 ─────────────────────────────
+// 初始化：加载店铺选项和所有数据
 async function loadAll() {
   loading.value = true
-  await Promise.all([loadOrders(true), loadStats()])
+  await Promise.all([loadOrders(true), loadStats()]) // 并行加载订单和统计
 }
 
+// 组件挂载：加载店铺列表 + 订单数据
 onMounted(async () => {
   try {
     const shops = await fetchShopOptions()
     shopOptions.value = shops ?? []
   } catch {
-    // 静默
+    // 静默失败
   }
   await loadAll()
 })

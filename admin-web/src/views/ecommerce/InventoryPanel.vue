@@ -1,13 +1,18 @@
 <template>
+  <!-- 库存管理中心主容器 -->
   <div class="inventory-center" :class="{ 'inventory-center--doodle': doodle.enabled.value }">
+    <!-- 页面头部：标题和副标题 -->
     <header class="inventory-center__header">
       <h2 class="inventory-center__title">{{ t('ecommerce.inventory.centerTitle') }}</h2>
       <p class="inventory-center__subtitle">{{ t('ecommerce.inventory.centerSubtitle') }}</p>
     </header>
 
+    <!-- 主布局区域 -->
     <div class="inventory-center__layout">
           <div class="inventory-center__left">
+            <!-- 筛选栏：工厂、关键词、状态、预警筛选 -->
             <div class="inventory-center__filters">
+              <!-- 工厂筛选 -->
               <el-select
                 v-model="factoryId"
                 clearable
@@ -17,12 +22,14 @@
               >
                 <el-option v-for="f in factoryOptions" :key="f.id" :label="f.name" :value="f.id" />
               </el-select>
+              <!-- 关键词搜索 -->
               <el-input
                 v-model="keyword"
                 :placeholder="t('ecommerce.inventory.searchPlaceholder')"
                 clearable
                 style="width: 280px"
               />
+              <!-- 库存状态筛选 -->
               <el-select
                 v-model="statusFilter"
                 clearable
@@ -33,6 +40,7 @@
                 <el-option :label="t('ecommerce.home.inventoryLow')" value="low" />
                 <el-option :label="t('ecommerce.home.inventoryZeroShort')" value="zero" />
               </el-select>
+              <!-- 预警状态筛选 -->
               <el-select
                 v-model="alertFilter"
                 clearable
@@ -42,13 +50,17 @@
                 <el-option :label="t('ecommerce.inventory.alerting')" value="alert" />
                 <el-option :label="t('ecommerce.inventory.normal')" value="normal" />
               </el-select>
+              <!-- 重置筛选按钮 -->
               <el-button @click="resetFilters">{{ t('ecommerce.inventory.resetFilter') }}</el-button>
             </div>
 
+            <!-- 统计指标区域：健康度图表和指标卡片 -->
             <div class="inventory-center__stats">
+              <!-- 库存健康度图表 -->
               <div class="inventory-center__health">
                 <InventoryHealthChart :summary="statsSummary" />
               </div>
+              <!-- 指标卡片列表 -->
               <div class="inventory-center__metrics">
                 <div
                   v-for="metric in mainSummaryMetrics"
@@ -126,6 +138,7 @@
               </div>
             </div>
 
+            <!-- 列表头部：标题、数量和操作按钮 -->
             <div class="inventory-center__list-head">
               <div>
                 <h3 class="inventory-center__list-title">{{ t('ecommerce.inventory.listTitle') }}</h3>
@@ -134,12 +147,16 @@
                 </span>
               </div>
               <div class="inventory-center__list-actions">
+                <!-- 切换显示模式按钮 -->
                 <el-button @click="toggleDisplayMode">{{ displayModeButtonLabel }}</el-button>
+                <!-- 切换库存筛选按钮 -->
                 <el-button @click="cycleListStockFilter">{{ listStockFilterButtonLabel }}</el-button>
+                <!-- 新增库存按钮 -->
                 <el-button type="primary" @click="openCreate">{{ t('ecommerce.inventory.add') }}</el-button>
               </div>
             </div>
 
+            <!-- 库存卡片网格：库存商品列表 -->
             <div v-loading="loading" class="inventory-card-grid">
               <template v-if="doodle.enabled.value">
                 <SchemeADoodleFrame
@@ -459,6 +476,11 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 库存管理中心组件
+ * 管理电商库存，包括库存统计、库存列表、入库出库、盘点等功能
+ * 支持工厂筛选、状态筛选、预警筛选和搜索
+ */
 import { computed, markRaw, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
@@ -515,29 +537,29 @@ import { useMobileEcDoodle } from '@/composables/useMobileEcDoodle'
 
 const emit = defineEmits<{ viewProduct: [productId: number] }>()
 
-const { t } = useI18n()
-const doodle = useMobileEcDoodle()
+const { t } = useI18n() // 国际化函数
+const doodle = useMobileEcDoodle() // 涂鸦风格主题
 
-const statusFilter = ref<string | undefined>()
-const alertFilter = ref<string | undefined>()
-const displayMode = ref<'spu' | 'sku'>('spu')
-const listStockFilter = ref<'inStock' | 'alert' | 'all'>('all')
-const statsSummary = ref<EcInventorySummary | null>(null)
-const statsLoading = ref(false)
+const statusFilter = ref<string | undefined>() // 库存状态筛选
+const alertFilter = ref<string | undefined>() // 预警状态筛选
+const displayMode = ref<'spu' | 'sku'>('spu') // 显示模式（SPU/SKU）
+const listStockFilter = ref<'inStock' | 'alert' | 'all'>('all') // 列表库存筛选
+const statsSummary = ref<EcInventorySummary | null>(null) // 统计汇总数据
+const statsLoading = ref(false) // 统计加载状态
 const weekCompares = ref<ReturnType<typeof buildInventoryWeekCompares>>({
   sku: null,
   qty: null,
   value: null,
   inbound: null,
   alert: null,
-})
+}) // 周环比数据
 
-const saveDialogVisible = ref(false)
-const saveTarget = ref<EcInventory | null>(null)
-const logsLoading = ref(false)
-const keyword = ref('')
-const factoryId = ref<number | undefined>()
-const factoryOptions = ref<EcFactory[]>([])
+const saveDialogVisible = ref(false) // 保存对话框是否可见
+const saveTarget = ref<EcInventory | null>(null) // 保存目标库存
+const logsLoading = ref(false) // 日志加载状态
+const keyword = ref('') // 搜索关键词
+const factoryId = ref<number | undefined>() // 工厂ID筛选
+const factoryOptions = ref<EcFactory[]>([]) // 工厂选项列表
 
 const page = ref(1)
 const pageSize = ref(DEFAULT_PAGE_SIZE)

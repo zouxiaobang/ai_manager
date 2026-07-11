@@ -289,3 +289,64 @@ html.dark .mobile-app {
   color: var(--el-text-color-secondary);
   font-size: 14px;
 }
+
+/* ========================================
+   Tab Bar 主题样式（保证非首页刷新时也能加载）
+   ======================================== */
+
+/* 非 scheme-a 主题：蓝色底栏 + 黄色激活 */
+html.is-mobile-shell[data-mobile-home-theme]:not([data-mobile-home-theme='scheme-a']) .mobile-app__tabbar {
+  background: #2563eb;
+  border-top: none;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -4px 16px rgb(37 99 235 / 22%);
+}
+
+html.is-mobile-shell[data-mobile-home-theme]:not([data-mobile-home-theme='scheme-a']) .mobile-app__tab {
+  color: rgb(255 255 255 / 72%);
+
+  &.is-active {
+    color: #fbbf24;
+    font-weight: 700;
+  }
+}
+
+/* scheme-a 主题：蓝色底栏 + 黄色圆形激活 + 涂鸦字体 */
+html.is-mobile-shell[data-mobile-home-theme='scheme-a'] .mobile-app__tabbar {
+  background: #2563eb;
+  border-top: none;
+  border-radius: 22px 22px 0 0;
+  box-shadow: 0 -4px 18px rgb(37 99 235 / 28%);
+  padding-top: 6px;
+}
+
+html.is-mobile-shell[data-mobile-home-theme='scheme-a'] .mobile-app__tab {
+  color: rgb(255 255 255 / 85%);
+  font-family: 'ZCOOL KuaiLe', 'Alibaba PuHuiTi', 'PingFang SC', sans-serif;
+  font-size: 12px;
+  gap: 4px;
+
+  .mobile-app__tab-icon {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    transition: background 0.15s ease;
+
+    img {
+      width: 24px;
+      height: 24px;
+    }
+  }
+
+  &.is-active {
+    color: #fbbf24;
+    font-weight: 400;
+
+    .mobile-app__tab-icon {
+      background: #fbbf24;
+      box-shadow: 0 2px 6px rgb(245 158 11 / 45%);
+    }
+  }
+}

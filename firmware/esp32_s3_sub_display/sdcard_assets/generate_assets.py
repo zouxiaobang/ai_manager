@@ -350,14 +350,19 @@ def draw_dock_home() -> Image.Image:
     return img
 
 
-def draw_dock_lyrics() -> Image.Image:
+def draw_dock_pixel_dog() -> Image.Image:
     img = new_rgba(28, 28)
-    p = 2
-    fill_rect(img, 6, 14, 3, 10, BLUE)
-    fill_rect(img, 12, 10, 3, 14, BLUE)
-    fill_rect(img, 18, 16, 3, 8, BLUE)
-    fill_rect(img, 16, 6, 3, 8, WHITE)
-    fill_rect(img, 19, 6, 6, 3, WHITE)
+    fill_rect(img, 8, 8, 12, 12, ORANGE)
+    fill_rect(img, 6, 10, 4, 4, DORANGE)
+    fill_rect(img, 18, 10, 4, 4, DORANGE)
+    fill_rect(img, 10, 12, 2, 2, WHITE)
+    fill_rect(img, 16, 12, 2, 2, WHITE)
+    fill_rect(img, 12, 16, 4, 2, WHITE)
+    fill_rect(img, 13, 15, 2, 1, GREY)
+    fill_rect(img, 6, 18, 4, 4, ORANGE)
+    fill_rect(img, 18, 18, 4, 4, ORANGE)
+    fill_rect(img, 8, 20, 3, 4, ORANGE)
+    fill_rect(img, 17, 20, 3, 4, ORANGE)
     return img
 
 
@@ -504,13 +509,12 @@ SEED_RELATIVE_PATHS = [
     "assets/deco_diamond_blue.png",
     "assets/dock_pomo.png",
     "assets/dock_home.png",
-    "assets/dock_lyrics.png",
+    "assets/dock_pixel_dog.png",
     "assets/dock_lock.png",
     "assets/dock_settings.png",
     "assets/border_tool_btn_92x52_green.png",
     "assets/border_tool_btn_92x52_blue.png",
-    "lyrics/current.meta",
-    "lyrics/current.txt",
+    "assets/border_tool_btn_92x52_orange.png",
 ]
 
 
@@ -767,7 +771,6 @@ const lv_image_dsc_t *ui_embed_lookup(const char *relative_path) {{
 
 def main() -> int:
     ASSETS.mkdir(parents=True, exist_ok=True)
-    LYRICS.mkdir(parents=True, exist_ok=True)
 
     tomato_card, tomato_dock = tomato_from_reference(card_size=96, dock_size=28)
     save_asset("tomato.png", tomato_card)
@@ -779,31 +782,19 @@ def main() -> int:
     save_asset("icon_eq.png", draw_eq())
     save_asset("deco_diamond.png", draw_diamond(8, GREEN))
     save_asset("deco_diamond_blue.png", draw_diamond(8, BLUE))
-    save_asset("dock_lyrics.png", lyrics_from_reference(28))
+    save_asset("dock_pixel_dog.png", draw_dock_pixel_dog())
     save_asset("dock_lock.png", lock_from_reference(28))
     save_asset("dock_settings.png", settings_from_reference(28))
     save_asset("border_tool_btn_92x52_green.png", draw_tool_button_border(92, 52, GREEN))
     save_asset("border_tool_btn_92x52_blue.png", draw_tool_button_border(92, 52, BLUE))
-
-    (LYRICS / "current.meta").write_text("夜空中最亮的星", encoding="utf-8")
-    (LYRICS / "current.txt").write_text(
-        "能否听清\n"
-        "那仰望的人\n"
-        "心底的孤独和叹息\n"
-        "夜空中最亮的星\n"
-        "能否记起\n"
-        "曾与我同行\n"
-        "消失在风里的身影\n"
-        "...",
-        encoding="utf-8",
-    )
+    save_asset("border_tool_btn_92x52_orange.png", draw_tool_button_border(92, 52, ORANGE))
 
     write_embedded_assets()
     write_sdcard_seed_manifest()
     print(f"Assets written to {ROOT}")
     print(f"Embedded C sources written to {EMBED_DIR}")
-    print("On boot: missing files are auto-written to /sdcard (assets/ + lyrics/).")
-    print("Optional: copy sdcard_assets/assets/ and lyrics/ to TF card root manually.")
+    print("On boot: missing files are auto-written to /sdcard (assets/).")
+    print("Optional: copy sdcard_assets/assets/ to TF card root manually.")
     return 0
 
 

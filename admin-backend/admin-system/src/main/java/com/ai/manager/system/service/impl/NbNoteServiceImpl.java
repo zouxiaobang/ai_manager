@@ -32,6 +32,8 @@ import com.ai.manager.system.service.NbNotebookService;
 
 import com.ai.manager.system.service.NoteContentSyncService;
 
+import com.ai.manager.system.service.PixelDogStateService;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -73,6 +75,8 @@ public class NbNoteServiceImpl extends ServiceImpl<NbNoteMapper, NbNote> impleme
     private final NbNoteContentService nbNoteContentService;
 
     private final NoteContentSyncService noteContentSyncService;
+
+    private final PixelDogStateService pixelDogStateService;
 
 
 
@@ -226,11 +230,19 @@ public class NbNoteServiceImpl extends ServiceImpl<NbNoteMapper, NbNote> impleme
 
         }
 
+        addDogXp("NOTE_CREATE", 15);
+
         return toDetailVO(getById(note.getId()), true);
 
     }
 
-
+    protected void addDogXp(String action, int amount) {
+        try {
+            pixelDogStateService.addXp(action, amount);
+        } catch (Exception e) {
+            // ignore
+        }
+    }
 
     @Override
 

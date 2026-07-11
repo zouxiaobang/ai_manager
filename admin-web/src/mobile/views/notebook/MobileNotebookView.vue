@@ -1,31 +1,35 @@
 <template>
+  <!-- 移动端笔记本页面主容器 -->
   <div v-loading="loading" class="mobile-notebook-d">
-    <!-- Drawer overlay -->
+    <!-- 侧边抽屉遮罩层：点击关闭抽屉 -->
     <div
       v-show="drawerOpen"
       class="notebook-drawer-overlay"
       @click="closeDrawer"
     />
 
-    <!-- Left drawer -->
+    <!-- 左侧文件夹抽屉：展示文件夹树形结构 -->
     <div class="notebook-drawer" :class="{ 'notebook-drawer--open': drawerOpen }">
+      <!-- 抽屉头部：标题 + 关闭按钮 -->
       <div class="notebook-drawer__header">
         <span class="notebook-drawer__title">
           <svg width="18" height="18" class="drawer-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
           {{ t('notebook.stats.folders') }}
         </span>
+        <!-- 关闭抽屉按钮 -->
         <button class="notebook-drawer__close" @click="closeDrawer">✕</button>
       </div>
 
+      <!-- 抽屉内容区：文件夹树 + 全部笔记 + 回收站 -->
       <div class="notebook-drawer__tree">
-        <!-- All Notes root -->
+        <!-- 全部笔记根节点：展示所有笔记 -->
         <div class="drawer-node drawer-node--active" @click="closeDrawer; currentView = 'all'">
           <svg width="16" height="16" class="drawer-node__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
           <span class="drawer-node__label">{{ t('notebook.tabs.all') }}</span>
           <span class="drawer-node__count">{{ totalNoteCount }}</span>
         </div>
 
-        <!-- Recursive folder/note tree -->
+        <!-- 递归文件夹/笔记树组件 -->
         <DrawerTree
           :nodes="rootFolders"
           :expanded-keys="expandedDrawerFolders"
@@ -35,7 +39,7 @@
           @close-drawer="closeDrawer"
         />
 
-        <!-- Trash link -->
+        <!-- 回收站入口 -->
         <div class="drawer-node drawer-node--trash" @click="closeDrawer">
           <svg width="16" height="16" class="drawer-node__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
           <span class="drawer-node__label">{{ t('notebook.tabs.trash') }}</span>
@@ -43,21 +47,24 @@
       </div>
     </div>
 
-    <!-- Main Content -->
+    <!-- 主内容区域 -->
     <div class="notebook-main">
-      <!-- Top Navigation Bar -->
+      <!-- 顶部导航栏：汉堡菜单 + 标题 + 搜索按钮 -->
       <div class="notebook-main__nav">
+        <!-- 汉堡菜单按钮：打开侧边抽屉 -->
         <button class="notebook-main__hamburger" @click="openDrawer">
           <span class="hamburger-line" />
           <span class="hamburger-line" />
           <span class="hamburger-line" />
         </button>
 
+        <!-- 标题区域：页面标题 + 笔记数量副标题 -->
         <div class="notebook-main__title-area">
           <h2 class="notebook-main__title">{{ t('portal.menu.notebook') }}</h2>
           <span v-if="totalNoteCount > 0" class="notebook-main__subtitle">{{ totalNoteCount }} {{ t('notebook.stats.notes') }}</span>
         </div>
 
+        <!-- 搜索按钮：跳转到搜索页面 -->
         <button class="notebook-main__search-btn" @click="onSearchClick">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8" />
@@ -66,15 +73,15 @@
         </button>
       </div>
 
-      <!-- Current Path -->
+      <!-- 当前路径面包屑：显示当前所在位置 -->
       <div class="notebook-main__path">
         <svg width="12" height="12" class="path-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
         <span class="notebook-main__path-text">{{ t('notebook.tabs.all') }}</span>
       </div>
 
-      <!-- Content Cards Area -->
+      <!-- 内容卡片区域：置顶笔记 + 文件夹列表 -->
       <div class="notebook-main__content">
-        <!-- Pinned Section -->
+        <!-- 置顶笔记区域：展示已置顶的笔记卡片 -->
         <div v-if="pinnedNotes.length" class="content-section">
           <div class="content-section__label content-section__label--pinned">
             <svg width="14" height="14" class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>
@@ -82,7 +89,9 @@
             <span class="content-section__count">{{ pinnedNotes.length }}</span>
           </div>
 
+          <!-- 置顶笔记卡片列表 -->
           <div class="content-card-list">
+            <!-- 置顶笔记卡片：点击打开笔记详情 -->
             <SchemeADoodleFrame
               v-for="item in pinnedNotes"
               :key="item.id"
@@ -107,7 +116,7 @@
           </div>
         </div>
 
-        <!-- Folder Section (only FOLDER nodes) -->
+        <!-- 文件夹区域：展示根级文件夹卡片列表 -->
         <div v-if="rootFolders.filter(n => n.nodeType === 'FOLDER').length" class="content-section">
           <div class="content-section__label content-section__label--folder">
             <svg width="16" height="16" class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
@@ -115,7 +124,9 @@
             <span class="content-section__count">{{ rootFolders.filter(n => n.nodeType === 'FOLDER').length }}</span>
           </div>
 
+          <!-- 文件夹卡片列表 -->
           <div class="content-card-list">
+            <!-- 文件夹卡片：点击进入文件夹详情 -->
             <SchemeADoodleFrame
               v-for="folder in rootFolders.filter(n => n.nodeType === 'FOLDER')"
               :key="folder.nodeKey"
@@ -140,7 +151,7 @@
           </div>
         </div>
 
-        <!-- Empty State -->
+        <!-- 空状态：无文件夹且无置顶笔记时展示 -->
         <div v-if="rootFolders.filter(n => n.nodeType === 'FOLDER').length === 0 && pinnedNotes.length === 0" class="content-empty">
           <svg width="48" height="48" class="content-empty__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
           <div class="content-empty__text">{{ t('notebook.emptyTree') }}</div>
@@ -154,6 +165,15 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 移动端笔记本首页视图组件
+ * 功能说明：
+ * - 移动端笔记本模块的入口页面
+ * - 左侧抽屉展示文件夹树形结构导航
+ * - 主内容区展示置顶笔记和根级文件夹卡片
+ * - 支持搜索、打开文件夹、打开笔记等导航操作
+ * - 提供手绘风格的卡片式UI展示
+ */
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -162,16 +182,17 @@ import type { NbTreeNode } from '@/api/notebook'
 import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
 import DrawerTree from '@/mobile/views/notebook/components/DrawerTree.vue'
 
-const router = useRouter()
-const { t } = useI18n()
+const router = useRouter() // 路由实例
+const { t } = useI18n() // 国际化翻译函数
 
-const loading = ref(false)
-const drawerOpen = ref(false)
-const rootFolders = ref<NbTreeNode[]>([])
-const pinnedNotes = ref<Array<{ id: number; title: string; folderPath: string; isPinned: boolean }>>([])
-const expandedDrawerFolders = ref(new Set<string>())
-const currentView = ref<'all' | 'folder'>('all')
+const loading = ref(false) // 页面加载状态
+const drawerOpen = ref(false) // 侧边抽屉是否打开
+const rootFolders = ref<NbTreeNode[]>([]) // 根文件夹节点列表
+const pinnedNotes = ref<Array<{ id: number; title: string; folderPath: string; isPinned: boolean }>>([]) // 置顶笔记列表
+const expandedDrawerFolders = ref(new Set<string>()) // 抽屉中展开的文件夹key集合
+const currentView = ref<'all' | 'folder'>('all') // 当前视图模式：全部/文件夹
 
+// 递归统计所有笔记数量
 function countAllNotes(nodes: NbTreeNode[]): number {
   let count = 0
   for (const n of nodes) {
@@ -181,8 +202,9 @@ function countAllNotes(nodes: NbTreeNode[]): number {
   return count
 }
 
-const totalNoteCount = ref(0)
+const totalNoteCount = ref(0) // 笔记总数
 
+// 根据key生成哈希种子，用于手绘边框随机性
 function getSeedFromKey(key: string): number {
   let hash = 0
   for (let i = 0; i < key.length; i++) {
@@ -192,6 +214,7 @@ function getSeedFromKey(key: string): number {
   return Math.abs(hash)
 }
 
+// 统计节点下的笔记数量（递归）
 function countChildNotes(node: NbTreeNode): number {
   let count = 0
   if (node.nodeType === 'NOTE') count = 1
@@ -201,6 +224,7 @@ function countChildNotes(node: NbTreeNode): number {
   return count
 }
 
+// 统计节点下的子文件夹数量（递归）
 function countChildFolders(node: NbTreeNode): number {
   let count = 0
   if (node.children?.length) {
@@ -211,6 +235,7 @@ function countChildFolders(node: NbTreeNode): number {
   return count
 }
 
+// 获取文件夹摘要信息（笔记数 + 文件夹数）
 function getFolderSummary(node: NbTreeNode): string {
   const notes = countChildNotes(node)
   const folders = countChildFolders(node)
@@ -220,9 +245,10 @@ function getFolderSummary(node: NbTreeNode): string {
   return parts.join(' · ') || t('notebook.folderEmpty')
 }
 
-function openDrawer() { drawerOpen.value = true }
-function closeDrawer() { drawerOpen.value = false }
+function openDrawer() { drawerOpen.value = true } // 打开侧边抽屉
+function closeDrawer() { drawerOpen.value = false } // 关闭侧边抽屉
 
+// 切换抽屉中文件夹的展开/折叠状态
 function toggleDrawerFolder(nodeKey: string) {
   const s = new Set(expandedDrawerFolders.value)
   if (s.has(nodeKey)) s.delete(nodeKey)
@@ -230,29 +256,35 @@ function toggleDrawerFolder(nodeKey: string) {
   expandedDrawerFolders.value = s
 }
 
+// 导航到指定文件夹页面
 function navigateToFolder(node: NbTreeNode) {
   router.push(`/notebook/folder/${node.nodeKey}`)
 }
 
+// 点击搜索按钮，跳转到搜索页面
 function onSearchClick() {
   router.push('/notebook/search')
 }
 
+// 打开文件夹详情页
 function openFolder(folder: NbTreeNode) {
   router.push(`/notebook/folder/${folder.nodeKey}`)
 }
 
+// 打开笔记详情页
 function openNote(id: number) {
   router.push(`/notebook/${id}`)
 }
 
+// 加载笔记本树数据
 async function loadNotes() {
   loading.value = true
   try {
-    const tree = await fetchNotebookTree()
+    const tree = await fetchNotebookTree() // 请求笔记本树API
     rootFolders.value = tree
-    totalNoteCount.value = countAllNotes(tree)
+    totalNoteCount.value = countAllNotes(tree) // 统计总笔记数
 
+    // 递归收集置顶笔记
     const pinned: typeof pinnedNotes.value = []
     function collectPinned(node: NbTreeNode, folderPath: string) {
       if (node.nodeType === 'NOTE' && node.noteId && node.isPinned === 1) {
@@ -278,7 +310,7 @@ async function loadNotes() {
   }
 }
 
-onMounted(() => { void loadNotes() })
+onMounted(() => { void loadNotes() }) // 组件挂载时加载数据
 </script>
 
 <style scoped lang="scss">

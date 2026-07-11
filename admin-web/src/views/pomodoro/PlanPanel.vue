@@ -1,12 +1,16 @@
 <template>
+  <!-- 计划管理面板主容器 -->
   <div class="plan-panel plan-panel--pixel">
+    <!-- 锁定提示横幅：计时进行中时禁止编辑计划 -->
     <div v-if="planEditLocked" class="plan-panel__lock-banner pixel-panel-jagged" role="status">
       <div class="pixel-panel-jagged__inner plan-panel__lock-inner">
         {{ t('pomodoro.plan.pauseRequired') }}
       </div>
     </div>
 
+    <!-- 顶部工具栏：新增和刷新按钮 -->
     <header class="plan-panel__toolbar">
+      <!-- 新增计划按钮 -->
       <button
         type="button"
         class="plan-panel__btn plan-panel__btn--green"
@@ -15,6 +19,7 @@
       >
         <span class="plan-panel__btn__inner">+ {{ t('pomodoro.plan.add') }}</span>
       </button>
+      <!-- 刷新按钮 -->
       <button
         type="button"
         class="plan-panel__btn plan-panel__btn--blue"
@@ -25,7 +30,9 @@
       </button>
     </header>
 
+    <!-- 主体内容：左侧计划列表 + 右侧详情 -->
     <div class="plan-panel__body">
+      <!-- 左侧：计划列表 -->
       <aside class="plan-panel__master pixel-panel-jagged">
         <div class="pixel-panel-jagged__inner plan-panel__master-inner">
           <h3 class="plan-panel__section-title">
@@ -34,10 +41,13 @@
             <span class="pixel-spark">✦</span>
           </h3>
 
+          <!-- 加载状态 -->
           <div v-if="loading" class="plan-panel__state">{{ t('pomodoro.plan.loading') }}</div>
+          <!-- 空状态 -->
           <div v-else-if="records.length === 0" class="plan-panel__state">
             {{ t('pomodoro.plan.emptyList') }}
           </div>
+          <!-- 计划列表 -->
           <ul v-else class="plan-list">
             <li v-for="row in records" :key="row.id">
               <button
@@ -65,6 +75,7 @@
             </li>
           </ul>
 
+          <!-- 分页导航 -->
           <nav
             v-if="!loading && pageCount > 1"
             class="plan-panel__pagination"
@@ -93,12 +104,16 @@
         </div>
       </aside>
 
+      <!-- 右侧：计划详情 -->
       <section class="plan-panel__detail pixel-panel-jagged">
         <div class="pixel-panel-jagged__inner plan-panel__detail-inner">
+          <!-- 空状态：未选择计划 -->
           <div v-if="!selectedPlan" class="plan-panel__state">
             {{ t('pomodoro.plan.emptyDetail') }}
           </div>
+          <!-- 计划详情内容 -->
           <template v-else>
+            <!-- 详情头部：标题和时长配置 -->
             <header class="plan-detail__header">
               <div class="plan-detail__title-row">
                 <h2 class="plan-detail__title">{{ selectedPlan.title }}</h2>
@@ -267,6 +282,11 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 番茄钟计划管理面板组件
+ * 管理番茄钟专注计划，支持计划的新增、编辑、删除和查看
+ * 展示计划配置详情，包括工作时长、休息时长、每日目标等
+ */
 import { computed, inject, onMounted, onUnmounted, reactive, ref, watch, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -283,18 +303,19 @@ import {
 import { isPlanMutationBlocked } from '@/utils/pomodoroSession'
 import { POMODORO_PLAN_CONTEXT_KEY } from './pomodoroPlanContext'
 
-const { t } = useI18n()
-const planContext = inject(POMODORO_PLAN_CONTEXT_KEY, null)
-const saving = ref(false)
-const selectedId = ref<number | null>(null)
-const dialogVisible = ref(false)
-const editingId = ref<number | null>(null)
-const planEditLocked = ref(false)
+const { t } = useI18n() // 国际化函数
+const planContext = inject(POMODORO_PLAN_CONTEXT_KEY, null) // 计划上下文
+const saving = ref(false) // 保存状态
+const selectedId = ref<number | null>(null) // 当前选中的计划ID
+const dialogVisible = ref(false) // 编辑对话框是否可见
+const editingId = ref<number | null>(null) // 正在编辑的计划ID
+const planEditLocked = ref(false) // 计划编辑是否锁定
 
-const LOCK_POLL_MS = 2000
-let lockPollTimer: ReturnType<typeof setInterval> | null = null
+const LOCK_POLL_MS = 2000 // 锁定状态轮询间隔
+let lockPollTimer: ReturnType<typeof setInterval> | null = null // 锁定轮询定时器
 
 const { page, pageSize, total, records, loading, load, onPageChange } = usePagination(
+  // 分页获取计划列表
   (p, ps) => fetchPlans({ page: p, pageSize: ps }),
 )
 

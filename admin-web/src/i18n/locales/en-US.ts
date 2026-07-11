@@ -24,6 +24,7 @@ export default {
       functions: 'Features',
       notebook: 'Notebook',
       todos: 'Todos',
+      '24hour': '24 Hour',
       userCenter: 'User center',
       permission: 'Access control',
       deployCenter: 'Deployment Center',
@@ -631,6 +632,9 @@ export default {
       pixelDog: {
         name: 'Pixel Dog',
         desc: 'Retro pixel desktop pet for display and desk companions',
+        navHome: 'Home',
+        navItems: 'Items',
+        navHistory: 'History',
       },
     },
   },

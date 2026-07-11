@@ -1,7 +1,10 @@
 <template>
+  <!-- 页面主容器：电商首页整体布局 -->
   <WarRoomPage :title="t('ecommerce.title')">
+    <!-- 顶部工具栏：月份选择和店铺筛选 -->
     <template #meta>
       <div class="ec-home-toolbar">
+        <!-- 月份选择器：选择结算月份 -->
         <el-date-picker
           v-model="settlementMonth"
           type="month"
@@ -9,6 +12,7 @@
           :placeholder="t('ecommerce.home.monthPlaceholder')"
           class="ec-home-toolbar__month"
         />
+        <!-- 店铺筛选：多选店铺过滤数据 -->
         <div class="ec-home-toolbar__shops-wrap">
           <el-select
             v-model="selectedShopIds"
@@ -30,6 +34,7 @@
       </div>
     </template>
 
+    <!-- 统计卡片区域：展示核心业务数据（销售额、利润、订单量等） -->
     <section v-loading="loading" class="ec-home-stats">
       <div
         v-for="card in statCards"
@@ -55,6 +60,7 @@
       </div>
     </section>
 
+    <!-- 结算提醒：当结算状态异常时显示警告 -->
     <el-alert
       v-if="settlementRemindVisible"
       class="ec-home-settlement-remind"
@@ -65,7 +71,9 @@
       :closable="false"
     />
 
+    <!-- 第一行：结算概览图表 + 导入进度 -->
     <section class="ec-home-row">
+      <!-- 结算概览图表面板 -->
       <div class="war-room-panel ec-home-chart-panel">
         <div class="ec-home-panel-head">
           <h2 class="ec-home-section-title">{{ t('ecommerce.home.settlementOverview') }}</h2>
@@ -74,9 +82,11 @@
         <div ref="chartRef" v-loading="loading" class="ec-home-chart" />
       </div>
 
+      <!-- 数据导入进度面板 -->
       <div class="war-room-panel ec-home-import-panel">
         <h2 class="ec-home-section-title">{{ t('ecommerce.home.importProgress') }}</h2>
         <div v-loading="loading" class="ec-home-import-box">
+          <!-- 导入步骤时间线 -->
           <div class="ec-home-import-timeline">
             <div
               v-for="(item, index) in importProgress"
@@ -113,15 +123,19 @@
       </div>
     </section>
 
+    <!-- 第二行：库存监控 + 快捷入口 -->
     <section class="ec-home-row ec-home-row--inventory">
+      <!-- 库存监控面板 -->
       <div class="war-room-panel ec-home-inventory-panel">
         <div class="ec-home-panel-head">
           <h2 class="ec-home-section-title">{{ t('ecommerce.home.inventoryMonitor') }}</h2>
+          <!-- 查看全部库存按钮 -->
           <el-button link type="primary" @click="goManage('inventory')">
             {{ t('ecommerce.home.viewAllInventory') }}
           </el-button>
         </div>
 
+        <!-- 库存指标卡片：总库存价值、SKU数、预警数、零库存数 -->
         <div class="ec-home-inventory-metrics">
           <div
             v-for="metric in inventoryMetrics"
@@ -145,9 +159,12 @@
           </div>
         </div>
 
+        <!-- 库存监控主体：可视化图表 + 预警列表 -->
         <div v-loading="inventoryLoading" class="ec-home-inventory-monitor-body">
+          <!-- 库存可视化：环形图 + 分项明细 -->
           <div class="ec-home-inventory-visual">
             <div ref="inventoryChartRef" class="ec-home-inventory-donut" />
+            <!-- 库存分项明细列表 -->
             <div class="ec-home-inventory-breakdown">
               <div
                 v-for="item in inventoryBreakdown"
@@ -166,6 +183,7 @@
             </div>
           </div>
 
+          <!-- 库存预警列表 -->
           <div class="ec-home-inventory-alert">
             <h3 class="ec-home-inventory-alert__title">{{ t('ecommerce.home.inventoryAlert') }}</h3>
             <ul v-if="inventoryWarningList.length" class="ec-home-inventory-alert__list">
@@ -187,6 +205,7 @@
         </div>
       </div>
 
+      <!-- 快捷入口面板：快速跳转到各功能模块 -->
       <div class="war-room-panel ec-home-shortcuts-panel">
         <h2 class="ec-home-section-title">{{ t('ecommerce.home.shortcuts') }}</h2>
         <div class="ec-home-shortcuts">
@@ -207,12 +226,14 @@
       </div>
     </section>
 
+    <!-- 库存详情对话框：展示预警/零库存商品列表 -->
     <el-dialog
       v-model="inventoryDialogVisible"
       :title="inventoryDialogTitle"
       width="720px"
       destroy-on-close
     >
+      <!-- 库存商品列表表格 -->
       <el-table v-loading="inventoryDialogLoading" :data="inventoryDialogRows" stripe border size="small" max-height="420">
         <el-table-column prop="productName" :label="t('ecommerce.inventory.productName')" min-width="140" show-overflow-tooltip />
         <el-table-column prop="skuCode" :label="t('ecommerce.inventory.skuCode')" width="120" />
@@ -227,6 +248,11 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 电商首页组件
+ * 展示电商业务核心数据概览，包括销售统计、结算概览、库存监控等
+ * 支持月份切换、店铺筛选，提供快捷入口跳转到各功能模块
+ */
 import { computed, markRaw, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -278,42 +304,42 @@ interface AggregatedSettlement {
   totalOrderCount: number
 }
 
-const { t } = useI18n()
-const router = useRouter()
-const ecSettings = useEcSettingsStore()
+const { t } = useI18n() // 国际化函数
+const router = useRouter() // 路由实例
+const ecSettings = useEcSettingsStore() // 电商设置状态
 
-const settlementMonth = ref(shiftMonth(formatMonth(new Date()), -1))
-const selectedShopIds = ref<number[]>([])
-const shopOptions = ref<EcShop[]>([])
-const loading = ref(false)
-const inventoryLoading = ref(false)
-const lastRefreshAt = ref<Date | null>(null)
+const settlementMonth = ref(shiftMonth(formatMonth(new Date()), -1)) // 当前结算月份
+const selectedShopIds = ref<number[]>([]) // 选中的店铺ID列表
+const shopOptions = ref<EcShop[]>([]) // 店铺选项列表
+const loading = ref(false) // 加载状态
+const inventoryLoading = ref(false) // 库存加载状态
+const lastRefreshAt = ref<Date | null>(null) // 最后刷新时间
 
-const currentShops = ref<MonthlySettlementShopSummary[]>([])
-const previousShops = ref<MonthlySettlementShopSummary[]>([])
-const expressBillImported = ref(false)
-const expressBillImportTime = ref<string | null>(null)
-const inventoryWarningList = ref<EcInventory[]>([])
-const inventoryAllItems = ref<EcInventory[]>([])
-const zeroStockCount = ref(0)
-const inventoryStockValue = ref(0)
-const inventoryAlertCount = ref(0)
-const inventorySkuCount = ref(0)
+const currentShops = ref<MonthlySettlementShopSummary[]>([]) // 当前月份店铺结算数据
+const previousShops = ref<MonthlySettlementShopSummary[]>([]) // 上月店铺结算数据
+const expressBillImported = ref(false) // 快递单是否已导入
+const expressBillImportTime = ref<string | null>(null) // 快递单导入时间
+const inventoryWarningList = ref<EcInventory[]>([]) // 库存预警列表
+const inventoryAllItems = ref<EcInventory[]>([]) // 所有库存商品
+const zeroStockCount = ref(0) // 零库存数量
+const inventoryStockValue = ref(0) // 库存总价值
+const inventoryAlertCount = ref(0) // 库存预警数量
+const inventorySkuCount = ref(0) // SKU总数
 
-const inventoryDialogVisible = ref(false)
-const inventoryDialogLoading = ref(false)
-const inventoryDialogType = ref<'alert' | 'zero'>('alert')
-const inventoryDialogRows = ref<EcInventory[]>([])
+const inventoryDialogVisible = ref(false) // 库存对话框是否可见
+const inventoryDialogLoading = ref(false) // 库存对话框加载状态
+const inventoryDialogType = ref<'alert' | 'zero'>('alert') // 库存对话框类型（预警/零库存）
+const inventoryDialogRows = ref<EcInventory[]>([]) // 库存对话框数据
 
-const chartRef = ref<HTMLElement | null>(null)
-const inventoryChartRef = ref<HTMLElement | null>(null)
-let chart: ECharts | null = null
-let inventoryChart: ECharts | null = null
+const chartRef = ref<HTMLElement | null>(null) // 结算图表DOM引用
+const inventoryChartRef = ref<HTMLElement | null>(null) // 库存图表DOM引用
+let chart: ECharts | null = null // 结算图表实例
+let inventoryChart: ECharts | null = null // 库存图表实例
 
-const filteredCurrentShops = computed(() => filterShops(currentShops.value))
-const filteredPreviousShops = computed(() => filterShops(previousShops.value))
-const currentAgg = computed(() => aggregateSettlement(filteredCurrentShops.value))
-const previousAgg = computed(() => aggregateSettlement(filteredPreviousShops.value))
+const filteredCurrentShops = computed(() => filterShops(currentShops.value)) // 过滤后的当前月份数据
+const filteredPreviousShops = computed(() => filterShops(previousShops.value)) // 过滤后的上月数据
+const currentAgg = computed(() => aggregateSettlement(filteredCurrentShops.value)) // 当前月份汇总
+const previousAgg = computed(() => aggregateSettlement(filteredPreviousShops.value)) // 上月汇总
 
 const displayNetProfit = computed(() => {
   if (ecSettings.settlement.profitDisplayMode === 'ESTIMATED') {

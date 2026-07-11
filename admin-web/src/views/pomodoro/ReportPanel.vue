@@ -1,8 +1,11 @@
 <template>
+  <!-- 统计报表面板主容器 -->
   <div class="report-panel report-panel--pixel">
+    <!-- 顶部工具栏：日期范围选择和查询按钮 -->
     <header class="report-panel__toolbar">
       <div class="report-panel__range-wrap pixel-panel-jagged">
         <div class="pixel-panel-jagged__inner report-panel__range-inner">
+          <!-- 日期范围选择器 -->
           <el-date-picker
             v-model="dateRange"
             class="report-panel__date-picker"
@@ -14,6 +17,7 @@
           />
         </div>
       </div>
+      <!-- 查询按钮 -->
       <button
         type="button"
         class="report-panel__query"
@@ -24,6 +28,7 @@
       </button>
     </header>
 
+    <!-- KPI 指标卡片区域 -->
     <div class="report-panel__kpis">
       <div
         v-for="kpi in kpiItems"
@@ -37,6 +42,7 @@
       </div>
     </div>
 
+    <!-- 每日轮次柱状图区域 -->
     <div class="report-panel__chart pixel-panel-jagged">
       <div class="pixel-panel-jagged__inner report-panel__chart-inner">
         <h3 class="report-panel__section-title">
@@ -44,10 +50,13 @@
           {{ t('pomodoro.report.chartRounds') }}
           <span class="pixel-spark">✦</span>
         </h3>
+        <!-- 加载状态 -->
         <div v-if="loading" class="report-panel__loading">{{ t('pomodoro.report.loading') }}</div>
+        <!-- 空状态 -->
         <div v-else-if="dailyChronological.length === 0" class="report-panel__empty">
           {{ t('pomodoro.report.noData') }}
         </div>
+        <!-- 像素风格柱状图 -->
         <div v-else class="pixel-bar-chart">
           <div
             v-for="row in dailyChronological"
@@ -73,6 +82,7 @@
       </div>
     </div>
 
+    <!-- 每日明细表格区域 -->
     <div class="report-panel__table-wrap pixel-panel-jagged">
       <div class="pixel-panel-jagged__inner report-panel__table-inner">
         <h3 class="report-panel__section-title">
@@ -80,6 +90,7 @@
           {{ t('pomodoro.report.dailyTable') }}
           <span class="pixel-spark">✦</span>
         </h3>
+        <!-- 表格滚动区域 -->
         <div class="report-table-scroll">
           <table class="report-table">
             <thead>
@@ -92,12 +103,15 @@
               </tr>
             </thead>
             <tbody>
+              <!-- 加载状态行 -->
               <tr v-if="loading">
                 <td colspan="5" class="report-table__state">{{ t('pomodoro.report.loading') }}</td>
               </tr>
+              <!-- 空状态行 -->
               <tr v-else-if="dailyChronological.length === 0">
                 <td colspan="5" class="report-table__state">{{ t('pomodoro.report.noData') }}</td>
               </tr>
+              <!-- 数据行 -->
               <tr v-for="row in dailyPaged" v-else :key="row.statDate">
                 <td>{{ formatTableDate(row.statDate) }}</td>
                 <td class="report-table__num report-table__num--red">{{ row.workRounds }}</td>
@@ -115,6 +129,7 @@
             </tbody>
           </table>
         </div>
+        <!-- 分页导航 -->
         <nav
           v-if="!loading && dailyChronological.length > TABLE_PAGE_SIZE"
           class="report-pagination"
@@ -146,6 +161,11 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 番茄钟统计报表面板组件
+ * 展示番茄钟专注数据统计，支持按日期范围查询
+ * 包括KPI指标、每日轮次柱状图和每日明细表格
+ */
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
@@ -157,15 +177,15 @@ import {
 } from '@/api/pomodoro'
 import { addDays, formatDateParam } from '@/utils/date'
 
-const { t } = useI18n()
-const loading = ref(false)
-const dateRange = ref<[string, string] | null>(null)
-const daily = ref<PomodoroDailyStat[]>([])
-const summary = ref<PomodoroSummary | null>(null)
-const goalMinutes = ref(200)
+const { t } = useI18n() // 国际化函数
+const loading = ref(false) // 加载状态
+const dateRange = ref<[string, string] | null>(null) // 日期范围
+const daily = ref<PomodoroDailyStat[]>([]) // 每日统计数据
+const summary = ref<PomodoroSummary | null>(null) // 汇总数据
+const goalMinutes = ref(200) // 目标分钟数
 
-const TABLE_PAGE_SIZE = 10
-const tablePage = ref(1)
+const TABLE_PAGE_SIZE = 10 // 表格每页行数
+const tablePage = ref(1) // 当前表格页码
 
 const dailyChronological = computed(() =>
   [...daily.value].sort((a, b) => a.statDate.localeCompare(b.statDate)),

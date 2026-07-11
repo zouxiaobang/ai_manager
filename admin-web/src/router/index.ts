@@ -213,7 +213,7 @@ const router = createRouter({
 
           name: 'pixel-dog',
 
-          component: () => import('@/views/PlaceholderView.vue'),
+          component: () => import('@/views/pixel-dog/PixelDogView.vue'),
 
           meta: { titleKey: 'functions.items.pixelDog.name' },
 
@@ -250,15 +250,16 @@ const router = createRouter({
         },
 
         {
-
+          path: '24hour',
+          name: '24hour',
+          component: () => import('@/views/TwentyFourHourView.vue'),
+          meta: { titleKey: 'portal.menu.24hour' },
+        },
+        {
           path: 'todos',
-
           name: 'todos',
-
           component: () => import('@/views/TodosView.vue'),
-
           meta: { titleKey: 'portal.menu.todos' },
-
         },
 
         {

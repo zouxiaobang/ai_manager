@@ -4,17 +4,23 @@
  * 支持服务节点状态监控、版本升级和部署验证
  -->
 <template>
+  <!-- 页面主容器：部署中心页面整体布局 -->
   <div class="deploy-center war-room-page">
     <div class="deploy-center__shell">
+      <!-- 主内容区域 -->
       <section class="deploy-center__main">
+        <!-- 页面头部：标题和副标题 -->
         <header class="deploy-center__header">
           <h1 class="deploy-center__page-title">{{ t('deployCenter.title') }}</h1>
           <p class="deploy-center__page-sub">{{ t('deployCenter.guideTitle') }}</p>
         </header>
 
+        <!-- 标签页导航：概览、部署步骤、数据库、版本管理、系统日志 -->
         <el-tabs v-model="activeTab" class="deploy-center__tabs">
+          <!-- 概览标签页：系统状态概览、架构图、快速验证、注意事项 -->
           <el-tab-pane :label="t('deployCenter.tabs.overview')" name="overview">
             <div class="deploy-center__panel">
+              <!-- 概览卡片：各服务节点状态卡片 -->
               <div class="deploy-overview-cards">
                 <div
                   v-for="node in overviewNodes"
@@ -25,6 +31,7 @@
                 </div>
               </div>
 
+              <!-- 系统架构图区域 -->
               <section class="deploy-panel-card">
                 <h2 class="deploy-panel-card__title">{{ t('deployCenter.architectureTitle') }}</h2>
                 <DeployArchitectureDiagram
@@ -35,6 +42,7 @@
                 />
               </section>
 
+              <!-- 快速验证面板：健康检查命令 -->
               <section class="deploy-panel-card">
                 <DeployQuickVerifyPanel
                   :title="deployQuickVerify.title"
@@ -44,6 +52,7 @@
                 />
               </section>
 
+              <!-- 重要注意事项区域 -->
               <section class="deploy-panel-card deploy-panel-card--notes">
                 <h2 class="deploy-panel-card__title">{{ t('deployCenter.importantNotes') }}</h2>
                 <ul class="deploy-notes">
@@ -53,10 +62,13 @@
             </div>
           </el-tab-pane>
 
+          <!-- 部署步骤标签页：部署工作台和步骤文档 -->
           <el-tab-pane :label="t('deployCenter.tabs.steps')" name="steps">
             <div class="deploy-center__panel">
+              <!-- 部署工作台 -->
               <DeployStepsWorkbench @deploy-finished="onDeployFinished" />
 
+              <!-- 部署步骤文档区域 -->
               <section class="deploy-panel-card deploy-panel-card--docs">
                 <h2 class="deploy-panel-card__title">{{ t('deployCenter.stepsWorkbench.docsTitle') }}</h2>
                 <el-collapse v-model="expandedSteps" class="deploy-steps">
@@ -80,18 +92,21 @@
             </div>
           </el-tab-pane>
 
+          <!-- 数据库标签页：数据库管理 -->
           <el-tab-pane :label="t('deployCenter.tabs.database')" name="database">
             <div class="deploy-center__panel">
               <DeployDatabasePanel :active="activeTab === 'database'" />
             </div>
           </el-tab-pane>
 
+          <!-- 版本管理标签页：版本列表和升级 -->
           <el-tab-pane :label="t('deployCenter.tabs.versions')" name="versions">
             <div class="deploy-center__panel">
               <DeployVersionPanel ref="versionPanelRef" :active="activeTab === 'versions'" />
             </div>
           </el-tab-pane>
 
+          <!-- 系统日志标签页：日志查看 -->
           <el-tab-pane :label="t('deployCenter.tabs.logs')" name="logs" lazy>
             <div class="deploy-center__panel">
               <DeploySystemLogsPanel :active="activeTab === 'logs'" />
@@ -104,6 +119,11 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 部署中心页面组件
+ * 展示系统部署状态、版本管理和健康检查信息
+ * 支持服务节点状态监控、部署步骤指引、数据库管理、版本升级和系统日志查看
+ */
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import DeployArchitectureDiagram from '@/components/deploy/DeployArchitectureDiagram.vue'
@@ -124,18 +144,20 @@ import {
 } from '@/data/deploy-center'
 import { buildDeployOverviewNodes } from '@/utils/deployOverviewStatus'
 
-const { t } = useI18n()
-const { healthData, healthLoading, refreshHealth } = useSystemHealth()
+const { t } = useI18n() // 国际化函数
+const { healthData, healthLoading, refreshHealth } = useSystemHealth() // 系统健康状态组合式函数
 
-const activeTab = ref<DeployCenterTab>('overview')
-const expandedSteps = ref<string[]>([])
-const versionPanelRef = ref<InstanceType<typeof DeployVersionPanel> | null>(null)
+const activeTab = ref<DeployCenterTab>('overview') // 当前激活的标签页
+const expandedSteps = ref<string[]>([]) // 已展开的部署步骤
+const versionPanelRef = ref<InstanceType<typeof DeployVersionPanel> | null>(null) // 版本面板引用
 
 function onDeployFinished() {
+  // 部署完成后刷新版本列表
   versionPanelRef.value?.reload()
 }
 
 const overviewNodes = computed(() =>
+  // 构建概览节点数据
   buildDeployOverviewNodes(healthData.value, healthLoading.value, t),
 )
 

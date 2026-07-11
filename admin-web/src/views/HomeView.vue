@@ -4,7 +4,9 @@
  * 提供快捷导航入口和数据刷新功能
  -->
 <template>
+  <!-- 页面主容器：首页仪表盘整体布局 -->
   <div class="war-room-page">
+    <!-- 页面头部：展示标题、最后刷新时间和手动刷新按钮 -->
     <header class="war-room-page__header">
       <h1 class="war-room-page__title">{{ t('portal.dashboard.warRoom.title') }}</h1>
       <div class="war-room-page__meta">
@@ -22,6 +24,7 @@
       </div>
     </header>
 
+    <!-- 统计卡片区域：展示核心业务数据统计（今日待办、进行中、提醒、功能模块等） -->
     <section class="home-stats">
       <div
         v-for="card in statCards"
@@ -39,6 +42,51 @@
       </div>
     </section>
 
+    <!-- 24小时当前时段卡片 -->
+    <section v-if="currentPhase" class="home-phase war-room-panel">
+      <div
+        class="home-phase__card"
+        :style="{ '--accent': currentPhase.accent }"
+        @click="go24Hour"
+      >
+        <div class="home-phase__top">
+          <div class="home-phase__info">
+            <span class="home-phase__badge">{{ currentPhase.badge }}</span>
+            <span class="home-phase__title">{{ currentPhase.title }}</span>
+          </div>
+          <div class="home-phase__ring">
+            <svg viewBox="0 0 36 36" width="32" height="32">
+              <circle cx="18" cy="18" r="15.5" fill="none" stroke="#e5e7eb" stroke-width="3" />
+              <circle
+                cx="18" cy="18" r="15.5"
+                fill="none"
+                :stroke="currentPhase.accent"
+                stroke-width="3"
+                stroke-linecap="round"
+                :stroke-dasharray="homePhaseCircumference"
+                :stroke-dashoffset="homePhaseOffset"
+                transform="rotate(-90 18 18)"
+              />
+            </svg>
+            <span class="home-phase__ring-text">{{ homePhaseDone }}/{{ currentPhase.items.length }}</span>
+          </div>
+        </div>
+        <div class="home-phase__items">
+          <div
+            v-for="item in currentPhase.items"
+            :key="item.key"
+            class="home-phase__item"
+            :class="{ 'home-phase__item--done': homeChecklistMap[item.key]?.completed === 1 }"
+          >
+            <span class="home-phase__dot" :class="{ 'home-phase__dot--done': homeChecklistMap[item.key]?.completed === 1 }" />
+            <span class="home-phase__label">{{ item.label }}</span>
+          </div>
+        </div>
+        <div class="home-phase__action">查看全部时段 →</div>
+      </div>
+    </section>
+
+    <!-- 置顶待办区域：展示星标置顶的待办事项列表 -->
     <section v-loading="pinnedTodosLoading" class="home-pinned war-room-panel">
       <div class="home-pinned__header">
         <h2 class="home-section-title">{{ t('portal.dashboard.pinnedTodos.title') }}</h2>
@@ -69,6 +117,7 @@
       <p v-else class="home-pinned__empty">{{ t('portal.dashboard.pinnedTodos.empty') }}</p>
     </section>
 
+    <!-- 快捷模块区域：展示功能模块快捷入口卡片，支持横向滚动 -->
     <section class="home-modules">
       <div class="home-modules__box">
         <div ref="moduleScrollRef" class="home-modules__inner">
@@ -94,6 +143,7 @@
       </div>
     </section>
 
+    <!-- 系统状态区域：展示后端服务及基础设施（MySQL、Redis、Nginx）的运行状态拓扑图 -->
     <section class="war-room-panel">
       <h2 class="home-section-title">{{ t('portal.dashboard.warRoom.systemStatus') }}</h2>
       <div class="home-status">
@@ -157,6 +207,7 @@
       </div>
     </section>
 
+    <!-- 今日任务区域：展示今日待办任务卡片列表，最多显示6项 -->
     <section v-loading="todayTodosLoading" class="home-tasks">
       <article
         v-for="(item, index) in displayCards"
@@ -182,7 +233,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+/**
+ * 首页仪表盘组件
+ * 展示系统整体概览，包括待办事项、系统状态、快捷入口等核心功能
+ * 主要功能：统计数据卡片展示、置顶待办、快捷模块导航、系统状态拓扑图、今日任务列表
+ */
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
@@ -197,6 +253,9 @@ import { formatTodoScheduleLabel } from '@/views/notebook/todoGroup'
 import { functionItems } from '@/data/function-items'
 import { type HomeModuleKey } from '@/data/module-visuals'
 import { quickModules, type QuickModuleDef } from '@/data/module-visuals'
+import { getCurrentPhase, type PhaseDef } from '@/data/24hour-phases'
+import { fetchDailyChecklist } from '@/api/dailyChecklist'
+import type { DailyChecklistItem } from '@/api/dailyChecklist'
 
 type HealthState = 'up' | 'down' | 'unknown'
 
@@ -243,31 +302,31 @@ const spotlightRoutes: Partial<Record<HomeModuleKey, string>> = {
   pixelDog: '/pixel-dog',
 }
 
-const { t, locale } = useI18n()
-const router = useRouter()
-const { refreshTodayCount } = useTodoReminders()
+const { t, locale } = useI18n() // 国际化函数
+const router = useRouter() // 路由实例
+const { refreshTodayCount } = useTodoReminders() // 待办提醒组合式函数
 
-const moduleScrollRef = ref<HTMLElement | null>(null)
-const statusTreeRef = ref<HTMLElement | null>(null)
-const statusRootRef = ref<HTMLElement | null>(null)
-const statusChildRefs = ref<(HTMLElement | null)[]>([])
-const connectorSize = ref({ width: 0, height: 0 })
-const connectorPaths = ref<string[]>([])
-const connectorDots = ref<ConnectorDot[]>([])
-let statusConnectorObserver: ResizeObserver | null = null
-const healthLoading = ref(false)
-const healthData = ref<HealthData | null>(null)
-const healthStatus = ref<HealthState>('unknown')
-const lastRefreshAt = ref<Date | null>(null)
-const manualArchiveAt = ref<Date | null>(null)
+const moduleScrollRef = ref<HTMLElement | null>(null) // 快捷模块滚动容器引用
+const statusTreeRef = ref<HTMLElement | null>(null) // 状态树容器引用
+const statusRootRef = ref<HTMLElement | null>(null) // 状态树根节点引用
+const statusChildRefs = ref<(HTMLElement | null)[]>([]) // 状态树子节点引用数组
+const connectorSize = ref({ width: 0, height: 0 }) // 连接线SVG尺寸
+const connectorPaths = ref<string[]>([]) // 连接线路径数据
+const connectorDots = ref<ConnectorDot[]>([]) // 连接点坐标数据
+let statusConnectorObserver: ResizeObserver | null = null // 状态树尺寸变化观察者
+const healthLoading = ref(false) // 健康检查加载状态
+const healthData = ref<HealthData | null>(null) // 健康检查数据
+const healthStatus = ref<HealthState>('unknown') // 整体健康状态
+const lastRefreshAt = ref<Date | null>(null) // 最后刷新时间
+const manualArchiveAt = ref<Date | null>(null) // 手动刷新时间
 
-const todayTodosLoading = ref(false)
-const pinnedTodosLoading = ref(false)
-const todayTodos = ref<NbTodoItem[]>([])
-const pinnedTodos = ref<NbTodoItem[]>([])
-const pendingCount = ref(0)
-const doneCount = ref(0)
-const reminderCount = ref(0)
+const todayTodosLoading = ref(false) // 今日待办加载状态
+const pinnedTodosLoading = ref(false) // 置顶待办加载状态
+const todayTodos = ref<NbTodoItem[]>([]) // 今日待办列表
+const pinnedTodos = ref<NbTodoItem[]>([]) // 置顶待办列表
+const pendingCount = ref(0) // 进行中待办数量
+const doneCount = ref(0) // 已完成待办数量
+const reminderCount = ref(0) // 待提醒数量
 
 function formatTime(d: Date | null) {
   if (!d) return '—'
@@ -492,6 +551,7 @@ function statusLabel(state: HealthState) {
 }
 
 async function checkHealth() {
+  // 检查后端服务健康状态
   healthLoading.value = true
   try {
     const data = await fetchHealth()
@@ -507,6 +567,7 @@ async function checkHealth() {
 }
 
 async function loadStats() {
+  // 加载待办统计数据（进行中、已完成、今日、置顶）
   try {
     const [pending, done, today, pinned] = await Promise.all([
       fetchTodos({ completed: false }),
@@ -540,16 +601,19 @@ async function loadTodayTodos() {
 }
 
 async function refreshAll() {
+  // 刷新所有数据（健康状态、待办数据、状态连接线）
   manualArchiveAt.value = new Date()
   await Promise.all([checkHealth(), loadTodayTodos()])
   scheduleStatusConnectorUpdate()
 }
 
 function scrollModulesNext() {
+  // 向右滚动快捷模块列表
   moduleScrollRef.value?.scrollBy({ left: 300, behavior: 'smooth' })
 }
 
 function openQuickModule(item: QuickModuleDef) {
+  // 打开快捷模块对应的页面
   if (!item.route) return
   if (item.key === 'report') {
     router.push({ path: '/pomodoro', query: { tab: 'report' } })
@@ -559,6 +623,7 @@ function openQuickModule(item: QuickModuleDef) {
 }
 
 function openFunctionByKey(key: HomeModuleKey) {
+  // 根据模块key打开对应功能页面
   const item = functionItems.find((row) => row.key === key)
   if (item?.route) {
     router.push(item.route)
@@ -581,6 +646,7 @@ function goTodosPage(filter: NbTodoFilter = 'all') {
 }
 
 async function onToggleTodayTodo(item: NbTodoItem, checked: boolean) {
+  // 切换今日待办的完成状态
   const prev = item.completed
   item.completed = checked ? 1 : 0
   try {
@@ -605,6 +671,7 @@ async function onToggleTodayTodo(item: NbTodoItem, checked: boolean) {
 }
 
 async function onTogglePinnedTodo(item: NbTodoItem, checked: boolean) {
+  // 切换置顶待办的完成状态
   const prev = item.completed
   item.completed = checked ? 1 : 0
   try {
@@ -628,6 +695,40 @@ async function onTogglePinnedTodo(item: NbTodoItem, checked: boolean) {
   }
 }
 
+// ─── 24小时当前时段 ──────────────────
+const currentPhase = ref<PhaseDef | null>(null)
+const homeChecklistMap = reactive<Record<string, DailyChecklistItem>>({})
+let home24Timer: ReturnType<typeof setInterval> | null = null
+
+const homePhaseCircumference = 2 * Math.PI * 15.5
+
+const homePhaseDone = computed(() => {
+  if (!currentPhase.value) return 0
+  return currentPhase.value.items.filter(i => homeChecklistMap[i.key]?.completed === 1).length
+})
+
+const homePhaseOffset = computed(() => {
+  const phase = currentPhase.value
+  if (!phase || phase.items.length === 0) return homePhaseCircumference
+  const total = phase.items.length
+  const done = homePhaseDone.value
+  return homePhaseCircumference - (done / total) * homePhaseCircumference
+})
+
+function go24Hour() {
+  router.push('/24hour')
+}
+
+async function loadHomePhase() {
+  const today = new Date().toISOString().split('T')[0]
+  try {
+    const data = await fetchDailyChecklist(today)
+    Object.keys(homeChecklistMap).forEach(k => delete homeChecklistMap[k])
+    data.forEach(item => { homeChecklistMap[item.itemKey] = item })
+  } catch { /* 静默 */ }
+  currentPhase.value = getCurrentPhase()
+}
+
 onMounted(() => {
   void refreshAll()
   scheduleStatusConnectorUpdate()
@@ -636,11 +737,19 @@ onMounted(() => {
     statusConnectorObserver.observe(statusTreeRef.value)
   }
   window.addEventListener('resize', scheduleStatusConnectorUpdate)
+
+  void loadHomePhase()
+  home24Timer = setInterval(loadHomePhase, 60_000)
 })
 
 onUnmounted(() => {
   statusConnectorObserver?.disconnect()
   window.removeEventListener('resize', scheduleStatusConnectorUpdate)
+
+  if (home24Timer) {
+    clearInterval(home24Timer)
+    home24Timer = null
+  }
 })
 
 watch(healthStatus, () => scheduleStatusConnectorUpdate())
@@ -1179,6 +1288,130 @@ watch(healthStatus, () => scheduleStatusConnectorUpdate())
 
   .home-tasks {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ─────── 24小时当前时段卡片 ─────── */
+.home-phase {
+  margin-top: 8px;
+
+  &__card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+    background: color-mix(in srgb, var(--accent) 6%, #fff);
+    cursor: pointer;
+    transition: box-shadow 0.2s, border-color 0.2s;
+
+    &:hover {
+      box-shadow: 0 2px 10px rgba(0,0,0,.08);
+      border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+    }
+  }
+
+  &__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 8px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    color: var(--accent);
+  }
+
+  &__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #111827;
+  }
+
+  &__ring {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+
+    svg { display: block; }
+
+    &-text {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+  }
+
+  &__items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 12px;
+    color: #374151;
+    background: #fff;
+    border: 1px solid #f0f0f0;
+
+    &--done {
+      opacity: .5;
+      text-decoration: line-through;
+    }
+  }
+
+  &__dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #d1d5db;
+    flex-shrink: 0;
+
+    &--done {
+      background: var(--accent);
+    }
+  }
+
+  &__label {
+    line-height: 1.3;
+  }
+
+  &__action {
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 500;
+    text-align: right;
+    opacity: .7;
+    transition: opacity 0.15s;
+
+    .home-phase__card:hover & {
+      opacity: 1;
+    }
   }
 }
 </style>

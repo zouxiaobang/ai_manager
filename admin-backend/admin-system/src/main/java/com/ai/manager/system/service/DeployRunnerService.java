@@ -23,10 +23,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
+/**
+ * 部署运行器服务
+ *
+ * <p>提供一键部署功能，支持后端和前端的部署，包含本地部署和远程部署两种模式，
+ * 支持部署状态查询、部署预检和部署流启动等核心功能。</p>
+ */
 @Slf4j
 @Service
 public class DeployRunnerService {
 
+    /**
+     * 部署目标枚举
+     */
     public enum DeployTarget {
         BACKEND,
         FRONTEND
@@ -105,6 +114,11 @@ public class DeployRunnerService {
         this.deployHistoryService = deployHistoryService;
     }
 
+    /**
+     * 获取部署状态
+     *
+     * @return 部署状态信息
+     */
     public Map<String, Object> status() {
         DeployRunnerMode mode = resolveMode();
         Map<String, Object> data = new HashMap<>();
@@ -136,6 +150,11 @@ public class DeployRunnerService {
         return data;
     }
 
+    /**
+     * 部署预检
+     *
+     * @return 预检结果信息
+     */
     public Map<String, Object> preflight() {
         DeployRunnerMode mode = resolveMode();
         Map<String, Object> data = new HashMap<>();
@@ -163,6 +182,12 @@ public class DeployRunnerService {
         return data;
     }
 
+    /**
+     * 启动部署流
+     *
+     * @param targetRaw 部署目标（backend/frontend）
+     * @return SSE事件发射器
+     */
     public SseEmitter startStream(String targetRaw) {
         if (!enabled) {
             throw new BusinessException(403, "当前环境未启用一键部署");

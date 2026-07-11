@@ -8,15 +8,7 @@ $GlyphsFile = Join-Path $PSScriptRoot "glyphs_cn.txt"
 $OutC = Join-Path $Root "main\fonts\lv_font_cn_16.c"
 $OutDir = Split-Path -Parent $OutC
 
-$FontCandidates = @(
-    "$env:WINDIR\Fonts\simhei.ttf",
-    "$env:WINDIR\Fonts\msyhbd.ttc",
-    "$env:WINDIR\Fonts\simsun.ttc"
-)
-$FontPath = $FontCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-if (-not $FontPath) {
-    throw "No Chinese TTF/TTC found under $env:WINDIR\Fonts"
-}
+$FontPath = Join-Path $PSScriptRoot "msyh.ttf"
 
 $Symbols = (Get-Content -Raw -Encoding UTF8 $GlyphsFile) -replace "[\r\n]", ""
 if ([string]::IsNullOrWhiteSpace($Symbols)) {

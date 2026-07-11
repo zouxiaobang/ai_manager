@@ -4,7 +4,9 @@
  * 支持图片上传、预览、删除和分类管理
  -->
 <template>
+  <!-- 页面主容器：图片空间页面整体布局 -->
   <div class="image-space war-room-page">
+    <!-- 页面头部：标题、副标题和刷新按钮 -->
     <header class="image-space__header">
       <div>
         <h1 class="image-space__title">{{ t('imageSpace.title') }}</h1>
@@ -13,10 +15,14 @@
       <el-button :loading="loading" @click="reloadAll">{{ t('imageSpace.refresh') }}</el-button>
     </header>
 
+    <!-- 主布局区域：左侧分类树 + 中间图片列表 + 右侧详情面板 -->
     <div class="image-space__layout war-room-panel">
+      <!-- 左侧分类树：图片分类导航 -->
       <aside class="image-space__tree">
         <h2 class="image-space__tree-title">{{ t('imageSpace.categoryTitle') }}</h2>
+        <!-- 分类树主体：可折叠的图片分区和子分类 -->
         <div v-loading="categoriesLoading" class="image-space__tree-body">
+          <!-- 图片分区：每个分区包含多个子分类 -->
           <section v-for="zone in categories" :key="zone.id" class="image-space-zone">
             <button
               type="button"
@@ -47,8 +53,11 @@
         </div>
       </aside>
 
+      <!-- 中间主区域：面包屑、搜索栏、图片网格列表、分页 -->
       <main class="image-space__main">
+        <!-- 面包屑导航 -->
         <div class="image-space__breadcrumb">{{ breadcrumb }}</div>
+        <!-- 搜索工具栏：搜索框和搜索按钮 -->
         <div class="image-space__toolbar">
           <el-input
             v-model="keyword"
@@ -65,10 +74,13 @@
           <el-button @click="reloadImages">{{ t('imageSpace.search') }}</el-button>
         </div>
 
+        <!-- 图片网格容器：加载状态和空状态处理 -->
         <div v-loading="loading" class="image-space__grid-wrap">
+          <!-- 空状态提示 -->
           <div v-if="!loading && images.length === 0" class="image-space__empty">
             {{ t('imageSpace.empty') }}
           </div>
+          <!-- 图片网格列表：展示图片缩略图卡片 -->
           <div v-else class="image-space__grid">
             <button
               v-for="item in images"
@@ -96,6 +108,7 @@
           </div>
         </div>
 
+        <!-- 分页组件：图片列表分页导航 -->
         <div v-if="total > pageSize" class="image-space__pager">
           <el-pagination
             v-model:current-page="page"
@@ -107,13 +120,17 @@
         </div>
       </main>
 
+      <!-- 右侧详情面板：图片详情信息和操作 -->
       <aside class="image-space__detail">
         <h2 class="image-space__detail-title">{{ t('imageSpace.detailTitle') }}</h2>
+        <!-- 详情空状态：未选择图片时显示 -->
         <div v-if="!detail" class="image-space__detail-empty">
           {{ t('imageSpace.detailEmpty') }}
         </div>
+        <!-- 详情内容：图片预览、重命名、元信息、删除等 -->
         <template v-else>
           <div class="image-space-detail">
+            <!-- 图片预览区域 -->
             <div class="image-space-detail__preview">
             <el-image
               :src="getStorageImageUrl(detail.zone, detail.relativePath)"
@@ -126,6 +143,7 @@
             />
           </div>
 
+            <!-- 文件名编辑区域：重命名功能 -->
             <div class="image-space-detail__field">
             <label>{{ t('imageSpace.fileNameLabel') }}</label>
             <div class="image-space-detail__name-row">
@@ -156,6 +174,7 @@
             </p>
           </div>
 
+          <!-- 元信息区域：文件大小、更新时间、引用次数 -->
           <dl class="image-space-detail__meta">
             <div>
               <dt>{{ t('imageSpace.sizeLabel') }}</dt>
@@ -171,6 +190,7 @@
             </div>
           </dl>
 
+          <!-- 删除操作区域：删除图片按钮和提示 -->
           <div class="image-space-detail__delete-section">
             <el-button
               type="danger"
@@ -188,6 +208,7 @@
             </p>
           </div>
 
+          <!-- 关联商品标签：显示引用该图片的商品 -->
           <div v-if="detail.linkedSpuNames.length" class="image-space-detail__tags">
             <span class="image-space-detail__tags-label">{{ t('imageSpace.linkedSpu') }}</span>
             <el-tag
@@ -212,6 +233,11 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 图片空间页面组件
+ * 展示和管理系统中的图片资源，包括商品图片、封面图等
+ * 支持图片预览、重命名、删除和分类浏览
+ */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -230,33 +256,33 @@ import {
 import { formatStorageBytes } from '@/api/storageCenter'
 import { getStorageImageUrl, type StorageImageZone } from '@/api/storageImage'
 
-const { t } = useI18n()
+const { t } = useI18n() // 国际化函数
 
-const categoriesLoading = ref(false)
-const loading = ref(false)
-const renaming = ref(false)
-const deleting = ref(false)
-const categories = ref<ImageSpaceCategoryNode[]>([])
-const images = ref<ImageSpaceImageItem[]>([])
-const detail = ref<ImageSpaceImageDetail | null>(null)
-const selectedImage = ref<ImageSpaceImageItem | null>(null)
+const categoriesLoading = ref(false) // 分类加载状态
+const loading = ref(false) // 图片列表加载状态
+const renaming = ref(false) // 重命名提交状态
+const deleting = ref(false) // 删除提交状态
+const categories = ref<ImageSpaceCategoryNode[]>([]) // 分类树数据
+const images = ref<ImageSpaceImageItem[]>([]) // 图片列表数据
+const detail = ref<ImageSpaceImageDetail | null>(null) // 当前选中图片详情
+const selectedImage = ref<ImageSpaceImageItem | null>(null) // 当前选中的图片项
 
-const selectedZone = ref<StorageImageZone>('ECOMMERCE_IMAGES')
-const selectedCategoryId = ref('all')
-const selectedCategoryLabel = ref('')
-const selectedZoneLabel = ref('')
-const expandedZones = ref(new Set<string>(['ECOMMERCE_IMAGES']))
+const selectedZone = ref<StorageImageZone>('ECOMMERCE_IMAGES') // 当前选中的图片分区
+const selectedCategoryId = ref('all') // 当前选中的分类ID
+const selectedCategoryLabel = ref('') // 当前选中的分类标签
+const selectedZoneLabel = ref('') // 当前选中的分区标签
+const expandedZones = ref(new Set<string>(['ECOMMERCE_IMAGES'])) // 已展开的分区集合
 
-const keyword = ref('')
-const page = ref(1)
-const pageSize = 10
-const total = ref(0)
+const keyword = ref('') // 搜索关键词
+const page = ref(1) // 当前页码
+const pageSize = 10 // 每页数量
+const total = ref(0) // 总记录数
 
-const renameBase = ref('')
-const renameExtension = ref('')
-const nameCheckMessage = ref('')
-const nameCheckAvailable = ref<boolean | null>(null)
-let nameCheckTimer: ReturnType<typeof setTimeout> | null = null
+const renameBase = ref('') // 重命名文件名（不含扩展名）
+const renameExtension = ref('') // 重命名文件扩展名
+const nameCheckMessage = ref('') // 文件名检查消息
+const nameCheckAvailable = ref<boolean | null>(null) // 文件名是否可用
+let nameCheckTimer: ReturnType<typeof setTimeout> | null = null // 文件名检查防抖定时器
 
 const renameFullName = computed(() => `${renameBase.value.trim()}${renameExtension.value}`)
 

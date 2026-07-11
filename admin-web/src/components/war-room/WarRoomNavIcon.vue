@@ -20,6 +20,7 @@ export type WarRoomNavIconName =
   | 'functions'
   | 'notebook'
   | 'todos'
+  | '24hour'
   | 'deploy-docs'
   | 'storage'
   | 'image-space'

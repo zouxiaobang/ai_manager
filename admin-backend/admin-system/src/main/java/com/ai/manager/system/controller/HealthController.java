@@ -16,6 +16,15 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * 健康检查控制器
+ *
+ * <p>所属模块：系统模块-健康检查</p>
+ * <p>API路径前缀：/api/health</p>
+ * <p>功能描述：提供系统健康检查功能，包括应用状态、Redis连接、MySQL连接等检查</p>
+ *
+ * @author system
+ */
 @RestController
 @RequestMapping("/api/health")
 public class HealthController {
@@ -33,6 +42,14 @@ public class HealthController {
         this.deployStatusService = deployStatusService;
     }
 
+    /**
+     * 健康检查
+     *
+     * <p>HTTP方法：GET</p>
+     * <p>路径：/api/health</p>
+     *
+     * @return 健康检查结果，包含应用状态、Redis状态、MySQL状态等
+     */
     @GetMapping
     public ApiResult<Map<String, Object>> health() {
         Map<String, Object> data = new HashMap<>();

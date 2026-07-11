@@ -470,43 +470,4 @@ html.is-mobile-shell[data-mobile-home-theme='scheme-a'] {
   &.mobile-home-route .mobile-app__main {
     padding: max(8px, env(safe-area-inset-top)) 12px 12px;
   }
-
-  .mobile-app__tabbar {
-    background: #{$scheme-a-blue};
-    border-top: none;
-    border-radius: 22px 22px 0 0;
-    box-shadow: 0 -4px 18px rgb(37 99 235 / 28%);
-    padding-top: 6px;
-  }
-
-  .mobile-app__tab {
-    color: rgb(255 255 255 / 85%);
-    font-family: #{$scheme-a-font};
-    font-size: 12px;
-    gap: 4px;
-
-    .mobile-app__tab-icon {
-      display: grid;
-      place-items: center;
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      transition: background 0.15s ease;
-
-      img {
-        width: 24px;
-        height: 24px;
-      }
-    }
-
-    &.is-active {
-      color: #{$scheme-a-yellow};
-      font-weight: 400;
-
-      .mobile-app__tab-icon {
-        background: #{$scheme-a-yellow};
-        box-shadow: 0 2px 6px rgb(245 158 11 / 45%);
-      }
-    }
-  }
 }

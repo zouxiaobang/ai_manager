@@ -7,9 +7,11 @@ import com.ai.manager.system.domain.entity.PomodoroRecord;
 import com.ai.manager.system.domain.vo.PomodoroDailyStatVO;
 import com.ai.manager.system.domain.vo.PomodoroSummaryVO;
 import com.ai.manager.system.mapper.PomodoroRecordMapper;
+import com.ai.manager.system.service.PixelDogStateService;
 import com.ai.manager.system.service.PomodoroRecordService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -18,10 +20,13 @@ import java.util.List;
 import java.util.Set;
 
 @Service
+@RequiredArgsConstructor
 public class PomodoroRecordServiceImpl extends ServiceImpl<PomodoroRecordMapper, PomodoroRecord>
         implements PomodoroRecordService {
 
     private static final Set<String> RECORD_TYPES = Set.of("WORK", "SHORT_BREAK", "LONG_BREAK");
+
+    private final PixelDogStateService pixelDogStateService;
 
     @Override
     public PomodoroRecord createRecord(PomodoroRecordCreateRequest request) {
@@ -55,7 +60,20 @@ public class PomodoroRecordServiceImpl extends ServiceImpl<PomodoroRecordMapper,
         }
 
         save(record);
+
+        if ("WORK".equals(type)) {
+            addDogXp("POMODORO_ROUND", 20);
+        }
+
         return record;
+    }
+
+    protected void addDogXp(String action, int amount) {
+        try {
+            pixelDogStateService.addXp(action, amount);
+        } catch (Exception e) {
+            // ignore
+        }
     }
 
     @Override

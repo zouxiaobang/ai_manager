@@ -1,0 +1,72 @@
+USE ai_manager_admin;
+
+CREATE TABLE IF NOT EXISTS pixel_dog_item (
+    id              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    name            VARCHAR(50)  NOT NULL COMMENT '物品名称',
+    icon            VARCHAR(10)  NOT NULL COMMENT '物品图标(emoji)',
+    color           VARCHAR(20)  NOT NULL DEFAULT '#ff69b4' COMMENT '像素画颜色',
+    require_level   INT          NOT NULL DEFAULT 1 COMMENT '解锁所需等级',
+    sort_order      INT          NOT NULL DEFAULT 0 COMMENT '排序(从小到大)',
+    shape           INT          NOT NULL DEFAULT 0 COMMENT '形状索引(0-9),对应硬编码的像素形状模板',
+    deleted         TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除',
+    create_time     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    update_time     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='像素狗物品配置';
+
+INSERT INTO pixel_dog_item (name, icon, color, require_level, sort_order, shape)
+VALUES
+    ('蝴蝶结', '🎀', '#ff69b4', 2, 1, 0),
+    ('墨镜', '🕶️', '#ea580c', 3, 2, 2),
+    ('小礼帽', '🎩', '#7c3aed', 4, 3, 1),
+    ('星星项圈', '🌟', '#ffd700', 5, 4, 3),
+    ('金皇冠', '👑', '#ffd700', 6, 5, 4),
+    ('小星星', '⭐', '#fbbf24', 7, 6, 5),
+    ('粉爱心', '💖', '#ec4899', 8, 7, 6),
+    ('蓝眼镜', '👓', '#3b82f6', 9, 8, 2),
+    ('金铃铛', '🔔', '#fbbf24', 10, 9, 3),
+    ('红披风', '🦸', '#dc2626', 11, 10, 7),
+    ('金光环', '😇', '#fbbf24', 12, 11, 8),
+    ('火苗', '🔥', '#f97316', 13, 12, 9),
+    ('魔法帽', '🧙', '#6366f1', 14, 13, 1),
+    ('粉蝶结', '🎀', '#f472b6', 15, 14, 0),
+    ('银皇冠', '👑', '#e5e7eb', 16, 15, 4),
+    ('蓝星', '⭐', '#3b82f6', 17, 16, 5),
+    ('金丝镜', '🕶️', '#f59e0b', 18, 17, 2),
+    ('蓝爱心', '💙', '#3b82f6', 19, 18, 6),
+    ('钻石链', '💎', '#06b6d4', 20, 19, 3),
+    ('蓝披风', '🦸', '#2563eb', 21, 20, 7),
+    ('粉丝带', '🎀', '#ec4899', 22, 21, 0),
+    ('冰晶', '❄️', '#60a5fa', 23, 22, 9),
+    ('绅士帽', '🎩', '#1f2937', 24, 23, 1),
+    ('红宝石冠', '👑', '#dc2626', 25, 24, 4),
+    ('云朵', '☁️', '#f3f4f6', 26, 25, 8),
+    ('粉星', '⭐', '#ec4899', 27, 26, 5),
+    ('红围巾', '🧣', '#dc2626', 28, 27, 3),
+    ('金爱心', '💛', '#fbbf24', 29, 28, 6),
+    ('绿披风', '🦸', '#16a34a', 30, 29, 7),
+    ('银光环', '😇', '#e5e7eb', 31, 30, 8),
+    ('闪电', '⚡', '#fbbf24', 32, 31, 9),
+    ('复古帽', '🎩', '#92400e', 33, 32, 1),
+    ('翠玉冠', '👑', '#10b981', 34, 33, 4),
+    ('月亮', '🌙', '#e5e7eb', 35, 34, 9),
+    ('绿星', '⭐', '#22c55e', 36, 35, 5),
+    ('蓝领结', '🎀', '#2563eb', 37, 36, 0),
+    ('红色镜', '🕶️', '#ef4444', 38, 37, 2),
+    ('绿爱心', '💚', '#10b981', 39, 38, 6),
+    ('紫披风', '🦸', '#7c3aed', 40, 39, 7),
+    ('紫水晶', '💜', '#a855f7', 41, 40, 3),
+    ('星辰帽', '🎩', '#4f46e5', 42, 41, 1),
+    ('泡泡', '🫧', '#22d3ee', 43, 42, 9),
+    ('紫晶冠', '👑', '#8b5cf6', 44, 43, 4),
+    ('太阳', '☀️', '#f59e0b', 45, 44, 5),
+    ('红丝带', '🎀', '#ef4444', 46, 45, 0),
+    ('红星', '⭐', '#ef4444', 47, 46, 5),
+    ('紫色镜', '🕶️', '#8b5cf6', 48, 47, 2),
+    ('紫爱心', '💜', '#a855f7', 49, 48, 6),
+    ('闪光', '✨', '#f472b6', 50, 49, 9),
+    ('钻石冠', '👑', '#06b6d4', 55, 50, 4)
+ON DUPLICATE KEY UPDATE name = name;
+
+-- 给 pixel_dog_state 表添加 equipped_items 字段
+ALTER TABLE pixel_dog_state ADD COLUMN equipped_items BIGINT NOT NULL DEFAULT 0 COMMENT '已装备物品位掩码(bit (id-1)为1表示装备)';

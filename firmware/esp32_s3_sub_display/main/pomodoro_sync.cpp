@@ -396,10 +396,21 @@ bool pull_session(bool *has_session, bool apply_remote) {
   if (parse_session_json(data, &remote)) {
     *has_session = true;
     if (apply_remote && pomodoro_should_apply_remote_pull()) {
-      if (remote.synced_at_ms > pomodoro_last_applied_sync_ms()) {
+      const int64_t last_applied = pomodoro_last_applied_sync_ms();
+      PomodoroSnapshot local = pomodoro_get();
+      const bool local_is_idle = (local.phase == PomodoroPhase::Idle || !local.running);
+      // 本地空闲时无条件应用远程会话（绕过 synced_at_ms 检查）
+      // 本地活跃时仅应用更新的远程会话
+      if (local_is_idle || remote.synced_at_ms > last_applied) {
+        ESP_LOGI(TAG, "Applying remote session: phase=%d running=%d synced=%lld last=%lld",
+                 static_cast<int>(remote.phase), remote.running,
+                 static_cast<long long>(remote.synced_at_ms),
+                 static_cast<long long>(last_applied));
         pomodoro_apply_remote_session(remote, true);
       }
     }
+  } else {
+    ESP_LOGW(TAG, "Failed to parse session JSON (data was present)");
   }
   cJSON_Delete(root);
   return true;
@@ -447,7 +458,7 @@ void sync_task(void *arg) {
   if (pull_session(&has_session, true)) {
     pomodoro_set_backend_connected(true);
     if (!has_session) {
-      push_session(false);
+      ESP_LOGI(TAG, "No active session on server, waiting for ADMIN to create one");
     }
   } else {
     pomodoro_set_backend_connected(false);

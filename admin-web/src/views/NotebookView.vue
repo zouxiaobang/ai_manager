@@ -4,8 +4,10 @@
  * 支持百度网盘同步、正文格式优化等功能
  -->
 <template>
+  <!-- 页面主容器：笔记本页面整体布局 -->
   <WarRoomPage :title="t('notebook.title')" fill>
     <div class="notebook-page war-room-panel war-room-panel--notebook">
+    <!-- 百度网盘授权提示：未授权时显示警告提示和连接按钮 -->
     <el-alert
       v-if="baiduPanStatus && !baiduPanStatus.authorized && !isBaiduAuthPending"
       class="notebook-page__baidu-alert"
@@ -27,9 +29,12 @@
       </template>
     </el-alert>
 
+    <!-- 标签页导航：全部笔记、回收站 -->
     <el-tabs v-model="activeTab" class="notebook-tabs" @tab-change="onTabChange">
+      <!-- 全部笔记标签页 -->
       <el-tab-pane :label="t('notebook.tabs.all')" name="all">
         <div class="notebook-tab-all">
+          <!-- 统计卡片区域：展示笔记、文件夹、标签、回收站数量统计 -->
           <section class="notebook-stats">
             <div class="notebook-stat-card notebook-stat-card--blue">
               <span class="notebook-stat-card__icon notebook-stat-card__icon--blue">
@@ -69,9 +74,13 @@
             </div>
           </section>
 
+          <!-- 主布局区域：左侧侧边栏 + 右侧主内容区 -->
           <div class="notebook-layout">
+            <!-- 左侧侧边栏：搜索栏、新建按钮、笔记文件夹树 -->
           <aside class="notebook-sidebar">
+            <!-- 侧边栏工具栏：搜索框和新建按钮 -->
             <div class="notebook-sidebar__toolbar">
+              <!-- 搜索框区域 -->
               <div class="notebook-sidebar__search-wrap">
                 <el-input
                   ref="searchInputRef"
@@ -87,6 +96,7 @@
                 </el-input>
               </div>
 
+              <!-- 新建按钮区域：新建笔记和新建文件夹 -->
               <div class="notebook-sidebar__create">
                 <button
                   type="button"
@@ -121,12 +131,15 @@
               </div>
             </div>
 
+            <!-- 侧边栏主体：笔记文件夹树 -->
             <div class="notebook-sidebar__body">
+              <!-- 树形结构容器：笔记和文件夹的层级树 -->
               <div
                 v-loading="treeLoading"
                 class="notebook-sidebar__tree-wrap"
                 @click.self="onTreeBlankClick"
               >
+                <!-- 笔记文件夹树组件 -->
                 <el-tree
                   v-if="treeData.length"
                   ref="treeRef"
@@ -179,11 +192,17 @@
             </div>
           </aside>
 
+          <!-- 右侧主内容区：笔记编辑器或文件夹视图 -->
           <main class="notebook-main" :class="{ 'is-editing': !!currentNote }">
+            <!-- 笔记工作区：编辑器 + 目录 -->
             <div v-if="currentNote" class="notebook-workspace">
+              <!-- 笔记编辑器区域 -->
               <div class="notebook-editor">
+              <!-- 编辑器头部：标题、元信息、操作按钮 -->
               <div class="notebook-editor__header">
+              <!-- 标题行：标题输入框 + 操作按钮列 -->
               <div class="notebook-editor__title-row">
+                <!-- 标题列：标题输入和元信息 -->
                 <div class="notebook-editor__title-col">
                   <el-input
                     v-model="editForm.title"
@@ -295,6 +314,7 @@
                 </div>
               </div>
 
+              <!-- 标签区域：笔记标签管理和添加 -->
               <div class="notebook-editor__tags">
                 <span
                   v-for="(tag, tagIndex) in selectedNoteTags"
@@ -353,6 +373,7 @@
               </div>
               </div>
 
+              <!-- 编辑器内容区域：富文本编辑器 -->
               <div class="notebook-editor__content">
                 <NoteRichEditor
                   v-if="currentNote"
@@ -375,7 +396,9 @@
               </div>
               </div>
 
+              <!-- 目录侧边栏：笔记章节目录导航 -->
               <aside class="notebook-toc" :class="{ 'is-collapsed': !tocVisible }">
+                <!-- 目录头部：标题和折叠按钮 -->
                 <div class="notebook-toc__header">
                   <h3 class="notebook-toc__title">{{ t('notebook.tabs.toc') }}</h3>
                   <button
@@ -422,6 +445,7 @@
         </div>
       </el-tab-pane>
 
+      <!-- 回收站标签页：已删除的笔记管理 -->
       <el-tab-pane :label="t('notebook.tabs.trash')" name="trash">
         <NotebookTrashView
           ref="trashViewRef"
@@ -431,6 +455,7 @@
       </el-tab-pane>
     </el-tabs>
 
+    <!-- 树节点右键菜单：笔记/文件夹的右键操作菜单 -->
     <NoteTreeContextMenu
       :visible="contextMenu.visible"
       :x="contextMenu.x"
@@ -441,6 +466,7 @@
       @close="closeContextMenu"
     />
 
+    <!-- 移动笔记/文件夹对话框：选择目标文件夹 -->
     <el-dialog
       v-model="moveNoteDialogVisible"
       :title="t('notebook.moveNoteTitle')"
@@ -475,6 +501,7 @@
       </template>
     </el-dialog>
 
+    <!-- 文件夹对话框：新建或重命名文件夹 -->
     <el-dialog
       v-model="folderDialogVisible"
       :title="folderDialogMode === 'create' ? t('notebook.createFolderTitle') : t('notebook.renameFolderTitle')"
@@ -510,6 +537,7 @@
       </template>
     </el-dialog>
 
+    <!-- 标签管理对话框：新建和删除标签 -->
     <el-dialog v-model="tagDialogVisible" :title="t('notebook.tagManage')" width="480px" destroy-on-close>
       <div class="tag-manage">
         <div class="tag-manage__new">
@@ -535,6 +563,11 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 笔记本页面组件
+ * 提供笔记管理功能，包括笔记列表、富文本编辑、文件夹管理、标签管理
+ * 支持百度网盘同步、正文格式优化、目录导航等功能
+ */
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { onBeforeRouteLeave, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -588,48 +621,49 @@ import {
   type NbTreeNode,
 } from '@/api/notebook'
 
-const { t } = useI18n()
-const route = useRoute()
+const { t } = useI18n() // 国际化函数
+const route = useRoute() // 路由实例
 
-const { baiduPanStatus, isBaiduAuthPending, redirectToBaiduAuthorize } = useBaiduPanAutoAuth()
+const { baiduPanStatus, isBaiduAuthPending, redirectToBaiduAuthorize } = useBaiduPanAutoAuth() // 百度网盘授权状态
 
-const activeTab = ref('all')
-const tocVisible = ref(true)
-const treeLoading = ref(false)
-const treeData = ref<NbTreeNode[]>([])
-const trashCount = ref(0)
-const allTags = ref<NbNoteTag[]>([])
-const filterText = ref('')
-const searchInputRef = ref<InstanceType<typeof ElInput> | null>(null)
-const isMacPlatform = typeof navigator !== 'undefined' && /Mac|iPhone|iPod|iPad/i.test(navigator.platform)
-const searchShortcutLabel = computed(() => (isMacPlatform ? '⌘K' : 'Ctrl+K'))
-const treeRef = ref<InstanceType<typeof ElTree> | null>(null)
-const moveTreeRef = ref<InstanceType<typeof ElTree> | null>(null)
-const editorRef = ref<InstanceType<typeof NoteRichEditor> | null>(null)
-const trashViewRef = ref<InstanceType<typeof NotebookTrashView> | null>(null)
-const createDropdownVisible = ref(false)
+const activeTab = ref('all') // 当前激活的标签页
+const tocVisible = ref(true) // 目录是否可见
+const treeLoading = ref(false) // 树结构加载状态
+const treeData = ref<NbTreeNode[]>([]) // 笔记文件夹树数据
+const trashCount = ref(0) // 回收站数量
+const allTags = ref<NbNoteTag[]>([]) // 所有标签列表
+const filterText = ref('') // 搜索过滤文本
+const searchInputRef = ref<InstanceType<typeof ElInput> | null>(null) // 搜索输入框引用
+const isMacPlatform = typeof navigator !== 'undefined' && /Mac|iPhone|iPod|iPad/i.test(navigator.platform) // 是否Mac平台
+const searchShortcutLabel = computed(() => (isMacPlatform ? '⌘K' : 'Ctrl+K')) // 搜索快捷键文本
+const treeRef = ref<InstanceType<typeof ElTree> | null>(null) // 树组件引用
+const moveTreeRef = ref<InstanceType<typeof ElTree> | null>(null) // 移动对话框树引用
+const editorRef = ref<InstanceType<typeof NoteRichEditor> | null>(null) // 富文本编辑器引用
+const trashViewRef = ref<InstanceType<typeof NotebookTrashView> | null>(null) // 回收站视图引用
+const createDropdownVisible = ref(false) // 新建下拉菜单是否可见
 
-const editorRevision = ref(0)
-const contentLoadBlocked = ref(false)
-const contentLoading = ref(false)
-let noteLoadSeq = 0
-let treeClickDedupeAt = 0
-let treeClickDedupeKey = ''
-let treeSelectionHandling = false
-const userExpandedKeys = ref<Set<string>>(new Set())
-let searchExpandedSnapshot: Set<string> | null = null
+const editorRevision = ref(0) // 编辑器版本号（用于强制刷新）
+const contentLoadBlocked = ref(false) // 内容加载是否被阻止
+const contentLoading = ref(false) // 内容加载状态
+let noteLoadSeq = 0 // 笔记加载序列号（防止竞态）
+let treeClickDedupeAt = 0 // 树点击去重时间戳
+let treeClickDedupeKey = '' // 树点击去重key
+let treeSelectionHandling = false // 是否正在处理树选择
+const userExpandedKeys = ref<Set<string>>(new Set()) // 用户展开的节点key集合
+let searchExpandedSnapshot: Set<string> | null = null // 搜索时展开状态快照
 
-const activeNodeKey = ref('')
-const selectedFolderId = ref<number | null>(null)
-const currentNote = ref<NbNoteDetail | null>(null)
+const activeNodeKey = ref('') // 当前激活的节点key
+const selectedFolderId = ref<number | null>(null) // 当前选中的文件夹ID
+const currentNote = ref<NbNoteDetail | null>(null) // 当前打开的笔记
 
 const editForm = reactive({
-  title: '',
-  content: '',
-  tagIds: [] as number[],
+  // 编辑表单响应式数据
+  title: '', // 笔记标题
+  content: '', // 笔记内容
+  tagIds: [] as number[], // 标签ID列表
 })
 
-const saveState = ref<'idle' | 'saving' | 'saved'>('idle')
+const saveState = ref<'idle' | 'saving' | 'saved'>('idle') // 保存状态
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 
 type NoteSnapshot = { title: string; content: string; tagIds: string }

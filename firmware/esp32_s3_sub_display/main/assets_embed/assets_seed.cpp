@@ -34,13 +34,12 @@ const SeedEntry kSeedFiles[] = {
     {"assets/deco_diamond_blue.png", k_seed_assets_deco_diamond_blue_png, k_seed_assets_deco_diamond_blue_png_len},
     {"assets/dock_pomo.png", k_seed_assets_dock_pomo_png, k_seed_assets_dock_pomo_png_len},
     {"assets/dock_home.png", k_seed_assets_dock_home_png, k_seed_assets_dock_home_png_len},
-    {"assets/dock_lyrics.png", k_seed_assets_dock_lyrics_png, k_seed_assets_dock_lyrics_png_len},
+    {"assets/dock_pixel_dog.png", k_seed_assets_dock_pixel_dog_png, k_seed_assets_dock_pixel_dog_png_len},
     {"assets/dock_lock.png", k_seed_assets_dock_lock_png, k_seed_assets_dock_lock_png_len},
     {"assets/dock_settings.png", k_seed_assets_dock_settings_png, k_seed_assets_dock_settings_png_len},
     {"assets/border_tool_btn_92x52_green.png", k_seed_assets_border_tool_btn_92x52_green_png, k_seed_assets_border_tool_btn_92x52_green_png_len},
     {"assets/border_tool_btn_92x52_blue.png", k_seed_assets_border_tool_btn_92x52_blue_png, k_seed_assets_border_tool_btn_92x52_blue_png_len},
-    {"lyrics/current.meta", k_seed_lyrics_current_meta, k_seed_lyrics_current_meta_len},
-    {"lyrics/current.txt", k_seed_lyrics_current_txt, k_seed_lyrics_current_txt_len},
+    {"assets/border_tool_btn_92x52_orange.png", k_seed_assets_border_tool_btn_92x52_orange_png, k_seed_assets_border_tool_btn_92x52_orange_png_len},
 };
 
 bool ensure_dir(const char *path) {

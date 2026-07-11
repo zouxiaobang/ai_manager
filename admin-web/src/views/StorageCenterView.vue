@@ -4,7 +4,9 @@
  * 提供文件管理和存储配置功能
  -->
 <template>
+  <!-- 页面主容器：存储中心页面整体布局 -->
   <div class="storage-center war-room-page">
+    <!-- 页面头部：标题、副标题和操作按钮（连接状态、刷新、连接百度网盘） -->
     <header class="storage-center__header">
       <div>
         <h1 class="storage-center__title">{{ t('storageCenter.title') }}</h1>
@@ -34,6 +36,7 @@
       </div>
     </header>
 
+    <!-- 统计卡片区域：本地存储使用、缓存、双存储状态、存储分区数量 -->
     <section v-if="overview" class="storage-center__stats">
       <div class="storage-stat-card is-blue">
         <div class="storage-stat-card__icon" aria-hidden="true">
@@ -98,9 +101,11 @@
       </div>
     </section>
 
+    <!-- 存储分区详情：各存储分区的使用情况明细 -->
     <section v-if="overview" class="storage-center__breakdown war-room-panel">
       <h2 class="storage-center__section-title">{{ t('storageCenter.breakdownTitle') }}</h2>
       <div class="storage-breakdown">
+        <!-- 存储分区行：单个分区的使用进度条和元信息 -->
         <div
           v-for="zone in overview.zones"
           :key="zone.key"
@@ -134,7 +139,9 @@
       </div>
     </section>
 
+    <!-- 主内容区域：左侧分区列表 + 右侧详情面板 -->
     <section class="storage-center__main">
+      <!-- 左侧分区列表：存储分区导航列表 -->
       <aside class="storage-center__zones war-room-panel">
         <div class="storage-center__zones-head">
           <h2 class="storage-center__section-title">{{ t('storageCenter.zoneListTitle') }}</h2>
@@ -142,6 +149,7 @@
             {{ t('storageCenter.orphanCleanupEntry') }}
           </el-button>
         </div>
+        <!-- 存储分区列表项 -->
         <button
           v-for="zone in overview?.zones || []"
           :key="zone.key"
@@ -183,8 +191,11 @@
         </button>
       </aside>
 
+      <!-- 右侧详情面板：存储分区详情和配置 -->
       <div class="storage-center__detail war-room-panel">
+        <!-- 普通存储分区详情 -->
         <template v-if="selectedZone">
+          <!-- 详情头部：分区图标和名称 -->
           <div class="storage-detail-header" :class="detailHeaderTone">
             <div class="storage-detail-header__icon" aria-hidden="true">
               <el-icon><component :is="detailZoneIcon" /></el-icon>
@@ -192,6 +203,7 @@
             <h2 class="storage-detail-header__title">{{ selectedZone.label }}</h2>
           </div>
 
+          <!-- 路径信息：本地路径和云路径 -->
           <div class="storage-detail-paths">
             <div class="storage-path-field">
               <div class="storage-path-field__label">{{ t('storageCenter.localPath') }}</div>
@@ -223,7 +235,9 @@
             </div>
           </div>
 
+          <!-- 状态信息：使用情况和同步模式 -->
           <div class="storage-detail-status">
+            <!-- 使用情况面板：存储空间使用进度 -->
             <div class="storage-usage-panel">
               <div class="storage-usage-panel__head">
                 <span class="storage-usage-panel__label">{{ t('storageCenter.usage') }}</span>
@@ -294,6 +308,7 @@
           </StorageZoneConfigCard>
         </template>
 
+        <!-- Redis缓存详情 -->
         <template v-else-if="selectedZoneKey === 'REDIS_CACHE'">
           <div class="storage-detail-header" :class="detailHeaderTone">
             <div class="storage-detail-header__icon" aria-hidden="true">
@@ -363,12 +378,14 @@
           </StorageZoneConfigCard>
         </template>
 
+        <!-- 空状态：未选择分区时显示 -->
         <template v-else>
           <el-empty :description="t('storageCenter.selectZoneHint')" />
         </template>
       </div>
     </section>
 
+    <!-- 孤立文件清理对话框 -->
     <StorageOrphanCleanupDialog
       v-model:visible="orphanDialogVisible"
       @completed="reloadAll"
@@ -377,6 +394,11 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 存储中心页面组件
+ * 管理云存储资源，包括百度网盘绑定状态、存储空间使用统计
+ * 提供各存储分区详情、配置管理和缓存清理功能
+ */
 import { computed, onMounted, ref, watch, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -405,6 +427,7 @@ import {
 import StorageOrphanCleanupDialog from '@/views/storage/StorageOrphanCleanupDialog.vue'
 import StorageZoneConfigCard from '@/components/storage/StorageZoneConfigCard.vue'
 
+// 存储分区图标映射
 const zoneIconMap: Record<string, Component> = {
   ECOMMERCE_IMAGES: GoodsFilled,
   NOTEBOOK_IMAGES: Picture,
@@ -413,6 +436,7 @@ const zoneIconMap: Record<string, Component> = {
   REDIS_CACHE: Cpu,
 }
 
+// 存储分区色调映射
 const zoneToneMap: Record<string, string> = {
   ECOMMERCE_IMAGES: 'is-blue',
   NOTEBOOK_IMAGES: 'is-purple',
@@ -421,18 +445,18 @@ const zoneToneMap: Record<string, string> = {
   REDIS_CACHE: 'is-purple',
 }
 
-const { t } = useI18n()
+const { t } = useI18n() // 国际化函数
 
-const loading = ref(false)
-const saving = ref(false)
-const cleanupLoading = ref(false)
-const noteSyncLoading = ref(false)
-const overview = ref<StorageCenterOverview | null>(null)
-const configForm = ref<StorageCenterConfig | null>(null)
-const configDraft = ref<StorageCenterConfig | null>(null)
-const configEditing = ref(false)
-const orphanDialogVisible = ref(false)
-const selectedZoneKey = ref('ECOMMERCE_IMAGES')
+const loading = ref(false) // 加载状态
+const saving = ref(false) // 保存状态
+const cleanupLoading = ref(false) // 清理加载状态
+const noteSyncLoading = ref(false) // 笔记同步加载状态
+const overview = ref<StorageCenterOverview | null>(null) // 存储概览数据
+const configForm = ref<StorageCenterConfig | null>(null) // 配置表单数据
+const configDraft = ref<StorageCenterConfig | null>(null) // 配置草稿（编辑中）
+const configEditing = ref(false) // 是否正在编辑配置
+const orphanDialogVisible = ref(false) // 孤立文件清理对话框是否可见
+const selectedZoneKey = ref('ECOMMERCE_IMAGES') // 当前选中的分区key
 
 const selectedZone = computed(() =>
   overview.value?.zones.find((zone) => zone.key === selectedZoneKey.value) || null,

@@ -93,17 +93,13 @@ void app_power_tick(bool locked) {
     return;
   }
 
-  const AppSettings &s = app_settings_get();
   int h = 0;
   int m = 0;
   app_clock_get_hm(&h, &m);
 
   const bool night = app_settings_is_night_period(h, m);
-  const int64_t idle_ms = (esp_timer_get_time() - last_activity_us) / 1000;
-  const bool idle = s.idle_dim_minutes > 0 &&
-                    idle_ms >= static_cast<int64_t>(s.idle_dim_minutes) * 60 * 1000;
 
-  if (night || idle) {
+  if (night) {
     if (visual != PowerVisualState::Dimmed) {
       app_power_set_visual(PowerVisualState::Dimmed);
     }

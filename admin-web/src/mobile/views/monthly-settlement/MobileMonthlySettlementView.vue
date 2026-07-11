@@ -1,8 +1,10 @@
 <template>
+  <!-- 移动端月结统计页主容器 -->
   <div class="mobile-monthly-settlement">
-    <!-- 顶部导航栏 -->
+    <!-- 顶部导航栏：返回按钮 + 页面标题 -->
     <div class="ms-header">
       <div class="ms-header__left">
+        <!-- 返回按钮：返回上一页 -->
         <MobileDoodleChip
           tag="button" type="button"
           shape="pill" color="#2563eb"
@@ -16,7 +18,7 @@
     </div>
 
     <main class="ms-content">
-      <!-- 加载状态 -->
+      <!-- 加载中状态：数据加载时展示 -->
       <div v-if="loading" class="ms-loading">
         <div class="ms-loading__dots">
           <span class="ms-loading__dot"></span><span class="ms-loading__dot"></span><span class="ms-loading__dot"></span>
@@ -24,23 +26,23 @@
         <p class="ms-loading__text">加载月结数据中...</p>
       </div>
 
-      <!-- 错误状态 -->
+      <!-- 错误状态：数据加载失败时展示 -->
       <div v-else-if="error" class="ms-empty">
         <span class="ms-empty__icon">😵</span>
         <p class="ms-empty__title">数据加载失败</p>
         <p class="ms-empty__desc">{{ error }}</p>
       </div>
 
-      <!-- 无数据状态 -->
+      <!-- 无数据状态：暂无月结数据时展示 -->
       <div v-else-if="!shops.length" class="ms-empty">
         <span class="ms-empty__icon">📭</span>
         <p class="ms-empty__title">暂无月结数据</p>
         <p class="ms-empty__desc">当前月份还没有导入订单或尚未进行月结统计</p>
       </div>
 
-      <!-- 数据内容 -->
+      <!-- 数据内容区域：有数据时展示 -->
       <template v-else>
-        <!-- 月份切换器 -->
+        <!-- 月份切换器：左右切换月份 -->
         <div class="ms-month-bar">
           <div class="month-picker">
             <button class="month-arrow" @click="shiftMonth(-1)" :disabled="loading">‹</button>
@@ -49,8 +51,9 @@
           </div>
         </div>
 
-        <!-- 汇总数据卡片 -->
+        <!-- 汇总数据卡片网格：总营业额/预估利润/实际利润/订单总数 -->
         <div class="ms-summary-grid">
+          <!-- 总营业额卡片 -->
           <SchemeADoodleFrame :seed="1" color="#2563eb" class="ms-summary-card" sketch :shadow="false">
             <div class="ms-summary-card__inner">
               <div class="ms-summary-card__icon">💰</div>
@@ -60,6 +63,7 @@
               </div>
             </div>
           </SchemeADoodleFrame>
+          <!-- 预估利润卡片 -->
           <SchemeADoodleFrame :seed="2" color="#22c55e" class="ms-summary-card" sketch :shadow="false">
             <div class="ms-summary-card__inner">
               <div class="ms-summary-card__icon">📈</div>
@@ -69,6 +73,7 @@
               </div>
             </div>
           </SchemeADoodleFrame>
+          <!-- 实际利润卡片 -->
           <SchemeADoodleFrame :seed="3" color="#f59e0b" class="ms-summary-card" sketch :shadow="false">
             <div class="ms-summary-card__inner">
               <div class="ms-summary-card__icon">✅</div>
@@ -78,6 +83,7 @@
               </div>
             </div>
           </SchemeADoodleFrame>
+          <!-- 订单总数卡片：已统计/待处理/已排除 -->
           <SchemeADoodleFrame :seed="4" color="#ef4444" class="ms-summary-card" sketch :shadow="false">
             <div class="ms-summary-card__inner">
               <div class="ms-summary-card__icon">📋</div>
@@ -95,13 +101,15 @@
           </SchemeADoodleFrame>
         </div>
 
-        <!-- 利润对比 -->
+        <!-- 利润对比卡片：预估与实际利润对比 + 差额 -->
         <SchemeADoodleFrame color="#6366f1" class="ms-profit-compare" sketch>
           <div class="ms-profit-compare__inner">
             <div class="ms-profit-compare__head">
               <span class="ms-profit-compare__title">📊 利润对比</span>
             </div>
+            <!-- 利润对比进度条区域 -->
             <div class="ms-profit-compare__bars">
+              <!-- 预估利润进度条 -->
               <div class="ms-profit-bar">
                 <span class="ms-profit-bar__label">预估</span>
                 <div class="ms-profit-bar__track">
@@ -109,6 +117,7 @@
                 </div>
                 <span class="ms-profit-bar__value">{{ formatMoney(aggregated.estimatedTotalProfit) }}</span>
               </div>
+              <!-- 实际利润进度条 -->
               <div class="ms-profit-bar">
                 <span class="ms-profit-bar__label">实际</span>
                 <div class="ms-profit-bar__track">
@@ -117,6 +126,7 @@
                 <span class="ms-profit-bar__value">{{ formatMoney(aggregated.actualTotalProfit) }}</span>
               </div>
             </div>
+            <!-- 预估与实际差额展示 -->
             <div class="ms-profit-compare__diff">
               <span class="ms-profit-compare__diff-label">预估 - 实际差额</span>
               <span class="ms-profit-compare__diff-value" :class="profitDiff >= 0 ? 'is-down' : 'is-up'">
@@ -126,14 +136,16 @@
           </div>
         </SchemeADoodleFrame>
 
-        <!-- 各店汇总 -->
+        <!-- 各店铺汇总区域：按店铺展示月结数据 -->
         <div class="ms-shop-section">
           <div class="ms-shop-section__head">
             <span class="ms-shop-section__title">🏪 各店汇总</span>
             <span class="ms-shop-section__count">{{ shops.length }} 家店铺</span>
           </div>
 
+          <!-- 店铺卡片列表 -->
           <div class="ms-shop-list">
+            <!-- 店铺月结卡片：展示单个店铺的月结数据 -->
             <SchemeADoodleFrame
               v-for="shop in shops"
               :key="shop.shopId"
@@ -143,6 +155,7 @@
               sketch
             >
               <div class="ms-shop-card__inner">
+                <!-- 店铺卡片头部：平台标签 + 店铺名称 + 利润率 -->
                 <div class="ms-shop-card__head">
                   <span
                     class="ms-shop-card__platform"
@@ -159,6 +172,7 @@
                   </span>
                 </div>
 
+                <!-- 店铺核心指标：营收/利润/订单数 -->
                 <div class="ms-shop-card__metrics">
                   <div class="ms-shop-card__metric">
                     <span class="ms-shop-card__metric-label">营收</span>
@@ -180,8 +194,10 @@
                   </div>
                 </div>
 
+                <!-- 分隔线 -->
                 <div class="ms-shop-card__divider"></div>
 
+                <!-- 成本行：预估成本 + 实际成本 -->
                 <div class="ms-shop-card__cost-row">
                   <div class="ms-shop-card__cost-item">
                     <span class="ms-shop-card__cost-label">预估成本</span>
@@ -203,6 +219,18 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 移动端月结统计视图组件
+ * 功能说明：
+ * - 月结统计的移动端入口页面
+ * - 支持按月份切换查看月结数据
+ * - 顶部展示汇总统计（总营业额、预估利润、实际利润、订单总数）
+ * - 利润对比区域：预估与实际利润对比及差额
+ * - 各店铺汇总列表：按店铺展示营收、利润、订单、成本等数据
+ * - 支持加载中、错误、无数据三种状态展示
+ * - 根据店铺名称自动识别平台并显示对应颜色
+ * - 使用手绘风格UI设计
+ */
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
@@ -216,35 +244,38 @@ import {
 
 const router = useRouter()
 
-const loading = ref(true)
-const error = ref('')
-const result = ref<MonthlySettlementResult | null>(null)
+const loading = ref(true) // 加载状态
+const error = ref('') // 错误信息
+const result = ref<MonthlySettlementResult | null>(null) // 月结数据结果
 
+// 格式化月份为 YYYY-MM 格式
 function formatMonth(d: Date) {
   const y = d.getFullYear()
   const m = `${d.getMonth() + 1}`.padStart(2, '0')
   return `${y}-${m}`
 }
 
-const orderMonth = ref(formatMonth(new Date()))
+const orderMonth = ref(formatMonth(new Date())) // 当前选中的月份
 
+// 店铺列表计算属性
 const shops = computed(() => result.value?.shops ?? [])
 
+// 汇总数据计算属性：聚合所有店铺的数据
 const aggregated = computed(() => {
   const list = shops.value
   return {
-    totalRevenue: list.reduce((s, shop) => s + (shop.totalRevenue ?? 0), 0),
-    estimatedTotalCost: list.reduce((s, shop) => s + (shop.estimatedTotalCost ?? 0), 0),
-    actualTotalCost: list.reduce((s, shop) => s + (shop.actualTotalCost ?? 0), 0),
-    estimatedTotalProfit: list.reduce((s, shop) => s + (shop.estimatedTotalProfit ?? 0), 0),
-    actualTotalProfit: list.reduce((s, shop) => s + (shop.actualTotalProfit ?? 0), 0),
-    includedOrderCount: list.reduce((s, shop) => s + (shop.includedOrderCount ?? 0), 0),
-    excludedOrderCount: list.reduce((s, shop) => s + (shop.excludedOrderCount ?? 0), 0),
-    pendingOrderCount: list.reduce((s, shop) => s + (shop.pendingOrderCount ?? 0), 0),
+    totalRevenue: list.reduce((s, shop) => s + (shop.totalRevenue ?? 0), 0), // 总营业额
+    estimatedTotalCost: list.reduce((s, shop) => s + (shop.estimatedTotalCost ?? 0), 0), // 预估总成本
+    actualTotalCost: list.reduce((s, shop) => s + (shop.actualTotalCost ?? 0), 0), // 实际总成本
+    estimatedTotalProfit: list.reduce((s, shop) => s + (shop.estimatedTotalProfit ?? 0), 0), // 预估总利润
+    actualTotalProfit: list.reduce((s, shop) => s + (shop.actualTotalProfit ?? 0), 0), // 实际总利润
+    includedOrderCount: list.reduce((s, shop) => s + (shop.includedOrderCount ?? 0), 0), // 已统计订单数
+    excludedOrderCount: list.reduce((s, shop) => s + (shop.excludedOrderCount ?? 0), 0), // 已排除订单数
+    pendingOrderCount: list.reduce((s, shop) => s + (shop.pendingOrderCount ?? 0), 0), // 待处理订单数
   }
 })
 
-/** 预估利润在最大参考值中的占比 */
+// 利润对比最大参考值：取预估和实际利润中的较大值
 const maxProfitRef = computed(() => {
   const max = Math.max(
     aggregated.value.estimatedTotalProfit,
@@ -254,18 +285,22 @@ const maxProfitRef = computed(() => {
   return max
 })
 
+// 预估利润占比百分比
 const estProfitPercent = computed(() =>
   Math.max(4, (aggregated.value.estimatedTotalProfit / maxProfitRef.value) * 100),
 )
 
+// 实际利润占比百分比
 const actualProfitPercent = computed(() =>
   Math.max(4, (aggregated.value.actualTotalProfit / maxProfitRef.value) * 100),
 )
 
+// 利润差额：预估 - 实际
 const profitDiff = computed(() =>
   aggregated.value.estimatedTotalProfit - aggregated.value.actualTotalProfit,
 )
 
+// 格式化金额：大于1万显示万单位
 function formatMoney(value?: number | null): string {
   const v = value ?? 0
   if (Math.abs(v) >= 10000) {
@@ -274,6 +309,7 @@ function formatMoney(value?: number | null): string {
   return '¥' + Math.round(v).toLocaleString('zh-CN')
 }
 
+// 计算店铺利润率
 function profitRate(shop: MonthlySettlementShopSummary): string {
   const revenue = shop.totalRevenue ?? 0
   if (revenue === 0) return '0.0'
@@ -281,6 +317,7 @@ function profitRate(shop: MonthlySettlementShopSummary): string {
   return rate.toFixed(1)
 }
 
+// 根据店铺名称获取平台颜色
 function getPlatformColor(shop: MonthlySettlementShopSummary): string {
   const name = shop.shopName ?? ''
   if (name.includes('淘宝') || name.includes('淘')) return '#ff6a00'
@@ -291,8 +328,8 @@ function getPlatformColor(shop: MonthlySettlementShopSummary): string {
   return colors[(shop.shopId ?? 0) % colors.length]
 }
 
+// 根据店铺名称获取卡片边框颜色
 function getCardColor(shop: MonthlySettlementShopSummary): string {
-  // 根据店铺名分配手绘边框颜色
   const name = shop.shopName ?? ''
   if (name.includes('淘宝') || name.includes('淘')) return '#2563eb'
   if (name.includes('京东')) return '#e1251b'
@@ -302,6 +339,7 @@ function getCardColor(shop: MonthlySettlementShopSummary): string {
   return colors[(shop.shopId ?? 0) % colors.length]
 }
 
+// 根据店铺名称获取平台标签文字
 function getPlatformLabel(shop: MonthlySettlementShopSummary): string {
   const name = shop.shopName ?? ''
   if (name.includes('淘宝') || name.includes('淘')) return '淘宝'
@@ -311,6 +349,7 @@ function getPlatformLabel(shop: MonthlySettlementShopSummary): string {
   return '店铺'
 }
 
+// 加载月结数据
 async function loadData(month: string) {
   loading.value = true
   error.value = ''
@@ -325,21 +364,25 @@ async function loadData(month: string) {
   }
 }
 
+// 切换月份：向前/向后切换
 function shiftMonth(delta: number) {
   const [y, m] = orderMonth.value.split('-').map(Number)
   const d = new Date(y, m - 1 + delta, 1)
   orderMonth.value = formatMonth(d)
 }
 
+// 返回上一页
 function goBack() {
   router.back()
 }
 
+// 监听月份变化：切换月份时重新加载数据
 watch(orderMonth, () => {
   result.value = null
   void loadData(orderMonth.value)
 })
 
+// 组件挂载：加载当前月份月结数据
 onMounted(() => {
   void loadData(orderMonth.value)
 })

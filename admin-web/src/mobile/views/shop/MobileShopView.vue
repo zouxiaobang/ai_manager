@@ -1,7 +1,10 @@
 <template>
+  <!-- 移动端店铺管理页主容器 -->
   <div v-loading="shop.loading.value" class="mobile-shop-view">
+    <!-- 顶部导航栏：返回按钮 + 页面标题 -->
     <div class="mobile-shop-view__header">
       <div class="mobile-shop-view__header-left">
+        <!-- 返回按钮：返回上一页 -->
         <MobileDoodleChip
           tag="button"
           type="button"
@@ -17,31 +20,38 @@
     </div>
 
     <div class="mobile-shop-view__content">
+      <!-- 搜索框：搜索店铺名称 -->
       <MobileDoodleSearch
         v-model="shop.searchQuery.value"
         placeholder="搜索店铺..."
       />
+      <!-- 平台分类标签：按平台筛选店铺 -->
       <MobileCategoryTabs
         :categories="shop.platformList.value"
         v-model:active-value="shop.activePlatformId.value"
       />
 
+      <!-- 店铺列表区域 -->
       <div class="mobile-shop-view__section">
+        <!-- 列表头部：平台名称 + 店铺数量 -->
         <MobileSectionHeader
           :icon="schemeAAssets.starYellow"
           :title="currentPlatformName"
           :count="shop.filteredShops.value.length"
         />
 
+        <!-- 店铺卡片网格 -->
         <MobileCardGrid
           :items="shop.filteredShops.value"
           empty-text="暂无店铺"
           @select="(item) => handleSelectShop(item as any)"
         >
+          <!-- 空状态模板：无店铺时展示 -->
           <template #empty>
             <span class="shop-empty__icon">📭</span>
             <span class="shop-empty__text">暂无店铺</span>
           </template>
+          <!-- 店铺卡片：展示单个店铺信息 -->
           <template #card="{ item }">
             <SchemeADoodleFrame
               tag="button"
@@ -78,11 +88,22 @@
       </div>
     </div>
 
+    <!-- 店铺详情底部弹窗：点击店铺卡片时弹出 -->
     <MobileShopInfoSheet v-model="shopInfoSheetOpen" :shop-id="selectedShopId" />
   </div>
 </template>
 
 <script setup lang="ts">
+/**
+ * 移动端店铺管理视图组件
+ * 功能说明：
+ * - 店铺管理的移动端入口页面
+ * - 支持按平台分类筛选店铺
+ * - 提供店铺搜索功能
+ * - 店铺以卡片网格形式展示，包含店铺图标、名称、平台、营业状态
+ * - 点击店铺可查看详情弹窗
+ * - 使用手绘风格UI设计
+ */
 import { computed, ref, onMounted } from 'vue'
 import { useMobileShop } from '@/mobile/views/shop/useMobileShop.ts'
 import MobileCardGrid from '@/mobile/components/MobileCardGrid.vue'
@@ -96,19 +117,21 @@ import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets.ts'
 import { resolveShopIcon } from '@/utils/shopVisual.ts'
 import type { EcShop } from '@/api/ecommerce/shop.ts'
 
-const shop = useMobileShop()
-const shopInfoSheetOpen = ref(false)
-const selectedShopId = ref<number | null>(null)
+const shop = useMobileShop() // 店铺业务逻辑组合函数
+const shopInfoSheetOpen = ref(false) // 店铺详情弹窗开关
+const selectedShopId = ref<number | null>(null) // 当前选中的店铺ID
 
+// 当前选中平台的名称
 const currentPlatformName = computed(() => {
   const platform = shop.platformList.value.find((p) => p.id === shop.activePlatformId.value)
   return platform ? platform.name : ''
 })
 
 onMounted(() => {
-  void shop.loadShops()
+  void shop.loadShops() // 组件挂载时加载店铺列表
 })
 
+// 处理店铺卡片点击：打开店铺详情弹窗
 function handleSelectShop(shopItem: EcShop) {
   selectedShopId.value = shopItem.id
   shopInfoSheetOpen.value = true

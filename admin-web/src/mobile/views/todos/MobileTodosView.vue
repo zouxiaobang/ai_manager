@@ -45,21 +45,36 @@
           <span class="ha-stat__label">逾期</span>
         </div>
       </div>
+
+      <!-- 置顶列表 -->
+      <div v-if="pinnedTodos.length" class="ha-pinned">
+        <div class="ha-pinned__head">📌 {{t('notebook.pin') }}</div>
+        <div class="ha-pinned__list">
+          <div
+            v-for="item in pinnedTodos"
+            :key="item.id"
+            class="ha-pinned__item"
+          >
+            <div class="ha-pinned__content">{{ item.content }}</div>
+            <div class="ha-pinned__meta">
+              <span v-if="item.dueTime" class="ha-pinned__time">{{ formatTime(item.dueTime) }}</span>
+              <span v-if="item.repeatType && item.repeatType !== 'NONE'" class="ha-pinned__tag">🔁</span>
+              <span v-if="item.remindTime" class="ha-pinned__tag">🔔</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 筛选标签 -->
-    <div class="ha-filter-tabs">
-      <button
-        v-for="tab in filterOptions"
-        :key="tab.key"
-        class="ha-filter-tab"
-        :class="{ active: activeFilter === tab.key }"
-        @click="setFilter(tab.key)"
-      >
-        <span class="ha-filter-tab__icon">{{ tab.icon }}</span>
-        <span class="ha-filter-tab__label">{{ tab.label }}</span>
-      </button>
-    </div>
+    <MobileCategoryTabs
+      :categories="filterOptions"
+      :active-value="activeFilter"
+      active-color="#2563eb"
+      inactive-color="#94a3b8"
+      fill-color="#2563eb"
+      @update:active-value="setFilter"
+    />
 
     <!-- 加载中 -->
     <div v-if="loading" class="ha-loading">
@@ -110,7 +125,7 @@
                 <span v-if="item.completed" class="ha-card-check__inner">✓</span>
                 <span v-else-if="togglingId === item.id" class="ha-card-check__spinner"></span>
               </button>
-              <div class="ha-card-body" @click="openEdit(item)">
+              <div class="ha-card-body" @click="openMenu(item)">
                 <span class="ha-card-body__text">{{ item.content }}</span>
                 <div class="ha-card-body__meta">
                   <span v-if="item.dueTime" class="ha-card-time" :class="{ overdue: isItemOverdue(item) }">
@@ -121,9 +136,16 @@
                   <span v-if="item.remindTime" class="ha-tag ha-tag--remind">🔔 {{ formatTime(item.remindTime) }}</span>
                 </div>
               </div>
-              <button class="ha-card-more" @click="openMenu(item)">⋮</button>
             </div>
           </SchemeADoodleFrame>
+          <!-- 已完成分组加载更多 -->
+          <button
+            v-if="group.key === 'done' && hasMoreDone"
+            class="ha-load-more"
+            @click="loadMoreDone"
+          >
+            加载更多
+          </button>
         </div>
       </div>
     </div>
@@ -146,23 +168,127 @@
     </div>
 
     <!-- 操作菜单 -->
+    <MobileBottomSheet v-model="menuVisible" :title="menuItem?.content ?? ''" show-close>
+      <button v-if="!menuItem?.completed" class="ha-menu-sheet__action" @click="openEditDialog">
+        修改
+      </button>
+      <button class="ha-menu-sheet__action" @click="togglePin">
+        {{ menuItem?.pinned ? '取消置顶' : '置顶' }}
+      </button>
+      <button class="ha-menu-sheet__action ha-menu-sheet__action--danger" @click="openDeleteDialog">
+        删除
+      </button>
+      <div class="ha-menu-sheet__divider"></div>
+      <button class="ha-menu-sheet__action ha-menu-sheet__action--cancel" @click="closeMenu">
+        取消
+      </button>
+    </MobileBottomSheet>
+
+    <!-- 编辑对话框 -->
+    <el-dialog
+      v-model="editVisible"
+      title="修改待办"
+      width="90%"
+      :close-on-click-modal="false"
+      top="20vh"
+    >
+      <div class="ha-edit-form">
+        <label class="ha-edit-form__label">内容</label>
+        <input
+          v-model="editForm.content"
+          class="ha-edit-form__input"
+          placeholder="待办内容"
+          type="text"
+        />
+
+        <label class="ha-edit-form__label">截止时间</label>
+        <input
+          v-model="editForm.dueTime"
+          class="ha-edit-form__input"
+          type="datetime-local"
+        />
+
+        <label class="ha-edit-form__label">提醒时间</label>
+        <input
+          v-model="editForm.remindTime"
+          class="ha-edit-form__input"
+          type="datetime-local"
+        />
+
+        <label class="ha-edit-form__label">重复</label>
+        <div class="ha-edit-form__repeat-group">
+          <button
+            v-for="rt in repeatTypeOptions"
+            :key="rt.value"
+            class="ha-edit-form__repeat-btn"
+            :class="{ active: editForm.repeatType === rt.value }"
+            @click="editForm.repeatType = rt.value"
+          >
+            {{ rt.label }}
+          </button>
+        </div>
+      </div>
+      <template #footer>
+        <button class="ha-edit-form__cancel" @click="editVisible = false">取消</button>
+        <button class="ha-edit-form__confirm" @click="saveEdit">保存</button>
+      </template>
+    </el-dialog>
+
+    <!-- 删除确认弹窗 -->
     <Teleport to="body">
-      <div v-if="menuVisible" class="ha-menu-overlay" @click="closeMenu"></div>
-      <Transition name="ha-slide">
-        <div v-if="menuVisible" class="ha-menu-sheet">
-          <div class="ha-menu-sheet__handle"></div>
-          <div class="ha-menu-sheet__title">{{ menuItem?.content }}</div>
-          <div class="ha-menu-sheet__divider"></div>
-          <button class="ha-menu-sheet__action" @click="togglePin">
-            {{ menuItem?.pinned ? '取消置顶' : '置顶' }}
-          </button>
-          <button class="ha-menu-sheet__action ha-menu-sheet__action--danger" @click="deleteTodo">
-            删除
-          </button>
-          <div class="ha-menu-sheet__divider"></div>
-          <button class="ha-menu-sheet__action ha-menu-sheet__action--cancel" @click="closeMenu">
-            取消
-          </button>
+      <Transition name="todo-delete-confirm">
+        <div
+          v-if="deleteTarget"
+          class="todo-delete-confirm"
+          @click.self="cancelDelete"
+        >
+          <SchemeADoodleFrame
+            class="todo-delete-confirm__panel"
+            color="#cbd5e1"
+            :shadow="false"
+            :seed="42"
+            role="alertdialog"
+            aria-modal="true"
+          >
+            <div class="todo-delete-confirm__inner">
+              <div class="todo-delete-confirm__title-row">
+                <img class="todo-delete-confirm__icon" :src="schemeAAssets.starBlue" alt="" />
+                <h2 class="todo-delete-confirm__title">删除待办</h2>
+              </div>
+
+              <p class="todo-delete-confirm__message">
+                确定删除「{{ deleteTarget.content }}」吗？
+              </p>
+
+              <div class="todo-delete-confirm__actions">
+                <SchemeADoodleFrame
+                  tag="button"
+                  type="button"
+                  shape="pill"
+                  color="#cbd5e1"
+                  :shadow="false"
+                  class="todo-delete-confirm__btn todo-delete-confirm__btn--cancel"
+                  @click="cancelDelete"
+                >
+                  取消
+                </SchemeADoodleFrame>
+                <SchemeADoodleFrame
+                  tag="button"
+                  type="button"
+                  shape="pill"
+                  color="#ef4444"
+                  :shadow="false"
+                  :sketch="true"
+                  class="todo-delete-confirm__btn todo-delete-confirm__btn--confirm"
+                  :class="{ 'is-disabled': deleting }"
+                  :disabled="deleting"
+                  @click="confirmDelete"
+                >
+                  确认
+                </SchemeADoodleFrame>
+              </div>
+            </div>
+          </SchemeADoodleFrame>
         </div>
       </Transition>
     </Teleport>
@@ -171,7 +297,7 @@
 
 <script setup lang="ts">
 import {computed, onMounted, reactive, ref} from 'vue'
-import {ElMessage, ElMessageBox} from 'element-plus'
+import {ElMessage} from 'element-plus'
 import {useI18n} from 'vue-i18n'
 import type {NbTodoItem, NbTodoSaveRequest} from '@/api/notebook/todo'
 import {
@@ -183,6 +309,10 @@ import {
 import {formatDateTime, isOverdue, isToday} from '@/views/notebook/todoGroup'
 import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
 import {doodleSeedFromKey} from '@/mobile/utils/doodleSeed'
+import {schemeAAssets} from '@/mobile/views/home/themes/scheme-a/assets'
+import MobileCategoryTabs from '@/mobile/components/MobileCategoryTabs.vue'
+import type {CategoryItem} from '@/mobile/components/MobileCategoryTabs.vue'
+import MobileBottomSheet from '@/mobile/components/MobileBottomSheet.vue'
 
 const { t } = useI18n()
 
@@ -203,12 +333,30 @@ const newContent = ref('')
 const menuVisible = ref(false)
 const menuItem = ref<NbTodoItem | null>(null)
 
-const filterOptions = [
-  { key: 'all', icon: '📋', label: '全部' },
-  { key: 'today', icon: '📅', label: '今日' },
-  { key: 'overdue', icon: '⚠️', label: '逾期' },
-  { key: 'done', icon: '✅', label: '已完成' },
+// 删除确认
+const deleteTarget = ref<NbTodoItem | null>(null)
+const deleting = ref(false)
+
+const filterOptions: CategoryItem[] = [
+  { id: 'all', icon: '📋', name: '全部' },
+  { id: 'today', icon: '📅', name: '今日' },
+  { id: 'overdue', icon: '⚠️', name: '逾期' },
+  { id: 'upcoming', icon: '🟢', name: '未来' },
+  { id: 'unscheduled', icon: '⚪', name: '未安排' },
+  { id: 'done', icon: '✅', name: '已完成' },
 ]
+
+const donePageSize = 20
+const donePage = ref(1)
+
+const hasMoreDone = computed(() => {
+  const allDone = todos.value.filter(t => t.completed)
+  return allDone.length > donePage.value * donePageSize
+})
+
+function loadMoreDone() {
+  donePage.value++
+}
 
 // ---- 问候语 ----
 const hour = new Date().getHours()
@@ -216,6 +364,7 @@ const greetingText = hour < 6 ? '夜深了' : hour < 9 ? '早上好' : hour < 12
 const greetingEmoji = hour < 6 ? '🌙' : hour < 9 ? '☀️' : hour < 12 ? '☀️' : hour < 14 ? '🌤' : hour < 18 ? '🌇' : '🌆'
 
 // ---- 统计计算 ----
+const pinnedTodos = computed(() => todos.value.filter(t => t.pinned))
 const pendingCount = computed(() => todos.value.filter(t => !t.completed).length)
 const todayCount = computed(() => todos.value.filter(t => !t.completed && (isToday(t.dueTime) || isToday(t.remindTime))).length)
 const overdueCount = computed(() => todos.value.filter(t => !t.completed && isOverdue(t)).length)
@@ -223,21 +372,26 @@ const doneCount = computed(() => todos.value.filter(t => t.completed).length)
 const doneRatio = computed(() => todos.value.length ? Math.round((doneCount.value / todos.value.length) * 100) : 0)
 const ringOffset = computed(() => 138.2 - (138.2 * doneRatio.value) / 100)
 
+// ---- 排序 ----
+function sortTodos(list: NbTodoItem[]): NbTodoItem[] {
+  return list.sort((a, b) => {
+    // 置顶优先，逾期其次，然后按 sortOrder
+    const pa = a.pinned ? 1 : 0
+    const pb = b.pinned ? 1 : 0
+    if (pa !== pb) return pb - pa
+    const oa = isOverdue(a) ? 1 : 0
+    const ob = isOverdue(b) ? 1 : 0
+    if (oa !== ob) return ob - oa
+    return (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
+  })
+}
+
 // ---- 加载数据 ----
 async function loadTodos() {
   loading.value = true
   try {
     const data = await fetchTodos()
-    todos.value = data.sort((a, b) => {
-      // 置顶优先，逾期其次，然后按 sortOrder
-      const pa = a.pinned ? 1 : 0
-      const pb = b.pinned ? 1 : 0
-      if (pa !== pb) return pb - pa
-      const oa = isOverdue(a) ? 1 : 0
-      const ob = isOverdue(b) ? 1 : 0
-      if (oa !== ob) return ob - oa
-      return (a.sortOrder ?? 0) - (b.sortOrder ?? 0)
-    })
+    todos.value = sortTodos(data)
   } catch {
     ElMessage.error(t('notebook.todos.loadFailed'))
   } finally {
@@ -261,24 +415,41 @@ function groupTodos(items: NbTodoItem[]): { key: string; items: NbTodoItem[] }[]
 const visibleGroups = computed(() => {
   let result = groupTodos(todos.value)
   if (activeFilter.value === 'today') {
-    result = result.filter(g => g.key === 'today' || g.key === 'overdue')
+    result = result.filter(g => g.key === 'today')
   } else if (activeFilter.value === 'overdue') {
     result = result.filter(g => g.key === 'overdue')
+  } else if (activeFilter.value === 'upcoming') {
+    result = result.filter(g => g.key === 'upcoming')
+  } else if (activeFilter.value === 'unscheduled') {
+    result = result.filter(g => g.key === 'unscheduled')
   } else if (activeFilter.value === 'done') {
     result = result.filter(g => g.key === 'done')
   }
-  return result
+  // 已完成分组按页数截取
+  return result.map(g => {
+    if (g.key === 'done') {
+      return { ...g, items: g.items.slice(0, donePage.value * donePageSize) }
+    }
+    return g
+  })
 })
 
 // ---- 过滤 ----
 function setFilter(key: string) {
   activeFilter.value = key
-  // 切换 filter 时自动展开逾期组
+  // 切换 filter 时自动展开对应组
   if (key === 'overdue' || key === 'today') {
     collapsedGroups.delete('overdue')
   }
   if (key === 'done') {
     collapsedGroups.delete('done')
+    donePage.value = 1
+  }
+  if (key === 'upcoming') {
+    collapsedGroups.delete('upcoming')
+  }
+  if (key === 'unscheduled') {
+    collapsedGroups.delete('unscheduled')
   }
 }
 
@@ -359,12 +530,68 @@ async function createTodo() {
   }
 }
 
-// ---- 点击卡片 ----
-function openEdit(item: NbTodoItem) {
-  openMenu(item)
+// ---- 编辑对话框 ----
+const editVisible = ref(false)
+const editForm = reactive({
+  content: '',
+  dueTime: '',
+  remindTime: '',
+  repeatType: 'NONE',
+})
+
+const repeatTypeOptions = [
+  { value: 'NONE', label: '不重复' },
+  { value: 'DAILY', label: '每天' },
+  { value: 'WEEKLY', label: '每周' },
+  { value: 'MONTHLY', label: '每月' },
+  { value: 'YEARLY', label: '每年' },
+]
+
+function toDatetimeLocal(value?: string | null): string {
+  if (!value) return ''
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return ''
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-// ---- 菜单 ----
+function openEditDialog() {
+  if (!menuItem.value) return
+  if (menuItem.value.completed) return
+  menuVisible.value = false
+  editForm.content = menuItem.value.content
+  editForm.dueTime = toDatetimeLocal(menuItem.value.dueTime)
+  editForm.remindTime = toDatetimeLocal(menuItem.value.remindTime)
+  editForm.repeatType = menuItem.value.repeatType ?? 'NONE'
+  editVisible.value = true
+}
+
+async function saveEdit() {
+  if (!menuItem.value) return
+  if (menuItem.value.completed) return
+  if (!editForm.content.trim()) {
+    ElMessage.warning('内容不能为空')
+    return
+  }
+  const body: NbTodoSaveRequest = {
+    content: editForm.content.trim(),
+    dueTime: editForm.dueTime ? editForm.dueTime + ':00' : null,
+    clearDueTime: !editForm.dueTime,
+    remindTime: editForm.remindTime ? editForm.remindTime + ':00' : null,
+    clearRemindTime: !editForm.remindTime,
+    repeatType: editForm.repeatType === 'NONE' ? 'NONE' : editForm.repeatType,
+  }
+  try {
+    const result = await apiUpdateTodo(menuItem.value.id, body)
+    Object.assign(menuItem.value, result.item)
+    ElMessage.success('已修改')
+    editVisible.value = false
+  } catch {
+    ElMessage.error(t('notebook.todos.saveFailed'))
+  }
+}
+
+// ---- 点击卡片 ----
 function openMenu(item: NbTodoItem) {
   menuItem.value = item
   menuVisible.value = true
@@ -382,26 +609,34 @@ async function togglePin() {
   try {
     const result = await apiUpdateTodo(item.id, { pinned: !item.pinned })
     item.pinned = result.item.pinned
+    sortTodos(todos.value)
   } catch {
     ElMessage.error(t('notebook.todos.saveFailed'))
   }
 }
 
-async function deleteTodo() {
+function openDeleteDialog() {
   if (!menuItem.value) return
-  const item = menuItem.value
+  deleteTarget.value = menuItem.value
   menuVisible.value = false
+}
+
+function cancelDelete() {
+  deleteTarget.value = null
+}
+
+async function confirmDelete() {
+  if (!deleteTarget.value || deleting.value) return
+  deleting.value = true
   try {
-    await ElMessageBox.confirm(t('notebook.todos.deleteConfirm'), t('common.confirm'), {
-      confirmButtonText: t('common.confirm'),
-      cancelButtonText: t('common.cancel'),
-      type: 'warning',
-    })
-    await apiRemoveTodo(item.id)
-    todos.value = todos.value.filter(t => t.id !== item.id)
+    await apiRemoveTodo(deleteTarget.value.id)
+    todos.value = todos.value.filter(t => t.id !== deleteTarget.value!.id)
     ElMessage.success(t('notebook.todos.deleted'))
+    deleteTarget.value = null
   } catch {
-    // canceled or error
+    ElMessage.error(t('notebook.todos.saveFailed'))
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -414,7 +649,7 @@ onMounted(() => {
 <style scoped lang="scss">
 .mobile-todos {
   min-height: calc(100vh - 56px);
-  background: #faf8f5;
+  background: #fff;
   padding: 16px;
   padding-bottom: 80px;
   overflow-y: auto;
@@ -471,6 +706,7 @@ onMounted(() => {
 // ---- 统计卡片 ----
 .ha-stats-card {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 18px;
   background: white;
@@ -537,43 +773,69 @@ onMounted(() => {
   background: #e2e8f0;
 }
 
-// ---- 筛选标签 ----
-.ha-filter-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 14px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-
-  &::-webkit-scrollbar { display: none; }
+// ---- 置顶列表 ----
+.ha-pinned {
+  width: 100%;
+  padding-top: 8px;
+  border-top: 2px dashed #e2e8f0;
 }
 
-.ha-filter-tab {
-  flex-shrink: 0;
+.ha-pinned__head {
+  font-family: 'ZCOOL KuaiLe', sans-serif;
+  font-size: 15px;
+  margin-bottom: 8px;
+  font-weight: 700;
+  color: #9b0000;
+}
+
+.ha-pinned__list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ha-pinned__item {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 7px 16px;
-  border-radius: 999px;
-  border: 2px solid #e2e8f0;
-  background: white;
+  justify-content: space-between;
+  gap: 8px;
+  background: #fef9e7;
+  border-radius: 12px;
+  padding: 4px 24px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  font: inherit;
+  transition: transform 0.15s ease;
 
-  &.active {
-    border-color: #2563eb;
-    background: #eff6ff;
+  &:active {
+    transform: scale(0.98);
   }
 }
 
-.ha-filter-tab__icon { font-size: 13px; }
-
-.ha-filter-tab__label {
-  font-family: 'ZCOOL KuaiLe', sans-serif;
-  font-size: 13px;
+.ha-pinned__content {
+  font-size: 14px;
   color: #1e293b;
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ha-pinned__meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.ha-pinned__time {
+  font-size: 11px;
+  color: #d97706;
+  font-weight: 600;
+}
+
+.ha-pinned__tag {
+  font-size: 13px;
 }
 
 // ---- 加载 & 空状态 ----
@@ -699,7 +961,7 @@ onMounted(() => {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 12px 24px;
 }
 
 .ha-card-check {
@@ -771,6 +1033,32 @@ onMounted(() => {
   &.overdue {
     color: #ef4444;
     font-weight: 600;
+  }
+}
+
+.ha-load-more {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  margin-top: 8px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  background: transparent;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'ZCOOL KuaiLe', sans-serif;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: #f1f5f9;
+    color: #475569;
+  }
+
+  &:active {
+    background: #e2e8f0;
   }
 }
 
@@ -857,42 +1145,6 @@ onMounted(() => {
 }
 
 // ---- 底部操作菜单 ----
-.ha-menu-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 100;
-}
-
-.ha-menu-sheet {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: white;
-  border-radius: 20px 20px 0 0;
-  z-index: 101;
-  padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px));
-}
-
-.ha-menu-sheet__handle {
-  width: 36px;
-  height: 4px;
-  border-radius: 999px;
-  background: #e2e8f0;
-  margin: 0 auto 16px;
-}
-
-.ha-menu-sheet__title {
-  font-size: 15px;
-  color: #1e293b;
-  font-weight: 600;
-  margin-bottom: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .ha-menu-sheet__divider {
   height: 1px;
   background: #f1f5f9;
@@ -918,14 +1170,209 @@ onMounted(() => {
   }
 }
 
-// ---- Transition ----
-.ha-slide-enter-active,
-.ha-slide-leave-active {
-  transition: transform 0.3s ease;
+// ---- 编辑对话框 ----
+.ha-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
 }
 
-.ha-slide-enter-from,
-.ha-slide-leave-to {
-  transform: translateY(100%);
+.ha-edit-form__label {
+  font-family: 'ZCOOL KuaiLe', sans-serif;
+  font-size: 14px;
+  color: #1e293b;
+}
+
+.ha-edit-form__input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #1e293b;
+  outline: none;
+  box-sizing: border-box;
+  font-family: inherit;
+
+  &:focus {
+    border-color: #2563eb;
+  }
+}
+
+.ha-edit-form__repeat-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ha-edit-form__repeat-btn {
+  padding: 6px 14px;
+  border: 2px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13px;
+  font-family: 'ZCOOL KuaiLe', sans-serif;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &.active {
+    border-color: #2563eb;
+    background: #eff6ff;
+    color: #2563eb;
+    font-weight: 700;
+  }
+}
+
+.ha-edit-form__cancel {
+  padding: 8px 20px;
+  border: 2px solid #e2e8f0;
+  border-radius: 999px;
+  background: #fff;
+  color: #64748b;
+  font-size: 14px;
+  font-family: 'ZCOOL KuaiLe', sans-serif;
+  cursor: pointer;
+}
+
+.ha-edit-form__confirm {
+  padding: 8px 24px;
+  border: none;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'ZCOOL KuaiLe', sans-serif;
+  cursor: pointer;
+  margin-left: 8px;
+}
+
+// 编辑对话框 body 禁止内容溢出
+:deep(.el-dialog__body) {
+  overflow: hidden;
+}
+
+// ---- 删除确认弹窗 ----
+.todo-delete-confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 20px;
+  background: rgb(15 23 42 / 45%);
+}
+
+.todo-delete-confirm__panel {
+  width: min(100%, 320px);
+
+  :deep(.sa-doodle-frame__body) {
+    padding: 6px 6px 8px;
+  }
+}
+
+.todo-delete-confirm__inner {
+  padding: 16px 14px 14px;
+  font-family: 'ZCOOL KuaiLe', 'Alibaba PuHuiTi', 'PingFang SC', sans-serif;
+  text-align: center;
+}
+
+.todo-delete-confirm__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.todo-delete-confirm__icon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.todo-delete-confirm__title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.todo-delete-confirm__message {
+  margin: 0 0 18px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #64748b;
+  word-break: break-all;
+}
+
+.todo-delete-confirm__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.todo-delete-confirm__btn {
+  flex: 1;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.14s ease;
+
+  &:active:not(.is-disabled) {
+    transform: scale(0.97);
+  }
+
+  :deep(.sa-doodle-frame__body) {
+    padding: 11px 10px;
+    text-align: center;
+  }
+
+  &--cancel {
+    color: #64748b;
+  }
+
+  &--confirm {
+    background: #ef4444;
+    color: #fff;
+
+    :deep(.sa-doodle-frame__body) {
+      position: relative;
+      z-index: 3;
+      color: #fff;
+    }
+  }
+
+  &.is-disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.todo-delete-confirm-enter-active,
+.todo-delete-confirm-leave-active {
+  transition: opacity 0.2s ease;
+
+  .todo-delete-confirm__panel {
+    transition: transform 0.22s ease, opacity 0.22s ease;
+  }
+}
+
+.todo-delete-confirm-enter-from,
+.todo-delete-confirm-leave-to {
+  opacity: 0;
+
+  .todo-delete-confirm__panel {
+    transform: scale(0.92);
+    opacity: 0;
+  }
 }
 </style>

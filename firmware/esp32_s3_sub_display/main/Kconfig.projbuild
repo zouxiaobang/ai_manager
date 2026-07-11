@@ -14,7 +14,7 @@ menu "Pomodoro PC Sync"
 
     config POMO_API_HOST
         string "Backend host (fallback if no SD config)"
-        default "192.168.1.100"
+        default "192.168.0.122"
         depends on POMO_SYNC_ENABLE
         help
             IP (192.168.x.x) or hostname (MYPC.local).
@@ -34,5 +34,28 @@ menu "Pomodoro PC Sync"
         string "WiFi password"
         default "YOUR_PASSWORD"
         depends on POMO_SYNC_ENABLE
+
+endmenu
+
+menu "Pixel Dog"
+
+    config PIXEL_DOG_SYNC_ENABLE
+        bool "Enable pixel dog backend sync (WiFi + HTTP)"
+        default y
+        help
+            Sync pixel dog state with admin-backend via LAN.
+
+    config PIXEL_DOG_API_HOST
+        string "Pixel Dog backend host (fallback if no SD config)"
+        default "192.168.0.122"
+        depends on PIXEL_DOG_SYNC_ENABLE
+        help
+            IP (192.168.x.x) or hostname (MYPC.local).
+            Overridden by SD card config/pixel_dog_host.txt when present.
+
+    config PIXEL_DOG_API_PORT
+        int "Pixel Dog backend HTTP port"
+        default 8080
+        depends on PIXEL_DOG_SYNC_ENABLE
 
 endmenu

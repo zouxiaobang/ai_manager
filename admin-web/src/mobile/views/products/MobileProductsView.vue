@@ -1,9 +1,11 @@
 <template>
+  <!-- 移动端商品中心页主容器 -->
   <div class="mobile-products-view">
 
-    <!-- 头部 -->
+    <!-- 顶部导航栏：返回按钮 + 页面标题 -->
     <div class="mobile-products-view__header">
       <div class="mobile-products-view__header-left">
+        <!-- 返回按钮：返回上一页 -->
         <MobileDoodleChip
           tag="button" type="button"
           shape="pill" color="#2563eb"
@@ -16,20 +18,23 @@
       </div>
     </div>
 
-    <!-- 装饰：星星 -->
+    <!-- 装饰元素：星星装饰（纯视觉装饰） -->
     <img class="mobile-products-view__deco mobile-products-view__deco--star-1" :src="schemeAAssets.starYellow" alt="" />
     <img class="mobile-products-view__deco mobile-products-view__deco--star-2" :src="schemeAAssets.starBlue" alt="" />
 
+    <!-- 主内容区域：加载状态 + 概览卡片 + 搜索 + 工厂切换 + 商品列表 -->
     <div v-loading="products.loading.value" class="mobile-products-view__content">
-      <!-- 概览卡片 -->
+      <!-- 概览统计卡片：SPU/SKU/工厂数量 + 启用率进度条 -->
       <SchemeADoodleFrame color="#2563eb" class="products-overview" sketch :stroke-width="2.5">
         <img class="products-overview__clip" :src="schemeAAssets.paperclip" alt="" />
         <div class="products-overview__inner">
+          <!-- 概览卡片头部：图标 + 标题 -->
           <div class="products-overview__header">
             <img class="products-overview__icon" :src="schemeAAssets.starYellow" alt="" />
             <span class="products-overview__title">按工厂维度管理商品</span>
           </div>
 
+          <!-- 统计数据区域：SPU/SKU/工厂三个统计项 -->
           <div class="products-overview__stats">
             <div class="products-overview__stat">
               <div class="products-overview__stat-val">{{ products.stats.totalProducts }}</div>
@@ -45,8 +50,10 @@
             </div>
           </div>
 
+          <!-- 分隔线：虚线分隔 -->
           <div class="products-overview__divider" />
 
+          <!-- 启用率进度条区域：商品启用率展示 -->
           <div class="products-overview__health">
             <span class="products-overview__health-label">启用率</span>
             <div class="products-overview__health-bar">
@@ -60,25 +67,36 @@
         </div>
       </SchemeADoodleFrame>
 
-      <!-- 搜索 -->
+      <!-- 搜索框：搜索商品名称/工厂 -->
       <MobileDoodleSearch
         v-model="products.searchQuery.value"
         placeholder="搜索商品名称 / 工厂..."
       />
 
-      <!-- 工厂切换标签 -->
+      <!-- 工厂切换标签：按工厂筛选商品 -->
       <ProductsFactorySelect />
 
-      <!-- 按工厂分组的商品卡片 -->
+      <!-- 按工厂分组的商品卡片网格 -->
       <ProductsFactoryGrid />
     </div>
 
-    <!-- 商品详情弹窗 -->
+    <!-- 商品详情弹窗：点击商品卡片时弹出详情 -->
     <ProductsDetailSheet />
   </div>
 </template>
 
 <script setup lang="ts">
+/**
+ * 移动端商品中心视图组件
+ * 功能说明：
+ * - 商品管理的移动端入口页面，按工厂维度组织商品
+ * - 顶部展示统计概览（SPU数量、SKU数量、工厂数量、启用率）
+ * - 提供商品搜索功能（按商品名称、工厂搜索）
+ * - 支持按工厂切换筛选商品
+ * - 商品以工厂分组的卡片网格形式展示
+ * - 点击商品可查看详情弹窗
+ * - 使用手绘风格UI设计
+ */
 import { computed, onMounted, provide } from 'vue'
 import { MOBILE_PRODUCTS_KEY } from './productsContext'
 import { useMobileProducts } from './useMobileProducts'
@@ -90,16 +108,16 @@ import MobileDoodleSearch from '@/mobile/components/MobileDoodleSearch.vue'
 import MobileDoodleChip from '@/mobile/components/MobileDoodleChip.vue'
 import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets'
 
-const products = useMobileProducts()
-provide(MOBILE_PRODUCTS_KEY, products)
+const products = useMobileProducts() // 商品业务逻辑组合函数
+provide(MOBILE_PRODUCTS_KEY, products) // 向下提供商品上下文
 
-const total = computed(() => products.stats.enabledCount + products.stats.disabledCount)
-const healthEnabledPct = computed(() =>
+const total = computed(() => products.stats.enabledCount + products.stats.disabledCount) // 商品总数
+const healthEnabledPct = computed(() => // 商品启用率百分比
   total.value === 0 ? 0 : Math.round((products.stats.enabledCount / total.value) * 100),
 )
 
 onMounted(() => {
-  void products.init()
+  void products.init() // 组件挂载时初始化商品数据
 })
 </script>
 

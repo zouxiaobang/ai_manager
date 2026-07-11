@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-/* GB2312 font parts (fallback chain 0 -> 1 -> ... -> 7). */
+/* GB2312 font parts (fallback chain). Auto-generated. */
 extern const lv_font_t lv_font_cn_gb2312_16_0;
 extern const lv_font_t lv_font_cn_gb2312_16_1;
 extern const lv_font_t lv_font_cn_gb2312_16_2;

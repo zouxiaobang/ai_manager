@@ -1,7 +1,10 @@
 <template>
+  <!-- 移动端库存中心页主容器 -->
   <div v-loading="loading" class="mobile-inventory-view">
+    <!-- 顶部导航栏：返回按钮 + 页面标题 -->
     <div class="mobile-inventory-view__header">
       <div class="mobile-inventory-view__header-left">
+        <!-- 返回按钮：返回上一页 -->
         <MobileDoodleChip
           tag="button"
           type="button"
@@ -17,14 +20,16 @@
     </div>
 
     <div class="mobile-inventory-view__content">
-      <!-- 数据概览卡片 -->
+      <!-- 数据概览卡片：SKU数/总数量/库存价值 + 健康度进度条 -->
       <SchemeADoodleFrame color="#2563eb" class="data-overview-card" sketch :stroke-width="2">
         <div class="data-overview-card__inner">
+          <!-- 概览卡片头部：图标 + 标题 -->
           <div class="data-overview-card__header">
             <span class="data-overview-card__icon">📊</span>
             <span class="data-overview-card__title">库存概览</span>
           </div>
 
+          <!-- 统计数据区域：SKU数/总数量/库存价值三个统计项 -->
           <div class="data-overview-card__stats">
             <div class="data-overview-card__stat">
               <div class="data-overview-card__stat-value">{{ summary.skuCount }}</div>
@@ -40,8 +45,10 @@
             </div>
           </div>
 
+          <!-- 分隔线 -->
           <div class="data-overview-card__divider"></div>
 
+          <!-- 库存健康度进度条区域：正常/不足/缺货三项占比 -->
           <div class="data-overview-card__progress">
             <div class="data-overview-card__progress-row">
               <span class="data-overview-card__progress-label">正常</span>
@@ -78,8 +85,9 @@
       </SchemeADoodleFrame>
 
 
-      <!-- 库存预警区 -->
+      <!-- 库存预警区域：可折叠的预警商品列表 -->
       <div v-if="alertItems.length > 0" class="mobile-inventory-view__section">
+        <!-- 可折叠头部：点击展开/收起预警列表 -->
         <div class="collapsible-header" @click="alertExpanded = !alertExpanded">
           <MobileSectionHeader :icon="schemeAAssets.squiggleRed" title="库存预警">
             <template #actions>
@@ -94,9 +102,12 @@
           </MobileSectionHeader>
         </div>
 
+        <!-- 预警列表折叠动画 -->
         <transition name="alert-collapse">
           <div v-show="alertExpanded">
+            <!-- 预警商品卡片网格 -->
             <MobileCardGrid :items="alertItems" empty-text="">
+              <!-- 预警商品卡片：展示预警商品信息 -->
               <template #card="{ item }">
                 <SchemeADoodleFrame
                     :key="item.id"
@@ -125,7 +136,7 @@
         </transition>
       </div>
 
-      <!-- 状态筛选标签 -->
+      <!-- 库存状态标签栏：按状态筛选库存（全部/正常/不足/缺货） -->
       <MobileCategoryTabs
           :categories="statusTabs"
           v-model:active-value="activeStatus"
@@ -133,14 +144,15 @@
           inactive-color="#94a3b8"
       />
 
-      <!-- 搜索框 -->
+      <!-- 搜索框：搜索SKU编码或产品名称 -->
       <MobileDoodleSearch
         v-model="keyword"
         placeholder="搜索 SKU 编码或产品名称..."
       />
 
-      <!-- 商品库存列表 -->
+      <!-- 商品库存列表区域：可折叠的库存卡片列表 -->
       <div class="mobile-inventory-view__section">
+        <!-- 可折叠头部：点击展开/收起库存列表 -->
         <div class="collapsible-header" @click="inventoryListExpanded = !inventoryListExpanded">
           <MobileSectionHeader
             :icon="schemeAAssets.starBlue"
@@ -159,12 +171,15 @@
         </div>
 
         <template v-if="inventoryListExpanded">
+          <!-- 列表加载中状态 -->
           <div v-if="loadingList && !displayItems.length" class="list-loading">
             <span>加载中...</span>
           </div>
 
           <template v-else>
+            <!-- 库存卡片列表 -->
             <div class="inventory-list">
+            <!-- 库存卡片：展示单条库存信息 -->
             <SchemeADoodleFrame
               v-for="item in displayItems"
               :key="item.id"
@@ -177,7 +192,7 @@
               @click="handleItemClick(item)"
             >
               <div class="inventory-card__inner">
-                <!-- SKU 编码 + 名称 -->
+                <!-- 库存卡片头部：SKU编码 + 产品名称 + 状态标签 -->
                 <div class="inventory-card__head">
                   <div class="inventory-card__sku">
                     <span class="inventory-card__code">{{ item.skuCode }}</span>
@@ -193,10 +208,10 @@
                   </span>
                 </div>
 
-                <!-- 库存数量 -->
+                <!-- 库存数量：大字号展示 -->
                 <div class="inventory-card__qty">{{ item.quantity ?? 0 }}</div>
 
-                <!-- 在途 + 库存价值 -->
+                <!-- 在途数量 + 库存价值 -->
                 <div class="inventory-card__meta">
                   <span class="inventory-card__meta-item">
                     在途 {{ item.inTransitQty ?? 0 }}
@@ -206,7 +221,7 @@
                   <span class="inventory-card__value">¥{{ stockValue(item) }}</span>
                 </div>
 
-                <!-- 库存水位进度条 -->
+                <!-- 库存水位进度条：可视化库存水平 -->
                 <div class="inventory-card__progress">
                   <div class="inventory-card__progress-bar">
                     <span
@@ -224,12 +239,13 @@
             </SchemeADoodleFrame>
           </div>
 
+          <!-- 空状态：暂无库存数据 -->
           <div v-if="!displayItems.length" class="empty-state">
             <span class="empty-state__icon">📭</span>
             <span class="empty-state__text">暂无库存数据</span>
           </div>
 
-          <!-- 加载更多 -->
+          <!-- 加载更多按钮：分页加载更多库存数据 -->
           <div v-if="hasMore" class="load-more">
             <MobileDoodleChip
               tag="button" type="button"
@@ -245,10 +261,12 @@
       </div>
     </div>
 
-    <!-- SPU 详情弹窗 -->
+    <!-- SPU详情底部弹窗：展示SPU下所有SKU库存信息 -->
     <MobileBottomSheet v-model="skuSheetVisible" :title="skuSheetTitle" :loading="skuSheetLoading">
       <template v-if="skuSheetItems.length">
+        <!-- SKU列表 -->
         <div class="sku-sheet-list">
+          <!-- SKU卡片：展示单条SKU库存详情 -->
           <SchemeADoodleFrame
             v-for="sku in skuSheetItems"
             :key="sku.id"
@@ -270,10 +288,12 @@
                  <span>📷</span>
                </div>
                <div class="sku-sheet-card__main">
+                 <!-- SKU卡片头部：编码 + 规格 -->
                  <div class="sku-sheet-card__head">
                    <span class="sku-sheet-card__code">{{ sku.skuCode }}</span>
                    <span class="sku-sheet-card__spec">{{ sku.specName || '—' }}</span>
                  </div>
+                 <!-- SKU卡片主体：库存/在途数量 + 调整按钮 -->
                  <div class="sku-sheet-card__body">
                    <div class="sku-sheet-card__info">
                      <span class="sku-sheet-card__label">库存</span>
@@ -282,6 +302,7 @@
                      <span class="sku-sheet-card__label">在途</span>
                      <strong class="sku-sheet-card__qty">{{ sku.inTransitQty ?? 0 }}</strong>
                    </div>
+                   <!-- 库存调整按钮：打开调整弹窗 -->
                    <button
                      type="button"
                      class="sku-sheet-card__adjust-btn"
@@ -290,6 +311,7 @@
                      调整
                    </button>
                  </div>
+                 <!-- SKU卡片底部：库存价值 -->
                  <div class="sku-sheet-card__footer">
                    <span class="sku-sheet-card__label">价值</span>
                    <strong class="sku-sheet-card__value">¥{{ stockValue(sku) }}</strong>
@@ -299,20 +321,23 @@
           </SchemeADoodleFrame>
         </div>
       </template>
+      <!-- SPU详情空状态 -->
       <template v-else>
         <div class="sku-sheet-empty">该 SPU 下暂无库存数据</div>
       </template>
     </MobileBottomSheet>
 
-    <!-- SKU 调整弹窗 -->
+    <!-- SKU库存调整底部弹窗：调整库存数量（扣除/回收） -->
     <MobileBottomSheet v-model="adjustSheetVisible" title="库存调整">
       <template v-if="adjustTarget">
         <div class="sku-adjust">
+          <!-- 当前库存预览 -->
           <div class="sku-adjust__preview">
             <span class="sku-adjust__preview-label">当前库存</span>
             <strong class="sku-adjust__preview-qty">{{ adjustTarget.quantity ?? 0 }}</strong>
           </div>
 
+          <!-- 调整类型切换：扣除/回收 -->
           <div class="sku-adjust__type">
             <button
               type="button"
@@ -328,16 +353,19 @@
             >回收</button>
           </div>
 
+          <!-- 调整数量步进器：增减调整数量 -->
           <div class="sku-adjust__stepper">
             <button type="button" class="sku-adjust__stepper-btn" :disabled="adjustForm.changeQty <= 1" @click="adjustForm.changeQty--">−</button>
             <span class="sku-adjust__stepper-val">{{ adjustForm.changeQty }}</span>
             <button type="button" class="sku-adjust__stepper-btn" @click="adjustForm.changeQty++">+</button>
           </div>
 
+          <!-- 调整后数量预览 -->
           <div class="sku-adjust__after">
             调整后：<strong>{{ adjustAfterQty }}</strong> 件
           </div>
 
+          <!-- 确认调整提交按钮 -->
           <button
             type="button"
             class="sku-adjust__submit"
@@ -350,7 +378,7 @@
       </template>
     </MobileBottomSheet>
 
-    <!-- 回到顶部 -->
+    <!-- 回到顶部按钮：滚动超过300px时显示 -->
     <transition name="back-top-fade">
       <div v-show="showBackToTop" class="back-to-top">
         <SchemeADoodleFrame
@@ -368,6 +396,20 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 移动端库存中心视图组件
+ * 功能说明：
+ * - 库存管理的移动端入口页面
+ * - 顶部展示库存概览统计（SKU数、总数量、库存价值、健康度占比）
+ * - 库存预警区域：可折叠展示预警商品列表
+ * - 支持按库存状态筛选（全部/正常/不足/缺货）
+ * - 提供搜索功能（SKU编码、产品名称）
+ * - 可折叠的库存卡片列表，支持分页加载
+ * - 点击库存卡片可查看SPU下所有SKU详情
+ * - 支持库存调整（扣除/回收）功能
+ * - 回到顶部快捷按钮
+ * - 使用手绘风格UI设计
+ */
 import {computed, onMounted, onUnmounted, reactive, ref, watch} from 'vue'
 import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
 import {schemeAAssets} from '@/mobile/views/home/themes/scheme-a/assets'
@@ -386,31 +428,32 @@ import {
   type InventoryStatusStats,
 } from '@/utils/inventoryStats'
 
-// ====== 状态定义 ======
-const loading = ref(true)
-const loadingList = ref(false)
-const loadingMore = ref(false)
-const keyword = ref('')
-const activeStatus = ref<string | number | null>('all')
-const alertExpanded = ref(false) // 库存预警默认收起
-const inventoryListExpanded = ref(false) // 库存列表默认收起
+// 状态定义：加载状态
+const loading = ref(true) // 页面整体加载状态
+const loadingList = ref(false) // 列表加载状态
+const loadingMore = ref(false) // 加载更多状态
+const keyword = ref('') // 搜索关键词
+const activeStatus = ref<string | number | null>('all') // 当前选中的库存状态
+const alertExpanded = ref(false) // 库存预警区域是否展开
+const inventoryListExpanded = ref(false) // 库存列表是否展开
 
-// 分页
-const page = ref(1)
-const pageSize = 20
-const total = ref(0)
-const records = ref<EcInventory[]>([])
-const extra = ref<Record<string, unknown> | undefined>()
+// 分页参数
+const page = ref(1) // 当前页码
+const pageSize = 20 // 每页数量
+const total = ref(0) // 总记录数
+const records = ref<EcInventory[]>([]) // 库存列表数据
+const extra = ref<Record<string, unknown> | undefined>() // 额外数据（总数量、总价值等）
 
-// 统计
-const statsItems = ref<EcInventory[]>([])
-const overview = ref<EcInventoryOverview | undefined>()
-const spuStatus = ref<EcInventorySpuStatus | undefined>()
-const totalInboundValue = ref<number | null>(null)
+// 统计数据
+const statsItems = ref<EcInventory[]>([]) // 预警库存数据
+const overview = ref<EcInventoryOverview | undefined>() // 库存概览数据
+const spuStatus = ref<EcInventorySpuStatus | undefined>() // SPU状态统计
+const totalInboundValue = ref<number | null>(null) // 入库总价值
 
-// ====== 回到顶部 ======
+// 回到顶部按钮显示状态
 const showBackToTop = ref(false)
 
+// 组件挂载：监听滚动事件，控制回到顶部按钮显示
 onMounted(() => {
   const scrollEl = document.querySelector('.mobile-app__main')
   if (!scrollEl) return
@@ -422,11 +465,12 @@ onUnmounted(() => {
   // onUnmounted 在 keep-alive 切换时不会触发
 })
 
+// 滚动到顶部
 function scrollToTop() {
   document.querySelector('.mobile-app__main')?.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-// ====== 状态筛选 tabs ======
+// 状态筛选Tabs计算属性
 const statusTabs = computed<CategoryItem[]>(() => {
   const s = inventoryStats.value
   return [
@@ -437,7 +481,7 @@ const statusTabs = computed<CategoryItem[]>(() => {
   ]
 })
 
-// ====== 库存统计（SPU 维度） ======
+// 库存统计（SPU维度）
 const inventoryStats = computed((): InventoryStatusStats => {
   const s = spuStatus.value
   return {
@@ -448,6 +492,7 @@ const inventoryStats = computed((): InventoryStatusStats => {
   }
 })
 
+// 健康度统计计算属性：正常/不足/缺货占比
 const healthStats = computed(() => {
   const counts = overview.value?.statusCounts
   if (!counts) return { normalPct: '0.00', lowPct: '0.00', zeroPct: '0.00' }
@@ -459,6 +504,7 @@ const healthStats = computed(() => {
   }
 })
 
+// 概览摘要计算属性：SKU数、总数量、库存价值
 const summary = computed(() => {
   const qty = Number(extra.value?.totalQuantity ?? 0)
   const stockVal = Number(extra.value?.totalStockValue ?? 0)
@@ -472,11 +518,11 @@ const summary = computed(() => {
   }
 })
 
-// ====== 筛选与展示 ======
+// 筛选与展示：过滤后的库存列表
 const displayItems = computed(() => {
   let items = records.value
 
-  // 状态过滤（SPU 维度）
+  // 状态过滤（SPU维度）
   if (activeStatus.value !== 'all') {
     items = items.filter((row) => classifyInventory(row) === activeStatus.value)
   }
@@ -494,30 +540,34 @@ const displayItems = computed(() => {
   return items
 })
 
+// 预警商品列表：按数量升序排列
 const alertItems = computed(() => {
   return statsItems.value
     .filter((row) => row.alertActive)
     .sort((a, b) => (a.quantity ?? 0) - (b.quantity ?? 0))
 })
 
+// 是否还有更多数据
 const hasMore = computed(() => records.value.length < total.value)
 
-// ====== 工具函数 ======
-/** MobileCardGrid slot 的 item 类型为 GridItem，实际数据是 EcInventory */
+// 工具函数：类型转换 GridItem -> EcInventory
 function asInventory(item: { id: string | number }): EcInventory {
   return item as unknown as EcInventory
 }
 
+// 状态标签映射
 const STATUS_LABELS: Record<InventoryStatusKey, string> = {
   normal: '正常',
   low: '不足',
   zero: '缺货',
 }
 
+// 获取库存状态文字标签
 function getStatusLabel(row: EcInventory): string {
   return STATUS_LABELS[classifyInventory(row)] || '—'
 }
 
+// 获取库存状态标签CSS类名
 function getStatusTagClass(row: EcInventory): string {
   const status = classifyInventory(row)
   return {
@@ -527,13 +577,15 @@ function getStatusTagClass(row: EcInventory): string {
   }[status] || ''
 }
 
+// 获取卡片颜色：根据库存状态返回对应颜色
 function getCardColor(row: EcInventory): string {
   const status = classifyInventory(row)
-  if (status === 'zero') return '#ef4444'
-  if (status === 'low') return '#f59e0b'
-  return '#22c55e'
+  if (status === 'zero') return '#ef4444' // 缺货-红色
+  if (status === 'low') return '#f59e0b' // 不足-橙色
+  return '#22c55e' // 正常-绿色
 }
 
+// 计算库存价值：数量 * 售价，大于1万显示万单位
 function stockValue(row: EcInventory): string {
   const v = (row.quantity ?? 0) * (row.salePrice ?? 0)
   return v >= 10000
@@ -541,6 +593,7 @@ function stockValue(row: EcInventory): string {
     : v.toLocaleString()
 }
 
+// 计算库存水位百分比：用于进度条展示
 function stockLevelPct(row: EcInventory): number {
   const qty = row.quantity ?? 0
   const threshold = Math.max(row.alertThreshold ?? 0, 1)
@@ -548,7 +601,7 @@ function stockLevelPct(row: EcInventory): number {
   return Math.min(100, Math.round((qty / max) * 100))
 }
 
-// ====== API 请求 ======
+// API请求：加载库存列表
 async function loadList(resetPage = false) {
   if (resetPage) {
     page.value = 1
@@ -567,7 +620,7 @@ async function loadList(resetPage = false) {
     if (resetPage) {
       records.value = result.records
     } else {
-      records.value = [...records.value, ...result.records]
+      records.value = [...records.value, ...result.records] // 追加数据
     }
     total.value = result.total
     page.value = result.page
@@ -578,6 +631,7 @@ async function loadList(resetPage = false) {
   }
 }
 
+// 加载更多库存数据（分页）
 async function loadMore() {
   if (loadingMore.value || !hasMore.value) return
   loadingMore.value = true
@@ -599,6 +653,7 @@ async function loadMore() {
   }
 }
 
+// 加载统计数据：概览、状态计数、预警列表、入库价值
 async function loadStats() {
   try {
     const [ov, spu, alertResult, inboundSummary] = await Promise.all([
@@ -616,26 +671,27 @@ async function loadStats() {
   }
 }
 
+// 加载所有数据：列表 + 统计（并行）
 async function loadAll() {
   loading.value = true
   await Promise.all([loadList(true), loadStats()])
 }
 
-// ====== 搜索防抖 ======
+// 搜索防抖：300ms延迟
 let keywordTimer: ReturnType<typeof setTimeout> | null = null
 watch(keyword, () => {
   if (keywordTimer) clearTimeout(keywordTimer)
   keywordTimer = setTimeout(() => loadList(true), 300)
 })
 
-// ====== 交互事件 ======
-// ====== SPU 详情弹窗 ======
-const skuSheetVisible = ref(false)
-const skuSheetLoading = ref(false)
-const skuSheetTitle = ref('')
-const skuSheetItems = ref<EcInventory[]>([])
-const currentSpuItem = ref<EcInventory | null>(null)
+// SPU详情弹窗状态
+const skuSheetVisible = ref(false) // SPU详情弹窗开关
+const skuSheetLoading = ref(false) // SPU详情加载状态
+const skuSheetTitle = ref('') // SPU详情弹窗标题
+const skuSheetItems = ref<EcInventory[]>([]) // SPU下的SKU列表
+const currentSpuItem = ref<EcInventory | null>(null) // 当前选中的SPU
 
+// 处理库存卡片点击：打开SPU详情弹窗
 async function handleItemClick(item: EcInventory) {
   currentSpuItem.value = item
   skuSheetTitle.value = item.productName || item.skuCode
@@ -647,7 +703,7 @@ async function handleItemClick(item: EcInventory) {
       const result = await fetchInventoryByProduct(item.productId)
       skuSheetItems.value = result
     } else {
-      skuSheetItems.value = [item]
+      skuSheetItems.value = [item] // 无productId时只展示当前SKU
     }
   } catch {
     skuSheetItems.value = []
@@ -656,18 +712,20 @@ async function handleItemClick(item: EcInventory) {
   }
 }
 
-// ====== SKU 调整 ======
-const adjustSheetVisible = ref(false)
-const adjustTarget = ref<EcInventory | null>(null)
-const adjustSubmitting = ref(false)
-const adjustForm = reactive({ changeType: 'DEDUCT' as 'DEDUCT' | 'RECLAIM', changeQty: 1 })
+// SKU调整弹窗状态
+const adjustSheetVisible = ref(false) // 调整弹窗开关
+const adjustTarget = ref<EcInventory | null>(null) // 当前调整的SKU
+const adjustSubmitting = ref(false) // 调整提交中状态
+const adjustForm = reactive({ changeType: 'DEDUCT' as 'DEDUCT' | 'RECLAIM', changeQty: 1 }) // 调整表单
 
+// 调整后数量计算属性
 const adjustAfterQty = computed(() => {
   const current = adjustTarget.value?.quantity ?? 0
   if (adjustForm.changeType === 'DEDUCT') return Math.max(0, current - adjustForm.changeQty)
   return current + adjustForm.changeQty
 })
 
+// 打开SKU调整弹窗
 function openSkuAdjust(sku: EcInventory) {
   adjustTarget.value = sku
   adjustForm.changeType = 'DEDUCT'
@@ -675,6 +733,7 @@ function openSkuAdjust(sku: EcInventory) {
   adjustSheetVisible.value = true
 }
 
+// 提交库存调整
 async function submitAdjust() {
   if (!adjustTarget.value) return
   if (adjustForm.changeType === 'DEDUCT' && adjustForm.changeQty > (adjustTarget.value.quantity ?? 0)) return
@@ -687,7 +746,7 @@ async function submitAdjust() {
     adjustSheetVisible.value = false
     adjustTarget.value = null
 
-    // 刷新 SPU 详情和数据
+    // 刷新SPU详情和所有数据
     if (currentSpuItem.value) {
       await handleItemClick(currentSpuItem.value)
     }
@@ -697,6 +756,7 @@ async function submitAdjust() {
   }
 }
 
+// 组件挂载：加载所有数据
 onMounted(() => {
   loadAll()
 })

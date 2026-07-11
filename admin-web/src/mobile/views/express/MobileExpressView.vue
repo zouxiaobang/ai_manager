@@ -1,9 +1,12 @@
 <template>
+  <!-- 移动端快递管理页主容器 -->
   <div class="mobile-express-view">
     <div class="express-page">
 
+      <!-- 页面头部：返回按钮 + 页面标题 -->
       <MobilePageHeader title="🚚 快递管理" @back="$router.back()" />
 
+      <!-- 搜索区域：搜索快递站点 -->
       <div class="mobile-express-view__content">
         <MobileDoodleSearch
             v-model="searchKeyword"
@@ -11,12 +14,15 @@
         />
       </div>
 
+      <!-- 默认快递区域：展示默认快递站点卡片 -->
       <div class="section" v-if="defaultStation">
+        <!-- 区域头部：标题 + 试算按钮 -->
         <MobileSectionHeader
           :icon="assets.starYellow"
           title="默认快递"
         >
           <template #actions>
+            <!-- 试算切换按钮：展开/收起运费试算弹窗 -->
             <button
               type="button"
               class="calc-toggle"
@@ -27,6 +33,7 @@
             </button>
           </template>
         </MobileSectionHeader>
+        <!-- 默认快递卡片：展示默认快递站点详细信息 -->
         <SchemeADoodleFrame
           shape="rect"
           color="#fbbf24"
@@ -35,6 +42,7 @@
         >
           <div class="default-card__pin">📌</div>
           <div class="default-card__content">
+            <!-- 卡片头部：图标 + 名称 + 联系方式 -->
             <div class="default-card__header">
               <img
                 :src="resolveExpressIcon(defaultStation)"
@@ -47,6 +55,7 @@
                 <div class="default-card__contact">📞 {{ defaultStation.contact || '-' }} · {{ defaultStation.address || '-' }}</div>
               </div>
             </div>
+            <!-- 卡片详情：面单费 + 覆盖省份 + 须知数量 -->
             <div class="default-card__details">
               <span class="default-card__tag price-tag">🏷️ 面单费 ¥{{ formatPrice(defaultStation.labelPrice) }}</span>
               <span class="default-card__tag province-tag">📍 覆盖{{ defaultStation.priceCount || 0 }}省</span>
@@ -56,15 +65,18 @@
         </SchemeADoodleFrame>
       </div>
 
+      <!-- 其他快递区域：展示非默认快递站点列表 -->
       <div class="section" v-if="filteredNormalStations.length">
         <MobileSectionHeader
           :icon="assets.starBlueOutline"
           title="其他快递"
         />
+        <!-- 快递卡片网格 -->
         <MobileCardGrid
           :items="filteredNormalStations"
           empty-text="暂无快递"
         >
+          <!-- 快递卡片：展示单个快递站点信息 -->
           <template #card="{ item }">
             <SchemeADoodleFrame
               shape="rect"
@@ -90,11 +102,13 @@
 
     </div>
 
+    <!-- 快递详情弹窗：点击快递卡片时弹出详情 -->
     <ExpressDetailModal
       v-model="detailOpen"
       :station-id="selectedStationId"
     />
 
+    <!-- 运费试算弹窗：点击试算按钮时弹出 -->
     <ExpressCalcModal
       v-model="calcOpen"
       :default-station-id="defaultStation?.id"
@@ -103,6 +117,16 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 移动端快递管理视图组件
+ * 功能说明：
+ * - 快递管理的移动端入口页面
+ * - 展示默认快递和其他快递站点列表
+ * - 提供快递搜索功能（按名称、联系方式、地址搜索）
+ * - 支持运费试算功能
+ * - 点击快递卡片可查看详细信息
+ * - 使用手绘风格UI设计
+ */
 import {computed, onMounted, ref} from 'vue'
 import {schemeAAssets as assets} from '@/mobile/views/home/themes/scheme-a/assets.ts'
 import MobileDoodleSearch from '@/mobile/components/MobileDoodleSearch.vue'
@@ -115,13 +139,14 @@ import {getEcommerceImageUrl} from '@/api/ecommerce/image.ts'
 import MobilePageHeader from "@/mobile/components/MobilePageHeader.vue";
 import MobileCardGrid from "@/mobile/components/MobileCardGrid.vue";
 
-const searchKeyword = ref('')
-const stations = ref<EcExpressStation[]>([])
-const loading = ref(false)
-const detailOpen = ref(false)
-const selectedStationId = ref<number | null>(null)
-const calcOpen = ref(false)
+const searchKeyword = ref('') // 搜索关键词
+const stations = ref<EcExpressStation[]>([]) // 快递站点列表数据
+const loading = ref(false) // 加载状态
+const detailOpen = ref(false) // 详情弹窗开关
+const selectedStationId = ref<number | null>(null) // 当前选中的快递站点ID
+const calcOpen = ref(false) // 运费试算弹窗开关
 
+// 过滤后的快递站点列表（根据搜索关键词）
 const filteredStations = computed(() => {
   let result = stations.value
 
@@ -138,12 +163,15 @@ const filteredStations = computed(() => {
   return result
 })
 
+// 默认快递站点
 const defaultStation = computed(() => filteredStations.value.find((s) => s.isDefault) || null)
 
+// 其他快递站点（非默认）
 const filteredNormalStations = computed(() =>
   filteredStations.value.filter((s) => !s.isDefault),
 )
 
+// 根据快递名称解析对应的图标emoji
 function resolveExpressIcon(station: EcExpressStation): string {
   if (station.avatarUrl?.trim()) {
     return getEcommerceImageUrl(station.avatarUrl)
@@ -162,16 +190,18 @@ function resolveExpressIcon(station: EcExpressStation): string {
   return '📦'
 }
 
+// 格式化价格：保留两位小数
 function formatPrice(price?: number | null): string {
   if (price == null) return '0.00'
   return price.toFixed(2)
 }
 
-/** MobileCardGrid slot 的 item 类型为 GridItem，实际数据是 EcExpressStation */
+// 类型转换：GridItem 转为 EcExpressStation
 function asStation(item: { id: string | number }): EcExpressStation {
   return item as unknown as EcExpressStation
 }
 
+// 加载快递站点列表
 async function loadStations() {
   loading.value = true
   try {
@@ -184,15 +214,18 @@ async function loadStations() {
   }
 }
 
+// 处理快递卡片点击：打开详情弹窗
 function handleCardClick(station: EcExpressStation) {
   selectedStationId.value = station.id
   detailOpen.value = true
 }
 
+// 切换运费试算弹窗显示状态
 function handleCalcToggle() {
   calcOpen.value = !calcOpen.value
 }
 
+// 组件挂载：滚动到顶部 + 加载快递站点数据
 onMounted(() => {
   setTimeout(() => {
     const main = document.querySelector('.mobile-app__main')

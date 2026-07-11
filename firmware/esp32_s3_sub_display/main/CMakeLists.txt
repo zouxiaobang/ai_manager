@@ -20,6 +20,10 @@ idf_component_register(
         "assets_embed/assets_seed.cpp"
         "assets_embed/ui_embed_images.cpp"
         "ui_home_static_layout.c"
+        "pixel_dog_model.cpp"
+        "pixel_dog_sprite.cpp"
+        "pixel_dog_api_config.cpp"
+        "pixel_dog_sync.cpp"
     INCLUDE_DIRS
         "include"
         "assets_embed"

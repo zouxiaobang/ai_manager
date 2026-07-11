@@ -9,9 +9,11 @@ import com.ai.manager.system.domain.vo.NbTodoItemVO;
 import com.ai.manager.system.domain.vo.NbTodoMutationVO;
 import com.ai.manager.system.mapper.NbTodoItemMapper;
 import com.ai.manager.system.service.NbTodoService;
+import com.ai.manager.system.service.PixelDogStateService;
 import com.ai.manager.system.service.support.TodoRepeatSupport;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -20,10 +22,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class NbTodoServiceImpl extends ServiceImpl<NbTodoItemMapper, NbTodoItem> implements NbTodoService {
 
+    private final PixelDogStateService pixelDogStateService;
+
     @Override
-    public List<NbTodoItemVO> list(Boolean completed, Boolean today, Boolean pinned) {
+    public List<NbTodoItemVO> list(Boolean completed, Boolean today, Boolean pinned, Boolean upcoming, Boolean unscheduled) {
         LambdaQueryWrapper<NbTodoItem> wrapper = new LambdaQueryWrapper<>();
         if (Boolean.TRUE.equals(pinned)) {
             wrapper.eq(NbTodoItem::getPinned, 1);
@@ -31,6 +36,16 @@ public class NbTodoServiceImpl extends ServiceImpl<NbTodoItemMapper, NbTodoItem>
         } else if (Boolean.TRUE.equals(today)) {
             wrapper.eq(NbTodoItem::getCompleted, 0);
             applyTodayFilter(wrapper);
+        } else if (Boolean.TRUE.equals(upcoming)) {
+            wrapper.eq(NbTodoItem::getCompleted, 0);
+            wrapper.and(w -> w
+                    .apply("(due_time >= DATE_ADD(CURDATE(), INTERVAL 1 DAY))")
+                    .or()
+                    .apply("(remind_time >= DATE_ADD(CURDATE(), INTERVAL 1 DAY))"));
+        } else if (Boolean.TRUE.equals(unscheduled)) {
+            wrapper.eq(NbTodoItem::getCompleted, 0);
+            wrapper.isNull(NbTodoItem::getDueTime);
+            wrapper.isNull(NbTodoItem::getRemindTime);
         } else if (completed != null) {
             wrapper.eq(NbTodoItem::getCompleted, completed ? 1 : 0);
         }
@@ -46,7 +61,7 @@ public class NbTodoServiceImpl extends ServiceImpl<NbTodoItemMapper, NbTodoItem>
 
     @Override
     public List<NbTodoItemVO> listToday() {
-        return list(null, true, null);
+        return list(null, true, null, null, null);
     }
 
     @Override
@@ -142,16 +157,27 @@ public class NbTodoServiceImpl extends ServiceImpl<NbTodoItemMapper, NbTodoItem>
 
         if (request != null
                 && Boolean.TRUE.equals(request.getCompleted())
-                && wasPending
-                && TodoRepeatSupport.isRecurring(item)) {
-            NbTodoItem next = TodoRepeatSupport.buildNextOccurrence(item);
-            if (next != null) {
-                next.setRemindNotified(0);
-                save(next);
-                mutation.setNextOccurrence(toVO(next));
+                && wasPending) {
+            addDogXp("TODO_COMPLETE", 10);
+
+            if (TodoRepeatSupport.isRecurring(item)) {
+                NbTodoItem next = TodoRepeatSupport.buildNextOccurrence(item);
+                if (next != null) {
+                    next.setRemindNotified(0);
+                    save(next);
+                    mutation.setNextOccurrence(toVO(next));
+                }
             }
         }
         return mutation;
+    }
+
+    protected void addDogXp(String action, int amount) {
+        try {
+            pixelDogStateService.addXp(action, amount);
+        } catch (Exception e) {
+            // ignore
+        }
     }
 
     @Override

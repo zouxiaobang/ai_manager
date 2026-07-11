@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Generate GB2312 Chinese font for LVGL (lyrics / general UI)."""
+"""Generate GB2312 Chinese font for LVGL — full CJK + punctuation."""
 
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -11,18 +12,63 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 FONTS_DIR = ROOT / "main" / "fonts"
+MAIN_DIR = ROOT / "main"
 GLYPHS_OUT = Path(__file__).resolve().parent / "glyphs_gb2312.txt"
 NPX = shutil.which("npx") or shutil.which("npx.cmd")
-SIMHEI = Path(r"C:\Windows\Fonts\simhei.ttf")
+SIMHEI = Path(__file__).resolve().parent / "msyh.ttf"
 SEGUISYM = Path(r"C:\Windows\Fonts\seguisym.ttf")
 BATCH_SIZE = 900
 SYMBOL_RANGES = "0x25B6,0x25C0,0x266A,0x2026"
 
 
+def _is_chinese_char(cp: int) -> bool:
+    """Check whether a Unicode codepoint is a Chinese character or punctuation."""
+    # CJK Unified Ideographs
+    if 0x4E00 <= cp <= 0x9FFF:
+        return True
+    # CJK Extension A
+    if 0x3400 <= cp <= 0x4DBF:
+        return True
+    # CJK Symbols and Punctuation （。、等）
+    if 0x3000 <= cp <= 0x303F:
+        return True
+    # Fullwidth Forms （，。！？：；等）
+    if 0xFF00 <= cp <= 0xFFEF:
+        return True
+    # General Punctuation subset（·—…）
+    if 0x2000 <= cp <= 0x206F:
+        return True
+    # Middle dot used in UI labels
+    if cp in (0x00B7,):
+        return True
+    return False
+
+
+def collect_source_chars() -> set[str]:
+    """Scan main/ source files for any Chinese / CJK-punctuation characters used."""
+    chars: set[str] = set()
+    for dirpath, _dirnames, filenames in os.walk(MAIN_DIR):
+        for fn in filenames:
+            if not fn.endswith((".cpp", ".h", ".c")):
+                continue
+            path = os.path.join(dirpath, fn)
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        for ch in line:
+                            if _is_chinese_char(ord(ch)):
+                                chars.add(ch)
+            except Exception as exc:
+                print(f"  [warn] skipping {fn}: {exc}", file=sys.stderr)
+    if chars:
+        print(f"Source scan: {len(chars)} unique CJK/punctuation chars found.")
+    return chars
+
+
 def collect_gb2312_chars() -> str:
     chars: list[str] = []
     for row in range(16, 88):
-        for col in range(1, 94):
+        for col in range(1, 95):
             try:
                 chars.append(bytes([row + 0xA0, col + 0xA0]).decode("gb2312"))
             except UnicodeDecodeError:
@@ -119,9 +165,17 @@ def main() -> int:
     parser.add_argument("--batch-size", type=int, default=BATCH_SIZE)
     args = parser.parse_args()
 
+    # Collect all characters from GB2312 charset (CJK ideographs)
     symbols = collect_gb2312_chars()
+    # Merge in any Chinese/CJK-punctuation used in source files
+    source_chars = collect_source_chars()
+    for ch in source_chars:
+        if ch not in symbols:
+            symbols += ch
+    symbols = "".join(dict.fromkeys(symbols))
+
     GLYPHS_OUT.write_text(symbols, encoding="utf-8")
-    print(f"GB2312 glyphs: {len(symbols)} chars -> {GLYPHS_OUT}")
+    print(f"Total symbols: {len(symbols)} chars (GB2312 + source scan) -> {GLYPHS_OUT}")
 
     batches: list[str] = []
     ascii_chars = [c for c in symbols if ord(c) < 128]

@@ -18,11 +18,12 @@ const Entry kEntries[] = {
     {"assets/icon_eq.png", &ui_img_icon_eq},
     {"assets/deco_diamond.png", &ui_img_deco_diamond},
     {"assets/deco_diamond_blue.png", &ui_img_deco_diamond_blue},
-    {"assets/dock_lyrics.png", &ui_img_dock_lyrics},
+    {"assets/dock_pixel_dog.png", &ui_img_dock_pixel_dog},
     {"assets/dock_lock.png", &ui_img_dock_lock},
     {"assets/dock_settings.png", &ui_img_dock_settings},
     {"assets/border_tool_btn_92x52_green.png", &ui_img_border_tool_btn_92x52_green},
     {"assets/border_tool_btn_92x52_blue.png", &ui_img_border_tool_btn_92x52_blue},
+    {"assets/border_tool_btn_92x52_orange.png", &ui_img_border_tool_btn_92x52_orange},
 };
 }  // namespace
 

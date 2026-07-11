@@ -1,5 +1,7 @@
 <template>
+  <!-- 计时器面板主容器 -->
   <div class="timer-panel timer-panel--pixel">
+    <!-- 设备同步状态卡片 -->
     <div class="timer-panel__sync-stage">
       <PomoSyncCard
         :device-time="devicePreviewTime"
@@ -9,12 +11,15 @@
       />
     </div>
 
+    <!-- 计时器主体：左侧进度 + 中间计时环 + 右侧计划 -->
     <div class="timer-main">
+      <!-- 左侧：今日进度 -->
       <aside class="timer-side timer-side--left">
         <div class="pixel-panel-jagged">
           <div class="pixel-panel-jagged__inner timer-side--left-inner">
         <h3 class="pixel-panel__subtitle">{{ t('pomodoro.timer.todayProgress') }}</h3>
         <p class="timer-side__caption">{{ t('pomodoro.timer.completedRounds') }}</p>
+        <!-- 每日完成轮次点阵 -->
         <div class="daily-dots">
           <div v-for="(row, ri) in dailyDotRows" :key="ri" class="daily-dots__row">
             <span
@@ -25,6 +30,7 @@
             />
           </div>
         </div>
+        <!-- 今日完成轮次数 -->
         <p class="timer-side__today">
           <span>{{ t('pomodoro.timer.todayRoundPrefix') }}</span>
           <span class="timer-side__big-num">{{ today.workRounds }}</span>
@@ -34,7 +40,9 @@
         </div>
       </aside>
 
+      <!-- 中间：计时器核心区域 -->
       <section class="timer-center">
+        <!-- 像素风格计时环 -->
         <div class="timer-center__ring-stage">
           <PomoPixelRing
             :clock="displayClockText"
@@ -43,6 +51,7 @@
             :color="phaseColor"
           />
         </div>
+        <!-- 阶段切换标签：工作/短休息/长休息 -->
         <div class="phase-pills">
           <button type="button" class="phase-pill phase-pill--work" :class="{ 'is-active': pillActive.work }" disabled>
             <img src="/icons/modules/pomodoro.svg" alt="" width="20" height="20">
@@ -57,6 +66,7 @@
             {{ phasePillText.long }}
           </button>
         </div>
+        <!-- 次要操作按钮：跳过、重置、接管控制 -->
         <div v-if="showSecondaryActions" class="timer-center__secondary">
           <button type="button" class="pixel-link" :title="t('pomodoro.timer.skipHint')" @click="skipPhase">{{ t('pomodoro.timer.skip') }}</button>
           <button type="button" class="pixel-link" :title="t('pomodoro.timer.resetHint')" @click="resetTimer">{{ t('pomodoro.timer.reset') }}</button>
@@ -71,7 +81,9 @@
         </div>
       </section>
 
+      <!-- 右侧：当前计划和开始按钮 -->
       <aside class="timer-side timer-side--right">
+        <!-- 当前计划卡片 -->
         <div class="plan-card pixel-panel-jagged pixel-panel-jagged--plan">
           <div class="pixel-panel-jagged__inner">
           <h3 class="pixel-panel__subtitle">
@@ -79,6 +91,7 @@
             {{ t('pomodoro.timer.currentPlan') }}
           </h3>
           <p class="plan-card__name">{{ activePlan?.title ?? '—' }}</p>
+          <!-- 计划时长配置：工作+短休息+长休息 -->
           <p v-if="activePlan" class="plan-card__durations">
             <span class="plan-card__dur plan-card__dur--work">{{ activePlan.workDurationMin }}</span>
             <span class="plan-card__dur-sep" aria-hidden="true">+</span>
@@ -89,6 +102,7 @@
           <p v-else class="plan-card__durations">—</p>
           </div>
         </div>
+        <!-- 主要开始/暂停按钮 -->
         <button
           type="button"
           class="pixel-btn-start"
@@ -98,6 +112,7 @@
           <span class="pixel-btn-start__icon" aria-hidden="true">▶</span>
           {{ primaryButtonLabel }}
         </button>
+        <!-- 今日目标达成提醒 -->
         <el-alert
           v-if="todayRoundsGoalReached && !todayPlanComplete"
           type="info"
@@ -107,6 +122,7 @@
         >
           {{ t('pomodoro.timer.todayRoundsDone') }}
         </el-alert>
+        <!-- 今日计划完成提醒 -->
         <el-alert
           v-if="todayPlanComplete"
           type="success"
@@ -122,6 +138,11 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 番茄钟计时器面板组件
+ * 专注计时核心功能，支持工作/短休息/长休息阶段切换
+ * 展示今日进度、当前计划，支持设备同步和控制
+ */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
@@ -142,12 +163,12 @@ import { isPlanMutationBlocked } from '@/utils/pomodoroSession'
 
 type Phase = 'idle' | 'work' | 'shortBreak' | 'longBreak'
 
-const { t } = useI18n()
+const { t } = useI18n() // 国际化函数
 
-const plans = ref<PomodoroPlan[]>([])
-const selectedPlanId = ref<number | null>(null)
-const phase = ref<Phase>('idle')
-const remainingSec = ref(0)
+const plans = ref<PomodoroPlan[]>([]) // 可用计划列表
+const selectedPlanId = ref<number | null>(null) // 选中的计划ID
+const phase = ref<Phase>('idle') // 当前阶段
+const remainingSec = ref(0) // 剩余秒数
 const plannedSec = ref(0)
 const paused = ref(false)
 const sessionWorkRounds = ref(0)

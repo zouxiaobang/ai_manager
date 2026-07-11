@@ -3,7 +3,9 @@ package com.ai.manager.system.service.impl;
 import com.ai.manager.common.exception.BusinessException;
 import com.ai.manager.common.result.ResultCode;
 import com.ai.manager.system.domain.dto.PomodoroSessionSyncRequest;
+import com.ai.manager.system.domain.entity.PixelDogState;
 import com.ai.manager.system.domain.vo.PomodoroSessionVO;
+import com.ai.manager.system.service.PixelDogStateService;
 import com.ai.manager.system.service.PomodoroSessionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,7 @@ public class PomodoroSessionServiceImpl implements PomodoroSessionService {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final ObjectMapper objectMapper;
+    private final PixelDogStateService pixelDogStateService;
 
     @Override
     public PomodoroSessionVO getActiveSession() {
@@ -50,28 +53,25 @@ public class PomodoroSessionServiceImpl implements PomodoroSessionService {
         String runState = request.getRunState().trim().toUpperCase();
         boolean takeControl = Boolean.TRUE.equals(request.getTakeControl());
         boolean deviceActive = "DEVICE".equals(source) && isActiveRunState(runState);
-        String phase = request.getPhase().trim().toUpperCase();
-        boolean deviceIdleReset = "DEVICE".equals(source)
-                && "IDLE".equals(runState)
-                && "IDLE".equals(phase);
 
         // 副屏开始/暂停时，允许用 RUNNING/PAUSED 覆盖陈旧的 ADMIN 空闲会话（无需显式 takeControl）
         if (!takeControl && deviceActive && existing != null
                 && "ADMIN".equals(existing.getController()) && isIdleSession(existing)) {
             takeControl = true;
         }
-        // 副屏长按重置（IDLE/IDLE）须覆盖本页仍在计时的 ADMIN 会话
-        boolean devicePhaseIdleReset = "DEVICE".equals(source)
-                && "IDLE".equals(runState)
-                && !"IDLE".equals(phase);
-        if (!takeControl && deviceIdleReset && existing != null
-                && "ADMIN".equals(existing.getController()) && !isIdleSession(existing)) {
-            takeControl = true;
-        }
-        // 副屏阶段内重置（如 SHORT_BREAK+IDLE）须覆盖本页仍在计时的 ADMIN 会话
-        if (!takeControl && devicePhaseIdleReset && existing != null
-                && "ADMIN".equals(existing.getController()) && !isIdleSession(existing)) {
-            takeControl = true;
+        // 副屏 IDLE 推送当 ADMIN 会话活跃时不接管，避免副屏重启/心跳误重置 ADMIN 番茄钟
+        // 副屏如需重置，应通过前端 ADMIN 页面操作，或携带明确的 takeControl=true 参数
+
+        // 无已有会话时，副屏不能创建新会话，必须由 ADMIN 创建
+        if (existing == null && "DEVICE".equals(source)) {
+            PomodoroSessionVO empty = new PomodoroSessionVO();
+            empty.setPhase("IDLE");
+            empty.setRunState("IDLE");
+            empty.setRemainingSec(0);
+            empty.setPhaseTotalSec(1);
+            empty.setSessionWorkRounds(0);
+            empty.setController("");
+            return empty;
         }
 
         if (!takeControl && existing != null && StringUtils.hasText(existing.getController())
@@ -88,6 +88,7 @@ public class PomodoroSessionServiceImpl implements PomodoroSessionService {
         }
         session.setSyncedAtMs(System.currentTimeMillis());
         redisTemplate.opsForValue().set(REDIS_KEY, session, TTL);
+        syncDogFocusStatus(session.getPhase(), session.getRunState());
         attachDeviceLastSeen(session);
         return adjustRunningRemaining(session);
     }
@@ -211,6 +212,30 @@ public class PomodoroSessionServiceImpl implements PomodoroSessionService {
         copy.setSyncedAtMs(syncedAt);
         copy.setDeviceLastSeenMs(session.getDeviceLastSeenMs());
         return copy;
+    }
+
+    /**
+     * 根据番茄钟阶段同步像素狗状态：
+     * - WORK + RUNNING → DOG_STATUS_FOCUS (7)
+     * - IDLE + IDLE    → DOG_STATUS_IDLE (0)
+     * - 其他情况不修改狗的状态
+     */
+    private void syncDogFocusStatus(String phase, String runState) {
+        int dogStatus;
+        if ("WORK".equals(phase) && "RUNNING".equals(runState)) {
+            dogStatus = 7; // DOG_STATUS_FOCUS
+        } else if ("IDLE".equals(phase) && "IDLE".equals(runState)) {
+            dogStatus = 0; // DOG_STATUS_IDLE
+        } else {
+            return;
+        }
+        try {
+            PixelDogState patch = new PixelDogState();
+            patch.setStatus(dogStatus);
+            pixelDogStateService.updateState(patch);
+        } catch (Exception e) {
+            // 不影响番茄钟主流程
+        }
     }
 
     @Override
