@@ -83,7 +83,7 @@ import DogItemsPanel from './DogItemsPanel.vue'
 import { fetchDogState, updateDogState, fetchDogItems, type PixelDogStateVO, type PixelDogItemVO } from '@/api/pixelDog'
 import { fetchActiveSession } from '@/api/pomodoro'
 
-type DogStatus = 'IDLE' | 'HAPPY' | 'PETTING' | 'GREETING' | 'SLEEPING' | 'WALKING' | 'FOCUS'
+type DogStatus = 'IDLE' | 'HAPPY' | 'PETTING' | 'GREETING' | 'SLEEPING' | 'WALKING' | 'FOCUS' | 'NUZZLE'
 
 interface DogState {
   level: number
@@ -363,7 +363,7 @@ async function onGreet() {
 async function onNuzzle() {
   dogState.value.emotion = Math.min(100, dogState.value.emotion + 15)
   dogState.value.bond = Math.min(100, dogState.value.bond + 3)
-  dogState.value.status = 'PETTING'
+  dogState.value.status = 'NUZZLE'
   await saveState()
 }
 

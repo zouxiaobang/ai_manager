@@ -74,7 +74,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
-type DogStatus = 'IDLE' | 'HAPPY' | 'PETTING' | 'GREETING' | 'SLEEPING' | 'WALKING' | 'FOCUS'
+type DogStatus = 'IDLE' | 'HAPPY' | 'PETTING' | 'GREETING' | 'SLEEPING' | 'WALKING' | 'FOCUS' | 'NUZZLE'
 
 const showXpTip = ref(false)
 
@@ -144,6 +144,7 @@ const statusIcon = computed(() => {
     case 'FOCUS': return '🎯'
     case 'SLEEPING': return '💤'
     case 'WALKING': return '🚶'
+    case 'NUZZLE': return '🤗'
     default: return '🐕'
   }
 })
@@ -156,6 +157,7 @@ const statusText = computed(() => {
     case 'FOCUS': return '专注中'
     case 'SLEEPING': return '睡觉中'
     case 'WALKING': return '散步'
+    case 'NUZZLE': return '蹭蹭中'
     default: return '空闲'
   }
 })

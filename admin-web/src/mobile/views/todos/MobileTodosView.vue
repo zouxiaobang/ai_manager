@@ -435,8 +435,8 @@ const visibleGroups = computed(() => {
 })
 
 // ---- 过滤 ----
-function setFilter(key: string) {
-  activeFilter.value = key
+function setFilter(key: string | number) {
+  activeFilter.value = String(key)
   // 切换 filter 时自动展开对应组
   if (key === 'overdue' || key === 'today') {
     collapsedGroups.delete('overdue')

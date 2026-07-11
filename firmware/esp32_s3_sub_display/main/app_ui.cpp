@@ -112,6 +112,8 @@ lv_obj_t *bar_fullscreen_bond = nullptr;
 lv_obj_t *bar_dog_emotion = nullptr;
 lv_obj_t *dog_hug_btn = nullptr;
 lv_obj_t *dog_nuzzle_btn = nullptr;
+lv_obj_t *home_dog_nuzzle_btn = nullptr;
+lv_obj_t *home_dog_hug_btn = nullptr;
 lv_obj_t *lbl_dog_pomo_time = nullptr;
 lv_obj_t *lbl_dog_pomo_state = nullptr;
 lv_obj_t *bar_dog_pomo_mini = nullptr;
@@ -309,21 +311,27 @@ void refresh_dog_card() {
     }
   }
   
-  // --- Update Nuzzle button visibility (bond >= 60) ---
-  if (dog_nuzzle_btn != nullptr) {
-    if (state->bond >= 60) {
-      lv_obj_remove_flag(dog_nuzzle_btn, LV_OBJ_FLAG_HIDDEN);
+  // --- Update Nuzzle button visibility (intimacy >= 60) ---
+  // 使用与PC端一致的亲密度公式: intimacy = (emotion+100)/2 * 0.4 + bond * 0.6
+  // 整数形式: intimacy_x10 = (emotion+100)*2 + bond*6
+  lv_obj_t *nuzzle_target = dog_fullscreen_mode ? dog_nuzzle_btn : home_dog_nuzzle_btn;
+  if (nuzzle_target != nullptr) {
+    const int intimacy_x10 = (static_cast<int>(state->emotion) + 100) * 2 + static_cast<int>(state->bond) * 6;
+    if (intimacy_x10 >= 600) {
+      lv_obj_remove_flag(nuzzle_target, LV_OBJ_FLAG_HIDDEN);
     } else {
-      lv_obj_add_flag(dog_nuzzle_btn, LV_OBJ_FLAG_HIDDEN);
+      lv_obj_add_flag(nuzzle_target, LV_OBJ_FLAG_HIDDEN);
     }
   }
-  
-  // --- Update Hug button visibility (bond >= 85) ---
-  if (dog_hug_btn != nullptr) {
-    if (state->bond >= 85) {
-      lv_obj_remove_flag(dog_hug_btn, LV_OBJ_FLAG_HIDDEN);
+
+  // --- Update Hug button visibility (intimacy >= 85) ---
+  lv_obj_t *hug_target = dog_fullscreen_mode ? dog_hug_btn : home_dog_hug_btn;
+  if (hug_target != nullptr) {
+    const int intimacy_x10 = (static_cast<int>(state->emotion) + 100) * 2 + static_cast<int>(state->bond) * 6;
+    if (intimacy_x10 >= 850) {
+      lv_obj_remove_flag(hug_target, LV_OBJ_FLAG_HIDDEN);
     } else {
-      lv_obj_add_flag(dog_hug_btn, LV_OBJ_FLAG_HIDDEN);
+      lv_obj_add_flag(hug_target, LV_OBJ_FLAG_HIDDEN);
     }
   }
   
@@ -1346,7 +1354,7 @@ void build_dog_fullscreen_layer() {
   lv_obj_center(greet_lbl);
   lv_obj_add_event_cb(greet_btn, dog_greet_btn_event, LV_EVENT_CLICKED, nullptr);
 
-  // Nuzzle button (bond >= 60)
+  // Nuzzle button (intimacy >= 60)
   dog_nuzzle_btn = lv_btn_create(dog_fullscreen_right);
   lv_obj_set_size(dog_nuzzle_btn, panel_w - 20, 40);
   lv_obj_set_style_bg_color(dog_nuzzle_btn, lv_color_hex(COL_DOG), 0);
@@ -1361,7 +1369,7 @@ void build_dog_fullscreen_layer() {
   lv_obj_add_event_cb(dog_nuzzle_btn, dog_nuzzle_btn_event, LV_EVENT_CLICKED, nullptr);
   lv_obj_add_flag(dog_nuzzle_btn, LV_OBJ_FLAG_HIDDEN);
 
-  // Hug button (bond >= 85)
+  // Hug button (intimacy >= 85)
   dog_hug_btn = lv_btn_create(dog_fullscreen_right);
   lv_obj_set_size(dog_hug_btn, panel_w - 20, 40);
   lv_obj_set_style_bg_color(dog_hug_btn, lv_color_hex(0xff5252), 0);
@@ -1426,6 +1434,7 @@ void enter_dog_fullscreen() {
 void exit_dog_fullscreen() {
   ESP_LOGI(TAG, "exit_dog_fullscreen: start");
   dog_fullscreen_mode = false;
+  refresh_dog_card();
   if (dog_sprite != nullptr && dog_sprite_wrap != nullptr) {
     lv_obj_set_parent(dog_sprite, dog_sprite_wrap);
     lv_obj_center(dog_sprite);
@@ -1785,6 +1794,8 @@ void bind_home_widgets(const ui_home_widgets_t *w) {
   dog_greet_btn = w->dog_greet_btn;
   dog_nuzzle_btn = w->dog_nuzzle_btn;
   dog_hug_btn = w->dog_hug_btn;
+  home_dog_nuzzle_btn = w->dog_nuzzle_btn;
+  home_dog_hug_btn = w->dog_hug_btn;
   for (int i = 0; i < 5; i++) {
     dock_slots[i] = w->dock_slots[i];
     dock_borders[i] = w->dock_borders[i];

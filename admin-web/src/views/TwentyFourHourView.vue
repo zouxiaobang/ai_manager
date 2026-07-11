@@ -50,6 +50,16 @@
           <span class="tfh-top-hint__text">{{ prevPrepHint }}</span>
         </div>
 
+        <!-- 下午继续工作的提醒 -->
+        <div v-if="afternoonReminder" class="tfh-top-hint tfh-top-hint--afternoon">
+          <svg viewBox="0 0 24 24" width="14" height="14">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" stroke="currentColor" stroke-width="1.5" fill="none" />
+            <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" />
+          </svg>
+          <span class="tfh-top-hint__label">下午提示：</span>
+          <span class="tfh-top-hint__text">{{ afternoonReminder }}</span>
+        </div>
+
         <div class="tfh-grid">
           <div
             v-for="phase in phases"
@@ -276,7 +286,7 @@ import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import WarRoomPage from '@/components/war-room/WarRoomPage.vue'
 import { fetchDailyChecklist, saveDailyChecklist, fetchDailyChecklistStats } from '@/api/dailyChecklist'
-import type { DailyChecklistItem, DailyChecklistStats, DailyStatsItem, PhaseStatsItem } from '@/api/dailyChecklist'
+import type { DailyChecklistItem, DailyChecklistStats, DailyStatsItem } from '@/api/dailyChecklist'
 import { phases, getCurrentPhase, type ItemDef, type PhaseDef } from '@/data/24hour-phases'
 import { dismiss24HourNotification, markPhaseNotified } from '@/composables/use24HourNotification'
 
@@ -326,6 +336,8 @@ const previousDate = computed(() => {
 
 const prevPrepTask = computed(() => prevChecklistMap['prep_task']?.content || '')
 const prevPrepHint = computed(() => prevChecklistMap['prep_hint']?.content || '')
+
+const afternoonReminder = computed(() => checklistMap['focus_tomorrow_reminder']?.content || '')
 
 // ─── 进度 ──────────────────────────
 const allItemKeys = phases.flatMap(p => p.items.map(i => i.key))
@@ -888,6 +900,14 @@ onMounted(() => {
   &__label { font-weight: 600; white-space: nowrap; }
 
   &__text { line-height: 1.5; }
+}
+
+.tfh-top-hint--afternoon {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #1e3a5f;
+
+  svg { color: #0ea5e9; }
 }
 
 .tfh-bottom-mission {

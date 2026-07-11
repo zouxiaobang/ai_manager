@@ -287,6 +287,36 @@ $dog-pink: #ff5252;
     }
   }
 
+  &__paws {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    animation: paw-bounce 0.4s ease-in-out infinite;
+  }
+
+  &__paw {
+    font-size: 18px;
+    animation: paw-float 0.7s ease-out infinite;
+
+    &:nth-child(1) {
+      animation-delay: 0s;
+      transform: rotate(-20deg);
+    }
+
+    &:nth-child(2) {
+      animation-delay: 0.15s;
+      font-size: 22px;
+    }
+
+    &:nth-child(3) {
+      animation-delay: 0.3s;
+      transform: rotate(20deg);
+    }
+  }
+
   &__waves {
     position: absolute;
     top: -20px;
@@ -383,6 +413,15 @@ $dog-pink: #ff5252;
   }
 }
 
+@keyframes paw-bounce {
+  0%, 100% {
+    transform: translateX(-50%) scale(1) rotate(-3deg);
+  }
+  50% {
+    transform: translateX(-50%) scale(1.15) rotate(3deg);
+  }
+}
+
 @keyframes float-up {
   0% {
     transform: translateY(0) rotate(var(--rotation, 0deg));
@@ -390,6 +429,20 @@ $dog-pink: #ff5252;
   }
   100% {
     transform: translateY(-30px) rotate(var(--rotation, 0deg));
+    opacity: 0;
+  }
+}
+
+@keyframes paw-float {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-12px) scale(1.1);
+  }
+  100% {
+    transform: translateY(-24px) scale(0.9);
     opacity: 0;
   }
 }
@@ -649,8 +702,36 @@ $dog-pink: #ff5252;
       2px 2px 0 rgb(0 0 0 / 30%);
   }
 
+  &--hug {
+    margin-top: 12px;
+    border-color: #e6a700;
+    background: #ffc107;
+    color: #4a3200;
+    box-shadow:
+      0 6px 0 #c88700,
+      6px 6px 0 rgb(0 0 0 / 35%);
+
+    &:active:not(:disabled) {
+      box-shadow:
+        0 2px 0 #c88700,
+        2px 2px 0 rgb(0 0 0 / 30%);
+    }
+  }
+
   &--nuzzle {
     margin-top: 12px;
+    border-color: #c2185b;
+    background: #ec407a;
+    color: #4a1030;
+    box-shadow:
+      0 6px 0 #a0003d,
+      6px 6px 0 rgb(0 0 0 / 35%);
+
+    &:active:not(:disabled) {
+      box-shadow:
+        0 2px 0 #a0003d,
+        2px 2px 0 rgb(0 0 0 / 30%);
+    }
   }
 
   &--pet {

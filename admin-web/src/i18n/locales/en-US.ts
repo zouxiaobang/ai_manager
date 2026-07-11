@@ -636,6 +636,10 @@ export default {
         navItems: 'Items',
         navHistory: 'History',
       },
+      twentyFourHour: {
+        name: '24 Hour',
+        desc: 'Time-blocked checklist for a productive daily rhythm',
+      },
     },
   },
   notebook: {

@@ -1,54 +1,57 @@
 <template>
   <div
-    class="pixel-dog-sprite"
-    :class="[`pixel-dog-sprite--${status.toLowerCase()}`, { 'pixel-dog-sprite--active': activityLevel > 0.6, 'pixel-dog-sprite--lazy': activityLevel < 0.3, 'pixel-dog-sprite--focus': status === 'FOCUS' }]"
-    @click="onClick"
-    :style="{ 
-      transform: `translate(${position.x}px, ${position.y}px) scaleX(${direction === 'LEFT' ? -1 : 1}) ${status === 'PETTING' ? 'rotate(-5deg)' : status === 'GREETING' ? 'rotate(5deg)' : ''}`,
-
-      animation: isMoving ? `dog-idle ${1.5 - activityLevel * 0.5}s ease-in-out infinite` : 'none'
+    ref="spriteRef"
+    class="pixel-dog-mobile-sprite"
+    :class="[`pixel-dog-mobile-sprite--${status.toLowerCase()}`, `pixel-dog-mobile-sprite--face-${faceDirection}`, {
+      'pixel-dog-mobile-sprite--active': activityLevel > 0.6,
+      'pixel-dog-mobile-sprite--lazy': activityLevel < 0.3,
+      'pixel-dog-mobile-sprite--focus': status === 'FOCUS'
+    }]"
+    :style="{
+      transform: `translate(${position.x}px, ${position.y}px)`,
     }"
+    @click="onClick"
+    @touchstart.prevent="onTouchStart"
+    @touchend.prevent="onTouchEnd"
   >
-    <div class="pixel-dog-sprite__canvas">
+    <div class="pixel-dog-mobile-sprite__canvas">
       <canvas
         ref="canvasRef"
-        class="pixel-dog-sprite__canvas-el"
+        class="pixel-dog-mobile-sprite__canvas-el"
         :width="viewBoxSize"
         :height="viewBoxSize"
         :style="{ width: displaySize + 'px', height: displaySize + 'px' }"
       ></canvas>
     </div>
 
-    <div v-if="status === 'HAPPY'" class="pixel-dog-sprite__sparkles">
-    <span class="pixel-dog-sprite__sparkle">✨</span>
-    <span class="pixel-dog-sprite__sparkle">✨</span>
-    <span class="pixel-dog-sprite__sparkle">✨</span>
-  </div>
+    <div v-if="status === 'HAPPY'" class="pixel-dog-mobile-sprite__sparkles">
+      <span class="pixel-dog-mobile-sprite__sparkle">✨</span>
+      <span class="pixel-dog-mobile-sprite__sparkle">✨</span>
+      <span class="pixel-dog-mobile-sprite__sparkle">✨</span>
+    </div>
 
-  <div v-if="status === 'PETTING'" class="pixel-dog-sprite__hearts">
-    <span class="pixel-dog-sprite__heart">❤️</span>
-    <span class="pixel-dog-sprite__heart">💕</span>
-    <span class="pixel-dog-sprite__heart">❤️</span>
-  </div>
+    <div v-if="status === 'PETTING'" class="pixel-dog-mobile-sprite__hearts">
+      <span class="pixel-dog-mobile-sprite__heart">❤️</span>
+      <span class="pixel-dog-mobile-sprite__heart">💕</span>
+      <span class="pixel-dog-mobile-sprite__heart">❤️</span>
+    </div>
 
-  <div v-if="status === 'NUZZLE'" class="pixel-dog-sprite__paws">
-    <span class="pixel-dog-sprite__paw">🐾</span>
-    <span class="pixel-dog-sprite__paw">💗</span>
-    <span class="pixel-dog-sprite__paw">🐾</span>
-  </div>
+    <div v-if="status === 'NUZZLE'" class="pixel-dog-mobile-sprite__paws">
+      <span class="pixel-dog-mobile-sprite__paw">🐾</span>
+      <span class="pixel-dog-mobile-sprite__paw">💗</span>
+      <span class="pixel-dog-mobile-sprite__paw">🐾</span>
+    </div>
 
-  <div v-if="status === 'GREETING'" class="pixel-dog-sprite__waves">
-    <span class="pixel-dog-sprite__wave">👋</span>
-    <span class="pixel-dog-sprite__wave">✋</span>
-  </div>
+    <div v-if="status === 'GREETING'" class="pixel-dog-mobile-sprite__waves">
+      <span class="pixel-dog-mobile-sprite__wave">👋</span>
+      <span class="pixel-dog-mobile-sprite__wave">✋</span>
+    </div>
 
-  <div v-if="status === 'SLEEPING'" class="pixel-dog-sprite__z">
-    <span>Z</span>
-    <span>z</span>
-    <span>Z</span>
-  </div>
-
-    <div class="pixel-dog-sprite__hint">点击互动</div>
+    <div v-if="status === 'SLEEPING'" class="pixel-dog-mobile-sprite__z">
+      <span>Z</span>
+      <span>z</span>
+      <span>Z</span>
+    </div>
   </div>
 </template>
 
@@ -58,7 +61,6 @@ import { ITEM_SHAPES, SHAPE_OFFSETS } from '@/data/pixel-dog-items'
 import type { PixelDogItemVO } from '@/api/pixelDog'
 
 type DogStatus = 'IDLE' | 'HAPPY' | 'PETTING' | 'GREETING' | 'SLEEPING' | 'WALKING' | 'FOCUS' | 'NUZZLE'
-type DogDirection = 'FRONT' | 'BACK' | 'LEFT' | 'RIGHT'
 
 const props = defineProps<{
   status: DogStatus
@@ -71,12 +73,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   pet: []
-  greet: []
 }>()
 
 const SIZE = 16
-const BASE_SCALE = 4  // 与 ESP 端一致（ESP: pixel_scale = (int)(4 * scale)）
-const DISPLAY_SCALE = 2  // CSS 显示放大倍数（整数倍，保持像素清晰）
+const BASE_SCALE = 4
+const DISPLAY_SCALE = 2
 
 const level = computed(() => props.level || 1)
 
@@ -84,7 +85,6 @@ const levelScale = computed(() => {
   return Math.min(1 + (level.value - 1) * 0.08, 2)
 })
 
-// 与 ESP 端完全一致：Math.trunc 截断，限制 2-12
 const SCALE = computed(() => {
   const s = Math.trunc(BASE_SCALE * levelScale.value)
   return Math.max(2, Math.min(12, s))
@@ -97,41 +97,116 @@ const separation = computed(() => {
   return Math.min((level.value - 1) * 0.5, 4)
 })
 
-const position = ref({ x: 0, y: 0 })
-const direction = ref<DogDirection>('FRONT')
-const speed = ref(2)
-
 const canvasRef = ref<HTMLCanvasElement | null>(null)
+const spriteRef = ref<HTMLElement | null>(null)
 
-const bounds = computed(() => {
-  const baseLeft = -200
-  const baseRight = 200
-  const baseTop = -120
-  const baseBottom = 120
-  
-  const bondFactor = props.bond / 100
-  
-  const minBounds = 0.3
-  const maxBounds = 1.2
-  
-  const scale = minBounds + (maxBounds - minBounds) * bondFactor
-  
+const position = ref({ x: 0, y: 0 })
+const faceDirection = ref<'front' | 'left' | 'right' | 'back'>('front')
+
+const containerSize = ref({ width: 300, height: 300 })
+
+const moveBounds = computed(() => {
+  const spriteSize = displaySize.value
+  const w = containerSize.value.width
+  const h = containerSize.value.height
   return {
-    left: Math.round(baseLeft * scale),
-    right: Math.round(baseRight * scale),
-    top: Math.round(baseTop * scale),
-    bottom: Math.round(baseBottom * scale),
+    maxX: (w - spriteSize) / 2,
+    maxY: (h - spriteSize) / 2,
   }
 })
 
-let moveTimer: ReturnType<typeof setInterval> | null = null
-let directionTimer: ReturnType<typeof setInterval> | null = null
+const bondFactor = computed(() => {
+  return Math.min(1, 0.6 + props.bond / 100 * 0.4)
+})
 
-const colors: Record<number, string> = {
-  1: '#8d6e63',
-  2: '#ffffff',
-  3: '#4e342e',
-  4: '#ff5252',
+let moveTimer: ReturnType<typeof setInterval> | null = null
+let targetPoint = { x: 0, y: 0 }
+let isIdle = false
+let idleTimer: ReturnType<typeof setTimeout> | null = null
+
+function pickRandomTarget() {
+  const factor = bondFactor.value
+  const maxX = moveBounds.value.maxX * factor
+  const maxY = moveBounds.value.maxY * factor
+  targetPoint = {
+    x: (Math.random() * 2 - 1) * maxX,
+    y: (Math.random() * 2 - 1) * maxY,
+  }
+}
+
+function updateFaceDirection(dx: number, dy: number) {
+  if (Math.abs(dx) > Math.abs(dy)) {
+    faceDirection.value = dx > 0 ? 'right' : 'left'
+  } else {
+    faceDirection.value = dy > 0 ? 'front' : 'back'
+  }
+}
+
+function startIdle() {
+  isIdle = true
+  const idleDuration = 1000 + Math.random() * 2500
+  idleTimer = setTimeout(() => {
+    isIdle = false
+    pickRandomTarget()
+  }, idleDuration)
+}
+
+function startMoving() {
+  if (moveTimer) clearInterval(moveTimer)
+  if (idleTimer) clearTimeout(idleTimer)
+
+  pickRandomTarget()
+
+  moveTimer = setInterval(() => {
+    if (props.status === 'FOCUS' || props.status === 'SLEEPING') {
+      position.value = { x: 0, y: 0 }
+      faceDirection.value = 'front'
+      return
+    }
+
+    if (isIdle) return
+
+    let { x, y } = position.value
+    const dx = targetPoint.x - x
+    const dy = targetPoint.y - y
+    const dist = Math.sqrt(dx * dx + dy * dy)
+
+    if (dist < 3) {
+      startIdle()
+      return
+    }
+
+    const baseSpeed = 1.5 + Math.random() * 1.5
+    const vx = (dx / dist) * baseSpeed
+    const vy = (dy / dist) * baseSpeed
+
+    x += vx
+    y += vy
+
+    updateFaceDirection(dx, dy)
+
+    const factor = bondFactor.value
+    const maxX = moveBounds.value.maxX * factor
+    const maxY = moveBounds.value.maxY * factor
+
+    if (x > maxX) x = maxX
+    if (x < -maxX) x = -maxX
+    if (y > maxY) y = maxY
+    if (y < -maxY) y = -maxY
+
+    position.value = { x, y }
+  }, 50)
+}
+
+function stopMoving() {
+  if (moveTimer) {
+    clearInterval(moveTimer)
+    moveTimer = null
+  }
+  if (idleTimer) {
+    clearTimeout(idleTimer)
+    idleTimer = null
+  }
 }
 
 interface ItemPixelGrid {
@@ -392,7 +467,7 @@ const greetingFrames3 = [
   [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
 ]
 
-const allFrames: Record<DogStatus, typeof idleFrame1[]> = {
+const allFrames: Record<DogStatus, number[][][]> = {
   IDLE: [idleFrame1, idleFrame2],
   HAPPY: [happyFrames, happyFrames, happyFrames],
   PETTING: [pettingFrames, pettingFrames2, pettingFrames],
@@ -405,14 +480,7 @@ const allFrames: Record<DogStatus, typeof idleFrame1[]> = {
 
 const currentFrameIndex = ref(0)
 let animationTimer: ReturnType<typeof setInterval> | null = null
-
-const isMoving = computed(() => {
-  return props.status === 'IDLE'
-})
-
-const isFocus = computed(() => {
-  return props.status === 'FOCUS'
-})
+let touchTimer: ReturnType<typeof setTimeout> | null = null
 
 const activityLevel = computed(() => {
   const emotionFactor = (props.emotion + 100) / 200
@@ -421,29 +489,11 @@ const activityLevel = computed(() => {
 })
 
 const currentFrame = computed(() => {
-  if (isFocus.value) {
+  if (props.status === 'FOCUS') {
     return [idleFrame1, idleFrame2][currentFrameIndex.value % 2]
   }
-  
-  if (!isMoving.value) {
-    if (activityLevel.value < 0.3) {
-      return idleFrame1
-    }
-    return [idleFrame1, idleFrame2][currentFrameIndex.value % 2]
-  }
-  
-  let frames = allFrames[props.status]
-  
-  if (props.status === 'IDLE' && isMoving.value) {
-    frames = allFrames.WALKING
-    
-    if (activityLevel.value < 0.3) {
-      return idleFrame1
-    } else if (activityLevel.value < 0.6) {
-      return [idleFrame1, walkingFrame1][currentFrameIndex.value % 2]
-    }
-  }
-  
+
+  const frames = allFrames[props.status]
   return frames[currentFrameIndex.value % frames.length]
 })
 
@@ -486,7 +536,13 @@ function getY(row: number, col: number): number {
 }
 
 function getColor(pixel: number): string {
-  return colors[pixel] || '#000000'
+  const colorMap: Record<number, string> = {
+    1: '#8d6e63',
+    2: '#ffffff',
+    3: '#4e342e',
+    4: '#ff5252',
+  }
+  return colorMap[pixel] || '#000000'
 }
 
 function drawCanvas() {
@@ -503,7 +559,6 @@ function drawCanvas() {
   const frame = currentFrame.value
   if (!frame) return
 
-  // 绘制狗的像素（与 ESP 端 draw_dog_frame 一致）
   for (let ri = 0; ri < frame.length; ri++) {
     for (let ci = 0; ci < frame[ri].length; ci++) {
       const pixel = frame[ri][ci]
@@ -513,7 +568,6 @@ function drawCanvas() {
     }
   }
 
-  // 绘制物品像素（与 ESP 端 draw_dog_items 一致）
   for (const px of visibleItemPixels.value) {
     ctx.fillStyle = px.fill
     ctx.fillRect(px.x, px.y, px.w, px.h)
@@ -525,41 +579,17 @@ function onClick() {
   emit('pet')
 }
 
-function move() {
-  if (props.status !== 'IDLE' || isFocus.value) return
-
-  switch (direction.value) {
-    case 'LEFT':
-      position.value.x = Math.max(bounds.value.left, position.value.x - speed.value)
-      break
-    case 'RIGHT':
-      position.value.x = Math.min(bounds.value.right, position.value.x + speed.value)
-      break
-    case 'FRONT':
-      position.value.y = Math.max(bounds.value.top, position.value.y - speed.value)
-      break
-    case 'BACK':
-      position.value.y = Math.min(bounds.value.bottom, position.value.y + speed.value)
-      break
-  }
+function onTouchStart() {
+  if (props.status === 'SLEEPING') return
+  touchTimer = setTimeout(() => {
+    emit('pet')
+  }, 150)
 }
 
-function changeDirection() {
-  if (props.status !== 'IDLE') return
-
-  const directions: DogDirection[] = ['FRONT', 'BACK', 'LEFT', 'RIGHT']
-  const randomDir = directions[Math.floor(Math.random() * directions.length)]
-  
-  if (randomDir === 'LEFT' && position.value.x <= bounds.value.left) {
-    direction.value = 'RIGHT'
-  } else if (randomDir === 'RIGHT' && position.value.x >= bounds.value.right) {
-    direction.value = 'LEFT'
-  } else if (randomDir === 'FRONT' && position.value.y <= bounds.value.top) {
-    direction.value = 'BACK'
-  } else if (randomDir === 'BACK' && position.value.y >= bounds.value.bottom) {
-    direction.value = 'FRONT'
-  } else {
-    direction.value = randomDir
+function onTouchEnd() {
+  if (touchTimer) {
+    clearTimeout(touchTimer)
+    touchTimer = null
   }
 }
 
@@ -569,46 +599,259 @@ const animationSpeed = computed(() => {
   return baseSpeed * (1 - activity * 0.6)
 })
 
-watch(() => props.status, (newStatus) => {
-  if (newStatus === 'FOCUS') {
-    position.value.x = 0
-    position.value.y = 0
-  }
-})
-
 watch([currentFrame, visibleItemPixels, viewBoxSize], () => {
   drawCanvas()
 })
+
+let resizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
   animationTimer = setInterval(() => {
     currentFrameIndex.value++
   }, animationSpeed.value)
 
-  moveTimer = setInterval(() => {
-    move()
-  }, 50)
-
-  directionTimer = setInterval(() => {
-    changeDirection()
-  }, 2000)
-
   nextTick(() => drawCanvas())
+
+  const parent = spriteRef.value?.parentElement
+  if (parent) {
+    containerSize.value = { width: parent.clientWidth, height: parent.clientHeight }
+    resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        containerSize.value = {
+          width: entry.contentBoxSize?.[0]?.inlineSize ?? entry.contentRect.width,
+          height: entry.contentBoxSize?.[0]?.blockSize ?? entry.contentRect.height,
+        }
+      }
+    })
+    resizeObserver.observe(parent)
+  }
+
+  startMoving()
 })
 
 onUnmounted(() => {
   if (animationTimer) {
     clearInterval(animationTimer)
   }
-  if (moveTimer) {
-    clearInterval(moveTimer)
+  if (resizeObserver) {
+    resizeObserver.disconnect()
   }
-  if (directionTimer) {
-    clearInterval(directionTimer)
-  }
+  stopMoving()
 })
 </script>
 
 <style scoped lang="scss">
-@use './pixel-dog.scss';
+.pixel-dog-mobile-sprite {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.3s ease-out;
+  -webkit-tap-highlight-color: transparent;
+
+  &--sleeping {
+    cursor: not-allowed;
+    opacity: 0.8;
+  }
+
+  &--face-left &__canvas {
+    transform: scaleX(-1);
+  }
+
+  &--face-right &__canvas {
+    transform: scaleX(1);
+  }
+
+  &--face-back &__canvas {
+    transform: scaleX(1);
+  }
+
+  &--face-front &__canvas {
+    transform: scaleX(1);
+  }
+
+  &__canvas {
+    padding: 12px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+
+    .pixel-dog-mobile-sprite--active & {
+      animation: dog-wag 0.3s ease-in-out infinite;
+    }
+
+    .pixel-dog-mobile-sprite--lazy & {
+      animation: dog-sway 2s ease-in-out infinite;
+    }
+
+    .pixel-dog-mobile-sprite--focus & {
+      animation: dog-focus-wag 0.5s ease-in-out infinite;
+    }
+  }
+
+  &__canvas-el {
+    image-rendering: pixelated;
+    display: block;
+  }
+
+  &__sparkles {
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    animation: sparkle 0.5s ease-in-out infinite alternate;
+  }
+
+  &__sparkle {
+    font-size: 14px;
+    animation: float 0.6s ease-in-out infinite;
+
+    &:nth-child(2) { animation-delay: 0.2s; }
+    &:nth-child(3) { animation-delay: 0.4s; }
+  }
+
+  &__hearts {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    animation: heart-bounce 0.5s ease-in-out infinite;
+  }
+
+  &__heart {
+    font-size: 16px;
+    animation: float-up 0.8s ease-out infinite;
+
+    &:nth-child(1) { animation-delay: 0s; transform: rotate(-15deg); }
+    &:nth-child(2) { animation-delay: 0.2s; font-size: 18px; }
+    &:nth-child(3) { animation-delay: 0.4s; transform: rotate(15deg); }
+  }
+
+  &__paws {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    animation: paw-bounce 0.4s ease-in-out infinite;
+  }
+
+  &__paw {
+    font-size: 16px;
+    animation: paw-float 0.7s ease-out infinite;
+
+    &:nth-child(1) { animation-delay: 0s; transform: rotate(-20deg); }
+    &:nth-child(2) { animation-delay: 0.15s; font-size: 18px; }
+    &:nth-child(3) { animation-delay: 0.3s; transform: rotate(20deg); }
+  }
+
+  &__waves {
+    position: absolute;
+    top: -15px;
+    right: -5px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__wave {
+    font-size: 20px;
+    animation: wave-hand 0.6s ease-in-out infinite;
+
+    &:nth-child(1) { animation-delay: 0s; }
+    &:nth-child(2) { animation-delay: 0.3s; opacity: 0.7; }
+  }
+
+  &__z {
+    position: absolute;
+    top: -10px;
+    right: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    animation: float-down 2s ease-in-out infinite;
+
+    span {
+      font-size: 16px;
+      font-weight: bold;
+      color: #ffffff;
+      opacity: 0.7;
+
+      &:nth-child(2) {
+        font-size: 12px;
+        transform: translateX(8px);
+      }
+
+      &:nth-child(3) {
+        font-size: 14px;
+        transform: translateX(4px);
+      }
+    }
+  }
+}
+
+@keyframes dog-wag {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg); }
+}
+
+@keyframes dog-sway {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+@keyframes dog-focus-wag {
+  0%, 100% { transform: rotate(-1deg); }
+  50% { transform: rotate(1deg); }
+}
+
+@keyframes sparkle {
+  0% { transform: translateX(-50%) scale(1); }
+  100% { transform: translateX(-50%) scale(1.2); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes float-down {
+  0%, 100% { transform: translateY(0); opacity: 0.7; }
+  50% { transform: translateY(8px); opacity: 0.4; }
+}
+
+@keyframes heart-bounce {
+  0%, 100% { transform: translateX(-50%) scale(1); }
+  50% { transform: translateX(-50%) scale(1.1); }
+}
+
+@keyframes paw-bounce {
+  0%, 100% { transform: translateX(-50%) scale(1) rotate(-3deg); }
+  50% { transform: translateX(-50%) scale(1.15) rotate(3deg); }
+}
+
+@keyframes float-up {
+  0% { transform: translateY(0) rotate(var(--rotation, 0deg)); opacity: 1; }
+  100% { transform: translateY(-24px) rotate(var(--rotation, 0deg)); opacity: 0; }
+}
+
+@keyframes paw-float {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  50% { transform: translateY(-10px) scale(1.1); }
+  100% { transform: translateY(-20px) scale(0.9); opacity: 0; }
+}
+
+@keyframes wave-hand {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(30deg); }
+  75% { transform: rotate(-30deg); }
+}
 </style>

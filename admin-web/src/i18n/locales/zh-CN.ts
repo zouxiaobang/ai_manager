@@ -635,6 +635,10 @@ export default {
         navItems: '物品',
         navHistory: '记录',
       },
+      twentyFourHour: {
+        name: '24小时',
+        desc: '分时段任务清单，让每一天都有节奏',
+      },
     },
   },
   notebook: {

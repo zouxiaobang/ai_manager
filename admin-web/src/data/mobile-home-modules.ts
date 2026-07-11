@@ -45,6 +45,7 @@ export const mobileHomeModules: MobileHomeModule[] = [
     barColor: '#8b5cf6',
     nameKey: 'functions.items.pixelDog.name',
     descKey: 'functions.items.pixelDog.desc',
+    route: '/pixel-dog',
     desktopPath: '/pixel-dog',
     searchKeys: ['pixelDog', '像素'],
   },
@@ -74,6 +75,15 @@ export const mobileHomeModules: MobileHomeModule[] = [
     descKey: 'storageCenter.subtitle',
     desktopPath: '/storage',
     searchKeys: ['storage', '存储'],
+  },
+  {
+    key: 'twentyFourHour',
+    icon: '24hour',
+    barColor: '#f59e0b',
+    nameKey: 'portal.menu.24hour',
+    descKey: 'functions.items.twentyFourHour.desc',
+    route: '/24hour',
+    searchKeys: ['24hour', '24小时', '时间管理'],
   },
   {
     key: 'settings',

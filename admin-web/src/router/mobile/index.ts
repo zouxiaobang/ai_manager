@@ -76,6 +76,12 @@ const router = createRouter({
           redirect: '/home',
         },
         {
+          path: 'pixel-dog',
+          name: 'mobile-pixel-dog',
+          component: () => import('@/mobile/views/pixel-dog/PixelDogMobileView.vue'),
+          meta: { titleKey: 'functions.items.pixelDog.name', hideTabBar: true, hideAppHeader: true },
+        },
+        {
           path: 'functions',
           name: 'mobile-functions',
           component: () => import('@/mobile/views/functions/MobileFunctionsView.vue'),
@@ -183,6 +189,12 @@ const router = createRouter({
           name: 'mobile-users',
           component: () => import('@/mobile/views/users/MobileUsersView.vue'),
           meta: { titleKey: 'portal.menu.permission', hideTabBar: true },
+        },
+        {
+          path: '24hour',
+          name: 'mobile-24hour',
+          component: () => import('@/mobile/views/twenty-four-hour/MobileTwentyFourHourView.vue'),
+          meta: { titleKey: 'portal.menu.24hour', hideTabBar: true, hideAppHeader: true },
         },
       ],
     },
