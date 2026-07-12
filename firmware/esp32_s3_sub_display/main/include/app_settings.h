@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#define APP_SETTINGS_HOST_LEN 64
+
 struct AppSettings {
   uint8_t brightness = 100;
   uint8_t dim_brightness = 30;
@@ -12,6 +14,12 @@ struct AppSettings {
   uint8_t night_end_hour = 8;
   uint8_t night_end_min = 0;
   uint8_t font_scale = 1;
+  char pomodoro_host[APP_SETTINGS_HOST_LEN] = {};
+  uint16_t pomodoro_port = 8080;
+  char pixel_dog_host[APP_SETTINGS_HOST_LEN] = {};
+  uint16_t pixel_dog_port = 8080;
+  char media_host[APP_SETTINGS_HOST_LEN] = {};
+  uint16_t media_port = 8765;
 };
 
 void app_settings_init();

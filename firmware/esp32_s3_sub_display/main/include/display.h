@@ -8,3 +8,4 @@ void display_start_lvgl_task();
 void display_lock();
 void display_unlock();
 lv_display_t *display_get();
+void display_set_low_power(bool enable);

@@ -61,8 +61,8 @@ typedef struct {
   lv_obj_t *dog_nuzzle_btn;
   lv_obj_t *dog_hug_btn;
   lv_obj_t *dock_panel;
-  lv_obj_t *dock_slots[5];
-  lv_obj_t *dock_borders[5];
+  lv_obj_t *dock_slots[4];
+  lv_obj_t *dock_borders[4];
 } ui_home_widgets_t;
 
 lv_obj_t *ui_home_static_build(lv_obj_t *parent, ui_home_widgets_t *out);

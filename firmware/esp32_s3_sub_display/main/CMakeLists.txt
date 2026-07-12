@@ -24,6 +24,7 @@ idf_component_register(
         "pixel_dog_sprite.cpp"
         "pixel_dog_api_config.cpp"
         "pixel_dog_sync.cpp"
+        "media_api_config.cpp"
     INCLUDE_DIRS
         "include"
         "assets_embed"

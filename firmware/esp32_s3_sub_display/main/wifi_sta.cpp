@@ -15,6 +15,7 @@ namespace {
 constexpr char TAG[] = "wifi_sta";
 constexpr int WIFI_CONNECTED_BIT = BIT0;
 constexpr int WIFI_FAIL_BIT = BIT1;
+constexpr int WIFI_HEAVY_INIT_DONE_BIT = BIT2;
 
 EventGroupHandle_t s_wifi_event_group = nullptr;
 int s_retry_count = 0;
@@ -97,6 +98,12 @@ esp_err_t wifi_sta_connect() {
   ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
   ESP_ERROR_CHECK(esp_wifi_start());
 
+  /* Signal that the heavy phy_init + RF calibration spike is over.
+   * Other tasks (e.g. main) may now re-enable power-hungry hardware. */
+  if (s_wifi_event_group != nullptr) {
+    xEventGroupSetBits(s_wifi_event_group, WIFI_HEAVY_INIT_DONE_BIT);
+  }
+
   EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
                                          pdFALSE, pdFALSE, pdMS_TO_TICKS(30000));
   if (bits & WIFI_CONNECTED_BIT) {
@@ -129,4 +136,17 @@ void wifi_sta_init_mdns() {
   }
   ESP_LOGI(TAG, "mDNS ready (supports hostname.local)");
 #endif
+}
+
+bool wifi_sta_wait_heavy_init_done(uint32_t timeout_ms) {
+  if (s_wifi_event_group == nullptr) {
+    return false;
+  }
+  const EventBits_t bits = xEventGroupGetBits(s_wifi_event_group);
+  if (bits & WIFI_HEAVY_INIT_DONE_BIT) {
+    return true;
+  }
+  xEventGroupWaitBits(s_wifi_event_group, WIFI_HEAVY_INIT_DONE_BIT,
+                       pdFALSE, pdFALSE, pdMS_TO_TICKS(timeout_ms));
+  return (xEventGroupGetBits(s_wifi_event_group) & WIFI_HEAVY_INIT_DONE_BIT) != 0;
 }

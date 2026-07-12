@@ -56,7 +56,22 @@ uint8_t default_exio_data() {
 
 esp_err_t board_io_init() {
   ESP_RETURN_ON_ERROR(init_i2c(), TAG, "Init I2C failed");
-  ESP_RETURN_ON_ERROR(ch422_write(kCh422WrSetAddr, kCh422WrSetAllOutput), TAG, "CH422G WR_SET failed");
+
+  /* CH422G may need tens of ms to stabilise after power-on (especially
+   * when USB-only without battery).  Retry WR_SET a few times so that
+   * the board can boot with just a USB cable. */
+  vTaskDelay(pdMS_TO_TICKS(80));
+  esp_err_t err = ESP_FAIL;
+  for (int attempt = 0; attempt < 5; ++attempt) {
+    err = ch422_write(kCh422WrSetAddr, kCh422WrSetAllOutput);
+    if (err == ESP_OK) {
+      break;
+    }
+    ESP_LOGW(TAG, "CH422G WR_SET attempt %d/5 failed", attempt + 1);
+    vTaskDelay(pdMS_TO_TICKS(50));
+  }
+  ESP_RETURN_ON_ERROR(err, TAG, "CH422G WR_SET failed after 5 attempts");
+
   ESP_RETURN_ON_ERROR(write_exio_data(default_exio_data()), TAG, "CH422G default outputs failed");
   ESP_LOGI(TAG, "CH422G ready, WR_SET=0x%02X EXIO=0x%02X (USB_SEL low)", kCh422WrSetAllOutput, s_exio_data);
   return ESP_OK;

@@ -23,6 +23,8 @@ esp_lcd_panel_handle_t panel_handle = nullptr;
 lv_display_t *lv_display = nullptr;
 SemaphoreHandle_t lvgl_mutex = nullptr;
 esp_timer_handle_t lvgl_tick_timer = nullptr;
+TaskHandle_t lvgl_task_handle = nullptr;
+uint32_t original_pclk_hz = 0;
 
 void lvgl_flush(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map) {
   const int x1 = area->x1;
@@ -152,7 +154,7 @@ esp_err_t display_init() {
 }
 
 void display_start_lvgl_task() {
-  xTaskCreatePinnedToCore(lvgl_task, "lvgl", kLvglTaskStack, nullptr, kLvglTaskPriority, nullptr, 0);
+  xTaskCreatePinnedToCore(lvgl_task, "lvgl", kLvglTaskStack, nullptr, kLvglTaskPriority, &lvgl_task_handle, 0);
 }
 
 void display_lock() {
@@ -169,4 +171,33 @@ void display_unlock() {
 
 lv_display_t *display_get() {
   return lv_display;
+}
+
+void display_set_low_power(bool enable) {
+  if (panel_handle == nullptr) {
+    return;
+  }
+  if (enable) {
+    /* Save original PCLK and reduce to minimum.
+     * RGB DMA continuously reads PSRAM at PCLK rate; lowering it
+     * from 16MHz to 1MHz cuts DMA power by ~90%. */
+    original_pclk_hz = LCD_PIXEL_CLOCK_HZ;
+    esp_lcd_rgb_panel_set_pclk(panel_handle, 1000000);
+    /* Suspend LVGL task — no rendering = no extra PSRAM writes */
+    if (lvgl_task_handle != nullptr) {
+      vTaskSuspend(lvgl_task_handle);
+    }
+    ESP_LOGI(TAG, "Low-power mode: PCLK 1MHz, LVGL suspended");
+  } else {
+    /* Restore original PCLK */
+    if (original_pclk_hz > 0) {
+      esp_lcd_rgb_panel_set_pclk(panel_handle, original_pclk_hz);
+      original_pclk_hz = 0;
+    }
+    /* Resume LVGL task */
+    if (lvgl_task_handle != nullptr) {
+      vTaskResume(lvgl_task_handle);
+    }
+    ESP_LOGI(TAG, "Normal power mode restored");
+  }
 }

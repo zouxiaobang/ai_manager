@@ -27,7 +27,7 @@
 
 #define UI_CARD_LEFT_X UI_HOME_CARD_SIDE_MARGIN
 #define UI_DOCK_W      (UI_W - UI_HOME_MARGIN * 2)
-#define UI_DOCK_SLOT_W (UI_DOCK_W / 5)
+#define UI_DOCK_SLOT_W (UI_DOCK_W / 4)
 #define UI_DOCK_FRAME_W  52
 #define UI_DOCK_FRAME_H  64
 /** Selected dock item: jagged border extends this many px beyond the frame on each side. */
@@ -42,10 +42,9 @@ typedef struct {
 #define COL_DOG 0xff8a65
 
 static const dock_def_t k_dock[] = {
+    {0xce93d8, "首页", SD_ASSET_DOCK_HOME},
     {COL_GREEN, "番茄钟", SD_ASSET_DOCK_POMO},
     {COL_DOG, "像素狗", SD_ASSET_DOCK_PIXEL_DOG},
-    {0xce93d8, "首页", SD_ASSET_DOCK_HOME},
-    {0x42a5f5, "专注", SD_ASSET_DOCK_LOCK},
     {0x42a5f5, "设置", SD_ASSET_DOCK_SETTINGS},
 };
 
@@ -418,7 +417,7 @@ static void build_dock_item(lv_obj_t *dock, int index, ui_home_widgets_t *out) {
   lv_obj_t *icon = place_img(icon_area, def->icon, 26, 26);
   if (icon != NULL) {
     lv_obj_center(icon);
-  } else if (index == 0) {
+  } else if (index == 1) {
     lv_obj_t *fallback = place_img(icon_area, SD_ASSET_TOMATO, 24, 24);
     if (fallback != NULL) {
       lv_obj_center(fallback);
@@ -514,7 +513,7 @@ lv_obj_t *ui_home_static_build(lv_obj_t *parent, ui_home_widgets_t *out) {
   lv_obj_set_style_radius(dock_inner, 0, 0);
   make_non_interactive(dock_inner);
 
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 4; i++) {
     build_dock_item(dock, i, out);
   }
 

@@ -50,6 +50,15 @@
           <span class="tfh-top-hint__text">{{ prevPrepHint }}</span>
         </div>
 
+        <!-- 昨日遗留工作 -->
+        <div v-if="prevAfternoonReminder" class="tfh-top-hint tfh-top-hint--yesterday">
+          <svg viewBox="0 0 24 24" width="14" height="14">
+            <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+          <span class="tfh-top-hint__label">昨日遗留：</span>
+          <span class="tfh-top-hint__text">{{ prevAfternoonReminder }}</span>
+        </div>
+
         <!-- 下午继续工作的提醒 -->
         <div v-if="afternoonReminder" class="tfh-top-hint tfh-top-hint--afternoon">
           <svg viewBox="0 0 24 24" width="14" height="14">
@@ -336,6 +345,7 @@ const previousDate = computed(() => {
 
 const prevPrepTask = computed(() => prevChecklistMap['prep_task']?.content || '')
 const prevPrepHint = computed(() => prevChecklistMap['prep_hint']?.content || '')
+const prevAfternoonReminder = computed(() => prevChecklistMap['afternoon_tomorrow_reminder']?.content || '')
 
 const afternoonReminder = computed(() => checklistMap['focus_tomorrow_reminder']?.content || '')
 
@@ -908,6 +918,14 @@ onMounted(() => {
   color: #1e3a5f;
 
   svg { color: #0ea5e9; }
+}
+
+.tfh-top-hint--yesterday {
+  background: #f3e8ff;
+  border-color: #d8b4fe;
+  color: #581c87;
+
+  svg { color: #a855f7; }
 }
 
 .tfh-bottom-mission {

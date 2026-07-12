@@ -22,6 +22,7 @@
 #include "pixel_dog_sprite.h"
 #include "pixel_dog_sync.h"
 #include "pixel_ui.h"
+#include "pomodoro_api_config.h"
 #include "pomodoro_bar.h"
 #include "pomodoro_model.h"
 #include "sd_assets.h"
@@ -36,7 +37,7 @@ constexpr uint32_t kColBg = 0x0a0a18;
 constexpr uint32_t kDogAccent = 0xff8a65;
 #define COL_DOG kDogAccent
 
-enum class DockId { Home, Pomodoro, PixelDog, Focus, Settings };
+enum class DockId { Home, Pomodoro, PixelDog, Settings };
 enum class MoreId { Weather, Stats, Notes, Settings, Media };
 
 lv_obj_t *scr_home = nullptr;
@@ -50,8 +51,8 @@ lv_obj_t *lbl_pomo_time = nullptr;
 lv_obj_t *lbl_pomo_action = nullptr;
 lv_obj_t *lbl_status_time = nullptr;
 lv_obj_t *dock_panel = nullptr;
-lv_obj_t *dock_slots[5] = {};
-lv_obj_t *dock_borders[5] = {};
+lv_obj_t *dock_slots[4] = {};
+lv_obj_t *dock_borders[4] = {};
 lv_obj_t *bar_pomo = nullptr;
 lv_obj_t *bar_pomo_wrap = nullptr;
 lv_obj_t *bar_pomo_border = nullptr;
@@ -75,24 +76,25 @@ lv_obj_t *pomo_lock_btn = nullptr;
 lv_obj_t *pomo_lock_btn_lbl = nullptr;
 lv_obj_t *pomo_tool_row = nullptr;
 lv_obj_t *pomo_touch_blocker = nullptr;
-lv_obj_t *focus_layer = nullptr;
-lv_obj_t *focus_dog_wrap = nullptr;
-lv_obj_t *focus_lbl_time = nullptr;
-lv_obj_t *focus_lbl_action = nullptr;
-lv_obj_t *focus_bar_pomo = nullptr;
-lv_obj_t *focus_exit_hint = nullptr;
-lv_obj_t *focus_pomo_tap = nullptr;
-lv_obj_t *focus_exit_tap = nullptr;
 lv_obj_t *lock_lbl_time = nullptr;
 lv_obj_t *lock_pomo_box = nullptr;
 lv_obj_t *lock_lbl_pomo = nullptr;
 lv_obj_t *lock_bar_pomo = nullptr;
 lv_obj_t *unlock_hint = nullptr;
 lv_obj_t *unlock_pad = nullptr;
-lv_obj_t *lbl_settings_summary = nullptr;
+lv_obj_t *settings_panel = nullptr;
+lv_obj_t *settings_lbl_pomo_val = nullptr;
+lv_obj_t *settings_lbl_dog_val = nullptr;
+lv_obj_t *settings_lbl_brightness = nullptr;
+lv_obj_t *settings_slider_brightness = nullptr;
+lv_obj_t *settings_lbl_ns_val = nullptr;
+
+lv_obj_t *settings_kb_overlay = nullptr;
+lv_obj_t *settings_kb_ta = nullptr;
+lv_obj_t *settings_kb_widget = nullptr;
+int settings_edit_target = -1;
 
 bool locked = false;
-bool focus_mode = false;
 bool pomo_fullscreen_mode = false;
 bool dog_fullscreen_mode = false;
 bool pomo_touch_locked = false;
@@ -124,27 +126,23 @@ lv_obj_t *dog_tab_history_btn = nullptr;
 lv_obj_t *dog_items_panel = nullptr;
 lv_obj_t *dog_history_panel = nullptr;
 
-constexpr int kDockIndexPomodoro = 0;
-constexpr int kDockIndexPixelDog = 1;
-constexpr int kDockIndexHome = 2;
+constexpr int kDockIndexHome = 0;
+constexpr int kDockIndexPomodoro = 1;
+constexpr int kDockIndexPixelDog = 2;
 constexpr uint32_t kDogAccentColor = 0xff8a65;
-constexpr int kFocusMargin = 12;
 constexpr int kPomoToolBtnW = 92;
 constexpr int kPomoToolBtnH = 52;
 constexpr int kPomoToolBtnGap = 10;
 constexpr int kPomoToolRowW = kPomoToolBtnW * 2 + kPomoToolBtnGap;
-constexpr int kFocusW = PANEL_WIDTH - kFocusMargin * 2;
-constexpr int kFocusH = PANEL_HEIGHT - kFocusMargin * 2;
 
 struct DockItem {
   DockId id;
 };
 
 const DockItem kDock[] = {
+    {DockId::Home},
     {DockId::Pomodoro},
     {DockId::PixelDog},
-    {DockId::Home},
-    {DockId::Focus},
     {DockId::Settings},
 };
 
@@ -210,7 +208,7 @@ void bind_home_click_targets() {
     lv_obj_add_flag(dog_hug_btn, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(dog_hug_btn, dog_hug_btn_event, LV_EVENT_CLICKED, nullptr);
   }
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 4; i++) {
     if (dock_slots[i] == nullptr) {
       continue;
     }
@@ -589,40 +587,6 @@ void refresh_pomodoro_card() {
   fill_pomodoro_ui({lbl_pomo_time, lbl_pomo_action, bar_pomo, &lv_font_montserrat_28});
 }
 
-void refresh_focus_mode_ui() {
-  if (!focus_mode || focus_layer == nullptr) {
-    return;
-  }
-  fill_pomodoro_ui({focus_lbl_time, focus_lbl_action, focus_bar_pomo, &lv_font_montserrat_28});
-
-  const bool can_exit = pomodoro_is_current_task_complete();
-  if (focus_exit_hint != nullptr) {
-    if (can_exit) {
-      lv_obj_remove_flag(focus_exit_hint, LV_OBJ_FLAG_HIDDEN);
-      lv_obj_move_foreground(focus_exit_hint);
-    } else {
-      lv_obj_add_flag(focus_exit_hint, LV_OBJ_FLAG_HIDDEN);
-    }
-  }
-  if (focus_pomo_tap != nullptr) {
-    if (can_exit) {
-      lv_obj_add_flag(focus_pomo_tap, LV_OBJ_FLAG_HIDDEN);
-    } else {
-      lv_obj_remove_flag(focus_pomo_tap, LV_OBJ_FLAG_HIDDEN);
-    }
-  }
-  if (focus_exit_tap != nullptr) {
-    if (can_exit) {
-      lv_obj_remove_flag(focus_exit_tap, LV_OBJ_FLAG_HIDDEN);
-      lv_obj_move_foreground(focus_exit_tap);
-    } else {
-      lv_obj_add_flag(focus_exit_tap, LV_OBJ_FLAG_HIDDEN);
-    }
-  }
-}
-
-void enter_focus_mode();
-void exit_focus_mode();
 void enter_pomodoro_fullscreen();
 void exit_pomodoro_fullscreen();
 void enter_dog_fullscreen();
@@ -633,7 +597,6 @@ void show_home_page();
 void set_dock_selected(int index);
 void apply_pomo_card_layout(bool fullscreen);
 void layout_pomo_fullscreen_buttons();
-void layout_dog_fullscreen_buttons();
 void bind_home_click_targets();
 void apply_pomo_bar_layout(bool fullscreen, int inner_w);
 void apply_pomo_time_display(const char *time_str, bool fullscreen);
@@ -641,33 +604,6 @@ void set_pomo_touch_locked(bool locked);
 void update_pomo_tool_row_for_lock_state();
 void refresh_pomo_touch_lock_stack();
 bool should_auto_unlock_pomo_touch();
-
-void focus_pomo_tap_event(lv_event_t *e) {
-  if (lv_event_get_code(e) != LV_EVENT_PRESSED) {
-    return;
-  }
-  if (pomodoro_is_current_task_complete()) {
-    return;
-  }
-  app_ui_notify_activity();
-  if (pomodoro_is_operation_blocked()) {
-    return;
-  }
-  pomodoro_card_action();
-  refresh_pomodoro_card();
-  refresh_focus_mode_ui();
-}
-
-void focus_exit_tap_event(lv_event_t *e) {
-  if (lv_event_get_code(e) != LV_EVENT_PRESSED) {
-    return;
-  }
-  if (!pomodoro_is_current_task_complete()) {
-    return;
-  }
-  app_ui_notify_activity();
-  exit_focus_mode();
-}
 
 void pomo_exit_btn_event(lv_event_t *e) {
   if (lv_event_get_code(e) != LV_EVENT_PRESSED) {
@@ -1048,9 +984,6 @@ void enter_pomodoro_fullscreen() {
   if (card_pomo == nullptr || pomo_fullscreen_mode) {
     return;
   }
-  if (focus_mode) {
-    exit_focus_mode();
-  }
   if (dog_fullscreen_mode) {
     exit_dog_fullscreen();
   }
@@ -1400,9 +1333,6 @@ void enter_dog_fullscreen() {
   if (dog_fullscreen_mode) {
     return;
   }
-  if (focus_mode) {
-    exit_focus_mode();
-  }
   if (pomo_fullscreen_mode) {
     exit_pomodoro_fullscreen();
   }
@@ -1445,53 +1375,6 @@ void exit_dog_fullscreen() {
     lv_refr_now(nullptr);
   }
   ESP_LOGI(TAG, "exit_dog_fullscreen: done");
-}
-
-void enter_focus_mode() {
-  if (focus_layer == nullptr) {
-    return;
-  }
-  if (pomo_fullscreen_mode) {
-    exit_pomodoro_fullscreen();
-  }
-  if (dog_fullscreen_mode) {
-    exit_dog_fullscreen();
-  }
-  focus_mode = true;
-  if (dog_sprite != nullptr && focus_dog_wrap != nullptr) {
-    lv_obj_set_parent(dog_sprite, focus_dog_wrap);
-    lv_obj_center(dog_sprite);
-  }
-  if (dock_panel != nullptr) {
-    lv_obj_add_flag(dock_panel, LV_OBJ_FLAG_HIDDEN);
-  }
-  lv_obj_add_flag(focus_layer, LV_OBJ_FLAG_CLICKABLE);
-  lv_obj_remove_flag(focus_layer, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_move_foreground(focus_layer);
-  if (more_layer != nullptr) {
-    lv_obj_add_flag(more_layer, LV_OBJ_FLAG_HIDDEN);
-  }
-  if (settings_layer != nullptr) {
-    lv_obj_add_flag(settings_layer, LV_OBJ_FLAG_HIDDEN);
-  }
-  refresh_focus_mode_ui();
-}
-
-void exit_focus_mode() {
-  if (focus_layer == nullptr) {
-    return;
-  }
-  focus_mode = false;
-  lv_obj_add_flag(focus_layer, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_remove_flag(focus_layer, LV_OBJ_FLAG_CLICKABLE);
-  if (dock_panel != nullptr) {
-    lv_obj_remove_flag(dock_panel, LV_OBJ_FLAG_HIDDEN);
-  }
-  if (dog_sprite != nullptr && dog_sprite_wrap != nullptr) {
-    lv_obj_set_parent(dog_sprite, dog_sprite_wrap);
-    lv_obj_center(dog_sprite);
-  }
-  set_dock_selected(kDockIndexHome);
 }
 
 void refresh_lock_pomodoro() {
@@ -1559,19 +1442,49 @@ void show_settings(bool on) {
     return;
   }
   if (on) {
-    const AppSettings &s = app_settings_get();
-    char buf[256];
-    std::snprintf(buf, sizeof(buf),
-                  "Brightness %u%%  Dim %u%%\nIdle dim %u min\nNight %02u:%02u - %02u:%02u %s\nFont scale %u  (API later)",
-                  s.brightness, s.dim_brightness, s.idle_dim_minutes, s.night_start_hour, s.night_start_min,
-                  s.night_end_hour, s.night_end_min, s.night_dim_enable ? "ON" : "OFF", s.font_scale);
-    lv_label_set_text(lbl_settings_summary, buf);
-    lv_obj_add_flag(settings_layer, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_remove_flag(settings_layer, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_move_foreground(settings_layer);
+    lv_obj_remove_flag(settings_layer, LV_OBJ_FLAG_CLICKABLE);
+
+    const AppSettings &s = app_settings_get();
+    auto set_val = [](lv_obj_t *lbl, const char *text) {
+      if (lbl != nullptr) lv_label_set_text(lbl, text);
+    };
+
+    char buf[80];
+    if (s.pomodoro_host[0]) {
+      std::snprintf(buf, sizeof(buf), "%s:%u", s.pomodoro_host, s.pomodoro_port);
+    } else {
+      std::snprintf(buf, sizeof(buf), "%s:%u", CONFIG_POMO_API_HOST, CONFIG_POMO_API_PORT);
+    }
+    set_val(settings_lbl_pomo_val, buf);
+
+    if (s.pixel_dog_host[0]) {
+      std::snprintf(buf, sizeof(buf), "%s:%u", s.pixel_dog_host, s.pixel_dog_port);
+    } else {
+      std::snprintf(buf, sizeof(buf), "%s:%u", CONFIG_PIXEL_DOG_API_HOST, CONFIG_PIXEL_DOG_API_PORT);
+    }
+    set_val(settings_lbl_dog_val, buf);
+
+    std::snprintf(buf, sizeof(buf), "%u%%", s.brightness);
+    set_val(settings_lbl_brightness, buf);
+    if (settings_slider_brightness != nullptr) {
+      lv_slider_set_value(settings_slider_brightness, s.brightness, LV_ANIM_OFF);
+    }
+
+    set_val(settings_lbl_ns_val, app_clock_is_synced() ? "已同步" : "未同步");
+
+    if (dock_panel != nullptr) {
+      lv_obj_add_flag(dock_panel, LV_OBJ_FLAG_HIDDEN);
+    }
   } else {
     lv_obj_add_flag(settings_layer, LV_OBJ_FLAG_HIDDEN);
     lv_obj_remove_flag(settings_layer, LV_OBJ_FLAG_CLICKABLE);
+    if (settings_kb_overlay != nullptr) {
+      lv_obj_add_flag(settings_kb_overlay, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (dock_panel != nullptr) {
+      lv_obj_remove_flag(dock_panel, LV_OBJ_FLAG_HIDDEN);
+    }
   }
 }
 
@@ -1602,9 +1515,6 @@ void pomodoro_card_clicked(lv_event_t *e) {
 void show_home_page() {
   show_settings(false);
   show_more(false);
-  if (focus_mode) {
-    exit_focus_mode();
-  }
   if (pomo_fullscreen_mode) {
     exit_pomodoro_fullscreen();
   }
@@ -1617,7 +1527,7 @@ void show_home_page() {
 void dock_clicked(DockId id) {
   ESP_LOGI(TAG, "Dock tapped: %d", static_cast<int>(id));
   app_ui_notify_activity();
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 4; i++) {
     if (kDock[i].id == id) {
       set_dock_selected(i);
       break;
@@ -1632,9 +1542,6 @@ void dock_clicked(DockId id) {
       break;
     case DockId::PixelDog:
       enter_dog_fullscreen();
-      break;
-    case DockId::Focus:
-      enter_focus_mode();
       break;
     case DockId::Settings:
       show_settings(true);
@@ -1707,31 +1614,68 @@ void settings_back_event(lv_event_t *e) {
   show_settings(false);
 }
 
-void settings_night_toggle(lv_event_t *e) {
-  (void)e;
+void settings_brightness_event(lv_event_t *e) {
+  lv_obj_t *slider = static_cast<lv_obj_t *>(lv_event_get_target(e));
   AppSettings s = app_settings_get();
-  s.night_dim_enable = !s.night_dim_enable;
+  s.brightness = static_cast<uint8_t>(lv_slider_get_value(slider));
+  if (settings_lbl_brightness != nullptr) {
+    char buf[16];
+    std::snprintf(buf, sizeof(buf), "%u%%", s.brightness);
+    lv_label_set_text(settings_lbl_brightness, buf);
+  }
   app_settings_set(s);
   app_settings_save();
+}
+
+void settings_ip_row_event(lv_event_t *e) {
+  int target = static_cast<int>(reinterpret_cast<intptr_t>(lv_event_get_user_data(e)));
+  if (settings_kb_overlay == nullptr || settings_kb_ta == nullptr) {
+    return;
+  }
+  settings_edit_target = target;
+  const AppSettings &s = app_settings_get();
+  const char *current = "";
+  if (target == 0) current = s.pomodoro_host;
+  else if (target == 1) current = s.pixel_dog_host;
+  else if (target == 2) current = s.media_host;
+  lv_textarea_set_text(settings_kb_ta, current);
+  lv_obj_remove_flag(settings_kb_overlay, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_move_foreground(settings_kb_overlay);
+  if (settings_kb_widget != nullptr) {
+    lv_keyboard_set_textarea(settings_kb_widget, settings_kb_ta);
+  }
+}
+
+void settings_kb_done_event(lv_event_t *e) {
+  (void)e;
+  if (settings_kb_overlay == nullptr || settings_kb_ta == nullptr || settings_edit_target < 0) {
+    return;
+  }
+  const char *text = lv_textarea_get_text(settings_kb_ta);
+  AppSettings s = app_settings_get();
+  if (settings_edit_target == 0) {
+    std::strncpy(s.pomodoro_host, text, APP_SETTINGS_HOST_LEN - 1);
+    s.pomodoro_host[APP_SETTINGS_HOST_LEN - 1] = '\0';
+  } else if (settings_edit_target == 1) {
+    std::strncpy(s.pixel_dog_host, text, APP_SETTINGS_HOST_LEN - 1);
+    s.pixel_dog_host[APP_SETTINGS_HOST_LEN - 1] = '\0';
+  } else if (settings_edit_target == 2) {
+    std::strncpy(s.media_host, text, APP_SETTINGS_HOST_LEN - 1);
+    s.media_host[APP_SETTINGS_HOST_LEN - 1] = '\0';
+  }
+  app_settings_set(s);
+  app_settings_save();
+  lv_obj_add_flag(settings_kb_overlay, LV_OBJ_FLAG_HIDDEN);
+  settings_edit_target = -1;
   show_settings(true);
 }
 
-void settings_night_start_inc(lv_event_t *e) {
+void settings_kb_cancel_event(lv_event_t *e) {
   (void)e;
-  AppSettings s = app_settings_get();
-  s.night_start_hour = static_cast<uint8_t>((s.night_start_hour + 1) % 24);
-  app_settings_set(s);
-  app_settings_save();
-  show_settings(true);
-}
-
-void settings_night_end_inc(lv_event_t *e) {
-  (void)e;
-  AppSettings s = app_settings_get();
-  s.night_end_hour = static_cast<uint8_t>((s.night_end_hour + 1) % 24);
-  app_settings_set(s);
-  app_settings_save();
-  show_settings(true);
+  if (settings_kb_overlay != nullptr) {
+    lv_obj_add_flag(settings_kb_overlay, LV_OBJ_FLAG_HIDDEN);
+  }
+  settings_edit_target = -1;
 }
 
 void tick_cb(lv_timer_t *t) {
@@ -1742,9 +1686,6 @@ void tick_cb(lv_timer_t *t) {
   refresh_status_bar();
   refresh_pomodoro_card();
   refresh_dog_card();
-  if (focus_mode) {
-    refresh_focus_mode_ui();
-  }
   if (pomo_touch_locked && should_auto_unlock_pomo_touch()) {
     set_pomo_touch_locked(false);
   }
@@ -1754,19 +1695,14 @@ void tick_cb(lv_timer_t *t) {
     app_clock_format_time(time_buf, sizeof(time_buf));
     lv_label_set_text(lock_lbl_time, time_buf);
   }
-  app_power_tick(locked || focus_mode || pomo_fullscreen_mode || dog_fullscreen_mode || pomo_touch_locked);
+  app_clock_tick();
+  app_power_tick(locked || pomo_fullscreen_mode || dog_fullscreen_mode || pomo_touch_locked);
 }
 
 void set_dock_selected(int index) {
-  static const uint32_t kDockColors[] = {0x8bc34a, 0xff8a65, 0xce93d8, 0x42a5f5, 0x42a5f5};
-  for (int i = 0; i < 5; i++) {
-    if (dock_borders[i] == nullptr) {
-      continue;
-    }
-    if (i == index) {
-      pixel_dock_jagged_border_set_color(dock_borders[i], lv_color_hex(kDockColors[i]));
-      lv_obj_remove_flag(dock_borders[i], LV_OBJ_FLAG_HIDDEN);
-    } else {
+  (void)index;
+  for (int i = 0; i < 4; i++) {
+    if (dock_borders[i] != nullptr) {
       lv_obj_add_flag(dock_borders[i], LV_OBJ_FLAG_HIDDEN);
     }
   }
@@ -1796,7 +1732,7 @@ void bind_home_widgets(const ui_home_widgets_t *w) {
   dog_hug_btn = w->dog_hug_btn;
   home_dog_nuzzle_btn = w->dog_nuzzle_btn;
   home_dog_hug_btn = w->dog_hug_btn;
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 4; i++) {
     dock_slots[i] = w->dock_slots[i];
     dock_borders[i] = w->dock_borders[i];
   }
@@ -1893,16 +1829,6 @@ lv_obj_t *create_tool_button(lv_obj_t *parent, const char *text, uint32_t accent
   return btn;
 }
 
-void layout_dog_fullscreen_buttons() {
-  if (!dog_fullscreen_mode || card_dog == nullptr) {
-    return;
-  }
-  if (dog_tool_row != nullptr) {
-    lv_obj_align(dog_tool_row, LV_ALIGN_TOP_RIGHT, -UI_CARD_INNER_PAD, UI_CARD_INNER_PAD);
-    lv_obj_move_foreground(dog_tool_row);
-  }
-}
-
 void layout_pomo_fullscreen_buttons() {
   if (!pomo_fullscreen_mode || card_pomo == nullptr || pomo_tool_row == nullptr) {
     return;
@@ -1981,105 +1907,6 @@ void build_home_content(lv_obj_t *parent) {
   refresh_status_bar();
   refresh_pomodoro_card();
   refresh_dog_card();
-}
-
-void build_focus_layer(lv_obj_t *parent) {
-  focus_layer = lv_obj_create(parent);
-  lv_obj_set_size(focus_layer, PANEL_WIDTH, PANEL_HEIGHT);
-  lv_obj_set_pos(focus_layer, 0, 0);
-  lv_obj_set_style_bg_color(focus_layer, lv_color_hex(0x08081a), 0);
-  lv_obj_set_style_bg_opa(focus_layer, LV_OPA_COVER, 0);
-  lv_obj_remove_flag(focus_layer, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_add_flag(focus_layer, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_remove_flag(focus_layer, LV_OBJ_FLAG_CLICKABLE);
-  layout_abs(focus_layer);
-
-  lv_obj_t *card = lv_obj_create(focus_layer);
-  lv_obj_set_pos(card, kFocusMargin, kFocusMargin);
-  lv_obj_set_size(card, kFocusW, kFocusH);
-  lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE);
-  lv_obj_set_style_bg_opa(card, LV_OPA_TRANSP, 0);
-  lv_obj_set_style_border_width(card, 0, 0);
-  lv_obj_set_style_pad_all(card, 0, 0);
-  layout_abs(card);
-
-  lv_obj_t *inner = lv_obj_create(card);
-  lv_obj_set_pos(inner, UI_CARD_INNER_PAD, UI_CARD_INNER_PAD);
-  lv_obj_set_size(inner, kFocusW - UI_CARD_INNER_PAD * 2, kFocusH - UI_CARD_INNER_PAD * 2);
-  lv_obj_set_style_bg_opa(inner, LV_OPA_TRANSP, 0);
-  lv_obj_set_style_border_width(inner, 0, 0);
-  lv_obj_set_style_pad_all(inner, 16, 0);
-  lv_obj_set_layout(inner, LV_LAYOUT_FLEX);
-  lv_obj_set_flex_flow(inner, LV_FLEX_FLOW_COLUMN);
-  lv_obj_set_flex_align(inner, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-  lv_obj_set_style_pad_row(inner, 18, 0);
-  lv_obj_remove_flag(inner, LV_OBJ_FLAG_SCROLLABLE);
-
-  lv_obj_t *border = pixel_create_jagged_border(card, 0, 0, kFocusW, kFocusH, lv_color_hex(0x8bc34a),
-                                                UI_CARD_BORDER_P, UI_CARD_CORNER_INSET);
-  if (border != nullptr) {
-    lv_obj_move_foreground(border);
-    lv_obj_remove_flag(border, LV_OBJ_FLAG_CLICKABLE);
-  }
-
-  lv_obj_t *title = lv_label_create(inner);
-  lv_label_set_text(title, "番茄钟 · 专注模式");
-  style_pixel_label(title, &lv_font_cn_gb2312_16_0, lv_color_hex(0x8bc34a));
-
-  focus_dog_wrap = lv_obj_create(inner);
-  lv_obj_set_size(focus_dog_wrap, 140, 140);
-  lv_obj_set_style_bg_opa(focus_dog_wrap, LV_OPA_TRANSP, 0);
-  lv_obj_set_style_border_width(focus_dog_wrap, 0, 0);
-
-  lv_obj_t *tomato_wrap = lv_obj_create(inner);
-  layout_abs(tomato_wrap);
-  lv_obj_set_size(tomato_wrap, 160, 160);
-  lv_obj_set_style_bg_opa(tomato_wrap, LV_OPA_TRANSP, 0);
-  lv_obj_set_style_border_width(tomato_wrap, 0, 0);
-  lv_obj_t *tomato_img = lv_image_create(tomato_wrap);
-  if (!assets_set_image_src(tomato_img, SD_ASSET_TOMATO)) {
-    lv_obj_delete(tomato_img);
-    pixel_create_tomato_sprite(tomato_wrap, 24, 24, 8);
-  } else {
-    lv_obj_set_size(tomato_img, 140, 140);
-    lv_obj_center(tomato_img);
-  }
-
-  focus_lbl_time = lv_label_create(inner);
-  lv_label_set_text(focus_lbl_time, "25:00");
-  style_pixel_label(focus_lbl_time, &lv_font_montserrat_28, lv_color_hex(0x8bc34a));
-
-  focus_lbl_action = lv_label_create(inner);
-  lv_label_set_text(focus_lbl_action, "▶ 开始专注 ◀");
-  style_pixel_label(focus_lbl_action, &lv_font_cn_gb2312_16_0, lv_color_hex(0x8bc34a));
-
-  focus_bar_pomo = lv_bar_create(inner);
-  pomodoro_bar_init(focus_bar_pomo, POMO_BAR_W, 220);
-  lv_obj_align(focus_bar_pomo, LV_ALIGN_RIGHT_MID, -2, 0);
-  lv_obj_add_flag(focus_bar_pomo, LV_OBJ_FLAG_HIDDEN);
-
-  focus_exit_hint = lv_label_create(focus_layer);
-  lv_label_set_text(focus_exit_hint, "点击可退出专注模式");
-  style_pixel_label(focus_exit_hint, &lv_font_cn_gb2312_16_0, lv_palette_main(LV_PALETTE_CYAN));
-  lv_obj_align(focus_exit_hint, LV_ALIGN_BOTTOM_MID, 0, -24);
-  lv_obj_add_flag(focus_exit_hint, LV_OBJ_FLAG_HIDDEN);
-
-  focus_pomo_tap = lv_obj_create(focus_layer);
-  lv_obj_set_size(focus_pomo_tap, kFocusW - 40, kFocusH - 80);
-  lv_obj_align(focus_pomo_tap, LV_ALIGN_CENTER, 0, -20);
-  lv_obj_set_style_bg_opa(focus_pomo_tap, LV_OPA_TRANSP, 0);
-  lv_obj_set_style_border_width(focus_pomo_tap, 0, 0);
-  lv_obj_add_flag(focus_pomo_tap, LV_OBJ_FLAG_CLICKABLE);
-  lv_obj_add_event_cb(focus_pomo_tap, focus_pomo_tap_event, LV_EVENT_PRESSED, nullptr);
-
-  focus_exit_tap = lv_obj_create(focus_layer);
-  lv_obj_set_size(focus_exit_tap, PANEL_WIDTH, PANEL_HEIGHT);
-  lv_obj_set_pos(focus_exit_tap, 0, 0);
-  lv_obj_set_style_bg_opa(focus_exit_tap, LV_OPA_TRANSP, 0);
-  lv_obj_set_style_border_width(focus_exit_tap, 0, 0);
-  lv_obj_add_flag(focus_exit_tap, LV_OBJ_FLAG_CLICKABLE);
-  lv_obj_add_flag(focus_exit_tap, LV_OBJ_FLAG_HIDDEN);
-  lv_obj_add_event_cb(focus_exit_tap, focus_exit_tap_event, LV_EVENT_PRESSED, nullptr);
 }
 
 void build_lock_layer(lv_obj_t *parent) {
@@ -2171,54 +1998,200 @@ void build_more_layer(lv_obj_t *parent) {
   lv_obj_center(close_lbl);
 }
 
+void settings_create_row(lv_obj_t *parent, const char *label, lv_obj_t **value_out,
+                         bool clickable, lv_event_cb_t cb, void *user_data) {
+  lv_obj_t *row = lv_obj_create(parent);
+  lv_obj_set_size(row, PANEL_WIDTH - 40, 46);
+  lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_width(row, 0, 0);
+  lv_obj_set_style_pad_all(row, 0, 0);
+  lv_obj_set_style_pad_left(row, 12, 0);
+  lv_obj_set_style_pad_right(row, 12, 0);
+  lv_obj_set_layout(row, LV_LAYOUT_FLEX);
+  lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+
+  lv_obj_t *lbl = lv_label_create(row);
+  lv_label_set_text(lbl, label);
+  style_pixel_label(lbl, &lv_font_cn_gb2312_16_0, lv_color_hex(0xcccccc));
+
+  lv_obj_t *val = lv_label_create(row);
+  lv_label_set_text(val, "");
+  style_pixel_label(val, &lv_font_cn_gb2312_16_0, lv_color_hex(0x42a5f5));
+  lv_obj_set_style_text_align(val, LV_TEXT_ALIGN_RIGHT, 0);
+
+  if (clickable && cb != nullptr) {
+    lv_obj_add_flag(row, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(row, cb, LV_EVENT_CLICKED, user_data);
+    lv_obj_t *arrow = lv_label_create(row);
+    lv_label_set_text(arrow, ">");
+    style_pixel_label(arrow, &lv_font_montserrat_14, lv_color_hex(0x666666));
+  }
+
+  lv_obj_t *sep = lv_obj_create(parent);
+  lv_obj_set_size(sep, PANEL_WIDTH - 56, 1);
+  lv_obj_set_style_bg_color(sep, lv_color_hex(0x2a2a3a), 0);
+  lv_obj_set_style_border_width(sep, 0, 0);
+  lv_obj_set_style_pad_all(sep, 0, 0);
+  lv_obj_remove_flag(sep, LV_OBJ_FLAG_SCROLLABLE);
+
+  if (value_out != nullptr) {
+    *value_out = val;
+  }
+}
+
+void settings_create_slider_row(lv_obj_t *parent, const char *label,
+                                lv_obj_t **val_out, lv_obj_t **slider_out,
+                                int32_t min_v, int32_t max_v, int32_t init_v,
+                                lv_event_cb_t cb) {
+  lv_obj_t *row = lv_obj_create(parent);
+  lv_obj_set_size(row, PANEL_WIDTH - 40, 54);
+  lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_width(row, 0, 0);
+  lv_obj_set_style_pad_all(row, 0, 0);
+  lv_obj_set_style_pad_left(row, 12, 0);
+  lv_obj_set_style_pad_right(row, 12, 0);
+  lv_obj_set_layout(row, LV_LAYOUT_FLEX);
+  lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+  lv_obj_set_flex_align(row, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+  lv_obj_remove_flag(row, LV_OBJ_FLAG_SCROLLABLE);
+
+  lv_obj_t *lbl = lv_label_create(row);
+  lv_label_set_text(lbl, label);
+  style_pixel_label(lbl, &lv_font_cn_gb2312_16_0, lv_color_hex(0xcccccc));
+
+  lv_obj_t *val_lbl = lv_label_create(row);
+  lv_label_set_text(val_lbl, "");
+  style_pixel_label(val_lbl, &lv_font_cn_gb2312_16_0, lv_color_hex(0x42a5f5));
+
+  lv_obj_t *sl = lv_slider_create(row);
+  lv_obj_set_size(sl, 120, 16);
+  lv_slider_set_range(sl, min_v, max_v);
+  lv_slider_set_value(sl, init_v, LV_ANIM_OFF);
+  if (cb != nullptr) {
+    lv_obj_add_event_cb(sl, cb, LV_EVENT_VALUE_CHANGED, nullptr);
+  }
+
+  if (val_out != nullptr) *val_out = val_lbl;
+  if (slider_out != nullptr) *slider_out = sl;
+
+  lv_obj_t *sep = lv_obj_create(parent);
+  lv_obj_set_size(sep, PANEL_WIDTH - 56, 1);
+  lv_obj_set_style_bg_color(sep, lv_color_hex(0x2a2a3a), 0);
+  lv_obj_set_style_border_width(sep, 0, 0);
+  lv_obj_set_style_pad_all(sep, 0, 0);
+  lv_obj_remove_flag(sep, LV_OBJ_FLAG_SCROLLABLE);
+}
+
 void build_settings_layer(lv_obj_t *parent) {
   settings_layer = lv_obj_create(parent);
   lv_obj_set_size(settings_layer, PANEL_WIDTH, PANEL_HEIGHT);
+  lv_obj_set_pos(settings_layer, 0, 0);
   lv_obj_set_style_bg_color(settings_layer, lv_color_hex(0x101020), 0);
+  lv_obj_set_style_bg_opa(settings_layer, LV_OPA_COVER, 0);
   lv_obj_add_flag(settings_layer, LV_OBJ_FLAG_HIDDEN);
   lv_obj_remove_flag(settings_layer, LV_OBJ_FLAG_CLICKABLE);
+  lv_obj_remove_flag(settings_layer, LV_OBJ_FLAG_SCROLLABLE);
 
   lv_obj_t *title = lv_label_create(settings_layer);
-  lv_label_set_text(title, "Settings");
-  style_pixel_label(title, &lv_font_montserrat_28, lv_color_white());
-  lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 12);
+  lv_label_set_text(title, "设置");
+  style_pixel_label(title, &lv_font_cn_gb2312_16_0, lv_color_white());
+  lv_obj_align(title, LV_ALIGN_TOP_LEFT, 16, 10);
 
-  lbl_settings_summary = lv_label_create(settings_layer);
-  lv_obj_set_width(lbl_settings_summary, PANEL_WIDTH - 32);
-  lv_label_set_long_mode(lbl_settings_summary, LV_LABEL_LONG_WRAP);
-  style_pixel_label(lbl_settings_summary, &lv_font_montserrat_14, lv_color_white());
-  lv_obj_align(lbl_settings_summary, LV_ALIGN_TOP_LEFT, 16, 56);
+  settings_panel = lv_obj_create(settings_layer);
+  lv_obj_set_pos(settings_panel, 0, 44);
+  lv_obj_set_size(settings_panel, PANEL_WIDTH, PANEL_HEIGHT - 100);
+  lv_obj_set_style_bg_opa(settings_panel, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_width(settings_panel, 0, 0);
+  lv_obj_set_style_pad_all(settings_panel, 8, 0);
+  lv_obj_set_flex_flow(settings_panel, LV_FLEX_FLOW_COLUMN);
+  lv_obj_remove_flag(settings_panel, LV_OBJ_FLAG_SCROLLABLE);
 
-  lv_obj_t *night_btn = lv_button_create(settings_layer);
-  lv_obj_set_size(night_btn, 180, 36);
-  lv_obj_align(night_btn, LV_ALIGN_BOTTOM_MID, 0, -96);
-  lv_obj_add_event_cb(night_btn, settings_night_toggle, LV_EVENT_CLICKED, nullptr);
-  lv_obj_t *night_lbl = lv_label_create(night_btn);
-  lv_label_set_text(night_lbl, "Night Dim On/Off");
-  lv_obj_center(night_lbl);
+  lv_obj_t *scroll = lv_obj_create(settings_panel);
+  lv_obj_set_size(scroll, PANEL_WIDTH, PANEL_HEIGHT - 100);
+  lv_obj_set_style_bg_opa(scroll, LV_OPA_TRANSP, 0);
+  lv_obj_set_style_border_width(scroll, 0, 0);
+  lv_obj_set_style_pad_all(scroll, 4, 0);
+  lv_obj_set_flex_flow(scroll, LV_FLEX_FLOW_COLUMN);
+  lv_obj_set_scrollbar_mode(scroll, LV_SCROLLBAR_MODE_AUTO);
 
-  lv_obj_t *ns_btn = lv_button_create(settings_layer);
-  lv_obj_set_size(ns_btn, 160, 36);
-  lv_obj_set_pos(ns_btn, 40, PANEL_HEIGHT - 150);
-  lv_obj_add_event_cb(ns_btn, settings_night_start_inc, LV_EVENT_CLICKED, nullptr);
-  lv_obj_t *ns_lbl = lv_label_create(ns_btn);
-  lv_label_set_text(ns_lbl, "Night Start +1h");
-  lv_obj_center(ns_lbl);
+  settings_create_row(scroll, "番茄钟连接", &settings_lbl_pomo_val, true,
+                      settings_ip_row_event, reinterpret_cast<void *>(0));
+  settings_create_row(scroll, "像素狗连接", &settings_lbl_dog_val, true,
+                      settings_ip_row_event, reinterpret_cast<void *>(1));
+  settings_create_slider_row(scroll, "屏幕亮度", &settings_lbl_brightness,
+                             &settings_slider_brightness, 10, 100, 100,
+                             settings_brightness_event);
 
-  lv_obj_t *ne_btn = lv_button_create(settings_layer);
-  lv_obj_set_size(ne_btn, 160, 36);
-  lv_obj_set_pos(ne_btn, PANEL_WIDTH - 200, PANEL_HEIGHT - 150);
-  lv_obj_add_event_cb(ne_btn, settings_night_end_inc, LV_EVENT_CLICKED, nullptr);
-  lv_obj_t *ne_lbl = lv_label_create(ne_btn);
-  lv_label_set_text(ne_lbl, "Night End +1h");
-  lv_obj_center(ne_lbl);
+  settings_create_row(scroll, "时间同步", &settings_lbl_ns_val, false, nullptr, nullptr);
+
+  settings_kb_overlay = lv_obj_create(settings_layer);
+  lv_obj_set_size(settings_kb_overlay, PANEL_WIDTH, PANEL_HEIGHT);
+  lv_obj_set_pos(settings_kb_overlay, 0, 0);
+  lv_obj_set_style_bg_color(settings_kb_overlay, lv_color_hex(0x000000), 0);
+  lv_obj_set_style_bg_opa(settings_kb_overlay, LV_OPA_80, 0);
+  lv_obj_add_flag(settings_kb_overlay, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_remove_flag(settings_kb_overlay, LV_OBJ_FLAG_SCROLLABLE);
+
+  lv_obj_t *kb_title = lv_label_create(settings_kb_overlay);
+  lv_label_set_text(kb_title, "输入 IP 地址");
+  style_pixel_label(kb_title, &lv_font_cn_gb2312_16_0, lv_color_white());
+  lv_obj_align(kb_title, LV_ALIGN_TOP_MID, 0, 10);
+
+  settings_kb_ta = lv_textarea_create(settings_kb_overlay);
+  lv_obj_set_size(settings_kb_ta, PANEL_WIDTH - 80, 40);
+  lv_obj_align(settings_kb_ta, LV_ALIGN_TOP_MID, 0, 44);
+  lv_textarea_set_one_line(settings_kb_ta, true);
+  lv_textarea_set_placeholder_text(settings_kb_ta, "ex: 192.168.0.114");
+  lv_obj_set_style_text_align(settings_kb_ta, LV_TEXT_ALIGN_CENTER, 0);
+  lv_obj_set_style_text_font(settings_kb_ta, &lv_font_cn_gb2312_16_0, 0);
+  lv_obj_set_style_text_color(settings_kb_ta, lv_color_white(), 0);
+  lv_obj_set_style_bg_color(settings_kb_ta, lv_color_hex(0x1a1a2e), 0);
+  lv_obj_set_style_border_color(settings_kb_ta, lv_color_hex(0x333355), 0);
+  lv_obj_set_style_border_width(settings_kb_ta, 1, 0);
+  lv_obj_set_style_radius(settings_kb_ta, 4, 0);
+
+  settings_kb_widget = lv_keyboard_create(settings_kb_overlay);
+  lv_obj_set_size(settings_kb_widget, PANEL_WIDTH, 180);
+  lv_obj_align(settings_kb_widget, LV_ALIGN_BOTTOM_MID, 0, 0);
+  lv_keyboard_set_textarea(settings_kb_widget, settings_kb_ta);
+  lv_obj_add_event_cb(settings_kb_widget, settings_kb_done_event, LV_EVENT_READY, nullptr);
+  lv_obj_add_event_cb(settings_kb_widget, settings_kb_cancel_event, LV_EVENT_CANCEL, nullptr);
+
+  lv_obj_t *kb_done_btn = lv_button_create(settings_kb_overlay);
+  lv_obj_set_size(kb_done_btn, 80, 36);
+  lv_obj_align(kb_done_btn, LV_ALIGN_BOTTOM_MID, -50, -190);
+  lv_obj_set_style_bg_color(kb_done_btn, lv_color_hex(0x2a2a4a), 0);
+  lv_obj_set_style_border_color(kb_done_btn, lv_color_hex(0x444466), 0);
+  lv_obj_set_style_border_width(kb_done_btn, 1, 0);
+  lv_obj_set_style_radius(kb_done_btn, 4, 0);
+  lv_obj_add_event_cb(kb_done_btn, settings_kb_done_event, LV_EVENT_CLICKED, nullptr);
+  lv_obj_t *kb_done_lbl = lv_label_create(kb_done_btn);
+  lv_label_set_text(kb_done_lbl, "确定");
+  style_pixel_label(kb_done_lbl, &lv_font_cn_gb2312_16_0, lv_color_white());
+  lv_obj_center(kb_done_lbl);
+
+  lv_obj_t *kb_cancel_btn = lv_button_create(settings_kb_overlay);
+  lv_obj_set_size(kb_cancel_btn, 80, 36);
+  lv_obj_align(kb_cancel_btn, LV_ALIGN_BOTTOM_MID, 50, -190);
+  lv_obj_set_style_bg_color(kb_cancel_btn, lv_color_hex(0x2a2a4a), 0);
+  lv_obj_set_style_border_color(kb_cancel_btn, lv_color_hex(0x444466), 0);
+  lv_obj_set_style_border_width(kb_cancel_btn, 1, 0);
+  lv_obj_set_style_radius(kb_cancel_btn, 4, 0);
+  lv_obj_add_event_cb(kb_cancel_btn, settings_kb_cancel_event, LV_EVENT_CLICKED, nullptr);
+  lv_obj_t *kb_cancel_lbl = lv_label_create(kb_cancel_btn);
+  lv_label_set_text(kb_cancel_lbl, "取消");
+  style_pixel_label(kb_cancel_lbl, &lv_font_cn_gb2312_16_0, lv_color_white());
+  lv_obj_center(kb_cancel_lbl);
 
   lv_obj_t *back = lv_button_create(settings_layer);
-  lv_obj_set_size(back, 120, 40);
+  lv_obj_set_size(back, 120, 36);
   lv_obj_align(back, LV_ALIGN_BOTTOM_MID, 0, -10);
   lv_obj_add_event_cb(back, settings_back_event, LV_EVENT_CLICKED, nullptr);
   lv_obj_t *back_lbl = lv_label_create(back);
-  lv_label_set_text(back_lbl, "Back");
+  lv_label_set_text(back_lbl, "返回");
+  style_pixel_label(back_lbl, &lv_font_cn_gb2312_16_0, lv_color_white());
   lv_obj_center(back_lbl);
 }
 }  // namespace
@@ -2241,8 +2214,6 @@ esp_err_t app_ui_init() {
 
   ESP_LOGI(TAG, "Building home content");
   build_home_content(scr_home);
-  ESP_LOGI(TAG, "Building focus layer");
-  build_focus_layer(scr_home);
   ESP_LOGI(TAG, "Building lock layer");
   build_lock_layer(scr_home);
   build_pomo_touch_blocker(scr_home);
