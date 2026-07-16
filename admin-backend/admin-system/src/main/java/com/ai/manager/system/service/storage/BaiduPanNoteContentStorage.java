@@ -6,10 +6,12 @@ import com.ai.manager.system.domain.storage.NoteContentRef;
 import com.ai.manager.system.domain.storage.NoteContentSaveResult;
 import com.ai.manager.system.service.BaiduPanAuthService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class BaiduPanNoteContentStorage implements NoteContentStorage {
@@ -78,13 +80,14 @@ public class BaiduPanNoteContentStorage implements NoteContentStorage {
             }
             String accessToken = baiduPanAuthService.requireAccessToken();
             try {
-                baiduPanClient.ensureDir(accessToken, baiduPanProperties.rootPath());
                 baiduPanClient.ensureDir(accessToken, baiduPanProperties.notesDir());
                 baiduPanClient.ensureDir(accessToken, baiduPanProperties.trashDir());
                 baiduPanClient.ensureDir(accessToken, baiduPanProperties.imagesDir());
                 baiduPanClient.ensureDir(accessToken, baiduPanProperties.ecommerceImagesDir());
                 rootEnsured = true;
             } catch (Exception e) {
+                rootEnsured = false;
+                log.warn("初始化百度网盘笔记存储目录失败: {}", e.getMessage());
                 throw new IllegalStateException("初始化百度网盘目录失败", e);
             }
         }

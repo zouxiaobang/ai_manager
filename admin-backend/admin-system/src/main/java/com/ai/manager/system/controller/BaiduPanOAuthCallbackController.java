@@ -3,8 +3,10 @@ package com.ai.manager.system.controller;
 import com.ai.manager.system.config.BaiduPanProperties;
 import com.ai.manager.system.service.BaiduPanAuthService;
 import com.ai.manager.system.service.NoteContentSyncService;
+import com.ai.manager.system.service.storage.BaiduPanNoteContentStorage;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -17,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 /**
  * 百度 OAuth 回调（路径需与开放平台 redirect_uri 完全一致）。
  */
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 public class BaiduPanOAuthCallbackController {
@@ -24,6 +27,7 @@ public class BaiduPanOAuthCallbackController {
     private final BaiduPanAuthService baiduPanAuthService;
     private final BaiduPanProperties baiduPanProperties;
     private final NoteContentSyncService noteContentSyncService;
+    private final BaiduPanNoteContentStorage baiduPanNoteContentStorage;
 
     @GetMapping("/oauth/baidu/callback")
     public void oauthCallback(@RequestParam(required = false) String code,
@@ -35,6 +39,11 @@ public class BaiduPanOAuthCallbackController {
             return;
         }
         baiduPanAuthService.exchangeCode(code);
+        try {
+            baiduPanNoteContentStorage.ensureRoot();
+        } catch (Exception ex) {
+            log.warn("初始化百度网盘目录失败", ex);
+        }
         noteContentSyncService.scheduleReconcileAll();
         redirect(response, state, "baidu=connected");
     }

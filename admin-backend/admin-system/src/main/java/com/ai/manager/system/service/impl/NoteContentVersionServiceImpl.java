@@ -271,7 +271,7 @@ public class NoteContentVersionServiceImpl implements NoteContentVersionService 
             String accessToken = baiduPanAuthService.requireAccessToken();
             baiduPanClient.upload(accessToken, cloudMetaPath(ref), objectMapper.writeValueAsBytes(meta));
         } catch (Exception ex) {
-            log.warn("写入云盘笔记元数据失败 noteId={}: {}", ref.getNoteId(), ex.getMessage());
+            log.warn("写入云盘笔记元数据失败 noteId={}", ref.getNoteId(), ex);
         }
     }
 

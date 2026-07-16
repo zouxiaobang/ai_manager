@@ -241,6 +241,10 @@ public class BaiduPanClient {
                 continue;
             }
             current.append('/').append(part);
+            // 跳过 /apps 系统目录（百度网盘的 PCS 应用命名空间，不可通过 API 创建）
+            if ("apps".equals(part) && current.toString().equals("/apps")) {
+                continue;
+            }
             ensureDirSingle(accessToken, current.toString());
         }
     }
