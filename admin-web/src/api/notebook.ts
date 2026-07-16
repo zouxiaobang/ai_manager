@@ -52,6 +52,7 @@ export interface BaiduPanAuthStatus {
   authorizeUrl?: string
   baiduUid?: number
   expiresAt?: string
+  error?: string
 }
 
 export interface NbNoteTrashItem {

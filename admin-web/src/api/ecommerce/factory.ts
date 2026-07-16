@@ -12,6 +12,7 @@ export interface EcFactory {
   contactPhone?: string
   address?: string
   remark?: string
+  productCount?: number
   status: string
   createTime?: string
   updateTime?: string

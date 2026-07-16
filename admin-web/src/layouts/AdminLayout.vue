@@ -59,6 +59,7 @@ const railItems = computed(() => [
   { path: '/pomodoro', iconKey: 'pomodoro' as WarRoomNavIconName, label: t('portal.menu.pomodoro') },
   { path: '/pixel-dog', iconKey: 'pixel-dog' as WarRoomNavIconName, label: t('portal.menu.pixelDog') },
   { path: '/notebook', iconKey: 'notebook' as WarRoomNavIconName, label: t('portal.menu.notebook') },
+  { path: '/library', iconKey: 'library' as WarRoomNavIconName, label: t('portal.menu.library') },
   { path: '/24hour', iconKey: '24hour' as WarRoomNavIconName, label: t('portal.menu.24hour') },
   { path: '/todos', iconKey: 'todos' as WarRoomNavIconName, label: t('portal.menu.todos') },
   { path: '/functions', iconKey: 'functions' as WarRoomNavIconName, label: t('portal.menu.functions') },
@@ -78,6 +79,7 @@ function isRailActive(path: string) {
   if (path === '/pomodoro') return current.startsWith('/pomodoro')
   if (path === '/ecommerce') return current.startsWith('/ecommerce')
   if (path === '/pixel-dog') return current === '/pixel-dog'
+  if (path === '/library') return current.startsWith('/library')
   if (path === '/24hour') return current === '/24hour'
   return current === path
 }

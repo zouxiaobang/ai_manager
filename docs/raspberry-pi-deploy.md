@@ -192,7 +192,8 @@ bash deploy/scripts/import-sql-to-docker-mysql.sh admin-backend/sql/deploy-all.s
 #### 4.1.5 从应用节点测试连通（114 上执行）
 
 ```bash
-mysql -h 192.168.0.118 -u ai_manager -p123456 ai_manager_admin -e "SELECT 1;"
+# MariaDB 客户端需加 --skip-ssl（ARM 树莓派默认安装 mariadb-client 而非 mysql-client）
+mysql -h 192.168.0.118 -u ai_manager -p123456 ai_manager_admin --skip-ssl -e "SELECT 1;"
 redis-cli -h 192.168.0.118 ping
 ```
 
@@ -213,13 +214,22 @@ SSH 登录 `kyle@192.168.0.114`：
 
 #### 4.2.1 安装系统依赖
 
+> **ARM 架构注意**：树莓派为 ARM64 架构，部分 apt 包名与 x86 不同：
+> - `openjdk-17-jdk` → 使用 `default-jdk`（安装当前默认 JDK，Debian 13 为 JDK 21，向后兼容 JDK 17 代码）
+> - `mysql-client` → 使用 `mariadb-client`（ARM 仓库无 mysql-client）
+
 ```bash
 sudo apt update
-sudo apt install -y openjdk-17-jdk nginx maven nodejs npm git mysql-client redis-tools rsync
+sudo apt install -y default-jdk nginx maven nodejs npm git mariadb-client redis-tools rsync
 
-java -version   # 应 >= 17
+java -version   # 应 >= 17（ARM 上默认安装 JDK 21，兼容 JDK 17 代码）
 node -v && npm -v
 ```
+
+> **MariaDB 客户端连接**：MariaDB 客户端默认启用 SSL 验证，连接自签名证书的 MySQL 时需加 `--skip-ssl` 参数（非 MySQL 的 `--ssl-mode=DISABLED`）：
+> ```bash
+> mysql -h 192.168.0.118 -u ai_manager -p123456 ai_manager_admin --skip-ssl -e "SELECT 1;"
+> ```
 
 #### 4.2.2 同步时区（建议）
 
@@ -249,7 +259,8 @@ sudo chown -R www-data:www-data /var/www/ai-manager
 #### 4.2.5 确认能连数据节点
 
 ```bash
-mysql -h 192.168.0.118 -u ai_manager -p123456 ai_manager_admin -e "SELECT 1;"
+# MariaDB 客户端需加 --skip-ssl
+mysql -h 192.168.0.118 -u ai_manager -p123456 ai_manager_admin --skip-ssl -e "SELECT 1;"
 redis-cli -h 192.168.0.118 ping
 ```
 
@@ -304,15 +315,15 @@ REDIS_DATABASE=0
 NOTE_STORAGE_TYPE=LOCAL
 ```
 
-#### 4.3.3 注册 systemd 服务
+#### 4.3.3 注册 systemd 服务（含开机自启）
 
 ```bash
 cd ~/ai_manager
 sudo cp deploy/systemd/ai-manager-backend.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable ai-manager-backend
-sudo systemctl start ai-manager-backend
-sudo systemctl status ai-manager-backend
+# enable 设置开机自启，--now 同时立即启动
+sudo systemctl enable --now ai-manager-backend
+sudo systemctl status ai-manager-backend --no-pager
 ```
 
 验证：
@@ -321,6 +332,12 @@ sudo systemctl status ai-manager-backend
 curl -s http://127.0.0.1:8080/api/health
 # 响应中 mysql、redis 应为 UP
 ```
+
+> **常见问题**：若服务启动后立即退出（502 错误），请检查：
+> 1. `/opt/ai-manager/backend/backend.env` 文件是否存在且内容正确
+> 2. `backend.env` 权限应为 `600` 且属主为 `aimanager`：`sudo chmod 600 /opt/ai-manager/backend/backend.env`
+> 3. systemd 服务文件是否已安装：`ls /etc/systemd/system/ai-manager-backend.service`
+> 4. 查看日志定位错误：`sudo journalctl -u ai-manager-backend -n 50 --no-pager`
 
 #### 4.3.4 方式 B — 114 Web 一键部署后端
 
@@ -417,14 +434,110 @@ powershell -ExecutionPolicy Bypass -File deploy/scripts/deploy-frontend.ps1
 
 ---
 
-### 4.5 部署完成检查清单
+### 4.5 开机自启动配置
+
+树莓派重启后，需确保后端 Java 服务和 Nginx 自动启动，无需手动 SSH 登录干预。
+
+#### 4.5.1 后端 systemd 服务开机自启
+
+systemd 服务的 `enable` 操作会创建到 `multi-user.target` 的符号链接，开机时自动拉起服务。
+
+```bash
+# 查看是否已启用开机自启（输出 enabled 表示已开启）
+sudo systemctl is-enabled ai-manager-backend
+
+# 若输出 disabled，执行启用：
+sudo systemctl enable ai-manager-backend
+
+# 确认服务当前正在运行：
+sudo systemctl status ai-manager-backend --no-pager
+```
+
+> 后端服务配置了 `Restart=on-failure` 和 `RestartSec=10`，进程异常退出后 10 秒自动重启。
+
+#### 4.5.2 Nginx 开机自启
+
+Nginx 安装后通常默认已启用开机自启，需确认：
+
+```bash
+sudo systemctl is-enabled nginx
+# 若未启用：
+sudo systemctl enable nginx
+sudo systemctl status nginx --no-pager
+```
+
+#### 4.5.3 验证开机自启是否生效
+
+重启树莓派测试：
+
+```bash
+sudo reboot
+```
+
+重启完成后（约 30～60 秒），SSH 重新连接并验证：
+
+```bash
+# 检查两个服务是否都 active
+sudo systemctl is-active ai-manager-backend nginx
+
+# 健康检查（后端启动需要 15～30 秒，稍等片刻）
+curl -s http://127.0.0.1/api/health
+# 响应中 status / mysql / redis 均为 UP 即表示自启动成功
+
+# 浏览器访问前端
+# http://192.168.0.114/#/home
+```
+
+#### 4.5.4 常用服务管理命令
+
+```bash
+# 启动 / 停止 / 重启后端
+sudo systemctl start ai-manager-backend
+sudo systemctl stop ai-manager-backend
+sudo systemctl restart ai-manager-backend
+
+# 禁用 / 重新启用开机自启
+sudo systemctl disable ai-manager-backend
+sudo systemctl enable ai-manager-backend
+
+# 实时查看后端日志
+sudo journalctl -u ai-manager-backend -f --since "10 minutes ago"
+
+# Nginx 相关
+sudo nginx -t                          # 测试配置语法
+sudo systemctl reload nginx            # 重新加载配置（不中断连接）
+sudo systemctl restart nginx           # 重启 Nginx
+```
+
+#### 4.5.5 数据节点 Docker 开机自启（118）
+
+数据节点上的 MySQL 和 Redis 运行在 Docker 中，需确认 Docker 服务和容器均设置为开机自启：
+
+```bash
+# 在数据节点 118 上执行
+sudo systemctl enable docker
+sudo systemctl is-enabled docker
+
+# 设置容器开机自启（restart policy）
+docker update --restart=always ai-manager-mysql
+docker update --restart=always ai-manager-redis
+
+# 验证
+docker inspect --format '{{.HostConfig.RestartPolicy.Name}}' ai-manager-mysql
+# 输出 always 即表示已设置
+```
+
+---
+
+### 4.6 部署完成检查清单
 
 | 检查项 | 命令 / 预期 |
 |--------|-------------|
 | 后端健康 | `curl http://192.168.0.114/api/health` → `mysql` / `redis` / `status` 均为 UP |
 | 今日待办 API | `curl http://192.168.0.114/api/todos/today` → JSON |
 | 前端页面 | 浏览器打开 `/#/home`，有侧边栏和首页 |
-| 自动检查 | 部署中心 → 部署步骤 → **自动检查全部**（1～7 项） |
+| 开机自启 | `systemctl is-enabled ai-manager-backend nginx` → 均为 `enabled` |
+| 自动检查 | 部署中心 → 部署步骤 → **自动检查全部**（1～8 项） |
 | Console 无红错 | F12 → 不应有 `SyntaxError` |
 | 后端日志 | `journalctl -u ai-manager-backend -n 50 --no-pager` |
 
@@ -571,10 +684,14 @@ bash ~/ai_manager/deploy/scripts/check-mysql-lan.sh
 | 密码 | `123456` |
 | 数据库 | `ai_manager_admin` |
 
-Windows `mysql` 客户端需加：
+Windows `mysql` 客户端需加（MySQL 客户端用 `--ssl-mode=DISABLED`，MariaDB 客户端用 `--skip-ssl`）：
 
 ```bash
+# MySQL 客户端
 mysql -h 192.168.0.118 -u ai_manager -p123456 --ssl-mode=DISABLED ai_manager_admin -e "SELECT 1;"
+
+# MariaDB 客户端（树莓派 ARM 上默认安装）
+mysql -h 192.168.0.118 -u ai_manager -p123456 ai_manager_admin --skip-ssl -e "SELECT 1;"
 ```
 
 JDBC URL：
@@ -605,7 +722,7 @@ jdbc:mysql://127.0.0.1:3306/ai_manager_admin?useSSL=false&allowPublicKeyRetrieva
 
 | 现象 | 原因 / 处理 |
 |------|-------------|
-| 502 Bad Gateway | 114 上 `systemctl status ai-manager-backend`，确认 8080 正常 |
+| 502 Bad Gateway | 后端未运行。检查：1) `systemctl status ai-manager-backend` 是否 active；2) `/opt/ai-manager/backend/backend.env` 是否存在且配置正确；3) systemd 服务文件是否已安装到 `/etc/systemd/system/`；4) `journalctl -u ai-manager-backend -n 50` 查看错误日志 |
 | API 失败、页面能开 | 检查 Nginx `/api/` 反代；`curl http://127.0.0.1:8080/api/health` |
 | MySQL 连接失败 | 114 上 `mysql -h 192.168.0.118 ...`；118 上 `docker compose ps` |
 | Redis DOWN | `redis-cli -h 192.168.0.118 ping`；检查 `backend.env` 中 `REDIS_HOST` |
@@ -618,6 +735,9 @@ jdbc:mysql://127.0.0.1:3306/ai_manager_admin?useSSL=false&allowPublicKeyRetrieva
 | 服务器时间与本地不一致 | `sudo timedatectl set-timezone Asia/Shanghai && sudo timedatectl set-ntp true` |
 | 上传失败 | `sudo chown -R aimanager:aimanager /opt/ai-manager/backend/uploads` |
 | 百度网盘授权失败 | 回调须为 `http://192.168.0.114/oauth/baidu/callback`，Nginx 须反代 `/oauth/` |
+| `Unable to locate package openjdk-17-jdk` | ARM 架构无此包名，改用 `default-jdk`（安装 JDK 21，兼容 JDK 17 代码） |
+| `Package 'mysql-client' has no installation candidate` | ARM 架构无 mysql-client，改用 `mariadb-client` |
+| MariaDB 连接报 TLS/SSL 证书验证失败 | MariaDB 客户端用 `--skip-ssl` 禁用 SSL（非 MySQL 的 `--ssl-mode=DISABLED`） |
 
 ### 重建 MySQL 用户（118 上）
 

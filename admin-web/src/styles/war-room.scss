@@ -11,8 +11,8 @@
   --wr-rail-border: #e8ecef;
   --wr-rail-active-bg: #d4e0fc;
   --wr-rail-active-color: #0b21c7;
-  --wr-stat-blue: #2563eb;
-  --wr-stat-blue-bg: #eff6ff;
+  --wr-stat-blue: var(--wr-primary, #2563eb);
+  --wr-stat-blue-bg: color-mix(in srgb, var(--wr-primary, #2563eb) 12%, transparent);
   --wr-stat-orange: #ea580c;
   --wr-stat-orange-bg: #fff7ed;
   --wr-stat-purple: #7c3aed;
@@ -25,8 +25,8 @@
   --wr-up-bg: #f0fdf4;
   --wr-up-badge-bg: #389845;
   --wr-up-badge-text: #ffffff;
-  --wr-index-bg: #eff6ff;
-  --wr-index-text: #2563eb;
+  --wr-index-bg: color-mix(in srgb, var(--wr-primary, #2563eb) 12%, transparent);
+  --wr-index-text: var(--wr-primary, #2563eb);
 }
 
 .war-room-page {

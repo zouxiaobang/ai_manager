@@ -1,8 +1,10 @@
 package com.ai.manager.system.service.support;
 
+import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
-public final class StorageOverLimitStrategySupport {
+@Component
+public class StorageOverLimitStrategySupport {
 
     public static final String REJECT = "REJECT";
     public static final String CLEANUP_OLDEST = "CLEANUP_OLDEST";
@@ -11,7 +13,7 @@ public final class StorageOverLimitStrategySupport {
     public static final String ZONE_LOCAL_TOTAL = "LOCAL_TOTAL";
     public static final String ZONE_REDIS_CACHE = "REDIS_CACHE";
 
-    private StorageOverLimitStrategySupport() {
+    public StorageOverLimitStrategySupport() {
     }
 
     public static boolean isValid(String strategy) {

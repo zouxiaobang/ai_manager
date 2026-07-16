@@ -30,6 +30,7 @@
     </el-alert>
 
     <!-- 标签页导航：全部笔记、回收站 -->
+    <div class="notebook-tabs-wrap">
     <el-tabs v-model="activeTab" class="notebook-tabs" @tab-change="onTabChange">
       <!-- 全部笔记标签页 -->
       <el-tab-pane :label="t('notebook.tabs.all')" name="all">
@@ -150,7 +151,6 @@
                   :expand-on-click-node="false"
                   :filter-node-method="filterNode"
                   highlight-current
-                  @current-change="onTreeCurrentChange"
                   @node-click="onTreeNodeClick"
                   @node-expand="onTreeNodeExpand"
                   @node-collapse="onTreeNodeCollapse"
@@ -163,7 +163,6 @@
                         'is-folder': data.nodeType === 'FOLDER',
                         'is-active': data.nodeKey === activeNodeKey,
                       }"
-                      @click="onTreeNodeClick(data)"
                       @contextmenu="onTreeNodeContextMenu($event, data)"
                     >
                       <el-icon
@@ -209,7 +208,7 @@
                     class="notebook-editor__title"
                     :placeholder="t('notebook.untitled')"
                     :disabled="contentLoading"
-                    @input="scheduleSave"
+                    @input="onContentChanged"
                   />
                   <div class="notebook-editor__meta-line">
                     <span v-if="contentLoading" class="notebook-editor__meta-item">
@@ -218,8 +217,15 @@
                     <span v-else-if="saveState === 'saving'" class="notebook-editor__meta-item">
                       {{ t('notebook.saving') }}
                     </span>
+                    <span v-else-if="saveState === 'localSavedSyncFailed'" class="notebook-editor__meta-item is-warn">
+                      <el-icon class="notebook-editor__meta-check"><CircleCheck /></el-icon>
+                      {{ t('notebook.localSavedSyncFailed') }}
+                    </span>
                     <span v-else-if="contentLoadBlocked" class="notebook-editor__meta-item is-error">
                       {{ t('notebook.contentLoadSaveBlocked') }}
+                    </span>
+                    <span v-else-if="saveState === 'idle' && isDirty()" class="notebook-editor__meta-item is-warn">
+                      {{ t('notebook.pleaseSave') }}
                     </span>
                     <span v-else-if="saveState === 'saved'" class="notebook-editor__meta-item is-ok">
                       <el-icon class="notebook-editor__meta-check"><CircleCheck /></el-icon>
@@ -257,40 +263,6 @@
                   </div>
                 </div>
                 <div class="notebook-editor__actions-col">
-                  <div class="notebook-editor__optimize-wrap">
-                    <el-popover placement="bottom-end" :width="360" trigger="hover">
-                      <template #reference>
-                        <el-button
-                          text
-                          class="notebook-editor__format-hint"
-                          :title="t('notebook.formatStandardTitle')"
-                        >
-                          <el-icon><QuestionFilled /></el-icon>
-                        </el-button>
-                      </template>
-                      <div class="notebook-format-standard">
-                        <div class="notebook-format-standard__title">
-                          {{ t('notebook.formatStandardTitle') }}
-                        </div>
-                        <ol class="notebook-format-standard__list">
-                          <li
-                            v-for="ruleId in NOTE_FORMAT_RULE_IDS"
-                            :key="ruleId"
-                          >
-                            {{ t(`notebook.formatRules.${ruleId}`) }}
-                          </li>
-                        </ol>
-                      </div>
-                    </el-popover>
-                    <el-button
-                      text
-                      class="notebook-editor__optimize-btn"
-                      :disabled="contentLoading"
-                      @click="onOptimizeContent"
-                    >
-                      {{ t('notebook.optimize') }}
-                    </el-button>
-                  </div>
                   <div class="notebook-editor__pin-actions">
                     <button
                       type="button"
@@ -383,7 +355,7 @@
                   class="notebook-editor__content-editor"
                   :class="{ 'is-content-loading': contentLoading }"
                   :placeholder="t('notebook.contentPlaceholder')"
-                  @change="scheduleSave"
+                  @change="onContentChanged"
                   @heading-active="onHeadingActive"
                 />
                 <div
@@ -393,6 +365,17 @@
                   <el-icon class="notebook-editor__loading-icon is-loading"><Loading /></el-icon>
                   <span>{{ t('notebook.contentLoading') }}</span>
                 </div>
+                <button
+                  v-if="currentNote && !contentLoading"
+                  type="button"
+                  class="notebook-editor__save-btn"
+                  :title="`${t('notebook.save')} (Ctrl+S)`"
+                  :disabled="saveState === 'saving'"
+                  @click="manualSave"
+                >
+                  <el-icon v-if="saveState === 'saving'"><Loading /></el-icon>
+                  <el-icon v-else><Check /></el-icon>
+                </button>
               </div>
               </div>
 
@@ -454,6 +437,16 @@
         />
       </el-tab-pane>
     </el-tabs>
+    <el-button
+      type="warning"
+      plain
+      :icon="Link"
+      class="notebook-tabs-extra"
+      @click="openBaiduPanAuthorize"
+    >
+      {{ t('notebook.baiduPanConnect') }}
+    </el-button>
+    </div>
 
     <!-- 树节点右键菜单：笔记/文件夹的右键操作菜单 -->
     <NoteTreeContextMenu
@@ -569,7 +562,7 @@
  * 支持百度网盘同步、正文格式优化、目录导航等功能
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { onBeforeRouteLeave, useRoute } from 'vue-router'
+import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import WarRoomPage from '@/components/war-room/WarRoomPage.vue'
 import { ElMessage, ElMessageBox, type ElInput, type ElTree } from 'element-plus'
@@ -582,9 +575,9 @@ import {
   Delete,
   Document,
   Folder,
+  Link,
   Loading,
   Plus,
-  QuestionFilled,
   Search,
   Star,
   Top,
@@ -596,8 +589,7 @@ import NoteTocPanel from './notebook/NoteTocPanel.vue'
 import NoteTreeContextMenu, { type TreeContextMenuAction } from './notebook/NoteTreeContextMenu.vue'
 import { exportNoteAsWord } from './notebook/exportNoteWord'
 import { parseNoteToc } from './notebook/noteToc'
-import { hasNoteVisibleText, isSameNoteHtml, optimizeNoteHtml } from './notebook/noteContentOptimize'
-import { NOTE_FORMAT_RULE_IDS } from './notebook/noteFormatStandard'
+
 import type { NoteFolderListMeta } from './notebook/notePreview'
 import { isContentLoadFailure } from './notebook/notePreview'
 import { useBaiduPanAutoAuth } from '@/composables/useBaiduPanAutoAuth'
@@ -623,6 +615,7 @@ import {
 
 const { t } = useI18n() // 国际化函数
 const route = useRoute() // 路由实例
+const router = useRouter() // 路由操作实例
 
 const { baiduPanStatus, isBaiduAuthPending, redirectToBaiduAuthorize } = useBaiduPanAutoAuth() // 百度网盘授权状态
 
@@ -649,6 +642,7 @@ let noteLoadSeq = 0 // 笔记加载序列号（防止竞态）
 let treeClickDedupeAt = 0 // 树点击去重时间戳
 let treeClickDedupeKey = '' // 树点击去重key
 let treeSelectionHandling = false // 是否正在处理树选择
+let suppressContentChange = false // 内容变更抑制（笔记加载期间避免误触发）
 const userExpandedKeys = ref<Set<string>>(new Set()) // 用户展开的节点key集合
 let searchExpandedSnapshot: Set<string> | null = null // 搜索时展开状态快照
 
@@ -663,8 +657,7 @@ const editForm = reactive({
   tagIds: [] as number[], // 标签ID列表
 })
 
-const saveState = ref<'idle' | 'saving' | 'saved'>('idle') // 保存状态
-let saveTimer: ReturnType<typeof setTimeout> | null = null
+const saveState = ref<'idle' | 'saving' | 'saved' | 'localSavedSyncFailed'>('idle') // 保存状态
 
 type NoteSnapshot = { title: string; content: string; tagIds: string }
 
@@ -695,13 +688,6 @@ function isDirty(): boolean {
     cur.content !== saved.content ||
     cur.tagIds !== saved.tagIds
   )
-}
-
-function clearSaveTimer() {
-  if (saveTimer) {
-    clearTimeout(saveTimer)
-    saveTimer = null
-  }
 }
 
 function buildSavePayload(): NbNoteSaveRequest {
@@ -783,7 +769,7 @@ const formattedUpdateTime = computed(() => formatNoteDisplayTime(currentNote.val
 const showMetaStatus = computed(() => {
   if (!currentNote.value) return false
   if (contentLoading.value) return true
-  if (saveState.value === 'saving' || saveState.value === 'saved') return true
+  if (saveState.value === 'saving' || saveState.value === 'saved' || saveState.value === 'localSavedSyncFailed') return true
   if (contentLoadBlocked.value) return true
   if (!contentLoadBlocked.value && currentNote.value.syncStatus === 'CLOUD_PENDING') return true
   if (!contentLoadBlocked.value && currentNote.value.syncStatus === 'SYNCING') return true
@@ -842,12 +828,12 @@ function toggleNoteTag(tagId: number) {
   } else {
     editForm.tagIds.push(tagId)
   }
-  scheduleSave()
+  onContentChanged()
 }
 
 function detachNoteTag(tagId: number) {
   editForm.tagIds = editForm.tagIds.filter((id) => id !== tagId)
-  scheduleSave()
+  onContentChanged()
 }
 
 function openTagManage() {
@@ -1085,6 +1071,17 @@ function findNodeByKey(nodes: NbTreeNode[], key: string): NbTreeNode | null {
   return null
 }
 
+function findNodeByNoteId(nodes: NbTreeNode[], noteId: number): NbTreeNode | null {
+  for (const node of nodes) {
+    if (node.nodeType === 'NOTE' && node.noteId === noteId) return node
+    if (node.children?.length) {
+      const found = findNodeByNoteId(node.children, noteId)
+      if (found) return found
+    }
+  }
+  return null
+}
+
 async function loadTags() {
   allTags.value = await fetchNoteTags()
 }
@@ -1098,7 +1095,6 @@ async function onTabChange(tab: string | number) {
 }
 
 function capturePendingSave(): { noteId: number; payload: NbNoteSaveRequest } | null {
-  clearSaveTimer()
   if (contentLoadBlocked.value || contentLoading.value) {
     return null
   }
@@ -1125,10 +1121,7 @@ function flushSaveInBackground() {
   void saveNoteInBackground(pending.noteId, pending.payload)
 }
 
-function onTreeCurrentChange(data: NbTreeNode | null) {
-  if (!data || treeSelectionHandling) return
-  void onTreeNodeClick(data)
-}
+
 
 async function onTreeNodeClick(data: NbTreeNode) {
   if (treeSelectionHandling) return
@@ -1168,6 +1161,12 @@ async function onTreeNodeClick(data: NbTreeNode) {
     treeRef.value?.setCurrentKey(activeNodeKey.value || undefined)
   } finally {
     treeSelectionHandling = false
+  }
+
+  if (data.nodeType === 'NOTE' && data.noteId) {
+    updateUrlNoteId(data.noteId)
+  } else if (data.nodeType === 'FOLDER') {
+    updateUrlNoteId(null)
   }
 
   if (pending) {
@@ -1534,7 +1533,7 @@ async function loadNoteDetail(noteId: number, seq?: number) {
     contentLoading.value = true
   }
   contentLoadBlocked.value = false
-  clearSaveTimer()
+  suppressContentChange = true
   try {
     const detail = await fetchNote(noteId)
     if (expectedSeq !== noteLoadSeq || currentNote.value?.id !== noteId) {
@@ -1569,53 +1568,25 @@ async function loadNoteDetail(noteId: number, seq?: number) {
     } else if (expectedSeq === noteLoadSeq) {
       contentLoading.value = false
     }
+    await nextTick()
+    suppressContentChange = false
   }
 }
 
-function scheduleSave() {
-  if (!currentNote.value?.id || contentLoadBlocked.value || contentLoading.value) return
+function onContentChanged() {
+  if (suppressContentChange) return
   saveState.value = 'idle'
-  clearSaveTimer()
-  saveTimer = setTimeout(() => {
-    void saveCurrentNote()
-  }, 1500)
 }
 
-function resolveEditorHtml(): string {
-  const fromEditor = editorRef.value?.getHtml() ?? ''
-  if (hasNoteVisibleText(fromEditor)) return fromEditor
-  const fromForm = editForm.content ?? ''
-  if (hasNoteVisibleText(fromForm)) return fromForm
-  return fromEditor || fromForm
-}
-
-async function onOptimizeContent() {
-  if (!currentNote.value || contentLoadBlocked.value || contentLoading.value) return
-  const source = resolveEditorHtml()
-  if (!hasNoteVisibleText(source)) {
-    ElMessage.info(t('notebook.optimizeNoChange'))
-    return
-  }
-  const optimized = optimizeNoteHtml(source)
-  if (!hasNoteVisibleText(optimized)) {
-    ElMessage.warning(t('notebook.optimizeFailed'))
-    return
-  }
-  if (isSameNoteHtml(optimized, source)) {
-    ElMessage.info(t('notebook.optimizeNoChange'))
-    return
-  }
-  await editorRef.value?.setHtml(optimized)
-  scheduleSave()
-  ElMessage.success(t('notebook.optimizeDone'))
-}
-
-async function saveCurrentNote(options: { reloadTree?: boolean } = {}) {
-  const { reloadTree = true } = options
+async function manualSave() {
   const noteId = currentNote.value?.id
   if (!noteId || contentLoadBlocked.value || contentLoading.value) return
   if (!isDirty()) {
-    saveState.value = 'saved'
+    if (currentNote.value?.syncStatus === 'FAILED') {
+      saveState.value = 'localSavedSyncFailed'
+    } else {
+      saveState.value = 'saved'
+    }
     return
   }
   const payload = buildSavePayload()
@@ -1626,8 +1597,12 @@ async function saveCurrentNote(options: { reloadTree?: boolean } = {}) {
       currentNote.value = updated
       syncSavedSnapshot()
     }
-    saveState.value = 'saved'
-    if (reloadTree && currentNote.value?.id === noteId) {
+    if (updated?.syncStatus === 'FAILED') {
+      saveState.value = 'localSavedSyncFailed'
+    } else {
+      saveState.value = 'saved'
+    }
+    if (currentNote.value?.id === noteId) {
       await loadTree()
       treeRef.value?.setCurrentKey(activeNodeKey.value)
     }
@@ -1636,12 +1611,10 @@ async function saveCurrentNote(options: { reloadTree?: boolean } = {}) {
       saveState.value = 'idle'
     }
     ElMessage.error(t('notebook.saveFailed'))
-    throw new Error('save failed')
   }
 }
 
 function flushSaveOnUnload() {
-  clearSaveTimer()
   if (contentLoadBlocked.value || contentLoading.value) return
   const note = currentNote.value
   if (!note?.id || !isDirty()) return
@@ -1661,6 +1634,14 @@ function onSearchShortcut(event: KeyboardEvent) {
   if (!withMod) return
   event.preventDefault()
   focusSearchInput()
+}
+
+function onSaveKeydown(event: KeyboardEvent) {
+  if (event.key.toLowerCase() !== 's') return
+  const withMod = isMacPlatform ? event.metaKey : event.ctrlKey
+  if (!withMod) return
+  event.preventDefault()
+  void manualSave()
 }
 
 function onSidebarCreateCommand(command: string) {
@@ -1768,12 +1749,23 @@ const createFolderContext = computed(() => {
   return null
 })
 
+function updateUrlNoteId(noteId: number | null) {
+  const query = { ...route.query }
+  if (noteId) {
+    query.note = String(noteId)
+  } else {
+    delete query.note
+  }
+  router.replace({ query })
+}
+
 function onTreeBlankClick() {
   activeNodeKey.value = ''
   currentNote.value = null
   selectedFolderId.value = null
   contentLoading.value = false
   treeRef.value?.setCurrentKey(undefined)
+  updateUrlNoteId(null)
 }
 
 function getCreateFolderParentId(): number | null {
@@ -1852,7 +1844,6 @@ async function onDeleteTag(id: number) {
   await loadTags()
   if (currentNote.value) {
     editForm.tagIds = editForm.tagIds.filter((tagId) => tagId !== id)
-    scheduleSave()
   }
 }
 
@@ -1892,6 +1883,7 @@ watch(
 onMounted(async () => {
   window.addEventListener('pagehide', onPageHide)
   window.addEventListener('keydown', onSearchShortcut)
+  window.addEventListener('keydown', onSaveKeydown)
   document.addEventListener('visibilitychange', onVisibilityChange)
   document.addEventListener('click', closeContextMenu)
   document.addEventListener('scroll', closeContextMenu, true)
@@ -1899,11 +1891,19 @@ onMounted(async () => {
   if (route.query.tab === 'trash') {
     activeTab.value = 'trash'
   }
+  const restoreNoteId = route.query.note ? Number(route.query.note) : null
+  if (restoreNoteId && activeTab.value !== 'trash') {
+    const node = findNodeByNoteId(treeData.value, restoreNoteId)
+    if (node) {
+      await onTreeNodeClick(node)
+    }
+  }
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('pagehide', onPageHide)
   window.removeEventListener('keydown', onSearchShortcut)
+  window.removeEventListener('keydown', onSaveKeydown)
   document.removeEventListener('visibilitychange', onVisibilityChange)
   document.removeEventListener('click', closeContextMenu)
   document.removeEventListener('click', onDocumentClickForCreateDropdown, true)
@@ -2065,6 +2065,21 @@ onBeforeUnmount(() => {
   flex-shrink: 0;
 }
 
+.notebook-tabs-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.notebook-tabs-extra {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  z-index: 10;
+}
+
 :deep(.notebook-tabs) {
   flex: 1;
   min-height: 0;
@@ -2075,6 +2090,7 @@ onBeforeUnmount(() => {
   > .el-tabs__header {
     flex-shrink: 0;
     margin-bottom: 16px;
+    overflow: visible;
   }
 
   > .el-tabs__nav-wrap::after {
@@ -2590,38 +2606,6 @@ onBeforeUnmount(() => {
   user-select: none;
 }
 
-.notebook-editor__optimize-wrap {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-.notebook-editor__format-hint {
-  padding: 4px;
-  color: var(--wr-muted);
-
-  &:hover {
-    color: #f06292;
-  }
-}
-
-.notebook-editor__optimize-btn {
-  flex-shrink: 0;
-  border: none !important;
-  color: #f06292 !important;
-  background: transparent !important;
-  padding: 4px 8px;
-  font-size: 14px;
-
-  &:hover,
-  &:focus {
-    color: #ec407a !important;
-    background: transparent !important;
-    border: none !important;
-  }
-}
-
 .notebook-editor__tags {
   display: flex;
   align-items: center;
@@ -2710,20 +2694,6 @@ onBeforeUnmount(() => {
   justify-content: center;
 }
 
-.notebook-format-standard__title {
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: var(--el-text-color-primary);
-}
-
-.notebook-format-standard__list {
-  margin: 0;
-  padding-left: 18px;
-  color: var(--el-text-color-regular);
-  font-size: 13px;
-  line-height: 1.6;
-}
-
 .notebook-editor__content {
   flex: 1 1 auto;
   min-height: 300px;
@@ -2770,6 +2740,43 @@ onBeforeUnmount(() => {
 .notebook-editor__loading-icon {
   font-size: 28px;
   color: var(--el-color-primary);
+}
+
+.notebook-editor__save-btn {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: #1a7a3a;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(26, 122, 58, 0.4);
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+
+  &:hover {
+    background: #21904a;
+    box-shadow: 0 4px 14px rgba(26, 122, 58, 0.5);
+    transform: scale(1.05);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  &:disabled {
+    background: #a3c9b0;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
 }
 
 .tag-manage__new {

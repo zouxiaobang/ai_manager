@@ -12,4 +12,6 @@ public class BaiduPanAuthStatusVO {
     private Long baiduUid;
 
     private String expiresAt;
+
+    private String error;
 }

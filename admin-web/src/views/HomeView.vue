@@ -397,6 +397,7 @@ const statCards = computed<HomeStatCard[]>(() => [
     color: '#6b7280',
     tone: 'gray',
     icon: 'folder',
+    onClick: () => router.push('/notebook'),
   },
 ])
 

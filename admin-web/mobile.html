@@ -16,6 +16,14 @@
     <meta name="apple-mobile-web-app-title" content="工作台" />
     <meta name="mobile-web-app-capable" content="yes" />
     <title>工作台</title>
+    <script>
+      // 开发模式下注销残留的 Service Worker
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          regs.forEach(function(r) { r.unregister(); });
+        });
+      }
+    </script>
   </head>
   <body>
     <div id="app"></div>

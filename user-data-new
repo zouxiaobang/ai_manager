@@ -1,0 +1,32 @@
+#cloud-config
+manage_resolv_conf: false
+
+hostname: kyle
+manage_etc_hosts: true
+packages:
+- avahi-daemon
+apt:
+  preserve_sources_list: true
+  conf: |
+    Acquire {
+      Check-Date "false";
+    };
+timezone: Asia/Shanghai
+keyboard:
+  model: pc105
+  layout: "cn"
+user:
+  name: kyle
+  shell: /bin/bash
+  lock_passwd: false
+  passwd: "$y$jB5$BNJClQHN2dqMKZpR63IAM/$LoM848MrfC/iDpeRQY2MFbbnmzTwnpsYs8vFmMGdBw0"
+ssh_pwauth: true
+ssh_deletekeys: true
+ssh_genkeytypes: ['ed25519', 'rsa', 'ecdsa']
+bootcmd:
+  - [ sh, -c, "ssh-keygen -A 2>/dev/null; systemctl enable ssh; systemctl restart ssh || systemctl start ssh" ]
+runcmd:
+  - [ sh, -c, "ssh-keygen -A" ]
+  - [ systemctl, enable, ssh ]
+  - [ systemctl, start, ssh ]
+  - [ sh, -c, "sleep 5; systemctl status ssh" ]

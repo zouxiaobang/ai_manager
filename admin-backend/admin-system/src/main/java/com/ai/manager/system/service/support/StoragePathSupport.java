@@ -1,14 +1,17 @@
 package com.ai.manager.system.service.support;
 
+import org.springframework.stereotype.Component;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.stream.Stream;
 
-public final class StoragePathSupport {
+@Component
+public class StoragePathSupport {
 
-    private StoragePathSupport() {
+    public StoragePathSupport() {
     }
 
     public static Path resolveUploadBasePath(String configuredPath) {

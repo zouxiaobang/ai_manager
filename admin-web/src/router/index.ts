@@ -250,6 +250,24 @@ const router = createRouter({
         },
 
         {
+          path: 'library',
+          name: 'library',
+          component: () => import('@/views/library/LibraryView.vue'),
+          meta: { titleKey: 'library.title' },
+        },
+        {
+          path: 'library/trash',
+          name: 'library-trash',
+          component: () => import('@/views/library/LibraryTrashView.vue'),
+          meta: { titleKey: 'library.trashTitle' },
+        },
+        {
+          path: 'library/knowledge',
+          name: 'library-knowledge',
+          component: () => import('@/views/library/LibraryKnowledgeView.vue'),
+          meta: { titleKey: 'library.kbTab' },
+        },
+        {
           path: '24hour',
           name: '24hour',
           component: () => import('@/views/TwentyFourHourView.vue'),

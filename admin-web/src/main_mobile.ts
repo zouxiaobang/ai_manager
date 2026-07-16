@@ -4,33 +4,67 @@ import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import 'element-plus/theme-chalk/dark/css-vars.css'
 
-import App from './App_mobile.vue'
-import router from './router/mobile'
-import i18n from './i18n'
-import { useAppStore } from './stores/app'
+;(async () => {
+  const MOBILE_UI_VERSION_KEY = 'mobile-ui-version'
 
-import './styles/index.scss'
-import './mobile/styles/mobile.scss'
-import { setupMobilePwa } from './mobile/pwa'
-import { setupMobileInputViewportFix } from './mobile/utils/inputViewport'
-import { setupHomeBackGuard } from './mobile/utils/homeBackGuard'
+  function resolveMobileUIVersion(): 'v1' | 'v2' {
+    if (typeof localStorage === 'undefined') return 'v2'
+    const saved = localStorage.getItem(MOBILE_UI_VERSION_KEY)
+    if (saved === 'v1' || saved === 'v2') return saved
+    localStorage.setItem(MOBILE_UI_VERSION_KEY, 'v2')
+    return 'v2'
+  }
 
-setupMobilePwa()
-setupMobileInputViewportFix()
+  if (resolveMobileUIVersion() === 'v2') {
+    const [{ default: V2App }, { default: V2Router }, { default: i18n }, { useAppStore }] = await Promise.all([
+      import('./App_mobileV2.vue'),
+      import('./router/mobile-v2'),
+      import('./i18n'),
+      import('./stores/app'),
+    ])
+    await import('./mobile-v2/styles/mobile-v2.scss')
 
-const app = createApp(App)
-const pinia = createPinia()
+    const app = createApp(V2App)
+    app.use(createPinia())
+    app.use(ElementPlus)
+    app.use(i18n)
+    app.use(V2Router)
 
-app.use(pinia)
-app.use(router)
-app.use(i18n)
-app.use(ElementPlus)
+    const appStore = useAppStore()
+    appStore.initTheme()
+    appStore.initLocale(i18n)
+    appStore.initMobileUIVersion()
+    appStore.initPrimaryColor()
 
-setupHomeBackGuard(router)
+    app.mount('#app')
+  } else {
+    const [{ default: App }, { default: router }, { default: i18n }, { useAppStore }] = await Promise.all([
+      import('./App_mobile.vue'),
+      import('./router/mobile'),
+      import('./i18n'),
+      import('./stores/app'),
+    ])
+    await Promise.all([
+      import('./mobile/styles/mobile.scss'),
+      import('./styles/index.scss'),
+      import('./mobile/pwa').then(m => m.setupMobilePwa()),
+      import('./mobile/utils/inputViewport').then(m => m.setupMobileInputViewportFix()),
+      import('./mobile/utils/homeBackGuard').then(m => m.setupHomeBackGuard(router)),
+    ])
 
-const appStore = useAppStore()
-appStore.initTheme()
-appStore.initLocale(i18n)
-appStore.initMobileHomeTheme()
+    const app = createApp(App)
+    const pinia = createPinia()
 
-app.mount('#app')
+    app.use(pinia)
+    app.use(router)
+    app.use(i18n)
+    app.use(ElementPlus)
+
+    const appStore = useAppStore()
+    appStore.initTheme()
+    appStore.initLocale(i18n)
+    appStore.initMobileHomeTheme()
+
+    app.mount('#app')
+  }
+})()

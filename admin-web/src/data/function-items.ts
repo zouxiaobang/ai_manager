@@ -56,6 +56,7 @@ export const functionItems: FunctionItem[] = [
   {
     key: 'library',
     icon: FolderOpened,
+    route: '/library',
     accent: '#909399',
   },
 ]

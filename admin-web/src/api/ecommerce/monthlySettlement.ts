@@ -5,6 +5,7 @@ import type { ApiResult } from '../types'
 export interface MonthlySettlementShopSummary {
   shopId: number
   shopName?: string
+  settlementStatus?: string
   totalRevenue?: number
   estimatedTotalCost?: number
   actualTotalCost?: number

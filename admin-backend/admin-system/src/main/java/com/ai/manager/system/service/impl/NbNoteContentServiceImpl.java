@@ -69,13 +69,6 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
         if (note == null || note.getId() == null) {
             return "";
         }
-        if (storageCenterService.isDualStorageEnabled()) {
-            NoteContentRef ref = toRef(note);
-            NoteContentReconcileResult result = noteContentVersionService.reconcile(note, ref);
-            applyReconcileResult(note, result);
-            cacheContent(note.getId(), result.getContent());
-            return result.getContent();
-        }
 
         String cacheKey = CACHE_PREFIX + note.getId();
         String cached = stringRedisTemplate.opsForValue().get(cacheKey);
@@ -86,6 +79,15 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
                 return cached;
             }
         }
+
+        if (storageCenterService.isDualStorageEnabled()) {
+            NoteContentRef ref = toRef(note);
+            NoteContentReconcileResult result = noteContentVersionService.reconcile(note, ref);
+            applyReconcileResult(note, result);
+            cacheContent(note.getId(), result.getContent());
+            return result.getContent();
+        }
+
         NoteContentStorage storage = resolveStorage(note);
         String content = storage.load(toRef(note));
         if (NoteContentUtils.isBaiduApiErrorBody(content)) {
@@ -247,10 +249,14 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
         } else {
             note.setStoragePath(outcome.getLocalPath());
             note.setStorageFsId(null);
-            note.setSyncStatus(NoteSyncStatus.CLOUD_PENDING);
-            note.setSyncError(StringUtils.hasText(outcome.getCloudError())
-                    ? outcome.getCloudError()
-                    : "等待同步至云盘");
+            String cloudError = outcome.getCloudError();
+            boolean isAuthError = cloudError != null && (
+                    cloudError.contains("授权") ||
+                    cloudError.contains("绑定") ||
+                    cloudError.contains("errno=102") ||
+                    cloudError.contains("未连接百度网盘"));
+            note.setSyncStatus(isAuthError ? NoteSyncStatus.LOCAL_ONLY : NoteSyncStatus.CLOUD_PENDING);
+            note.setSyncError(StringUtils.hasText(cloudError) ? cloudError : "等待同步至云盘");
         }
         note.setContentHash(hash);
         note.setContentSize(outcome.getContentSize());
@@ -303,6 +309,9 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
             if (hash.equals(note.getContentHash()) && NoteSyncStatus.SYNCED.equals(note.getSyncStatus())) {
                 return;
             }
+            if (hash.equals(note.getContentHash()) && NoteSyncStatus.LOCAL_ONLY.equals(note.getSyncStatus())) {
+                return;
+            }
             try {
                 if (!StringUtils.hasText(note.getStoragePath())) {
                     prepareNewNote(note);
@@ -316,8 +325,14 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
                 note.setContentSize(result.getContentSize());
                 note.setContentExcerpt(NoteContentUtils.htmlToExcerpt(content, 200));
                 note.setContentVersion((note.getContentVersion() == null ? 0 : note.getContentVersion()) + 1);
-                note.setSyncStatus(NoteSyncStatus.SYNCED);
-                note.setSyncError(null);
+                boolean isLocalStorage = storage instanceof LocalFileNoteContentStorage;
+                if (isLocalStorage && useBaiduPan()) {
+                    note.setSyncStatus(NoteSyncStatus.LOCAL_ONLY);
+                    note.setSyncError("百度网盘授权不可用，已保存到本地");
+                } else {
+                    note.setSyncStatus(NoteSyncStatus.SYNCED);
+                    note.setSyncError(null);
+                }
                 nbNoteMapper.updateById(note);
 
                 String latest = readCachedContent(noteId);
@@ -428,11 +443,11 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
                 baiduPanNoteContentStorage.ensureRoot();
                 return baiduPanNoteContentStorage;
             } catch (BusinessException ex) {
-                if ("BAIDU_PAN".equalsIgnoreCase(noteStorageProperties.getType())) {
-                    throw ex;
-                }
+                log.warn("百度网盘授权不可用，降级到本地存储: {}", ex.getMessage());
+                // 授权失败时降级到本地存储，而不是抛出异常
             }
         }
+        localFileNoteContentStorage.ensureRoot();
         return localFileNoteContentStorage;
     }
 

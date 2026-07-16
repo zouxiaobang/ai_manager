@@ -2,6 +2,8 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElNotification } from 'element-plus'
 import { ackTodoRemind, fetchDueReminders, fetchTodayTodos } from '@/api/notebook/todo'
+import { useAppStore } from '@/stores/app'
+import { useTodoRemindSound } from '@/composables/useTodoRemindSound'
 
 const POLL_INTERVAL_MS = 30_000
 
@@ -64,6 +66,15 @@ function showTodoNotification(todoId: number, body: string) {
   registerTodoNotification(todoId, () => handle.close())
 }
 
+const todoRemindSound = useTodoRemindSound()
+
+function playTodoRemindSound() {
+  const appStore = useAppStore()
+  if (!appStore.todoRemindEnabled) return
+  todoRemindSound.init()
+  todoRemindSound.play(appStore.todoRemindVolume, appStore.todoRemindBeeps)
+}
+
 async function pollDueReminders() {
   if (polling) return
   polling = true
@@ -71,6 +82,7 @@ async function pollDueReminders() {
     const dueItems = await fetchDueReminders()
     for (const item of dueItems) {
       showTodoNotification(item.id, item.content)
+      playTodoRemindSound()
       await ackTodoRemind(item.id)
     }
     if (dueItems.length > 0) {

@@ -35,6 +35,7 @@ public class BaiduPanAuthServiceImpl implements BaiduPanAuthService {
         NbBaiduPanAuth auth = findAuth();
         if (auth == null) {
             vo.setAuthorized(false);
+            vo.setError("未绑定百度网盘");
             return vo;
         }
         try {
@@ -45,6 +46,7 @@ public class BaiduPanAuthServiceImpl implements BaiduPanAuthService {
             vo.setExpiresAt(auth.getExpiresAt() == null ? null : auth.getExpiresAt().toString());
         } catch (BusinessException ex) {
             vo.setAuthorized(false);
+            vo.setError(ex.getMessage());
             log.warn("百度网盘授权不可用: {}", ex.getMessage());
         }
         return vo;

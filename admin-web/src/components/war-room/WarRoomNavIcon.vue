@@ -19,6 +19,7 @@ export type WarRoomNavIconName =
   | 'pixel-dog'
   | 'functions'
   | 'notebook'
+  | 'library'
   | 'todos'
   | '24hour'
   | 'deploy-docs'

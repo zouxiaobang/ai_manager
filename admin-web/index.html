@@ -16,7 +16,21 @@
     <meta name="apple-mobile-web-app-title" content="工作台" />
     <meta name="mobile-web-app-capable" content="yes" />
     <title>工作台</title>
-    <script src="/app-shell.js?v=2"></script>
+    <script>
+      // 强制注销所有残留的 Service Worker，并清除缓存
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(regs) {
+          regs.forEach(function(r) {
+            r.unregister().then(function() {
+              caches.keys().then(function(keys) {
+                keys.forEach(function(k) { caches.delete(k); });
+              });
+            });
+          });
+        });
+      }
+    </script>
+    <script src="/app-shell.js?v=3"></script>
   </head>
   <body>
     <div id="app"></div>

@@ -29,12 +29,13 @@ import '@wangeditor/editor/dist/css/style.css'
 import { nextTick, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Editor } from '@wangeditor/editor-for-vue'
-import { createToolbar, DomEditor, i18nAddResources, i18nChangeLanguage } from '@wangeditor/editor'
-import type { IDomEditor, IEditorConfig, IToolbarConfig } from '@wangeditor/editor'
+import { Boot, createToolbar, DomEditor, i18nAddResources, i18nChangeLanguage } from '@wangeditor/editor'
+import type { IDomEditor, IEditorConfig, IToolbarConfig, IButtonMenu } from '@wangeditor/editor'
+import { ElMessageBox } from 'element-plus'
+import { Transforms } from 'slate'
 import { getNotebookImageUrl, uploadNotebookImage } from '@/api/notebook/image'
 import StorageImagePickerDialog from '@/components/storage/StorageImagePickerDialog.vue'
 import { HEADING_SELECTOR } from './noteToc'
-import { hasNoteVisibleText } from './noteContentOptimize'
 import { APP_FONT_FAMILY_VALUE } from '@/constants/font-family'
 
 const { locale, t } = useI18n()
@@ -49,6 +50,7 @@ function buildToolbarConfig(): Partial<IToolbarConfig> {
       'redo',
       '|',
       'headerSelect',
+      'fontSize',
       '|',
       'bold',
       'italic',
@@ -64,8 +66,7 @@ function buildToolbarConfig(): Partial<IToolbarConfig> {
       'blockquote',
       '|',
           'insertTable',
-          'insertImage',
-          '|',
+      '|',
       {
         key: 'group-more',
         title: t('notebook.moreTools'),
@@ -73,7 +74,6 @@ function buildToolbarConfig(): Partial<IToolbarConfig> {
         menuKeys: [
           'clearStyle',
           'fontFamily',
-          'fontSize',
           'underline',
           'color',
           'justifyLeft',
@@ -81,6 +81,7 @@ function buildToolbarConfig(): Partial<IToolbarConfig> {
           'justifyRight',
           'justifyJustify',
           'divider',
+          'showShortcuts',
         ],
       },
       '|',
@@ -88,6 +89,69 @@ function buildToolbarConfig(): Partial<IToolbarConfig> {
     ],
   }
 }
+
+const SHORTCUTS_CONTENT = `<div class="note-shortcuts">
+  <div class="note-shortcuts__body">
+      <div class="note-shortcuts__group">
+        <div class="note-shortcuts__title">文本格式</div>
+        <div class="note-shortcuts__row"><kbd>Ctrl+B</kbd><span>加粗</span></div>
+        <div class="note-shortcuts__row"><kbd>Ctrl+I</kbd><span>斜体</span></div>
+        <div class="note-shortcuts__row"><kbd>Ctrl+U</kbd><span>下划线</span></div>
+        <div class="note-shortcuts__row"><kbd>Ctrl+Shift+X</kbd><span>删除线</span></div>
+        <div class="note-shortcuts__row"><kbd>Ctrl+\`</kbd><span>行内代码</span></div>
+      </div>
+      <div class="note-shortcuts__group">
+        <div class="note-shortcuts__title">标题 / 段落</div>
+        <div class="note-shortcuts__row"><kbd>Alt+1</kbd><span>标题 1</span></div>
+        <div class="note-shortcuts__row"><kbd>Alt+2</kbd><span>标题 2</span></div>
+        <div class="note-shortcuts__row"><kbd>Alt+3</kbd><span>标题 3</span></div>
+        <div class="note-shortcuts__row"><kbd>Alt+4</kbd><span>标题 4</span></div>
+        <div class="note-shortcuts__row"><kbd>Alt+5</kbd><span>标题 5</span></div>
+        <div class="note-shortcuts__row"><kbd>Alt+6</kbd><span>标题 6</span></div>
+        <div class="note-shortcuts__row"><kbd>Alt+0</kbd><span>正文</span></div>
+      </div>
+      <div class="note-shortcuts__group">
+        <div class="note-shortcuts__title">列表 / 代码</div>
+        <div class="note-shortcuts__row"><kbd>Ctrl+Shift+U</kbd><span>无序列表</span></div>
+        <div class="note-shortcuts__row"><kbd>Ctrl+Shift+L</kbd><span>有序列表</span></div>
+        <div class="note-shortcuts__row"><kbd>Ctrl+Shift+\`</kbd><span>代码块</span></div>
+        <div class="note-shortcuts__row"><kbd>Tab</kbd><span>增加缩进</span></div>
+        <div class="note-shortcuts__row"><kbd>Shift+Tab</kbd><span>减少缩进</span></div>
+      </div>
+      <div class="note-shortcuts__group">
+        <div class="note-shortcuts__title">其他</div>
+        <div class="note-shortcuts__row"><kbd>Ctrl+Z</kbd><span>撤销</span></div>
+        <div class="note-shortcuts__row"><kbd>Ctrl+Shift+Z</kbd><span>重做</span></div>
+        <div class="note-shortcuts__row"><kbd>Ctrl+K</kbd><span>插入链接</span></div>
+        <div class="note-shortcuts__row"><kbd>Ctrl+S</kbd><span>保存笔记</span></div>
+        <div class="note-shortcuts__row"><kbd>Ctrl+Shift+C</kbd><span>收藏笔记</span></div>
+      </div>
+    </div>
+</div>`
+
+try {
+  Boot.registerMenu({
+    key: 'showShortcuts',
+  factory() {
+    return {
+      tag: 'button',
+      title: '快捷键',
+      getValue() { return '' },
+      isActive() { return false },
+      isDisabled() { return false },
+      exec() {
+        ElMessageBox.alert(SHORTCUTS_CONTENT, '⌨ 快捷键', {
+          dangerouslyUseHTMLString: true,
+          customClass: 'note-shortcuts-dialog',
+          showConfirmButton: false,
+          showClose: false,
+          closeOnClickModal: true,
+        })
+      },
+    } as IButtonMenu
+  },
+})
+} catch {}
 
 let scrollRoot: HTMLElement | null = null
 let scrollRaf: number | null = null
@@ -132,6 +196,7 @@ const html = shallowRef(initialEditorHtml)
 let dropPanelObserver: MutationObserver | null = null
 let suppressChange = false
 let suppressChangeTimer: ReturnType<typeof setTimeout> | null = null
+let isInternalChange = false
 let toolbarTooltipEl: HTMLElement | null = null
 let toolbarTooltipAnchor: HTMLElement | null = null
 
@@ -238,10 +303,21 @@ function runWithSuppressedChange(run: () => void, releaseMs = 120) {
   suppressChange = true
   if (suppressChangeTimer) clearTimeout(suppressChangeTimer)
   run()
+  // 记录 setHtml 后的基准内容，用于在 suppress 释放时检测用户是否在此期间输入了内容
+  const baseline = editorRef.value?.getHtml() ?? ''
   void nextTick(() => {
     suppressChangeTimer = setTimeout(() => {
       suppressChange = false
       suppressChangeTimer = null
+      // suppress 释放后检查 editor 内容是否变化（用户在抑制期间输入了内容）
+      // 若变化则主动触发 handleChange，避免用户输入被永久丢弃
+      const editor = editorRef.value
+      if (editor) {
+        const current = editor.getHtml()
+        if (current !== baseline) {
+          handleChange(editor)
+        }
+      }
     }, releaseMs)
   })
 }
@@ -328,6 +404,7 @@ let pendingImageInsert: ((url: string, alt: string, href: string) => void) | nul
 watch(
   () => props.modelValue,
   (value) => {
+    if (isInternalChange) return
     const next = normalizeHtmlContent(value)
     if (next === html.value) return
     html.value = next
@@ -351,6 +428,7 @@ const editorConfig: Partial<IEditorConfig> = {
   placeholder: props.placeholder ?? t('notebook.contentPlaceholder'),
   readOnly: false,
   autoFocus: true,
+  scroll: false,
   MENU_CONF: {
     fontFamily: {
       fontFamilyList: [{ name: '阿里巴巴普惠体', value: APP_FONT_FAMILY_VALUE }],
@@ -372,7 +450,15 @@ const editorConfig: Partial<IEditorConfig> = {
       },
     },
   },
-}
+  hoverbarKeys: {
+    text: {
+      menuKeys: ['bold', 'italic', 'fontSize', 'color', 'insertLink'],
+    },
+    link: {
+      menuKeys: ['editLink'],
+    },
+  },
+} as any
 
 function normalizeHtmlContent(content?: string | null): string {
   const text = content ?? ''
@@ -401,14 +487,217 @@ async function handleCreated(editor: IDomEditor) {
   disableEditorSpellcheck()
   setupDropPanelObserver()
   setupScrollSpy()
+  setupEditorKeydownCapture()
+  setupGroupMoreClickBehavior()
   window.setTimeout(() => {
     void ensureToolbar(editor)
     setupDropPanelObserver()
     setupScrollSpy()
+    setupEditorKeydownCapture()
+    setupGroupMoreClickBehavior()
     patchToolbarPointer()
     disableEditorSpellcheck()
     updateActiveHeading()
   }, 120)
+}
+
+function scheduleScrollToSelection() {
+  const delays = [0, 16, 50, 100, 200, 350]
+  delays.forEach(delay => {
+    setTimeout(() => {
+      ensureSelectionVisible()
+      scrollBlockParentIntoView()
+    }, delay)
+  })
+}
+
+function setupEditorKeydownCapture() {
+  const container = getEditableContainer()
+  if (!container) return
+  if (container.dataset.keydownCaptureBound === '1') return
+  container.dataset.keydownCaptureBound = '1'
+  container.addEventListener('keydown', onEditorKeydown, true)
+}
+
+let groupMoreDocHandler: ((e: MouseEvent) => void) | null = null
+
+function setupGroupMoreClickBehavior() {
+  const root = rootRef.value
+  if (!root) return
+  const btn = root.querySelector<HTMLElement>('[data-menu-key="group-more"]')
+  if (!btn) return
+  const groupEl = btn.closest('.w-e-bar-item-group') as HTMLElement | null
+  if (!groupEl || groupEl.dataset.groupClickSetup === '1') return
+  groupEl.dataset.groupClickSetup = '1'
+
+  btn.addEventListener('click', (e: MouseEvent) => {
+    e.stopPropagation()
+    groupEl.classList.toggle('expanded')
+  })
+
+  groupEl.querySelectorAll('.w-e-bar-item').forEach((item) => {
+    item.addEventListener('click', () => {
+      setTimeout(() => {
+        const hasOpenPanel = groupEl.querySelector('.w-e-drop-panel, .w-e-modal')
+        if (!hasOpenPanel) {
+          groupEl.classList.remove('expanded')
+        }
+      }, 50)
+    })
+  })
+
+  groupMoreDocHandler = (e: MouseEvent) => {
+    if (!groupEl.contains(e.target as Node)) {
+      groupEl.classList.remove('expanded')
+    }
+  }
+  document.addEventListener('click', groupMoreDocHandler, true)
+}
+
+let enterBlockScrollTop = 0
+let suppressHeadingUpdate = false
+let suppressHeadingTimer: ReturnType<typeof setTimeout> | null = null
+let userNavigationIndex = -1
+let userNavigationTimer: ReturnType<typeof setTimeout> | null = null
+let scrollLockActive = false
+let scrollLockTimer: ReturnType<typeof setTimeout> | null = null
+let scrollLockObserver: MutationObserver | null = null
+let scrollLockRestoreTimers: ReturnType<typeof setTimeout>[] = []
+let scrollLockRafId: number | null = null
+
+function clearScrollLockRestoreTimers() {
+  scrollLockRestoreTimers.forEach((t) => clearTimeout(t))
+  scrollLockRestoreTimers = []
+}
+
+function startScrollLock() {
+  const root = getScrollRoot()
+  if (!root) return
+
+  stopScrollLock()
+
+  scrollLockActive = true
+  enterBlockScrollTop = root.scrollTop
+
+  const container = getEditableContainer()
+  if (container) {
+    scrollLockObserver = new MutationObserver(() => {
+      if (!scrollLockActive) return
+      if (root.scrollTop < enterBlockScrollTop) {
+        root.scrollTop = enterBlockScrollTop
+      }
+      ensureSelectionVisible()
+      scrollBlockParentIntoView()
+    })
+    scrollLockObserver.observe(container, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+    })
+  }
+
+  const onScroll = () => {
+    if (!scrollLockActive) return
+    if (root.scrollTop < enterBlockScrollTop) {
+      root.scrollTop = enterBlockScrollTop
+    }
+  }
+  root.addEventListener('scroll', onScroll, { passive: false })
+
+  let frames = 0
+  const tick = () => {
+    if (!scrollLockActive || frames > 200) {
+      scrollLockRafId = null
+      root.removeEventListener('scroll', onScroll)
+      return
+    }
+    if (root.scrollTop < enterBlockScrollTop) {
+      root.scrollTop = enterBlockScrollTop
+    }
+    ensureSelectionVisible()
+    scrollBlockParentIntoView()
+    frames++
+    scrollLockRafId = requestAnimationFrame(tick)
+  }
+  scrollLockRafId = requestAnimationFrame(tick)
+
+  const restoreDelays = [0, 5, 15, 30, 50, 80, 120, 180, 250, 350, 500, 700, 1000]
+  restoreDelays.forEach((delay) => {
+    const timer = setTimeout(() => {
+      if (!scrollLockActive) return
+      if (root.scrollTop < enterBlockScrollTop) {
+        root.scrollTop = enterBlockScrollTop
+      }
+      ensureSelectionVisible()
+      scrollBlockParentIntoView()
+    }, delay)
+    scrollLockRestoreTimers.push(timer)
+  })
+
+  scrollLockTimer = setTimeout(() => {
+    scrollLockActive = false
+    if (scrollLockObserver) {
+      scrollLockObserver.disconnect()
+      scrollLockObserver = null
+    }
+    root.removeEventListener('scroll', onScroll)
+    clearScrollLockRestoreTimers()
+    ensureSelectionVisible()
+    scrollBlockParentIntoView()
+  }, 1500)
+}
+
+function stopScrollLock() {
+  scrollLockActive = false
+  if (scrollLockTimer) {
+    clearTimeout(scrollLockTimer)
+    scrollLockTimer = null
+  }
+  if (scrollLockObserver) {
+    scrollLockObserver.disconnect()
+    scrollLockObserver = null
+  }
+  if (scrollLockRafId != null) {
+    cancelAnimationFrame(scrollLockRafId)
+    scrollLockRafId = null
+  }
+  clearScrollLockRestoreTimers()
+}
+
+function onEditorKeydown(event: Event) {
+  const ke = event as KeyboardEvent
+
+  if (ke.altKey && ke.key >= '0' && ke.key <= '6') {
+    ke.preventDefault()
+    ke.stopPropagation()
+    const editor = editorRef.value
+    if (!editor) return
+    if (ke.key === '0') {
+      Transforms.setNodes(editor, { type: 'paragraph' } as any, { mode: 'highest' })
+      Transforms.unsetNodes(editor, 'level', { mode: 'highest' })
+    } else {
+      Transforms.setNodes(editor, { type: `header${ke.key}` } as any, { mode: 'highest' })
+    }
+    return
+  }
+
+  if (ke.key !== 'Enter') return
+
+  if (!isSelectionInCodeBlock() && !isSelectionInBlockquote()) {
+    scheduleScrollToSelection()
+    return
+  }
+
+  const root = getScrollRoot()
+  if (!root) return
+
+  suppressHeadingUpdate = true
+  if (suppressHeadingTimer) clearTimeout(suppressHeadingTimer)
+  suppressHeadingTimer = setTimeout(() => { suppressHeadingUpdate = false }, 800)
+
+  startScrollLock()
+  scheduleScrollToSelection()
 }
 
 function getScrollRoot(): HTMLElement | null {
@@ -421,16 +710,6 @@ function getScrollRoot(): HTMLElement | null {
 
 function captureEditorScrollTop(): number {
   return getScrollRoot()?.scrollTop ?? 0
-}
-
-function restoreEditorScrollTop(scrollTop: number) {
-  const root = getScrollRoot()
-  if (!root) return
-  const apply = () => {
-    root.scrollTop = scrollTop
-  }
-  apply()
-  requestAnimationFrame(apply)
 }
 
 function ensureSelectionVisible() {
@@ -453,7 +732,19 @@ function ensureSelectionVisible() {
   }
 }
 
-/** 仅在异常跳到顶部时恢复滚动；否则让视口跟随光标（如底部回车换行） */
+function scrollBlockParentIntoView() {
+  const selection = window.getSelection()
+  if (!selection?.focusNode) return
+  const block =
+    (selection.focusNode.nodeType === Node.TEXT_NODE
+      ? selection.focusNode.parentElement
+      : (selection.focusNode as Element)
+    )?.closest('p, li, pre, blockquote, h1, h2, h3, h4, h5, h6, td, th, div[data-slate-node]')
+  if (block) {
+    block.scrollIntoView({ block: 'nearest', behavior: 'instant' })
+  }
+}
+
 function reconcileEditorScroll(savedScrollTop: number) {
   const root = getScrollRoot()
   if (!root) return
@@ -461,14 +752,17 @@ function reconcileEditorScroll(savedScrollTop: number) {
   const apply = () => {
     if (savedScrollTop > 60 && root.scrollTop < 20) {
       root.scrollTop = savedScrollTop
-      return
     }
     ensureSelectionVisible()
+    scrollBlockParentIntoView()
   }
 
   requestAnimationFrame(() => {
     apply()
-    requestAnimationFrame(apply)
+    requestAnimationFrame(() => {
+      apply()
+      requestAnimationFrame(apply)
+    })
   })
 }
 
@@ -480,6 +774,16 @@ function isSelectionInCodeBlock(): boolean {
       ? selection.anchorNode.parentElement
       : (selection.anchorNode as Element)
   return !!anchor?.closest('pre, code')
+}
+
+function isSelectionInBlockquote(): boolean {
+  const selection = window.getSelection()
+  if (!selection?.anchorNode) return false
+  const anchor =
+    selection.anchorNode.nodeType === Node.TEXT_NODE
+      ? selection.anchorNode.parentElement
+      : (selection.anchorNode as Element)
+  return !!anchor?.closest('blockquote')
 }
 
 function setupScrollSpy() {
@@ -499,6 +803,8 @@ function onEditorScroll() {
 }
 
 function updateActiveHeading() {
+  if (suppressHeadingUpdate) return
+  if (userNavigationIndex >= 0) return
   const container = getEditableContainer()
   const root = getScrollRoot()
   if (!container || !root) return
@@ -599,25 +905,17 @@ function patchDropPanelMenus() {
 
 function handleChange(editor: IDomEditor) {
   if (suppressChange) return
-  const savedScrollTop = captureEditorScrollTop()
-  const inCodeBlock = isSelectionInCodeBlock()
   const value = editor.getHtml()
-  const fallbackHtml = html.value || props.modelValue
-  if (!hasNoteVisibleText(value)) {
-    if (hasNoteVisibleText(fallbackHtml)) {
-      runWithSuppressedChange(() => {
-        editor.setHtml(fallbackHtml)
-      }, 200)
-      restoreEditorScrollTop(savedScrollTop)
-      return
-    }
-    reconcileEditorScroll(savedScrollTop)
-    return
-  }
+  isInternalChange = true
   html.value = value
   emit('update:modelValue', value)
   emit('change')
+  void nextTick(() => {
+    isInternalChange = false
+  })
+  const savedScrollTop = captureEditorScrollTop()
   reconcileEditorScroll(savedScrollTop)
+  const inCodeBlock = isSelectionInCodeBlock()
   if (!inCodeBlock) {
     void nextTick(() => updateActiveHeading())
   }
@@ -638,12 +936,16 @@ function scrollToHeading(index: number) {
   const headings = container.querySelectorAll(HEADING_SELECTOR)
   const target = headings[index] as HTMLElement | undefined
   if (!target) return
+  userNavigationIndex = index
+  if (userNavigationTimer) clearTimeout(userNavigationTimer)
+  userNavigationTimer = setTimeout(() => { userNavigationIndex = -1 }, 400)
   const root = getScrollRoot()
   if (root) {
-    const top = target.offsetTop - 12
-    root.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+    const targetRect = target.getBoundingClientRect()
+    const rootRect = root.getBoundingClientRect()
+    root.scrollBy({ top: targetRect.top - rootRect.top - 12, behavior: 'instant' })
   } else {
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    target.scrollIntoView({ behavior: 'instant', block: 'start' })
   }
   emit('heading-active', index)
   editorRef.value?.focus()
@@ -663,16 +965,6 @@ async function setHtml(value: string) {
   const applyToEditor = () => applyEditorHtml(next, 200)
 
   runWithSuppressedChange(applyToEditor, 200)
-
-  await nextTick()
-  await new Promise<void>((resolve) => {
-    window.setTimeout(resolve, 48)
-  })
-
-  const actual = editorRef.value?.getHtml() ?? ''
-  if (hasNoteVisibleText(next) && !hasNoteVisibleText(actual)) {
-    runWithSuppressedChange(applyToEditor, 240)
-  }
 }
 
 defineExpose({ scrollToHeading, getHtml, setHtml })
@@ -680,6 +972,9 @@ defineExpose({ scrollToHeading, getHtml, setHtml })
 onBeforeUnmount(() => {
   if (patchTimer) clearTimeout(patchTimer)
   if (suppressChangeTimer) clearTimeout(suppressChangeTimer)
+  if (suppressHeadingTimer) clearTimeout(suppressHeadingTimer)
+  if (userNavigationTimer) clearTimeout(userNavigationTimer)
+  stopScrollLock()
   if (scrollRaf != null) window.cancelAnimationFrame(scrollRaf)
   scrollRoot?.removeEventListener('scroll', onEditorScroll)
   scrollRoot = null
@@ -694,6 +989,14 @@ onBeforeUnmount(() => {
   toolbarTooltipEl?.remove()
   toolbarTooltipEl = null
   toolbarTooltipAnchor = null
+  if (groupMoreDocHandler) {
+    document.removeEventListener('click', groupMoreDocHandler, true)
+    groupMoreDocHandler = null
+  }
+  const container = getEditableContainer()
+  if (container) {
+    container.removeEventListener('keydown', onEditorKeydown, true)
+  }
   editorRef.value?.destroy()
 })
 </script>
@@ -874,6 +1177,16 @@ onBeforeUnmount(() => {
   padding: 6px 0 !important;
 }
 
+.note-rich-editor .w-e-bar-item-menus-container .w-e-bar-item {
+  padding: 0 !important;
+}
+
+.note-rich-editor .w-e-bar-item-menus-container .w-e-bar-item button {
+  width: 100% !important;
+  justify-content: flex-start !important;
+  padding: 0 20px !important;
+}
+
 .note-rich-editor .w-e-select-list {
   padding: 6px 0 !important;
 
@@ -893,6 +1206,23 @@ onBeforeUnmount(() => {
   display: none !important;
 }
 
+/* group-more: hover 改为 click 展开 */
+.note-rich-editor .w-e-bar-item-group[data-group-click-setup]:hover .w-e-bar-item-menus-container {
+  display: none !important;
+}
+
+.note-rich-editor .w-e-bar-item-group[data-group-click-setup].expanded .w-e-bar-item-menus-container {
+  display: block !important;
+}
+
+.note-shortcuts-dialog.el-message-box {
+  width: 860px;
+}
+
+.note-shortcuts-dialog .el-message-box__btns {
+  display: none;
+}
+
 .note-editor-toolbar-tooltip {
   position: fixed;
   z-index: 6000;
@@ -908,4 +1238,66 @@ onBeforeUnmount(() => {
   pointer-events: none;
   box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
 }
+
+.note-shortcuts-dialog .note-shortcuts__body {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+}
+
+.note-shortcuts-dialog .note-shortcuts__group {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #edf2f7;
+  min-width: 0;
+}
+
+.note-shortcuts-dialog .note-shortcuts__title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.note-shortcuts-dialog .note-shortcuts__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  white-space: nowrap;
+}
+
+.note-shortcuts-dialog .note-shortcuts__row kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 82px;
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #fff 0%, #f1f5f9 100%);
+  font-size: 11px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 500;
+  text-align: center;
+  color: #334155;
+  box-shadow: 0 1px 0 rgb(0 0 0 / 10%);
+  flex-shrink: 0;
+}
+
+.note-shortcuts-dialog .note-shortcuts__row span {
+  font-size: 13px;
+  color: #475569;
+}
+
+
 </style>

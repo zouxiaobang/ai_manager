@@ -3,6 +3,7 @@ package com.ai.manager.system.service.storage;
 import com.ai.manager.system.config.NoteStorageProperties;
 import com.ai.manager.system.domain.storage.NoteContentRef;
 import com.ai.manager.system.domain.storage.NoteContentSaveResult;
+import com.ai.manager.system.service.support.StoragePathSupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -11,7 +12,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 @Component
 @RequiredArgsConstructor
@@ -69,7 +69,7 @@ public class LocalFileNoteContentStorage implements NoteContentStorage {
     @Override
     public void ensureRoot() {
         try {
-            Files.createDirectories(Paths.get(noteStorageProperties.getLocalRoot()));
+            Files.createDirectories(StoragePathSupport.resolveUploadBasePath(noteStorageProperties.getLocalRoot()));
         } catch (IOException e) {
             throw new IllegalStateException("创建本地笔记存储目录失败", e);
         }
@@ -81,6 +81,6 @@ public class LocalFileNoteContentStorage implements NoteContentStorage {
 
     private Path resolvePath(String storagePath, Long noteId) {
         String relative = StringUtils.hasText(storagePath) ? storagePath : toStoragePath(noteId);
-        return Paths.get(noteStorageProperties.getLocalRoot()).resolve(relative).normalize();
+        return StoragePathSupport.resolveUploadBasePath(noteStorageProperties.getLocalRoot()).resolve(relative).normalize();
     }
 }

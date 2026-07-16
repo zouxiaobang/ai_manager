@@ -30,6 +30,8 @@ export interface EcProductListItem {
   factoryId?: number | null
   factoryName?: string
   rebatePct: number
+  category?: { id: number; name: string }
+  enabled?: boolean
   status: string
   skuCount: number
   updateTime?: string
@@ -43,6 +45,8 @@ export interface EcProductDetail {
   description?: string
   rebatePct: number
   imageName?: string
+  category?: { id: number; name: string }
+  enabled?: boolean
   status: string
   createTime?: string
   updateTime?: string

@@ -160,6 +160,8 @@ import {
   type PomodoroSessionSyncRequest,
 } from '@/api/pomodoro'
 import { isPlanMutationBlocked } from '@/utils/pomodoroSession'
+import { usePomodoroSound } from '@/composables/usePomodoroSound'
+import { useAppStore } from '@/stores/app'
 
 type Phase = 'idle' | 'work' | 'shortBreak' | 'longBreak'
 
@@ -187,6 +189,9 @@ const ticking = ref(false)
 let tickTimer: ReturnType<typeof setInterval> | null = null
 let remoteSyncTimer: ReturnType<typeof setInterval> | null = null
 let lastPublishedFingerprint = ''
+
+const pomodoroSound = usePomodoroSound()
+const appStore = useAppStore()
 
 const REMOTE_SYNC_INTERVAL_MS = 1000
 const DEVICE_ONLINE_TTL_MS = 15000
@@ -429,6 +434,7 @@ const phaseLabel = computed(() => {
 })
 
 async function onPrimaryClick() {
+  pomodoroSound.init()
   if (primaryStartWorkBlocked.value) {
     notifyTodayRoundsGoalReached()
     return
@@ -980,6 +986,9 @@ async function onPhaseComplete() {
         ? 'longBreak'
         : 'shortBreak'
     await publishSession(true)
+    if (appStore.pomodoroSoundEnabled) {
+      pomodoroSound.playWorkComplete(appStore.pomodoroBeeps, appStore.pomodoroVolume)
+    }
     ElMessage.success(t('pomodoro.timer.workDonePending'))
     return
   }
@@ -989,6 +998,9 @@ async function onPhaseComplete() {
     await savePhaseRecord(type, elapsed)
     pendingPhase.value = 'work'
     await publishSession(true)
+    if (appStore.pomodoroSoundEnabled) {
+      pomodoroSound.playBreakComplete(appStore.pomodoroBeeps, appStore.pomodoroVolume)
+    }
     ElMessage.success(t('pomodoro.timer.breakDonePending'))
   }
 }

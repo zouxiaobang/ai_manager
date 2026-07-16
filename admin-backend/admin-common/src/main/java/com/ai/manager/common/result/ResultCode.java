@@ -29,6 +29,9 @@ public enum ResultCode {
     /** 资源不存在 - 404 */
     NOT_FOUND(404, "资源不存在"),
 
+    /** 资源冲突 - 409 */
+    CONFLICT(409, "资源冲突"),
+
     /** 服务器内部错误 - 500 */
     INTERNAL_ERROR(500, "服务器内部错误");
 

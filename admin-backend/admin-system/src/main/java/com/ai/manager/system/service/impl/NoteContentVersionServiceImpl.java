@@ -14,6 +14,7 @@ import com.ai.manager.system.service.storage.BaiduPanNoteContentStorage;
 import com.ai.manager.system.service.storage.DualWriteNoteContentStorage;
 import com.ai.manager.system.service.storage.LocalFileNoteContentStorage;
 import com.ai.manager.system.service.support.NoteSyncStatus;
+import com.ai.manager.system.service.support.StoragePathSupport;
 import com.ai.manager.system.util.NoteContentUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +26,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Instant;
 
 @Slf4j
@@ -69,8 +69,15 @@ public class NoteContentVersionServiceImpl implements NoteContentVersionService 
         if (local.hasContent() && !cloud.hasContent()) {
             boolean needUpload = storageCenterService.isDualStorageEnabled()
                     && baiduPanAuthService.isAuthorized();
-            return buildResult(local, "LOCAL", needUpload ? NoteSyncStatus.CLOUD_PENDING : NoteSyncStatus.SYNCED,
-                    needUpload, false);
+            String syncStatus;
+            if (needUpload) {
+                syncStatus = NoteSyncStatus.CLOUD_PENDING;
+            } else if (storageCenterService.isDualStorageEnabled()) {
+                syncStatus = NoteSyncStatus.LOCAL_ONLY;
+            } else {
+                syncStatus = NoteSyncStatus.SYNCED;
+            }
+            return buildResult(local, "LOCAL", syncStatus, needUpload, false);
         }
 
         boolean sameHash = local.resolvedMeta().getContentHash().equals(cloud.resolvedMeta().getContentHash());
@@ -189,12 +196,18 @@ public class NoteContentVersionServiceImpl implements NoteContentVersionService 
             boolean needCloudUpload,
             boolean localBackfilled
     ) {
+        String syncError = null;
+        if (needCloudUpload) {
+            syncError = "等待同步至云盘";
+        } else if (NoteSyncStatus.LOCAL_ONLY.equals(syncStatus)) {
+            syncError = "百度网盘授权不可用，已保存到本地";
+        }
         return NoteContentReconcileResult.builder()
                 .content(side.content())
                 .meta(side.resolvedMeta())
                 .source(source)
                 .syncStatus(syncStatus)
-                .syncError(needCloudUpload ? "等待同步至云盘" : null)
+                .syncError(syncError)
                 .needCloudUpload(needCloudUpload)
                 .localBackfilled(localBackfilled)
                 .build();
@@ -263,13 +276,13 @@ public class NoteContentVersionServiceImpl implements NoteContentVersionService 
     }
 
     private Path resolveLocalHtmlPath(NoteContentRef ref) {
-        return Paths.get(noteStorageProperties.getLocalRoot())
+        return StoragePathSupport.resolveUploadBasePath(noteStorageProperties.getLocalRoot())
                 .resolve(localFileNoteContentStorage.toStoragePath(ref.getNoteId()))
                 .normalize();
     }
 
     private Path resolveLocalMetaPath(NoteContentRef ref) {
-        return Paths.get(noteStorageProperties.getLocalRoot())
+        return StoragePathSupport.resolveUploadBasePath(noteStorageProperties.getLocalRoot())
                 .resolve("notes/" + ref.getNoteId() + META_SUFFIX)
                 .normalize();
     }

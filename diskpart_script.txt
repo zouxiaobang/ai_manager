@@ -1,0 +1,5 @@
+select disk 2
+list partition
+select partition 1
+assign letter=D
+exit

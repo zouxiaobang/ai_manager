@@ -27,7 +27,7 @@ function buildManualChunks(id: string) {
   return undefined
 }
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [
     vue(),
     VitePWA({
@@ -49,10 +49,7 @@ export default defineConfig({
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/, /^\/uploads/],
       },
-      devOptions: {
-        enabled: true,
-        navigateFallback: '/index.html',
-      },
+      disable: command === 'serve',
     }),
   ],
   build: {
@@ -100,4 +97,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))

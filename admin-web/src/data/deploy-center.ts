@@ -405,6 +405,20 @@ export const deployStepsChecklist: DeployStepsChecklistItem[] = [
     autoComplete: 'redis',
   },
   {
+    id: 'autostart-check',
+    title: '开机自启检查',
+    detailDesc: '确认后端 systemd 服务与 Nginx 均已设置为开机自启（enabled），树莓派重启后服务可自动恢复。',
+    inspectSteps: [
+      '检查 ai-manager-backend 服务是否 enabled',
+      '检查 nginx 服务是否 enabled',
+      '确认两个服务均为 active (running)',
+    ],
+    commands: [
+      'sudo systemctl is-enabled ai-manager-backend nginx',
+      'sudo systemctl is-active ai-manager-backend nginx',
+    ],
+  },
+  {
     id: 'logs-alerts',
     title: '日志与告警检查',
     detailDesc: '查看 systemd 日志，确认无持续报错；必要时配置 journal 持久化与告警。',
@@ -525,7 +539,8 @@ export const deployStepSections: DeployStepSection[] = [
         title: '安装系统依赖',
         commands: [
           'sudo apt update',
-          'sudo apt install -y openjdk-17-jdk nginx maven nodejs npm git mysql-client redis-tools rsync',
+          '# ARM 架构树莓派包名：default-jdk（非 openjdk-17-jdk）、mariadb-client（非 mysql-client）',
+          'sudo apt install -y default-jdk nginx maven nodejs npm git mariadb-client redis-tools rsync',
           'java -version',
           'node -v && npm -v',
         ],
@@ -601,11 +616,15 @@ export const deployStepSections: DeployStepSection[] = [
           'sudo mv /tmp/admin-server.jar /opt/ai-manager/backend/admin-server.jar',
           'sudo mv /tmp/backend.env /opt/ai-manager/backend/backend.env',
           'sudo chown aimanager:aimanager /opt/ai-manager/backend/admin-server.jar /opt/ai-manager/backend/backend.env',
+          'sudo chmod 600 /opt/ai-manager/backend/backend.env',
           'grep -E "MYSQL_HOST|REDIS_HOST|SPRING_PROFILES" /opt/ai-manager/backend/backend.env',
           'cd ~/ai_manager',
           'sudo cp deploy/systemd/ai-manager-backend.service /etc/systemd/system/',
           'sudo systemctl daemon-reload',
+          '# enable 设置开机自启，--now 同时立即启动',
           'sudo systemctl enable --now ai-manager-backend',
+          '# 验证服务状态与健康检查',
+          'sudo systemctl status ai-manager-backend --no-pager',
           'curl -s http://127.0.0.1:8080/api/health',
         ],
         platform: 'linux',
@@ -683,10 +702,67 @@ export const deployStepSections: DeployStepSection[] = [
     ],
   },
   {
+    id: 'autostart',
+    title: '开机自启动配置',
+    summary:
+      '配置 systemd 与 Nginx 开机自启，确保树莓派重启后后端 Java 服务、Nginx 反向代理均自动恢复，无需手动干预。',
+    blocks: [
+      {
+        title: '确认 systemd 后端服务已启用开机自启',
+        commands: [
+          '# 查看是否已启用（输出 enabled 表示已开启）',
+          'sudo systemctl is-enabled ai-manager-backend',
+          '# 若输出 disabled，执行以下命令启用：',
+          'sudo systemctl enable ai-manager-backend',
+          '# 确认服务当前正在运行：',
+          'sudo systemctl status ai-manager-backend --no-pager',
+        ],
+        platform: 'linux',
+      },
+      {
+        title: '确认 Nginx 已启用开机自启',
+        commands: [
+          'sudo systemctl is-enabled nginx',
+          '# 若未启用：',
+          'sudo systemctl enable nginx',
+          'sudo systemctl status nginx --no-pager',
+        ],
+        platform: 'linux',
+      },
+      {
+        title: '验证开机自启是否生效（重启测试）',
+        commands: [
+          '# 重启树莓派',
+          'sudo reboot',
+          '# 重启完成后 SSH 重新连接，验证所有服务：',
+          'sudo systemctl is-active ai-manager-backend nginx',
+          'curl -s http://127.0.0.1/api/health',
+          '# 响应中 status / mysql / redis 均为 UP 即表示自启动成功',
+        ],
+        platform: 'linux',
+      },
+      {
+        title: '常用服务管理命令',
+        commands: [
+          '# 启动 / 停止 / 重启后端',
+          'sudo systemctl start ai-manager-backend',
+          'sudo systemctl stop ai-manager-backend',
+          'sudo systemctl restart ai-manager-backend',
+          '# 禁用 / 重新启用开机自启',
+          'sudo systemctl disable ai-manager-backend',
+          'sudo systemctl enable ai-manager-backend',
+          '# 实时查看后端日志',
+          'sudo journalctl -u ai-manager-backend -f',
+        ],
+        platform: 'linux',
+      },
+    ],
+  },
+  {
     id: 'checklist',
     title: '部署完成检查清单',
     summary:
-      '确认健康检查、待办 API、前端页面与后端日志均正常。部署中心「部署步骤」页可自动按 1～7 项顺序检查。',
+      '确认健康检查、待办 API、前端页面与后端日志均正常。部署中心「部署步骤」页可自动按 1～8 项顺序检查。',
     blocks: [
       {
         title: '命令行验证',
@@ -703,7 +779,11 @@ export const deployStepSections: DeployStepSection[] = [
 ]
 
 export const deployTroubleshooting: DeployTroubleRow[] = [
-  { symptom: '502 Bad Gateway', action: '114 上 systemctl status ai-manager-backend，确认 8080 正常' },
+  {
+    symptom: '502 Bad Gateway',
+    action:
+      '后端未运行。检查：1) systemctl status ai-manager-backend 是否 active；2) /opt/ai-manager/backend/backend.env 是否存在且配置正确；3) systemd 服务文件是否已安装到 /etc/systemd/system/',
+  },
   { symptom: 'API 失败、页面能开', action: '检查 Nginx /api/ 反代；curl http://127.0.0.1:8080/api/health' },
   { symptom: 'MySQL 连接失败', action: '114 上 mysql -h 192.168.0.118；118 上 docker compose ps' },
   { symptom: 'Redis DOWN', action: 'redis-cli -h 192.168.0.118 ping；检查 backend.env 中 REDIS_HOST' },
@@ -724,6 +804,9 @@ export const deployImportantNotes = [
   '生产环境请使用 index.html + Hash 路由（/#/home），不要使用 index_pc.html。',
   '后端连接数据节点优先使用有线 IP：192.168.0.118（backend.env 中 MYSQL_HOST / REDIS_HOST）。',
   '首次部署必须配置 Nginx（deploy/nginx/ai-manager.conf）并安装 backend.env、systemd 服务。',
+  'ARM 架构树莓派 apt 包名：用 default-jdk 替代 openjdk-17-jdk，mariadb-client 替代 mysql-client。',
+  'MariaDB 客户端连接需加 --skip-ssl 参数（非 MySQL 的 --ssl-mode=DISABLED）。',
+  '部署完成后务必执行 sudo systemctl enable ai-manager-backend nginx 设置开机自启。',
   '上传前端时勿 scp -r dist 到已有目录，应使用 dist\\* 传到 /tmp/ai-manager-new/ 再 rsync。',
   '114 本机一键部署需安装 deploy/sudoers/ai-manager-deploy.example，且仓库 clone 到 ~/ai_manager。',
   '全量 deploy-all.sql 仅用于新环境；日常结构变更请执行 admin-backend/sql/ 下增量脚本。',
