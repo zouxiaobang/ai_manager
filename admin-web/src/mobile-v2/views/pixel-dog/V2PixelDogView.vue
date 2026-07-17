@@ -64,7 +64,7 @@
             <span class="v2-pixel-dog__speech-text">{{ currentSpeech.text }}</span>
           </div>
 
-          <PixelDogMobileSprite
+          <V2PixelDogMobileSprite
             :status="dogState.status"
             :emotion="dogState.emotion"
             :bond="dogState.bond"
@@ -80,7 +80,7 @@
       <div v-show="activeTab === 'items'" class="v2-pixel-dog__subpanel">
         <div class="pixel-panel-jagged">
           <div class="pixel-panel-jagged__inner">
-            <DogMobileItemsPanel
+            <V2DogMobileItemsPanel
               :items="dogItems"
               :level="dogState.level"
               :equipped-items="dogState.equippedItems"
@@ -179,8 +179,8 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import PixelDogMobileSprite from '@/mobile/views/pixel-dog/PixelDogMobileSprite.vue'
-import DogMobileItemsPanel from '@/mobile/views/pixel-dog/DogMobileItemsPanel.vue'
+import V2PixelDogMobileSprite from '@/mobile-v2/views/pixel-dog/V2PixelDogMobileSprite.vue'
+import V2DogMobileItemsPanel from '@/mobile-v2/views/pixel-dog/V2DogMobileItemsPanel.vue'
 import { fetchDogState, updateDogState, fetchDogItems, type PixelDogStateVO, type PixelDogItemVO } from '@/api/pixelDog'
 import { fetchActiveSession } from '@/api/pomodoro'
 

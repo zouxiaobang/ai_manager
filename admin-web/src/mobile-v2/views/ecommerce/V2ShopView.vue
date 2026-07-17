@@ -53,7 +53,7 @@
       </div>
       <div v-else class="v2-ec-empty">暂无店铺</div>
 
-      <MobileShopInfoSheet v-model="shopInfoSheetOpen" :shop-id="selectedShopId" />
+      <V2ShopInfoSheet v-model="shopInfoSheetOpen" :shop-id="selectedShopId" />
     </div>
   </V2Page>
 </template>
@@ -62,7 +62,7 @@
 import { ref, onMounted } from 'vue'
 import { useMobileShop } from '@/mobile/views/shop/useMobileShop.ts'
 import V2Page from '@/mobile-v2/components/V2Page.vue'
-import MobileShopInfoSheet from '@/mobile/views/shop/components/MobileShopInfoSheet.vue'
+import V2ShopInfoSheet from '@/mobile-v2/views/shop/components/V2ShopInfoSheet.vue'
 import { resolveShopIcon } from '@/utils/shopVisual.ts'
 import type { EcShop } from '@/api/ecommerce/shop.ts'
 

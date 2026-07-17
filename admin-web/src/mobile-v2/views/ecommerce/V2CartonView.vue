@@ -53,7 +53,7 @@
       </div>
       <div v-else class="v2-ec-carton-empty">暂无纸箱数据</div>
 
-      <CartonCalculateSheet v-model="calcSheetOpen" />
+      <V2CartonCalculateSheet v-model="calcSheetOpen" />
 
       <button
         type="button"
@@ -73,7 +73,7 @@
 import { computed, onMounted, ref } from 'vue'
 import V2Page from '@/mobile-v2/components/V2Page.vue'
 import { useMobileCarton } from '@/mobile/views/carton/useMobileCarton'
-import CartonCalculateSheet from '@/mobile/views/carton/components/CartonCalculateSheet.vue'
+import V2CartonCalculateSheet from '@/mobile-v2/views/carton/components/V2CartonCalculateSheet.vue'
 
 import './styles/v2-ecommerce.scss'
 

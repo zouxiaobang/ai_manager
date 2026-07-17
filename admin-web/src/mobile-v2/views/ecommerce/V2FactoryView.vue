@@ -1,130 +1,141 @@
 <template>
   <V2Page>
-    <div v-loading="factory.loading.value" class="v2-ec">
-      <div class="v2-ec-stats">
-        <div class="v2-ec-stat-card" style="background: #fff7ed;" @click="factory.onStatTypeClick('PRODUCTION')">
-          <div class="v2-ec-stat-card__icon" style="background: #ea580c; color: #fff;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 8v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8"/><polyline points="4 8 12 3 20 8"/><line x1="12" y1="3" x2="12" y2="15"/><line x1="8" y1="11" x2="16" y2="11"/>
+    <div v-loading="factory.loading.value" class="v2-factory">
+      <div class="v2-factory-poster">
+        <div class="v2-factory-poster__gradient">
+          <div class="v2-factory-poster__title-row">
+            <svg class="v2-factory-poster__icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 8v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8"/><polyline points="4 8 12 3 20 8"/><line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
-          </div>
-          <div class="v2-ec-stat-card__info">
-            <div class="v2-ec-stat-card__value" style="color: #ea580c;">{{ factory.stats.production }}</div>
-            <div class="v2-ec-stat-card__label">{{ factory.t('ecommerce.factory.factoryTypeProduction') }}</div>
+            <h2 class="v2-factory-poster__title">{{ factory.t('ecommerce.factory.pageTitle') }}</h2>
           </div>
         </div>
-        <div class="v2-ec-stat-card" style="background: #eff6ff;" @click="factory.onStatTypeClick('CUSTOMER')">
-          <div class="v2-ec-stat-card__icon" style="background: #2563eb; color: #fff;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
-          </div>
-          <div class="v2-ec-stat-card__info">
-            <div class="v2-ec-stat-card__value" style="color: #2563eb;">{{ factory.stats.customer }}</div>
-            <div class="v2-ec-stat-card__label">{{ factory.t('ecommerce.factory.factoryTypeCustomer') }}</div>
-          </div>
-        </div>
-        <div class="v2-ec-stat-card" style="background: #f5f3ff;" @click="factory.onStatTypeClick('CARTON')">
-          <div class="v2-ec-stat-card__icon" style="background: #7c3aed; color: #fff;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>
-            </svg>
-          </div>
-          <div class="v2-ec-stat-card__info">
-            <div class="v2-ec-stat-card__value" style="color: #7c3aed;">{{ factory.stats.carton }}</div>
-            <div class="v2-ec-stat-card__label">{{ factory.t('ecommerce.factory.factoryTypeCarton') }}</div>
-          </div>
-        </div>
-        <div class="v2-ec-stat-card" style="background: #f0fdf4;">
-          <div class="v2-ec-stat-card__icon" style="background: #16a34a; color: #fff;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
-            </svg>
-          </div>
-          <div class="v2-ec-stat-card__info">
-            <div class="v2-ec-stat-card__value" style="color: #16a34a;">{{ factory.stats.enabled }}</div>
-            <div class="v2-ec-stat-card__label">{{ factory.t('ecommerce.common.enabled') }}</div>
-          </div>
+        <div class="v2-factory-poster__pill">
+          <span class="v2-factory-poster__pill-item">
+            <span class="v2-factory-poster__pill-dot" style="background: #f97316" />
+            {{ factory.t('ecommerce.factory.factoryTypeProduction') }}
+            <strong>{{ factory.stats.production }}</strong>
+          </span>
+          <span class="v2-factory-poster__pill-divider" />
+          <span class="v2-factory-poster__pill-item">
+            <span class="v2-factory-poster__pill-dot" style="background: #3b82f6" />
+            {{ factory.t('ecommerce.factory.factoryTypeCustomer') }}
+            <strong>{{ factory.stats.customer }}</strong>
+          </span>
+          <span class="v2-factory-poster__pill-divider" />
+          <span class="v2-factory-poster__pill-item">
+            <span class="v2-factory-poster__pill-dot" style="background: #8b5cf6" />
+            {{ factory.t('mobile.factory.posterCartonLabel') }}
+            <strong>{{ factory.stats.carton }}</strong>
+          </span>
         </div>
       </div>
 
-      <div class="v2-ec-search">
-        <svg class="v2-ec-search__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-        <input
-          v-model="factory.searchQuery.value"
-          class="v2-ec-search__input"
-          :placeholder="factory.t('ecommerce.factory.searchPlaceholder')"
-          type="search"
-        />
-      </div>
+      <div class="v2-factory-body">
+        <div class="v2-factory-search">
+          <svg class="v2-factory-search__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            v-model="factory.searchQuery.value"
+            class="v2-factory-search__input"
+            :placeholder="factory.t('ecommerce.factory.searchPlaceholder')"
+            type="search"
+          />
+        </div>
 
-      <div class="v2-ec-tabs">
+        <div class="v2-factory-tabs">
+          <button
+            v-for="opt in factory.filterOptions.value"
+            :key="opt.value"
+            type="button"
+            class="v2-factory-tab"
+            :class="{ 'is-active': factory.typeFilter.value === opt.value }"
+            @click="factory.setTypeFilter(opt.value)"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+
+        <div v-if="factory.records.value.length" class="v2-factory-grid">
+          <div
+            v-for="item in factory.records.value"
+            :key="item.id"
+            class="v2-factory-card"
+            :class="{ 'v2-factory-card--disabled': item.status !== 'ENABLED' }"
+          >
+            <div class="v2-factory-card__head">
+              <h3 class="v2-factory-card__name">{{ item.name }}</h3>
+              <span
+                class="v2-factory-card__status"
+                :class="item.status === 'ENABLED' ? 'is-enabled' : 'is-disabled'"
+              >
+                {{
+                  item.status === 'ENABLED'
+                    ? factory.t('ecommerce.product.enabled')
+                    : factory.t('ecommerce.product.disabled')
+                }}
+              </span>
+            </div>
+
+            <span
+              class="v2-factory-card__type"
+              :style="{
+                color: factory.factoryTypeColor(item.factoryType),
+                background: `${factory.factoryTypeColor(item.factoryType)}18`,
+              }"
+            >
+              {{ factory.factoryTypeLabel(item.factoryType) }}
+            </span>
+
+            <p class="v2-factory-card__contact">{{ factory.factoryContactLine(item) }}</p>
+            <p class="v2-factory-card__address">{{ item.address || '\u00a0' }}</p>
+
+            <div class="v2-factory-card__actions">
+              <button
+                type="button"
+                class="v2-factory-card__btn v2-factory-card__btn--edit"
+                @click="factory.openEdit(item)"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                {{ factory.t('ecommerce.factory.edit') }}
+              </button>
+              <button
+                type="button"
+                class="v2-factory-card__btn v2-factory-card__btn--delete"
+                @click="factory.onDelete(item)"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+                {{ factory.t('ecommerce.factory.delete') }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div v-else-if="!factory.loading.value" class="v2-factory-empty">
+          {{ factory.t('mobile.factory.emptyList') }}
+        </div>
+
         <button
-          v-for="opt in factory.filterOptions.value"
-          :key="opt.value"
+          v-if="factory.hasMore.value"
           type="button"
-          class="v2-ec-tab"
-          :class="{ 'is-active': factory.typeFilter.value === opt.value }"
-          @click="factory.setTypeFilter(opt.value)"
+          class="v2-factory-load-more"
+          :disabled="factory.loading.value"
+          @click="factory.loadMore()"
         >
-          {{ opt.label }}
+          {{ factory.loading.value ? factory.t('mobile.factory.loadingMore') : factory.t('mobile.factory.loadMore') }}
         </button>
       </div>
 
-      <div v-if="factory.records.value.length" class="v2-ec-factory-grid">
-        <div
-          v-for="item in factory.records.value"
-          :key="item.id"
-          class="v2-ec-factory-card"
-          :class="{ 'v2-ec-factory-card--disabled': item.status !== 'ENABLED' }"
-        >
-          <div class="v2-ec-factory-card__inner">
-            <div class="v2-ec-factory-card__header">
-              <div class="v2-ec-factory-card__name">{{ item.name }}</div>
-              <div class="v2-ec-factory-card__actions">
-                <button
-                  type="button"
-                  class="v2-ec-factory-card__action-btn"
-                  :aria-label="factory.t('ecommerce.common.edit')"
-                  @click.stop="factory.openEdit(item)"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  class="v2-ec-factory-card__action-btn v2-ec-factory-card__action-btn--danger"
-                  :aria-label="factory.t('ecommerce.common.delete')"
-                  @click.stop="factory.onDelete(item)"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="3 6 5 6 21 6"/>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div class="v2-ec-factory-card__type">
-              <span
-                class="v2-ec-factory-card__type-dot"
-                :style="{ background: factory.factoryTypeColor(item.factoryType) }"
-              />
-              {{ factory.factoryTypeLabel(item.factoryType) }}
-            </div>
-            <div class="v2-ec-factory-card__contact">{{ factory.factoryContactLine(item) }}</div>
-            <div class="v2-ec-factory-card__address">{{ item.address || factory.t('mobile.factory.noAddress') }}</div>
-          </div>
-        </div>
-      </div>
-      <div v-else class="v2-ec-empty">{{ factory.t('mobile.factory.emptyText') }}</div>
-
       <button
         type="button"
-        class="v2-ec-factory-fab"
+        class="v2-factory-fab"
         :aria-label="factory.t('ecommerce.factory.add')"
         @click="factory.openCreate()"
       >
@@ -133,8 +144,8 @@
         </svg>
       </button>
 
-      <FactoryFormSheet />
-      <FactoryDeleteConfirm />
+      <V2FactoryFormSheet />
+      <V2FactoryDeleteConfirm />
     </div>
   </V2Page>
 </template>
@@ -144,10 +155,8 @@ import { onMounted, provide } from 'vue'
 import { MOBILE_FACTORY_KEY } from '@/mobile/views/factory/factoryContext'
 import { useMobileFactory } from '@/mobile/views/factory/useMobileFactory'
 import V2Page from '@/mobile-v2/components/V2Page.vue'
-import FactoryFormSheet from '@/mobile/views/factory/components/FactoryFormSheet.vue'
-import FactoryDeleteConfirm from '@/mobile/views/factory/components/FactoryDeleteConfirm.vue'
-
-import './styles/v2-ecommerce.scss'
+import V2FactoryFormSheet from '@/mobile-v2/views/factory/components/V2FactoryFormSheet.vue'
+import V2FactoryDeleteConfirm from '@/mobile-v2/views/factory/components/V2FactoryDeleteConfirm.vue'
 
 const factory = useMobileFactory()
 provide(MOBILE_FACTORY_KEY, factory)
@@ -158,50 +167,216 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-.v2-ec {
-  .v2-ec-header {
-    margin-bottom: 16px;
+.v2-factory {
+  --v2-fac-orange: #f97316;
+  --v2-fac-blue: #3b82f6;
+  --v2-fac-purple: #8b5cf6;
 
-    &__top {
-      margin-bottom: 0;
+  .v2-factory-poster {
+    margin: calc(-1 * var(--wr-page-pad, 16px)) calc(-1 * var(--wr-page-pad, 16px)) 16px;
+    position: relative;
+
+    &__gradient {
+      background: linear-gradient(135deg, #1e1b4b 0%, #312e81 40%, #3730a3 70%, #4f46e5 100%);
+      padding: 48px 20px 64px;
+      position: relative;
+      overflow: hidden;
+
+      &::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(ellipse 300px 200px at 20% 30%, rgba(139, 92, 246, 0.25), transparent),
+          radial-gradient(ellipse 250px 180px at 80% 20%, rgba(59, 130, 246, 0.2), transparent),
+          radial-gradient(ellipse 200px 150px at 50% 80%, rgba(249, 115, 22, 0.15), transparent);
+        pointer-events: none;
+      }
+    }
+
+    &__back {
+      position: absolute;
+      z-index: 2;
+      left: 12px;
+      top: 12px;
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(4px);
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+
+      &:active {
+        background: rgba(255, 255, 255, 0.25);
+      }
     }
 
     &__title-row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      gap: 10px;
+      position: relative;
+      z-index: 1;
     }
 
-    &__back-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    &__icon {
+      color: #a78bfa;
+      flex-shrink: 0;
     }
 
     &__title {
       margin: 0;
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--wr-text, #333);
+      font-size: 22px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: 0.5px;
+    }
+
+    &__pill {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin: -40px 16px 0;
+      padding: 10px 16px;
+      background: #fff;
+      border-radius: 999px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      position: relative;
+      z-index: 2;
+    }
+
+    &__pill-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+      white-space: nowrap;
+
+      strong {
+        font-size: 14px;
+        font-weight: 800;
+        color: #1e293b;
+        margin-left: 2px;
+      }
+    }
+
+    &__pill-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    &__pill-divider {
+      width: 1px;
+      height: 16px;
+      background: #e2e8f0;
+      flex-shrink: 0;
     }
   }
 
-  .v2-ec-factory-grid {
+  .v2-factory-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .v2-factory-search {
+    position: relative;
+
+    &__input {
+      width: 100%;
+      padding: 10px 12px 10px 36px;
+      border: 1px solid var(--wr-border, #e8ecef);
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--wr-text, #333);
+      background: var(--wr-card, #fff);
+      outline: none;
+      box-sizing: border-box;
+      transition: border-color 0.2s;
+
+      &::placeholder {
+        color: var(--wr-muted, #999);
+      }
+
+      &:focus {
+        border-color: var(--v2-fac-purple);
+      }
+    }
+
+    &__icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      color: var(--wr-muted, #999);
+    }
+  }
+
+  .v2-factory-tabs {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .v2-factory-tab {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid var(--wr-border, #e8ecef);
+    background: var(--wr-card, #fff);
+    color: var(--wr-text-secondary, #666);
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    font-family: inherit;
+
+    &.is-active {
+      border-color: var(--v2-fac-purple);
+      color: var(--v2-fac-purple);
+      font-weight: 600;
+      background: #f5f3ff;
+    }
+  }
+
+  .v2-factory-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
-    margin-bottom: 80px;
   }
 
-  .v2-ec-factory-card {
+  .v2-factory-card {
     display: flex;
     flex-direction: column;
-    background: var(--wr-card, #ffffff);
+    padding: 12px;
+    background: var(--wr-card, #fff);
     border: 1px solid var(--wr-border, #e8ecef);
     border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
     transition: transform 0.15s, box-shadow 0.2s;
+    min-width: 0;
 
     &:active {
       transform: scale(0.97);
@@ -211,102 +386,167 @@ onMounted(() => {
       opacity: 0.65;
     }
 
-    &__inner {
-      padding: 12px;
+    &__head {
       display: flex;
       flex-direction: column;
-      gap: 6px;
-    }
-
-    &__header {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 4px;
+      align-items: center;
+      gap: 3px;
+      width: 100%;
+      margin-bottom: 6px;
     }
 
     &__name {
-      flex: 1;
+      margin: 0;
+      width: 100%;
       font-size: 14px;
-      font-weight: 700;
+      font-weight: 800;
       color: var(--wr-text, #333);
+      line-height: 1.25;
+      text-align: center;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
       overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      min-width: 0;
     }
 
-    &__actions {
-      display: flex;
-      gap: 4px;
+    &__status {
       flex-shrink: 0;
-    }
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1.2;
 
-    &__action-btn {
-      width: 26px;
-      height: 26px;
-      padding: 0;
-      border: 1px solid var(--wr-border, #e8ecef);
-      border-radius: 6px;
-      background: var(--wr-card, #fff);
-      color: var(--wr-text-secondary, #666);
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.15s, color 0.15s;
-
-      &:active {
-        background: #f3f4f6;
+      &.is-enabled {
+        color: #16a34a;
       }
 
-      &--danger:active {
-        color: #dc2626;
-        background: #fef2f2;
+      &.is-disabled {
+        color: #94a3b8;
       }
     }
 
     &__type {
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 5px;
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--wr-text-secondary, #666);
-    }
-
-    &__type-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      flex-shrink: 0;
+      justify-content: center;
+      max-width: 100%;
+      margin: 0 auto 6px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 800;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      line-height: 1.5;
     }
 
     &__contact {
-      font-size: 12px;
+      margin: 0 0 3px;
+      width: 100%;
+      font-size: 11px;
+      font-weight: 600;
       color: var(--wr-text-secondary, #666);
+      text-align: center;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
     &__address {
-      font-size: 11px;
+      margin: 0 0 8px;
+      width: 100%;
+      min-height: 13px;
+      font-size: 10px;
+      line-height: 1.4;
       color: var(--wr-muted, #999);
+      text-align: center;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+
+    &__actions {
+      display: flex;
+      gap: 5px;
+      width: 100%;
+      justify-content: center;
+      margin-top: auto;
+    }
+
+    &__btn {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 5px 4px;
+      border: 1px solid var(--wr-border, #e8ecef);
+      border-radius: 6px;
+      background: var(--wr-card, #fff);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: background 0.15s, color 0.15s;
+
+      svg {
+        flex-shrink: 0;
+      }
+
+      &--edit {
+        color: #8b5cf6;
+
+        &:active {
+          background: #f5f3ff;
+        }
+      }
+
+      &--delete {
+        color: #ef4444;
+
+        &:active {
+          background: #fef2f2;
+        }
+      }
+    }
   }
 
-  .v2-ec-empty {
+  .v2-factory-empty {
     padding: 40px 20px;
     text-align: center;
     font-size: 14px;
     color: var(--wr-muted, #999);
   }
 
-  .v2-ec-factory-fab {
+  .v2-factory-load-more {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--v2-fac-purple);
+    background: var(--wr-card, #fff);
+    border: 1px solid var(--wr-border, #e8ecef);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-family: inherit;
+
+    &:active:not(:disabled) {
+      background: #f5f3ff;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+
+  .v2-factory-fab {
     position: fixed;
     bottom: 24px;
     right: 16px;
@@ -315,19 +555,19 @@ onMounted(() => {
     height: 56px;
     border: none;
     border-radius: 50%;
-    background: #2563eb;
+    background: #7c3aed;
     color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.4);
+    box-shadow: 0 4px 16px rgba(124, 58, 237, 0.4);
     transition: transform 0.2s ease, box-shadow 0.2s;
     padding: 0;
 
     &:active {
       transform: scale(1.05);
-      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+      box-shadow: 0 6px 20px rgba(124, 58, 237, 0.5);
     }
   }
 }

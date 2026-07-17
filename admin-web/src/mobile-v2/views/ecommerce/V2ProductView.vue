@@ -94,7 +94,7 @@
       </div>
 
       <Teleport to="body">
-        <Transition name="v2-ec-fade">
+        <Transition name="v2-ec-slide">
           <div v-if="detailVisible" class="v2-ec-detail-overlay" @click.self="detailVisible = false">
             <div class="v2-ec-detail-sheet">
               <div class="v2-ec-detail-sheet__handle" />
@@ -137,7 +137,7 @@
                       class="v2-ec-detail-sheet__sku-chip"
                       :class="skuStatusChipClass(sku.status)"
                     >
-                      {{ sku.statusLabel || sku.status }}
+                      {{ sku.status }}
                     </span>
                   </div>
                   <div class="v2-ec-detail-sheet__sku-grid">
@@ -169,7 +169,7 @@
       </Teleport>
 
       <Teleport to="body">
-        <Transition name="v2-ec-fade">
+        <Transition name="v2-ec-slide">
           <div v-if="skuSheetVisible" class="v2-ec-detail-overlay v2-ec-detail-overlay--nested" @click.self="skuSheetVisible = false">
             <div class="v2-ec-detail-sheet v2-ec-detail-sheet--nested">
               <div class="v2-ec-detail-sheet__handle" />
@@ -263,7 +263,7 @@
         </Transition>
       </Teleport>
 
-      <ProductsSkuCard
+      <V2ProductsSkuCard
         :visible="skuCardVisible"
         :sku="selectedSku"
         @close="skuCardVisible = false"
@@ -280,7 +280,7 @@ import { useMobileProducts } from '@/mobile/views/products/useMobileProducts'
 import { getEcommerceImageUrl } from '@/api/ecommerce/image'
 import type { EcSku } from '@/api/ecommerce/product'
 import type { EcFactoryType } from '@/api/ecommerce/factory'
-import ProductsSkuCard from '@/mobile/views/products/components/ProductsSkuCard.vue'
+import V2ProductsSkuCard from '@/mobile-v2/views/products/components/V2ProductsSkuCard.vue'
 
 import '@/mobile-v2/views/ecommerce/styles/v2-ecommerce.scss'
 
@@ -1116,13 +1116,22 @@ onMounted(() => {
   }
 }
 
-.v2-ec-fade-enter-active,
-.v2-ec-fade-leave-active {
-  transition: opacity 0.25s ease;
+.v2-ec-slide-enter-active,
+.v2-ec-slide-leave-active {
+  transition: opacity 0.2s ease;
+
+  .v2-ec-detail-sheet {
+    transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  }
 }
-.v2-ec-fade-enter-from,
-.v2-ec-fade-leave-to {
+
+.v2-ec-slide-enter-from,
+.v2-ec-slide-leave-to {
   opacity: 0;
+
+  .v2-ec-detail-sheet {
+    transform: translateY(100%);
+  }
 }
 .v2-ec-detail-sheet__sku-section {
   margin-top: 4px;

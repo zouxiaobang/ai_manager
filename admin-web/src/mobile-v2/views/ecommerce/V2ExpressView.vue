@@ -81,12 +81,12 @@
       </div>
     </div>
 
-    <ExpressDetailModal
+    <V2ExpressDetailModal
       v-model="detailOpen"
       :station-id="selectedStationId"
     />
 
-    <ExpressCalcModal
+    <V2ExpressCalcModal
       v-model="calcOpen"
       :default-station-id="defaultStation?.id"
     />
@@ -96,8 +96,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import V2Page from '@/mobile-v2/components/V2Page.vue'
-import ExpressDetailModal from '@/mobile/views/express/components/ExpressDetailModal.vue'
-import ExpressCalcModal from '@/mobile/views/express/components/ExpressCalcModal.vue'
+import V2ExpressDetailModal from '@/mobile-v2/views/express/components/V2ExpressDetailModal.vue'
+import V2ExpressCalcModal from '@/mobile-v2/views/express/components/V2ExpressCalcModal.vue'
 import { type EcExpressStation, fetchExpressStations } from '@/api/ecommerce/express.ts'
 import { getEcommerceImageUrl } from '@/api/ecommerce/image.ts'
 
