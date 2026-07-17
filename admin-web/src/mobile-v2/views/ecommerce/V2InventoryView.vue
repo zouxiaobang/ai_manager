@@ -140,7 +140,7 @@
               <span>库存列表</span>
             </div>
             <div class="v2-ec-inventory__collapse-actions">
-              <span class="v2-ec-inventory__collapse-count">{{ displayItems.length }}项</span>
+              <span class="v2-ec-inventory__collapse-count">{{ isSearching ? groupedItems.length + '个产品' : displayItems.length + '项' }}</span>
               <svg class="v2-ec-inventory__collapse-arrow" :class="{ 'is-expanded': inventoryListExpanded }" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="6 9 12 15 18 9"/>
               </svg>
@@ -153,7 +153,43 @@
             </div>
 
             <template v-else>
-              <div class="v2-ec-inventory__list">
+              <div v-if="isSearching && groupedItems.length" class="v2-ec-inventory__list">
+                <div
+                  v-for="group in groupedItems"
+                  :key="'g-' + group.productId"
+                  class="v2-ec-inventory__card"
+                  @click="handleGroupClick(group)"
+                >
+                  <div class="v2-ec-inventory__card-head">
+                    <div class="v2-ec-inventory__card-sku">
+                      <div class="v2-ec-inventory__card-code">{{ group.productName || '—' }}</div>
+                      <div class="v2-ec-inventory__card-name">{{ group.skuCount }} 个 SKU</div>
+                    </div>
+                    <span class="v2-ec-inventory__card-tag is-normal">{{ group.skuCount }}个SKU</span>
+                  </div>
+
+                  <div class="v2-ec-inventory__card-qty">{{ group.totalQty.toLocaleString() }}</div>
+
+                  <div class="v2-ec-inventory__card-meta">
+                    <span>{{ group.skuCount }} 个 SKU</span>
+                    <span class="v2-ec-inventory__card-meta-sep">·</span>
+                    <span>产品价值 </span>
+                    <span class="v2-ec-inventory__card-value">¥{{ formatGroupValue(group.totalStockValue) }}</span>
+                  </div>
+
+                  <div class="v2-ec-inventory__card-progress">
+                    <div class="v2-ec-inventory__card-progress-bar">
+                      <span
+                        class="v2-ec-inventory__card-progress-fill"
+                        :style="{ width: '100%' }"
+                      />
+                    </div>
+                    <span class="v2-ec-inventory__card-progress-label">{{ group.totalQty.toLocaleString() }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div v-else class="v2-ec-inventory__list">
                 <div
                   v-for="item in displayItems"
                   :key="item.id"
@@ -196,10 +232,10 @@
               </div>
 
               <div v-if="!displayItems.length" class="v2-ec-inventory__empty">
-                暂无库存数据
+                {{ isSearching ? '未找到匹配的产品' : '暂无库存数据' }}
               </div>
 
-              <div v-if="hasMore" class="v2-ec-inventory__load-more">
+              <div v-if="hasMore && !isSearching" class="v2-ec-inventory__load-more">
                 <button
                   type="button"
                   class="v2-ec-inventory__load-more-btn"
@@ -342,6 +378,15 @@ import V2Page from '@/mobile-v2/components/V2Page.vue'
 
 import '@/mobile-v2/views/ecommerce/styles/v2-ecommerce.scss'
 
+interface ProductGroupItem {
+  productId: number
+  productName: string
+  items: EcInventory[]
+  skuCount: number
+  totalQty: number
+  totalStockValue: number
+}
+
 const loading = ref(true)
 const loadingList = ref(false)
 const loadingMore = ref(false)
@@ -431,15 +476,34 @@ const displayItems = computed(() => {
   if (activeStatus.value !== 'all') {
     items = items.filter((row) => classifyInventory(row) === activeStatus.value)
   }
-  const kw = keyword.value.trim().toLowerCase()
-  if (kw) {
-    items = items.filter((row) =>
-      (row.skuCode?.toLowerCase() ?? '').includes(kw) ||
-      (row.productName?.toLowerCase() ?? '').includes(kw) ||
-      (row.specName?.toLowerCase() ?? '').includes(kw)
-    )
-  }
   return items
+})
+
+const isSearching = computed(() => keyword.value.trim().length > 0)
+
+const groupedItems = computed(() => {
+  if (!isSearching.value) return []
+  const map = new Map<number, ProductGroupItem>()
+  for (const item of displayItems.value) {
+    const pid = item.productId
+    if (pid == null) continue
+    if (!map.has(pid)) {
+      map.set(pid, {
+        productId: pid,
+        productName: item.productName || '',
+        items: [],
+        skuCount: 0,
+        totalQty: 0,
+        totalStockValue: 0,
+      })
+    }
+    const g = map.get(pid)!
+    g.items.push(item)
+    g.skuCount = item.spuSkuCount ?? g.skuCount + 1
+    g.totalQty += item.quantity ?? 0
+    g.totalStockValue += (item.quantity ?? 0) * (item.salePrice ?? 0)
+  }
+  return Array.from(map.values())
 })
 
 const alertItems = computed(() => {
@@ -475,6 +539,12 @@ function getStatusTagClass(row: EcInventory): string {
 
 function stockValue(row: EcInventory): string {
   const v = (row.quantity ?? 0) * (row.salePrice ?? 0)
+  return v >= 10000
+    ? (v / 10000).toFixed(1) + '万'
+    : v.toLocaleString()
+}
+
+function formatGroupValue(v: number): string {
   return v >= 10000
     ? (v / 10000).toFixed(1) + '万'
     : v.toLocaleString()
@@ -589,6 +659,22 @@ async function handleItemClick(item: EcInventory) {
   } finally {
     skuSheetLoading.value = false
   }
+}
+
+function handleGroupClick(group: ProductGroupItem) {
+  if (!group.productId) return
+  currentSpuItem.value = group.items[0] ?? null
+  skuSheetTitle.value = group.productName
+  skuSheetVisible.value = true
+  skuSheetLoading.value = true
+  skuSheetItems.value = []
+  fetchInventoryByProduct(group.productId).then((result) => {
+    skuSheetItems.value = result
+  }).catch(() => {
+    skuSheetItems.value = []
+  }).finally(() => {
+    skuSheetLoading.value = false
+  })
 }
 
 const adjustSheetVisible = ref(false)

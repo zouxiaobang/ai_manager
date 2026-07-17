@@ -24,6 +24,8 @@ export interface EcInventory {
   relatedOutboundOrders?: EcInventoryOutboundBrief[]
   packingEstimate?: EcInventoryPackingEstimate
   outboundPackingEstimate?: EcInventoryPackingEstimate
+  /** 该 SPU 下的 SKU 数量（仅 groupBySpu 时有值） */
+  spuSkuCount?: number
 }
 
 export interface EcInventoryLog {

@@ -331,7 +331,6 @@ function formatPrice(price?: number | null): string {
 .express-detail-modal__alias {
   font-size: 10px;
   color: #94a3b8;
-  font-weight: 600;
 }
 
 .express-detail-modal__section {
