@@ -18,6 +18,7 @@ export const moduleVisuals: Record<FunctionItemKey, ModuleVisual> = {
   permission: { icon: 'permission', barColor: '#0ea5e9' },
   aiKnowledge: { icon: 'ai-knowledge', barColor: '#22c55e' },
   library: { icon: 'library', barColor: '#6b7280' },
+  claudeTerminal: { icon: 'claude-terminal', barColor: '#f59e0b' },
 }
 
 export const railModuleVisuals: Record<RailModuleKey, ModuleVisual> = {

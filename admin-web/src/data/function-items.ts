@@ -4,6 +4,7 @@ import {
   FolderOpened,
   List,
   Lock,
+  Monitor,
   Notebook,
   User,
 } from '@element-plus/icons-vue'
@@ -15,6 +16,7 @@ export type FunctionItemKey =
   | 'library'
   | 'userCenter'
   | 'permission'
+  | 'claudeTerminal'
 
 export interface FunctionItem {
   key: FunctionItemKey
@@ -51,6 +53,7 @@ export const functionItems: FunctionItem[] = [
   {
     key: 'aiKnowledge',
     icon: Collection,
+    route: '/ai-knowledge',
     accent: '#67c23a',
   },
   {
@@ -58,5 +61,11 @@ export const functionItems: FunctionItem[] = [
     icon: FolderOpened,
     route: '/library',
     accent: '#909399',
+  },
+  {
+    key: 'claudeTerminal',
+    icon: Monitor,
+    route: '/claude',
+    accent: '#f59e0b',
   },
 ]

@@ -11,8 +11,8 @@ import com.ai.manager.system.service.BaiduPanAuthService;
 import com.ai.manager.system.service.NoteContentVersionService;
 import com.ai.manager.system.service.StorageCenterService;
 import com.ai.manager.system.service.storage.BaiduPanNoteContentStorage;
-import com.ai.manager.system.service.storage.DualWriteNoteContentStorage;
 import com.ai.manager.system.service.storage.LocalFileNoteContentStorage;
+import com.ai.manager.system.service.storage.StorageRouter;
 import com.ai.manager.system.service.support.NoteSyncStatus;
 import com.ai.manager.system.service.support.StoragePathSupport;
 import com.ai.manager.system.util.NoteContentUtils;
@@ -35,7 +35,7 @@ public class NoteContentVersionServiceImpl implements NoteContentVersionService 
 
     private static final String META_SUFFIX = ".meta.json";
 
-    private final DualWriteNoteContentStorage dualWriteNoteContentStorage;
+    private final StorageRouter storageRouter;
     private final LocalFileNoteContentStorage localFileNoteContentStorage;
     private final BaiduPanNoteContentStorage baiduPanNoteContentStorage;
     private final BaiduPanAuthService baiduPanAuthService;
@@ -141,7 +141,7 @@ public class NoteContentVersionServiceImpl implements NoteContentVersionService 
     }
 
     private ContentSide loadLocalSide(NoteContentRef ref, NbNote note) {
-        String content = dualWriteNoteContentStorage.loadLocalOnly(ref);
+        String content = storageRouter.resolve().loadPrimaryOnly(ref);
         if (!StringUtils.hasText(content)) {
             return ContentSide.empty();
         }
@@ -156,7 +156,7 @@ public class NoteContentVersionServiceImpl implements NoteContentVersionService 
         if (!storageCenterService.isDualStorageEnabled() || !baiduPanAuthService.isAuthorized()) {
             return ContentSide.empty();
         }
-        String content = dualWriteNoteContentStorage.loadCloudOnly(ref);
+        String content = storageRouter.resolve().loadRemoteOnly(ref);
         if (!StringUtils.hasText(content) || NoteContentUtils.isBaiduApiErrorBody(content)) {
             return ContentSide.empty();
         }

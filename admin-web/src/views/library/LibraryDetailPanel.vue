@@ -5,7 +5,7 @@
     :title="file?.name || ''"
     direction="rtl"
     size="320px"
-    :close-on-click-modal="false"
+    :close-on-click-modal="true"
     class="library-detail-panel"
   >
     <template v-if="file">
@@ -221,7 +221,12 @@ watch(
 .library-detail-panel__actions {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 8px;
   margin-top: 24px;
+
+  :deep(.el-button) {
+    min-width: 180px;
+  }
 }
 </style>

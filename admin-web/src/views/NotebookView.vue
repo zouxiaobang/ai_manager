@@ -282,6 +282,43 @@
                       <el-icon><Star /></el-icon>
                       {{ currentNote.isFavorite === 1 ? t('notebook.unfavorite') : t('notebook.favorite') }}
                     </button>
+                    <div v-if="isMdNote" class="notebook-editor__md-mode-group">
+                      <button
+                        type="button"
+                        class="notebook-editor__meta-action"
+                        :class="{ 'is-active': mdViewMode === 'edit' }"
+                        @click="mdViewMode = 'edit'"
+                      >
+                        <el-icon><Edit /></el-icon>
+                        {{ t('notebook.mdEdit') }}
+                      </button>
+                      <button
+                        type="button"
+                        class="notebook-editor__meta-action"
+                        :class="{ 'is-active': mdViewMode === 'split' }"
+                        @click="mdViewMode = 'split'"
+                      >
+                        <span class="notebook-editor__md-split-icon">‖</span>
+                        {{ t('notebook.mdSplit') }}
+                      </button>
+                      <button
+                        type="button"
+                        class="notebook-editor__meta-action"
+                        :class="{ 'is-active': mdViewMode === 'preview' }"
+                        @click="mdViewMode = 'preview'"
+                      >
+                        <el-icon><View /></el-icon>
+                        {{ t('notebook.mdPreview') }}
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      class="notebook-editor__meta-action"
+                      :title="t('notebook.fullscreenOpen')"
+                      @click="openFullscreen"
+                    >
+                      <el-icon><FullScreen /></el-icon>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -345,10 +382,42 @@
               </div>
               </div>
 
-              <!-- 编辑器内容区域：富文本编辑器 -->
+              <!-- 编辑器内容区域：MD 编辑/分屏/预览 + 富文本编辑器 -->
               <div class="notebook-editor__content">
+                <!-- MD 分屏模式 -->
+                <template v-if="isMdNote && mdViewMode === 'split'">
+                  <div class="notebook-editor__md-split">
+                    <textarea
+                      ref="mdSplitEditorRef"
+                      v-model="editForm.content"
+                      class="notebook-editor__md-textarea is-split"
+                      :placeholder="t('notebook.contentPlaceholder')"
+                      @scroll="onMdSplitScroll('editor')"
+                    />
+                    <div
+                      ref="mdSplitPreviewRef"
+                      class="notebook-editor__md-preview is-split"
+                      v-html="mdPreviewHtml"
+                      @scroll="onMdSplitScroll('preview')"
+                    />
+                  </div>
+                </template>
+                <!-- MD 预览模式 -->
+                <div
+                  v-else-if="isMdNote && mdViewMode === 'preview'"
+                  class="notebook-editor__md-preview"
+                  v-html="mdPreviewHtml"
+                />
+                <!-- MD 编辑模式 -->
+                <textarea
+                  v-else-if="isMdNote && mdViewMode === 'edit'"
+                  v-model="editForm.content"
+                  class="notebook-editor__md-textarea"
+                  :placeholder="t('notebook.contentPlaceholder')"
+                />
+                <!-- HTML 富文本编辑器 -->
                 <NoteRichEditor
-                  v-if="currentNote"
+                  v-else-if="currentNote"
                   ref="editorRef"
                   :key="currentNote.id"
                   v-model="editForm.content"
@@ -552,6 +621,15 @@
       </div>
     </el-dialog>
     </div>
+
+    <!-- 全屏阅读视图 -->
+    <NoteFullscreenViewer
+      v-model:visible="fullscreenViewerVisible"
+      :title="editForm.title"
+      :html="fullscreenNoteHtml"
+      :md-html="fullscreenNoteMdHtml"
+      :is-md="isMdNote"
+    />
   </WarRoomPage>
 </template>
 
@@ -561,7 +639,7 @@
  * 提供笔记管理功能，包括笔记列表、富文本编辑、文件夹管理、标签管理
  * 支持百度网盘同步、正文格式优化、目录导航等功能
  */
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, watchEffect } from 'vue'
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import WarRoomPage from '@/components/war-room/WarRoomPage.vue'
@@ -574,21 +652,26 @@ import {
   CollectionTag,
   Delete,
   Document,
+  Edit,
   Folder,
+  FullScreen,
   Link,
   Loading,
   Plus,
   Search,
   Star,
   Top,
+  View,
 } from '@element-plus/icons-vue'
 import NotebookFolderView from './notebook/NotebookFolderView.vue'
 import NotebookTrashView from './notebook/NotebookTrashView.vue'
 import NoteRichEditor from './notebook/NoteRichEditor.vue'
 import NoteTocPanel from './notebook/NoteTocPanel.vue'
+import NoteFullscreenViewer from './notebook/NoteFullscreenViewer.vue'
 import NoteTreeContextMenu, { type TreeContextMenuAction } from './notebook/NoteTreeContextMenu.vue'
 import { exportNoteAsWord } from './notebook/exportNoteWord'
 import { parseNoteToc } from './notebook/noteToc'
+import { marked } from 'marked'
 
 import type { NoteFolderListMeta } from './notebook/notePreview'
 import { isContentLoadFailure } from './notebook/notePreview'
@@ -643,6 +726,7 @@ let treeClickDedupeAt = 0 // 树点击去重时间戳
 let treeClickDedupeKey = '' // 树点击去重key
 let treeSelectionHandling = false // 是否正在处理树选择
 let suppressContentChange = false // 内容变更抑制（笔记加载期间避免误触发）
+let titleAtOpen = '' // 打开笔记时的原始标题（用于防止 loadNoteDetail 覆盖用户输入）
 const userExpandedKeys = ref<Set<string>>(new Set()) // 用户展开的节点key集合
 let searchExpandedSnapshot: Set<string> | null = null // 搜索时展开状态快照
 
@@ -714,6 +798,14 @@ const newTagName = ref('')
 const tagSubmitting = ref(false)
 const activeTocIndex = ref(-1)
 
+const fullscreenViewerVisible = ref(false)
+const fullscreenNoteHtml = computed(() => isMdNote.value ? '' : (editForm.content || ''))
+const fullscreenNoteMdHtml = computed(() => isMdNote.value ? (mdPreviewHtml.value || '') : '')
+
+function openFullscreen() {
+  fullscreenViewerVisible.value = true
+}
+
 const TAG_PILL_THEMES = [
   { bg: '#eff6ff', color: '#2563eb' },
   { bg: '#f5f3ff', color: '#7c3aed' },
@@ -747,7 +839,13 @@ const canPasteClipboard = computed(() => !!(copiedNoteClip.value || copiedFolder
 
 const treeProps = { label: 'name', children: 'children' }
 
-const tocItems = computed(() => parseNoteToc(editForm.content))
+const tocItems = computed(() => {
+  // MD 笔记使用渲染后的 HTML 提取标题，否则使用原始内容
+  const source = (isMdNote.value && mdPreviewHtml.value)
+    ? mdPreviewHtml.value
+    : editForm.content
+  return parseNoteToc(source)
+})
 
 const selectedNoteTags = computed(() =>
   allTags.value.filter((tag) => editForm.tagIds.includes(tag.id)),
@@ -765,6 +863,59 @@ const noteWordCount = computed(() => {
 })
 
 const formattedUpdateTime = computed(() => formatNoteDisplayTime(currentNote.value?.updateTime))
+
+/** 检测当前笔记标题（实时输入）是否以 .md 结尾 */
+const isMdNote = computed(() => {
+  const title = editForm.title || currentNote.value?.title || ''
+  return title.toLowerCase().endsWith('.md')
+})
+
+/** MD 笔记视图模式：编辑 / 分屏 / 预览 */
+const mdViewMode = ref<'edit' | 'split' | 'preview'>('edit')
+
+/** MD 笔记预览时渲染的 HTML */
+const mdPreviewHtml = ref('')
+
+/** 分屏模式左右滚动同步 */
+const mdSplitEditorRef = ref<HTMLTextAreaElement | null>(null)
+const mdSplitPreviewRef = ref<HTMLDivElement | null>(null)
+let mdScrollSyncing = false
+
+function onMdSplitScroll(source: 'editor' | 'preview') {
+  if (mdScrollSyncing) return
+  mdScrollSyncing = true
+  const ta = mdSplitEditorRef.value
+  const pv = mdSplitPreviewRef.value
+  if (ta && pv) {
+    if (source === 'editor') {
+      const ratio = ta.scrollTop / (ta.scrollHeight - ta.clientHeight)
+      pv.scrollTop = ratio * (pv.scrollHeight - pv.clientHeight)
+    } else {
+      const ratio = pv.scrollTop / (pv.scrollHeight - pv.clientHeight)
+      ta.scrollTop = ratio * (ta.scrollHeight - ta.clientHeight)
+    }
+  }
+  requestAnimationFrame(() => { mdScrollSyncing = false })
+}
+
+/** 打开 .md 笔记时默认进入预览模式 */
+watch(
+  () => currentNote.value,
+  (note) => {
+    const isMd = note?.title?.toLowerCase().endsWith('.md')
+    mdViewMode.value = isMd ? 'preview' : 'edit'
+  },
+  { immediate: true }
+)
+
+/** 监听 MD 笔记内容或视图模式变化，更新预览 HTML */
+watchEffect(async () => {
+  if (isMdNote.value && mdViewMode.value !== 'edit' && editForm.content) {
+    mdPreviewHtml.value = await marked.parse(editForm.content)
+  } else if (isMdNote.value && mdViewMode.value !== 'edit') {
+    mdPreviewHtml.value = ''
+  }
+})
 
 const showMetaStatus = computed(() => {
   if (!currentNote.value) return false
@@ -882,7 +1033,25 @@ function buildFolderOnlyTree(nodes: NbTreeNode[]): NbTreeNode[] {
 
 function onTocItemClick(index: number) {
   activeTocIndex.value = index
-  editorRef.value?.scrollToHeading(index)
+  if (isMdNote.value && mdViewMode.value !== 'edit') {
+    scrollMdToHeading(index)
+  } else {
+    editorRef.value?.scrollToHeading(index)
+  }
+}
+
+/**
+ * MD 预览/分屏模式下滚动到指定标题
+ */
+function scrollMdToHeading(index: number) {
+  const container = mdViewMode.value === 'split'
+    ? mdSplitPreviewRef.value
+    : document.querySelector<HTMLElement>('.notebook-editor__md-preview:not(.is-split)')
+  if (!container) return
+  const headings = container.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6')
+  const target = headings[index]
+  if (!target) return
+  target.scrollIntoView({ behavior: 'instant', block: 'start' })
 }
 
 async function restoreTreeSelectionView() {
@@ -1515,6 +1684,7 @@ function beginOpenNote(noteId: number, stub: NbNoteDetail, nodeKey?: string) {
     selectedFolderId.value = stub.notebookId ?? null
   }
   currentNote.value = stub
+  titleAtOpen = stub.title
   editForm.title = stub.title
   editForm.content = ''
   editForm.tagIds = []
@@ -1540,7 +1710,10 @@ async function loadNoteDetail(noteId: number, seq?: number) {
       return
     }
     currentNote.value = detail
-    editForm.title = detail.title
+    // 仅在 API 返回了与当前树节点标题不同的标题时才覆盖，避免 API 返回相同值（如"无标题"）时自覆盖
+    if (editForm.title === titleAtOpen && detail.title && detail.title !== titleAtOpen) {
+      editForm.title = detail.title
+    }
     const rawContent = detail.content ?? ''
     let content = rawContent
     if (isContentLoadFailure(detail, rawContent)) {
@@ -1551,8 +1724,13 @@ async function loadNoteDetail(noteId: number, seq?: number) {
     }
     editForm.content = content
     editForm.tagIds = detail.tags?.map((tag) => tag.id) ?? []
-    syncSavedSnapshot()
-    saveState.value = 'saved'
+    // 快照基于 API 返回的实际值（而非表单当前值，表单可能包含未保存的用户编辑）
+    savedSnapshot.value = {
+      title: detail.title ?? '',
+      content: content,
+      tagIds: JSON.stringify([...(detail.tags?.map(t => t.id) ?? [])].sort((a, b) => a - b)),
+    }
+    saveState.value = editForm.title !== (detail.title ?? '') ? 'idle' : 'saved'
   } catch {
     if (expectedSeq !== noteLoadSeq || currentNote.value?.id !== noteId) {
       return
@@ -1580,7 +1758,7 @@ function onContentChanged() {
 
 async function manualSave() {
   const noteId = currentNote.value?.id
-  if (!noteId || contentLoadBlocked.value || contentLoading.value) return
+  if (!noteId || contentLoadBlocked.value || contentLoading.value || saveState.value === 'saving') return
   if (!isDirty()) {
     if (currentNote.value?.syncStatus === 'FAILED') {
       saveState.value = 'localSavedSyncFailed'
@@ -1596,14 +1774,20 @@ async function manualSave() {
     if (currentNote.value?.id === noteId) {
       currentNote.value = updated
       syncSavedSnapshot()
+      // 直接更新树节点标题，避免 reload 整棵树触发 beginOpenNote 等副作用
+      if (activeNodeKey.value) {
+        const node = findNodeByKey(treeData.value, activeNodeKey.value)
+        if (node) {
+          node.name = updated.title ?? ''
+        }
+      }
     }
     if (updated?.syncStatus === 'FAILED') {
       saveState.value = 'localSavedSyncFailed'
     } else {
       saveState.value = 'saved'
     }
-    if (currentNote.value?.id === noteId) {
-      await loadTree()
+    if (currentNote.value?.id === noteId && updated?.syncStatus !== 'FAILED') {
       treeRef.value?.setCurrentKey(activeNodeKey.value)
     }
   } catch {
@@ -2714,6 +2898,204 @@ onBeforeUnmount(() => {
 
   &.is-content-loading {
     pointer-events: none;
+  }
+}
+
+/* MD 模式切换按钮组 */
+.notebook-editor__md-mode-group {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 4px;
+
+  .notebook-editor__meta-action {
+    padding: 4px 6px;
+    font-size: 11px;
+    gap: 2px;
+
+    &.is-active {
+      color: var(--el-color-primary);
+      background: var(--el-color-primary-light-9);
+      border-color: var(--el-color-primary);
+    }
+  }
+}
+
+.notebook-editor__md-split-icon {
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -2px;
+}
+
+/* MD 预览区域 — VS Code 风格 */
+.notebook-editor__md-preview {
+  flex: 1 1 auto;
+  min-height: 300px;
+  padding: 24px 32px;
+  overflow-y: auto;
+  line-height: 1.7;
+  font-size: 15px;
+  color: var(--el-text-color-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI',
+    system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+
+  &.is-split {
+    padding: 16px 20px;
+    font-size: 14px;
+  }
+
+  /* 标题 — 带下边线（VS Code 风格） */
+  :deep(h1), :deep(h2), :deep(h3), :deep(h4), :deep(h5), :deep(h6) {
+    margin-top: 1.4em;
+    margin-bottom: 0.7em;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  :deep(h1) {
+    font-size: 1.7em;
+    border-bottom: 1px solid var(--el-border-color-light);
+    padding-bottom: 0.3em;
+  }
+  :deep(h2) {
+    font-size: 1.4em;
+    border-bottom: 1px solid var(--el-border-color-light);
+    padding-bottom: 0.3em;
+  }
+  :deep(h3) { font-size: 1.2em; }
+  :deep(h4) { font-size: 1.05em; }
+  :deep(p) {
+    margin: 0 0 0.9em;
+    line-height: 1.7;
+  }
+  /* 列表 */
+  :deep(ul), :deep(ol) {
+    padding-left: 1.7em;
+    margin-bottom: 0.9em;
+  }
+  :deep(li) { margin-bottom: 0.25em; }
+  :deep(li > ul), :deep(li > ol) { margin-bottom: 0; }
+  /* 代码块 */
+  :deep(pre) {
+    background: var(--el-fill-color-light, #f5f5f5);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin-bottom: 0.9em;
+    font-size: 0.92em;
+    line-height: 1.55;
+  }
+  :deep(code) {
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Consolas',
+      'Liberation Mono', Menlo, monospace;
+    font-size: 0.9em;
+    background: var(--el-fill-color-light, #f5f5f5);
+    padding: 2px 5px;
+    border-radius: 3px;
+  }
+  :deep(pre code) {
+    background: none;
+    padding: 0;
+    border-radius: 0;
+  }
+  /* 引用 */
+  :deep(blockquote) {
+    margin: 0 0 0.9em;
+    padding: 4px 0 4px 14px;
+    border-left: 4px solid var(--el-color-primary-light-5, #a0c4ff);
+    color: var(--el-text-color-secondary, #616161);
+    background: var(--el-fill-color-lighter, #fafafa);
+    border-radius: 0 4px 4px 0;
+  }
+  :deep(blockquote p:last-child) { margin-bottom: 0; }
+  /* 表格 */
+  :deep(table) {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 0.9em;
+    font-size: 0.95em;
+  }
+  :deep(th), :deep(td) {
+    border: 1px solid var(--el-border-color, #ddd);
+    padding: 8px 12px;
+    text-align: left;
+  }
+  :deep(th) {
+    background: var(--el-fill-color-light, #f0f0f0);
+    font-weight: 600;
+  }
+  :deep(tr:nth-child(even) td) {
+    background: var(--el-fill-color-lighter, #fafafa);
+  }
+  /* 链接 */
+  :deep(a) {
+    color: var(--el-color-primary, #409eff);
+    text-decoration: none;
+    &:hover { text-decoration: underline; }
+  }
+  /* 图片 */
+  :deep(img) { max-width: 100%; }
+  /* 分割线 */
+  :deep(hr) {
+    border: none;
+    border-top: 1px solid var(--el-border-color-light, #eee);
+    margin: 1.5em 0;
+  }
+  /* 任务列表 */
+  :deep(input[type='checkbox']) {
+    margin-right: 6px;
+    transform: translateY(1px);
+  }
+}
+
+/* MD 编辑文本域 */
+.notebook-editor__md-textarea {
+  flex: 1 1 auto;
+  min-height: 300px;
+  width: 100%;
+  padding: 16px 20px;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Consolas',
+    'Liberation Mono', Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--el-text-color-primary);
+  background: transparent;
+
+  &::placeholder {
+    color: var(--el-text-color-placeholder);
+  }
+
+  &.is-split {
+    min-height: 0;
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+}
+
+/* MD 分屏模式左右布局 */
+.notebook-editor__md-split {
+  flex: 1 1 auto;
+  min-height: 300px;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  border-top: 1px solid var(--el-border-color-light);
+
+  .notebook-editor__md-textarea {
+    border-right: 1px solid var(--el-border-color-light);
+    min-height: 0;
+    resize: horizontal;
+  }
+
+  .notebook-editor__md-preview {
+    min-height: 0;
+  }
+
+  & > * {
+    flex: 1 1 50%;
+    width: 50%;
   }
 }
 

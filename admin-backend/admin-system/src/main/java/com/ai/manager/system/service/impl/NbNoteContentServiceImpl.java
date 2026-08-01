@@ -4,7 +4,7 @@ import com.ai.manager.common.exception.BusinessException;
 import com.ai.manager.common.result.ResultCode;
 import com.ai.manager.system.config.NoteStorageProperties;
 import com.ai.manager.system.domain.entity.NbNote;
-import com.ai.manager.system.domain.storage.DualWriteSaveOutcome;
+import com.ai.manager.system.domain.storage.ChainSaveOutcome;
 import com.ai.manager.system.domain.storage.NoteContentMeta;
 import com.ai.manager.system.domain.storage.NoteContentReconcileResult;
 import com.ai.manager.system.domain.storage.NoteContentRef;
@@ -15,9 +15,10 @@ import com.ai.manager.system.service.NbNoteContentService;
 import com.ai.manager.system.service.NoteContentVersionService;
 import com.ai.manager.system.service.StorageCenterService;
 import com.ai.manager.system.service.storage.BaiduPanNoteContentStorage;
-import com.ai.manager.system.service.storage.DualWriteNoteContentStorage;
 import com.ai.manager.system.service.storage.LocalFileNoteContentStorage;
 import com.ai.manager.system.service.storage.NoteContentStorage;
+import com.ai.manager.system.service.storage.StorageChain;
+import com.ai.manager.system.service.storage.StorageRouter;
 import com.ai.manager.system.service.support.NoteSyncStatus;
 import com.ai.manager.system.util.NoteContentUtils;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -30,8 +31,6 @@ import org.springframework.util.StringUtils;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -45,7 +44,7 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
     private final BaiduPanAuthService baiduPanAuthService;
     private final BaiduPanNoteContentStorage baiduPanNoteContentStorage;
     private final LocalFileNoteContentStorage localFileNoteContentStorage;
-    private final DualWriteNoteContentStorage dualWriteNoteContentStorage;
+    private final StorageRouter storageRouter;
     private final StringRedisTemplate stringRedisTemplate;
     private final NbNoteMapper nbNoteMapper;
     private final StorageCenterService storageCenterService;
@@ -55,12 +54,10 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
 
     @jakarta.annotation.PostConstruct
     void init() {
-        List<NoteContentStorage> storages = List.of(
-                dualWriteNoteContentStorage,
-                baiduPanNoteContentStorage,
-                localFileNoteContentStorage
+        storageMap = Map.of(
+                localFileNoteContentStorage.type(), localFileNoteContentStorage,
+                baiduPanNoteContentStorage.type(), baiduPanNoteContentStorage
         );
-        storageMap = storages.stream().collect(Collectors.toMap(NoteContentStorage::type, Function.identity()));
         localFileNoteContentStorage.ensureRoot();
     }
 
@@ -187,8 +184,9 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
                 if (!StringUtils.hasText(note.getStoragePath())) {
                     prepareNewNote(note);
                 }
-                DualWriteSaveOutcome outcome = dualWriteNoteContentStorage.saveWithOutcome(toRef(note), content);
-                applyDualSaveOutcome(note, content, hash, outcome);
+                StorageChain chain = storageRouter.resolve();
+                ChainSaveOutcome outcome = chain.save(toRef(note), content);
+                applyChainSaveOutcome(note, content, hash, outcome);
 
                 String latest = readPersistedContent(note);
                 if (!NoteContentUtils.sha256(latest).equals(hash)) {
@@ -196,7 +194,7 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
                     if (pending != null) {
                         pending.setSyncStatus(NoteSyncStatus.SYNCING);
                         pending.setSyncError(null);
-                        nbNoteMapper.updateById(pending);
+                        updateSyncEntity(pending);
                     }
                     continue;
                 }
@@ -205,7 +203,7 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
                 log.error("后台同步笔记正文失败, noteId={}", noteId, e);
                 note.setSyncStatus(NoteSyncStatus.FAILED);
                 note.setSyncError(trimError(e.getMessage()));
-                nbNoteMapper.updateById(note);
+                updateSyncEntity(note);
                 return;
             }
         }
@@ -213,56 +211,58 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
 
     private void retryCloudUploadOnly(NbNote note, String content) {
         NoteContentRef ref = toRef(note);
-        DualWriteSaveOutcome cloudOutcome = dualWriteNoteContentStorage.saveCloudOnly(ref, content);
-        if (cloudOutcome.isCloudSaved()) {
+        StorageChain chain = storageRouter.resolve();
+        ChainSaveOutcome outcome = chain.saveRemoteOnly(ref, content);
+        if (outcome.isRemoteSaved()) {
             int version = note.getContentVersion() == null || note.getContentVersion() < 1 ? 1 : note.getContentVersion();
             NoteContentMeta meta = NoteContentMeta.fromContent(content, version);
             noteContentVersionService.writeMetaDual(ref, meta);
-            note.setStorageType(DualWriteNoteContentStorage.TYPE);
-            note.setStoragePath(cloudOutcome.getCloudPath());
-            note.setStorageFsId(cloudOutcome.getCloudFsId());
+            note.setStorageType(chain.name());
+            note.setStoragePath(outcome.getRemotePath());
+            note.setStorageFsId(outcome.getRemoteFsId());
             note.setSyncStatus(NoteSyncStatus.SYNCED);
             note.setSyncError(null);
-            nbNoteMapper.updateById(note);
+            updateSyncEntity(note);
             log.info("笔记正文已补传至云盘, noteId={}", note.getId());
             return;
         }
         note.setSyncStatus(NoteSyncStatus.CLOUD_PENDING);
-        note.setSyncError(cloudOutcome.getCloudError() != null
-                ? cloudOutcome.getCloudError()
+        note.setSyncError(outcome.getRemoteError() != null
+                ? outcome.getRemoteError()
                 : "等待同步至云盘");
-        nbNoteMapper.updateById(note);
+        updateSyncEntity(note);
     }
 
-    private void applyDualSaveOutcome(NbNote note, String content, String hash, DualWriteSaveOutcome outcome) {
+    private void applyChainSaveOutcome(NbNote note, String content, String hash, ChainSaveOutcome outcome) {
         int nextVersion = (note.getContentVersion() == null ? 0 : note.getContentVersion()) + 1;
         NoteContentRef ref = toRef(note);
         NoteContentMeta meta = NoteContentMeta.fromContent(content, nextVersion);
         noteContentVersionService.writeMetaDual(ref, meta);
 
-        note.setStorageType(DualWriteNoteContentStorage.TYPE);
-        if (outcome.isCloudSaved()) {
-            note.setStoragePath(outcome.getCloudPath());
-            note.setStorageFsId(outcome.getCloudFsId());
+        StorageChain chain = storageRouter.resolve();
+        note.setStorageType(chain.name());
+        if (outcome.isRemoteSaved()) {
+            note.setStoragePath(outcome.getRemotePath());
+            note.setStorageFsId(outcome.getRemoteFsId());
             note.setSyncStatus(NoteSyncStatus.SYNCED);
             note.setSyncError(null);
         } else {
-            note.setStoragePath(outcome.getLocalPath());
+            note.setStoragePath(outcome.getPrimaryPath());
             note.setStorageFsId(null);
-            String cloudError = outcome.getCloudError();
-            boolean isAuthError = cloudError != null && (
-                    cloudError.contains("授权") ||
-                    cloudError.contains("绑定") ||
-                    cloudError.contains("errno=102") ||
-                    cloudError.contains("未连接百度网盘"));
+            String remoteError = outcome.getRemoteError();
+            boolean isAuthError = remoteError != null && (
+                    remoteError.contains("授权") ||
+                    remoteError.contains("绑定") ||
+                    remoteError.contains("errno=102") ||
+                    remoteError.contains("未连接百度网盘"));
             note.setSyncStatus(isAuthError ? NoteSyncStatus.LOCAL_ONLY : NoteSyncStatus.CLOUD_PENDING);
-            note.setSyncError(StringUtils.hasText(cloudError) ? cloudError : "等待同步至云盘");
+            note.setSyncError(StringUtils.hasText(remoteError) ? remoteError : "等待同步至云盘");
         }
         note.setContentHash(hash);
         note.setContentSize(outcome.getContentSize());
         note.setContentExcerpt(NoteContentUtils.htmlToExcerpt(content, 200));
         note.setContentVersion(nextVersion);
-        nbNoteMapper.updateById(note);
+        updateSyncEntity(note);
     }
 
     private void applyReconcileResult(NbNote note, NoteContentReconcileResult result) {
@@ -294,8 +294,17 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
             changed = true;
         }
         if (changed) {
-            nbNoteMapper.updateById(note);
+            updateSyncEntity(note);
         }
+    }
+
+    /**
+     * 仅更新内容同步相关字段，不碰 title 等业务字段，
+     * 避免异步同步覆盖用户已修改的标题。
+     */
+    private void updateSyncEntity(NbNote note) {
+        note.setTitle(null);
+        nbNoteMapper.updateById(note);
     }
 
     private void syncLegacyContentToStorage(Long noteId) {
@@ -333,7 +342,7 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
                     note.setSyncStatus(NoteSyncStatus.SYNCED);
                     note.setSyncError(null);
                 }
-                nbNoteMapper.updateById(note);
+                updateSyncEntity(note);
 
                 String latest = readCachedContent(noteId);
                 if (!NoteContentUtils.sha256(latest).equals(hash)) {
@@ -341,7 +350,7 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
                     if (pending != null) {
                         pending.setSyncStatus(NoteSyncStatus.SYNCING);
                         pending.setSyncError(null);
-                        nbNoteMapper.updateById(pending);
+                        updateSyncEntity(pending);
                     }
                     continue;
                 }
@@ -350,7 +359,7 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
                 log.error("后台同步笔记正文失败, noteId={}", noteId, e);
                 note.setSyncStatus(NoteSyncStatus.FAILED);
                 note.setSyncError(trimError(e.getMessage()));
-                nbNoteMapper.updateById(note);
+                updateSyncEntity(note);
                 return;
             }
         }
@@ -362,7 +371,7 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
             return cached;
         }
         if (storageCenterService.isDualStorageEnabled()) {
-            return dualWriteNoteContentStorage.loadLocalOnly(toRef(note));
+            return storageRouter.resolve().loadPrimaryOnly(toRef(note));
         }
         return resolveStorage(note).load(toRef(note));
     }
@@ -383,7 +392,11 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
             return;
         }
         try {
-            resolveStorage(note).delete(toRef(note));
+            if (storageCenterService.isDualStorageEnabled()) {
+                storageRouter.resolve().delete(toRef(note));
+            } else {
+                resolveStorage(note).delete(toRef(note));
+            }
         } catch (Exception e) {
             log.warn("删除笔记正文失败, noteId={}", note.getId(), e);
         }
@@ -393,7 +406,8 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
     @Override
     public void prepareNewNote(NbNote note) {
         if (storageCenterService.isDualStorageEnabled()) {
-            note.setStorageType(DualWriteNoteContentStorage.TYPE);
+            StorageChain chain = storageRouter.resolve();
+            note.setStorageType(chain.name());
             if (baiduPanAuthService.isAuthorized()) {
                 note.setStoragePath(baiduPanNoteContentStorage.toStoragePath(note.getId()));
             } else {
@@ -402,11 +416,9 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
         } else {
             NoteContentStorage storage = resolveWritableStorage(note);
             note.setStorageType(storage.type());
-            if (storage instanceof BaiduPanNoteContentStorage) {
-                note.setStoragePath(baiduPanNoteContentStorage.toStoragePath(note.getId()));
-            } else if (storage instanceof LocalFileNoteContentStorage) {
-                note.setStoragePath(localFileNoteContentStorage.toStoragePath(note.getId()));
-            }
+            note.setStoragePath(storage instanceof BaiduPanNoteContentStorage
+                    ? baiduPanNoteContentStorage.toStoragePath(note.getId())
+                    : localFileNoteContentStorage.toStoragePath(note.getId()));
         }
         note.setContentHash("");
         note.setContentSize(0L);
@@ -433,10 +445,7 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
     }
 
     private NoteContentStorage resolveWritableStorage(NbNote note) {
-        if (storageCenterService.isDualStorageEnabled()) {
-            dualWriteNoteContentStorage.ensureRoot();
-            return dualWriteNoteContentStorage;
-        }
+        // 仅在旧版（非双写）模式下调用
         if (useBaiduPan()) {
             try {
                 baiduPanAuthService.requireAccessToken();
@@ -444,7 +453,6 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
                 return baiduPanNoteContentStorage;
             } catch (BusinessException ex) {
                 log.warn("百度网盘授权不可用，降级到本地存储: {}", ex.getMessage());
-                // 授权失败时降级到本地存储，而不是抛出异常
             }
         }
         localFileNoteContentStorage.ensureRoot();
@@ -452,9 +460,7 @@ public class NbNoteContentServiceImpl implements NbNoteContentService {
     }
 
     private NoteContentStorage resolveStorage(NbNote note) {
-        if (storageCenterService.isDualStorageEnabled()) {
-            return dualWriteNoteContentStorage;
-        }
+        // 双写模式应直接调用 chain.load()，此方法仅用于旧版
         String storageType = note.getStorageType();
         if (StringUtils.hasText(storageType) && storageMap.containsKey(storageType)) {
             return storageMap.get(storageType);

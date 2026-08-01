@@ -1,0 +1,174 @@
+<style>
+:root {
+  color-scheme: light;
+  --surface: #F7F7F8;
+  --surface-muted: #EFEFF2;
+  --text: #171717;
+  --text-muted: #52525B;
+  --border: rgba(23, 23, 23, 0.12);
+  --brand: #4B3FE3;
+  --brand-soft: #F2F7FF;
+  --brand-soft-strong: #E5EAFF;
+  --brand-text: #1A1759;
+  --brand-on: #FFFFFF;
+  --chart-series-1: #3C2ECA;
+  --chart-series-2: #A9AEFF;
+  --chart-series-4: #22A5F7;
+  --accent: #27D2BF;
+  --accent-soft: #EAFBF8;
+  --accent-text: #0F766E;
+  --success: #1DC981;
+  --warning: #EFAA17;
+  --danger: #E8463A;
+  --radius: 8px;
+  --radius-card: 12px;
+  --radius-full: 999px;
+  --spacer-4: 4px;
+  --spacer-8: 8px;
+  --spacer-12: 12px;
+  --spacer-16: 16px;
+  --spacer-20: 20px;
+  --spacer-24: 24px;
+  --font-sans: "SF Pro Text", "PingFang SC", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-strong: 600;
+  --text-caption: 12px/18px;
+  --text-body: 14px/20px;
+  --text-title: 16px/24px;
+}
+:root[data-widget-theme="dark"] {
+  --surface: #171717;
+  --surface-muted: #262626;
+  --text: #E5E5E5;
+  --text-muted: #A1A1AA;
+  --border: rgba(229, 229, 229, 0.12);
+  --brand: #6054F1;
+  --brand-soft: #1A1759;
+  --brand-soft-strong: #3C2ECA;
+  --brand-text: #CFD8FF;
+  --accent-soft: #123F3C;
+  --accent-text: #CCFBF1;
+}
+.widget { font: var(--weight-regular) var(--text-body) var(--font-sans); color: var(--text); background: transparent; }
+.swim-card { background: var(--surface); border-radius: var(--radius-card); border: 1px solid var(--border); padding: var(--spacer-20); overflow: hidden; }
+.swim-title { font: var(--weight-strong) var(--text-title) var(--font-sans); color: var(--text); margin: 0 0 var(--spacer-16); }
+.swim-svg { width: 100%; height: auto; display: block; }
+.swim-lane-label { font: var(--weight-medium) 11px/14px var(--font-sans); fill: var(--text-muted); }
+.swim-lane-bg { fill: var(--surface-muted); opacity: 0.4; }
+.swim-box { rx: 8; }
+.swim-box-func { fill: var(--brand-soft); stroke: var(--brand); stroke-width: 1.5; }
+.swim-box-neu { fill: var(--surface); stroke: var(--border); stroke-width: 1.2; }
+.swim-box-ext { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.swim-box-data { fill: var(--surface-muted); stroke: var(--border); stroke-width: 1.2; }
+.swim-text-title { font: var(--weight-medium) 12px/16px var(--font-sans); fill: var(--text); }
+.swim-text-sub { font: var(--weight-regular) 10px/14px var(--font-sans); fill: var(--text-muted); }
+.swim-text-brand { fill: var(--brand-text); }
+.swim-text-accent { fill: var(--accent-text); }
+.swim-arrow { stroke: var(--text-muted); stroke-width: 1.2; fill: none; marker-end: url(#arrowGray); }
+.swim-arrow-brand { stroke: var(--brand); stroke-width: 1.5; fill: none; stroke-dasharray: 5 3; marker-end: url(#arrowBrand); }
+</style>
+<div class="widget swim-card" data-dynamic-ui-widget>
+  <h3 class="swim-title">笔记模块泳道架构（全流程视角）</h3>
+  <svg class="swim-svg" viewBox="0 0 720 420" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="arrowGray" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto"><path d="M1 1 L7 4 L1 7 Z" fill="var(--text-muted)" stroke="none"/></marker>
+      <marker id="arrowBrand" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto"><path d="M1 1 L7 4 L1 7 Z" fill="var(--brand)" stroke="none"/></marker>
+    </defs>
+
+    <!-- Lane 1: 前端层 -->
+    <rect class="swim-lane-bg" x="10" y="30" width="700" height="80" rx="8" stroke="var(--border)" stroke-width="1" fill="none"/>
+    <text class="swim-lane-label" x="16" y="44">前端层 (Vue 3 + TS)</text>
+    <rect class="swim-box-func" x="30" y="55" width="120" height="36"/>
+    <text class="swim-text-title swim-text-brand" x="36" y="72">NotebookView.vue</text>
+    <text class="swim-text-sub" x="36" y="85">主界面 + 编辑器</text>
+    <rect class="swim-box-neu" x="175" y="55" width="110" height="36"/>
+    <text class="swim-text-title" x="181" y="72">NoteRichEditor</text>
+    <text class="swim-text-sub" x="181" y="85">富文本编辑器</text>
+    <rect class="swim-box-neu" x="310" y="55" width="95" height="36"/>
+    <text class="swim-text-title" x="316" y="72">Pinia Store</text>
+    <text class="swim-text-sub" x="316" y="85">状态管理</text>
+    <rect class="swim-box-ext" x="430" y="55" width="95" height="36"/>
+    <text class="swim-text-title swim-text-accent" x="436" y="72">Router Guard</text>
+    <text class="swim-text-sub" x="436" y="85">离开自动保存</text>
+    <rect class="swim-box-ext" x="550" y="55" width="85" height="36"/>
+    <text class="swim-text-title swim-text-accent" x="556" y="72">visibility</text>
+    <text class="swim-text-sub" x="556" y="85">标签切换保存</text>
+
+    <!-- Arrow: 前端→后端 -->
+    <path class="swim-arrow-brand" d="M90 91 v24"/>
+
+    <!-- Lane 2: 后端层 -->
+    <rect class="swim-lane-bg" x="10" y="118" width="700" height="100" rx="8" stroke="var(--border)" stroke-width="1" fill="none"/>
+    <text class="swim-lane-label" x="16" y="132">后端层 (Spring Boot 3.3.7)</text>
+    <rect class="swim-box-func" x="30" y="145" width="110" height="40"/>
+    <text class="swim-text-title swim-text-brand" x="36" y="160">Controller</text>
+    <text class="swim-text-sub" x="36" y="173">/api/notes/*</text>
+    <rect class="swim-box-func" x="165" y="145" width="110" height="40"/>
+    <text class="swim-text-title swim-text-brand" x="171" y="160">NoteService</text>
+    <text class="swim-text-sub" x="171" y="173">核心业务逻辑</text>
+    <rect class="swim-box-func" x="300" y="145" width="120" height="40"/>
+    <text class="swim-text-title swim-text-brand" x="306" y="160">ContentService</text>
+    <text class="swim-text-sub" x="306" y="173">存储调度 + 版本仲裁</text>
+    <rect class="swim-box-neu" x="445" y="145" width="105" height="40"/>
+    <text class="swim-text-title" x="451" y="160">SyncService</text>
+    <text class="swim-text-sub" x="451" y="173">CompletableFuture</text>
+    <rect class="swim-box-neu" x="575" y="145" width="95" height="40"/>
+    <text class="swim-text-title" x="581" y="160">Mapper</text>
+    <text class="swim-text-sub" x="581" y="173">MyBatis-Plus</text>
+
+    <!-- Arrow: 后端→存储 -->
+    <path class="swim-arrow" d="M620 185 v24"/>
+    <path class="swim-arrow-brand" d="M360 185 v24"/>
+
+    <!-- Lane 3: 存储层 -->
+    <rect class="swim-lane-bg" x="10" y="222" width="700" height="80" rx="8" stroke="var(--border)" stroke-width="1" fill="none"/>
+    <text class="swim-lane-label" x="16" y="236">存储层 (Storage)</text>
+    <rect class="swim-box-func" x="30" y="250" width="120" height="36"/>
+    <text class="swim-text-title swim-text-brand" x="36" y="267">DualWriteStorage</text>
+    <rect class="swim-box-neu" x="175" y="250" width="120" height="36"/>
+    <text class="swim-text-title" x="181" y="267">LocalFileStorage</text>
+    <rect class="swim-box-neu" x="320" y="250" width="130" height="36"/>
+    <text class="swim-text-title" x="326" y="267">BaiduPanStorage</text>
+    <rect class="swim-box-ext" x="475" y="250" width="95" height="36"/>
+    <text class="swim-text-title swim-text-accent" x="481" y="267">VersionService</text>
+    <text class="swim-text-sub" x="481" y="280">仲裁 + 回填</text>
+
+    <!-- Arrow: 存储→数据 -->
+    <path class="swim-arrow" d="M90 286 v24"/>
+    <path class="swim-arrow" d="M235 286 v24"/>
+    <path class="swim-arrow-brand" d="M385 286 v24"/>
+
+    <!-- Lane 4: 数据层 -->
+    <rect class="swim-lane-bg" x="10" y="314" width="700" height="85" rx="8" stroke="var(--border)" stroke-width="1" fill="none"/>
+    <text class="swim-lane-label" x="16" y="328">数据层 (Data Layer)</text>
+    <rect class="swim-box-data" x="30" y="340" width="130" height="40"/>
+    <text class="swim-text-title" x="36" y="355">MySQL 8</text>
+    <text class="swim-text-sub" x="36" y="368">元数据 (nb_note 等)</text>
+    <rect class="swim-box-data" x="190" y="340" width="120" height="40"/>
+    <text class="swim-text-title" x="196" y="355">Redis 7</text>
+    <text class="swim-text-sub" x="196" y="368">正文缓存 TTL=3600s</text>
+    <rect class="swim-box-data" x="340" y="340" width="130" height="40"/>
+    <text class="swim-text-title" x="346" y="355">本地文件系统</text>
+    <text class="swim-text-sub" x="346" y="368">notes/{id}.html</text>
+    <rect class="swim-box-ext" x="500" y="340" width="140" height="40"/>
+    <text class="swim-text-title swim-text-accent" x="506" y="355">百度网盘 API</text>
+    <text class="swim-text-sub" x="506" y="368">远程备份 /apps/ai_blog/</text>
+
+    <!-- Data flow annotations -->
+    <path class="swim-arrow" d="M420 200 v50" stroke-dasharray="3 3"/>
+    <text class="swim-text-sub" x="430" y="230" style="font-size:9px">异步同步</text>
+
+    <path class="swim-arrow-brand" d="M30 200 l-10 0 v-50" stroke-dasharray="4 3"/>
+    <text class="swim-text-sub" x="8" y="180" style="font-size:9px">HTTP REST</text>
+
+    <!-- Legend -->
+    <rect x="590" y="12" width="8" height="8" rx="2" fill="var(--brand-soft)" stroke="var(--brand)" stroke-width="1"/>
+    <text x="602" y="21" style="font:var(--weight-regular) 9px/12px var(--font-sans);fill:var(--text-muted)">核心流程</text>
+    <rect x="652" y="12" width="8" height="8" rx="2" fill="var(--surface)" stroke="var(--border)" stroke-width="1"/>
+    <text x="664" y="21" style="font:var(--weight-regular) 9px/12px var(--font-sans);fill:var(--text-muted)">辅助</text>
+    <rect x="696" y="12" width="8" height="8" rx="2" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1" stroke-dasharray="3 2"/>
+    <text x="708" y="21" style="font:var(--weight-regular) 9px/12px var(--font-sans);fill:var(--text-muted)">外部</text>
+  </svg>
+</div>

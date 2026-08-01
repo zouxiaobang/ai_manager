@@ -26,6 +26,15 @@ ai-manager:
     # 经 Nginx 80 端口反代；百度开放平台需登记相同回调地址
     redirect-uri: http://192.168.0.114/oauth/baidu/callback
     frontend-redirect-uri: http://192.168.0.114/#/notebook
+  rag:
+    upload-path: /opt/ai-manager/rag-docs
+    chunk:
+      max-size: 500
+      overlap: 50
+      strategy: recursive
+    search:
+      top-k: 5
+      similarity-threshold: 0.72
   note-storage:
     # 树莓派上未配置网盘时可保持 LOCAL；已绑定网盘改为 BAIDU_PAN
     type: ${NOTE_STORAGE_TYPE:LOCAL}

@@ -69,3 +69,10 @@ firmware/esp32_s3_sub_display/dependencies.lock
 
 # Python virtual environment
 .venv/
+
+# Claude Code
+.claude/worktrees/
+
+# Environment files (carried into worktrees via .worktreeinclude)
+.env
+.env.local

@@ -1,0 +1,4 @@
+# .worktreeinclude — 随 git worktree 复制携带的文件（.gitignore 语法）
+# 只复制"同时被 .gitignore 忽略且此处匹配"的文件，用于把本地环境变量带进 worktree。
+.env
+.env.local

@@ -174,6 +174,22 @@ async function copy(text: string) {
       background: #fef3c7;
     }
   }
+
+  &.is-pgvector &__title {
+    color: #1e40af;
+    background: #e0f2fe;
+    border-bottom-color: #bae6fd;
+  }
+
+  &.is-pgvector &__copy {
+    background: #e0f2fe;
+    border-color: #bae6fd;
+    color: #1e40af;
+
+    &:hover {
+      background: #bae6fd;
+    }
+  }
 }
 
 @media (max-width: 700px) {

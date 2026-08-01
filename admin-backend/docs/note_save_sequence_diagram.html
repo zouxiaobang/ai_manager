@@ -1,0 +1,116 @@
+<style>
+:root {
+  color-scheme: light;
+  --surface: #F7F7F8;
+  --surface-muted: #EFEFF2;
+  --text: #171717;
+  --text-muted: #52525B;
+  --border: rgba(23, 23, 23, 0.12);
+  --brand: #4B3FE3;
+  --brand-soft: #F2F7FF;
+  --brand-soft-strong: #E5EAFF;
+  --brand-text: #1A1759;
+  --brand-on: #FFFFFF;
+  --chart-series-1: #3C2ECA;
+  --success: #1DC981;
+  --warning: #EFAA17;
+  --danger: #E8463A;
+  --radius: 8px;
+  --radius-card: 12px;
+  --radius-full: 999px;
+  --spacer-4: 4px;
+  --spacer-8: 8px;
+  --spacer-12: 12px;
+  --spacer-16: 16px;
+  --spacer-20: 20px;
+  --spacer-24: 24px;
+  --font-sans: "SF Pro Text", "PingFang SC", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-strong: 600;
+  --text-caption: 12px/18px;
+  --text-body: 14px/20px;
+  --text-title: 16px/24px;
+}
+:root[data-widget-theme="dark"] {
+  --surface: #171717;
+  --surface-muted: #262626;
+  --text: #E5E5E5;
+  --text-muted: #A1A1AA;
+  --border: rgba(229, 229, 229, 0.12);
+  --brand: #6054F1;
+  --brand-soft: #1A1759;
+  --brand-soft-strong: #3C2ECA;
+  --brand-text: #CFD8FF;
+}
+.widget { font: var(--weight-regular) var(--text-body) var(--font-sans); color: var(--text); background: transparent; }
+.seq-card { background: var(--surface); border-radius: var(--radius-card); border: 1px solid var(--border); padding: var(--spacer-20); }
+.seq-title { font: var(--weight-strong) var(--text-title) var(--font-sans); color: var(--text); margin: 0 0 var(--spacer-16); }
+.seq-participants { display: flex; gap: var(--spacer-24); padding: var(--spacer-12) 0; border-bottom: 2px solid var(--border); margin-bottom: 0; }
+.seq-p { flex: 1; text-align: center; font: var(--weight-medium) 13px/18px var(--font-sans); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seq-p.is-focus { color: var(--brand); font-weight: var(--weight-strong); }
+.seq-p.is-ext { color: var(--text-muted); }
+.seq-lifeline { position: relative; }
+.seq-msg-row { display: flex; align-items: center; min-height: 40px; padding: var(--spacer-4) 0; }
+.seq-msg-row:hover { background: var(--brand-soft); border-radius: var(--radius); }
+.seq-spacer { flex: 1; min-width: 0; }
+.seq-label { font: var(--weight-regular) var(--text-caption) var(--font-sans); color: var(--text); background: var(--surface-muted); padding: 2px 10px; border-radius: var(--radius-full); border: 1px solid var(--border); white-space: nowrap; }
+.seq-label-req { color: var(--brand-text); background: var(--brand-soft); border-color: var(--brand); }
+.seq-label-ret { color: var(--text-muted); background: var(--surface); border-color: var(--border); border-style: dashed; }
+.seq-step { font: var(--weight-medium) 11px/16px var(--font-mono); color: var(--text-muted); background: var(--surface-muted); padding: 0 6px; border-radius: var(--radius); margin-right: var(--spacer-8); flex-shrink: 0; }
+.seq-arrow { display: flex; align-items: center; flex: 1; min-width: 0; position: relative; }
+.seq-arrow-line { flex: 1; height: 0; border-top: 1.5px solid var(--text-muted); position: relative; }
+.seq-arrow-line.is-req { border-color: var(--brand); }
+.seq-arrow-line.is-ret { border-style: dashed; border-color: var(--text-muted); }
+.seq-arrow-head { position: absolute; right: -1px; top: -4px; width: 0; height: 0; border-left: 7px solid var(--brand); border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
+.seq-arrow-head.is-ret { border-left-color: var(--text-muted); }
+.seq-label-on-arrow { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); font: var(--weight-regular) 11px/16px var(--font-sans); color: var(--brand-text); background: var(--surface); padding: 1px 8px; border-radius: var(--radius); white-space: nowrap; border: 1px solid var(--border); }
+.seq-label-on-arrow.is-ret-col { color: var(--text-muted); }
+.seq-legend { display: flex; gap: var(--spacer-16); padding: var(--spacer-12) 0 0; margin-top: var(--spacer-12); border-top: 1px solid var(--border); font: var(--weight-regular) var(--text-caption) var(--font-sans); }
+.seq-legend-item { display: flex; align-items: center; gap: var(--spacer-8); color: var(--text-muted); }
+.seq-legend-line { width: 24px; height: 0; border-top: 1.5px solid var(--text-muted); }
+.seq-legend-line.solid { border-color: var(--brand); }
+.seq-legend-line.dashed { border-style: dashed; border-color: var(--text-muted); }
+</style>
+<div class="widget seq-card" data-dynamic-ui-widget data-template="sequence-diagram">
+  <h3 class="seq-title">笔记保存核心时序</h3>
+  <div class="seq-participants">
+    <span class="seq-p is-ext">用户</span>
+    <span class="seq-p is-focus">NotebookView<br/><small style="font-weight:400;color:var(--text-muted)">前端</small></span>
+    <span class="seq-p is-focus">Spring Controller</span>
+    <span class="seq-p is-focus">NoteService</span>
+    <span class="seq-p is-focus">ContentService</span>
+    <span class="seq-p is-ext">Redis</span>
+    <span class="seq-p is-ext">MySQL</span>
+    <span class="seq-p is-ext">百度网盘</span>
+  </div>
+
+  <div class="seq-msg-row"><span class="seq-step">1</span><div class="seq-spacer" style="flex:0.5"></div><span class="seq-label seq-label-req" style="margin-left:2%">点击保存 / Ctrl+S</span><div class="seq-spacer" style="flex:2.5"></div></div>
+
+  <div class="seq-msg-row"><span class="seq-step">2</span><div class="seq-spacer" style="flex:0.5"></div><span class="seq-label seq-label-req" style="margin-left:12%">PUT /api/notes/{id}</span><div class="seq-spacer" style="flex:1.5"></div></div>
+
+  <div class="seq-msg-row"><span class="seq-step">3</span><div class="seq-spacer" style="flex:1.5"></div><span class="seq-label seq-label-req">stageContent() → 写入缓存</span><div class="seq-spacer" style="flex:1.8"></div></div>
+
+  <div class="seq-msg-row"><span class="seq-step">4</span><div class="seq-spacer" style="flex:2.2"></div><span class="seq-label seq-label-req">updateById() → 保存元数据</span><div class="seq-spacer" style="flex:1.2"></div></div>
+
+  <div class="seq-msg-row"><span class="seq-step">5</span><div class="seq-spacer" style="flex:2.5"></div><span class="seq-label seq-label-req">scheduleSync() → 异步持久化</span><div class="seq-spacer" style="flex:2.0"></div></div>
+
+  <div class="seq-msg-row"><span class="seq-step">6</span><div class="seq-spacer" style="flex:1.2"></div><span class="seq-label seq-label-ret">返回 NbNoteDetailVO</span><div class="seq-spacer" style="flex:2.5"></div></div>
+
+  <div class="seq-msg-row" style="border-top:1px dashed var(--border); margin-top:var(--spacer-4); padding-top:var(--spacer-8)"><span style="font:var(--weight-regular) var(--text-caption) var(--font-sans); color:var(--text-muted); padding:0 var(--spacer-8)">▼ 异步线程 (CompletableFuture)</span></div>
+
+  <div class="seq-msg-row"><span class="seq-step">7</span><div class="seq-spacer" style="flex:2.8"></div><span class="seq-label seq-label-req">DualWrite: 保存到本地文件</span><div class="seq-spacer" style="flex:1.2"></div></div>
+
+  <div class="seq-msg-row"><span class="seq-step">8</span><div class="seq-spacer" style="flex:3.2"></div><span class="seq-label seq-label-req">DualWrite: 上传到百度网盘</span><div class="seq-spacer" style="flex:1.5"></div></div>
+
+  <div class="seq-msg-row"><span class="seq-step">9</span><div class="seq-spacer" style="flex:3.0"></div><span class="seq-label seq-label-req">写入版本元数据 .meta.json</span><div class="seq-spacer" style="flex:1.0"></div></div>
+
+  <div class="seq-msg-row"><span class="seq-step">10</span><div class="seq-spacer" style="flex:3.0"></div><span class="seq-label seq-label-req">更新 syncStatus = SYNCED</span><div class="seq-spacer" style="flex:1.2"></div></div>
+
+  <div class="seq-legend">
+    <span class="seq-legend-item"><span class="seq-legend-line solid"></span> 请求/写入</span>
+    <span class="seq-legend-item"><span class="seq-legend-line dashed"></span> 返回/异步</span>
+    <span class="seq-legend-item" style="color:var(--text)">角色: <span style="color:var(--brand);font-weight:500">主流程</span> / <span style="color:var(--text-muted)">外部</span></span>
+  </div>
+</div>

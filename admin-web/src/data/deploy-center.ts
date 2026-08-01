@@ -18,7 +18,7 @@ export interface DeployCredentialRow {
 }
 
 export interface DeployCredentialGroup {
-  key: 'nodes' | 'ssh' | 'mysql' | 'app'
+  key: 'nodes' | 'ssh' | 'mysql' | 'pgvector' | 'app'
   fields: DeployCredentialRow[]
 }
 
@@ -134,7 +134,7 @@ export interface DeployCredentialField {
 }
 
 export interface DeployDataNodeServiceCredentials {
-  key: 'mysql' | 'redis'
+  key: 'mysql' | 'redis' | 'pgvector'
   title: string
   fields: DeployCredentialField[]
 }
@@ -168,6 +168,20 @@ export const deployDataNodeCredentials: DeployDataNodeServiceCredentials[] = [
       { label: '密码', value: '无（内网未配置）', copyable: false },
       { label: 'Docker 容器', value: 'ai-manager-redis' },
       { label: '连接命令', value: 'redis-cli -h 192.168.0.118 -p 6379 ping' },
+    ],
+  },
+  {
+    key: 'pgvector',
+    title: 'PostgreSQL + pgvector',
+    fields: [
+      { label: '主机（有线优先）', value: '192.168.0.118' },
+      { label: '端口', value: '5432' },
+      { label: '数据库名', value: 'ai_manager_rag' },
+      { label: '应用用户', value: 'ai_manager' },
+      { label: '应用密码', value: '123456' },
+      { label: 'pgvector 版本', value: '0.7.4' },
+      { label: '连接命令', value: 'psql -h 192.168.0.118 -U ai_manager -d ai_manager_rag -W' },
+      { label: '连接字符串（JDBC）', value: 'jdbc:postgresql://192.168.0.118:5432/ai_manager_rag' },
     ],
   },
 ]
@@ -268,7 +282,7 @@ export const deployArchitectureFlow: DeployArchitectureNode[] = [
   {
     key: 'data',
     label: '数据节点',
-    lines: ['118', 'MySQL · Redis'],
+    lines: ['118', 'MySQL · Redis · pgvector'],
     tone: 'green',
     icons: ['mysql', 'redis', 'docker'],
   },
@@ -311,18 +325,20 @@ export const deployStepsChecklist: DeployStepsChecklistItem[] = [
     id: 'node-status',
     title: '节点状态检查',
     detailDesc:
-      '数据节点是存储与处理的基础组件，部署前需确认 Docker、MySQL 与 Redis 容器均已启动并可从应用节点访问。',
+      '数据节点是存储与处理的基础组件，部署前需确认 Docker、MySQL、Redis 与 PostgreSQL 容器均已启动并可从应用节点访问。',
     inspectSteps: [
       'SSH 登录数据节点 192.168.0.118',
-      '执行 docker compose ps，确认 MySQL / Redis 为 running',
+      '执行 docker compose ps，确认 MySQL / Redis / PostgreSQL 为 running',
+      '检查 pgvector 扩展是否已安装：psql -d ai_manager_rag -c "EXTENSION vector"',
       '检查数据目录磁盘空间是否充足（df -h）',
-      '确认 3306 / 6379 端口在局域网可访问',
+      '确认 3306 / 6379 / 5432 端口在局域网可访问',
     ],
     commands: [
       'ssh kyle@192.168.0.118',
       'cd /opt/ai-manager/data-node && docker compose ps',
+      'psql -h 127.0.0.1 -U ai_manager -d ai_manager_rag -c "SELECT extname FROM pg_extension;"',
       'df -h /opt/ai-manager',
-      'ss -tlnp | grep -E "3306|6379"',
+      'ss -tlnp | grep -E "3306|6379|5432"',
     ],
   },
   {
@@ -376,15 +392,17 @@ export const deployStepsChecklist: DeployStepsChecklistItem[] = [
   {
     id: 'database',
     title: '数据库连接检查',
-    detailDesc: '从应用节点测试连接数据节点 MySQL，确认账号与库名配置正确。',
+    detailDesc: '从应用节点测试连接数据节点 MySQL 与 PostgreSQL，确认账号与库名配置正确。',
     inspectSteps: [
       '在 114 上执行 mysql 客户端连接 118',
       '确认 ai_manager_admin 库可查询',
+      'psql 连接 pgvector，确认 ai_manager_rag 库可查询',
       '检查 backend.env 中数据源配置',
     ],
     commands: [
       'mysql -h 192.168.0.118 -u ai_manager -p123456 ai_manager_admin -e "SELECT 1;"',
-      'grep MYSQL_HOST /opt/ai-manager/backend/backend.env',
+      'psql -h 192.168.0.118 -U ai_manager -d ai_manager_rag -c "SELECT 1;"',
+      'grep -E "MYSQL_HOST|PGVECTOR_HOST" /opt/ai-manager/backend/backend.env',
     ],
     autoComplete: 'mysql',
   },
@@ -403,6 +421,23 @@ export const deployStepsChecklist: DeployStepsChecklistItem[] = [
       'grep REDIS /opt/ai-manager/backend/backend.env',
     ],
     autoComplete: 'redis',
+  },
+  {
+    id: 'pgvector-check',
+    title: 'pgvector 向量库检查',
+    detailDesc: '确认 PostgreSQL 中 pgvector 扩展已启用、rag_vectors 表已创建、可正常读写向量数据。',
+    inspectSteps: [
+      '确认 pgvector 扩展可用：psql -c "SELECT * FROM pg_available_extensions WHERE name = \'vector\';"',
+      '确认向量表存在：psql -c "\d+ rag_vectors"',
+      '测试写入一条向量并查询',
+      '确认 ivfflat 索引已创建',
+    ],
+    commands: [
+      'psql -h 192.168.0.118 -U ai_manager -d ai_manager_rag -c "SELECT extname, extversion FROM pg_extension;"',
+      'psql -h 192.168.0.118 -U ai_manager -d ai_manager_rag -c "\d+ rag_vectors"',
+      'psql -h 192.168.0.118 -U ai_manager -d ai_manager_rag -c "SELECT count(*) FROM rag_vectors;"',
+      'psql -h 192.168.0.118 -U ai_manager -d ai_manager_rag -c "SELECT idxname FROM pg_indexes WHERE tablename = \'rag_vectors\';"',
+    ],
   },
   {
     id: 'autostart-check',
@@ -462,6 +497,18 @@ export const deployCredentialGroups: DeployCredentialGroup[] = [
     ],
   },
   {
+    key: 'pgvector',
+    fields: [
+      { label: 'PostgreSQL 主机', value: '192.168.0.118', copyable: true },
+      { label: '端口', value: '5432', copyable: true },
+      { label: '数据库名', value: 'ai_manager_rag', copyable: true },
+      { label: '应用用户', value: 'ai_manager', copyable: true },
+      { label: '应用密码', value: '123456', copyable: true },
+      { label: 'JDBC 连接串', value: 'jdbc:postgresql://192.168.0.118:5432/ai_manager_rag', copyable: true },
+      { label: 'psql 连接命令', value: 'psql -h 192.168.0.118 -U ai_manager -d ai_manager_rag', copyable: true },
+    ],
+  },
+  {
     key: 'app',
     fields: [{ label: '后端运行用户', value: 'aimanager', copyable: true }],
   },
@@ -470,9 +517,9 @@ export const deployCredentialGroups: DeployCredentialGroup[] = [
 export const deployStepSections: DeployStepSection[] = [
   {
     id: 'data-node',
-    title: '数据节点 — Docker MySQL + Redis',
+    title: '数据节点 — Docker MySQL + Redis + PostgreSQL(pgvector)',
     summary:
-      '在数据节点树莓派（116 或 118，同一台机器双网卡）上安装 Docker，启动 MySQL 与 Redis，并导入全量 SQL。后端优先连接有线 IP 192.168.0.118。',
+      '在数据节点树莓派（116 或 118，同一台机器双网卡）上安装 Docker，启动 MySQL、Redis 与 PostgreSQL(pgvector)，并导入全量 SQL。后端优先连接有线 IP 192.168.0.118。',
     blocks: [
       {
         title: '（可选）卸载原生 MariaDB / Redis',
@@ -519,10 +566,38 @@ export const deployStepSections: DeployStepSection[] = [
         platform: 'linux',
       },
       {
+        title: '安装 PostgreSQL + pgvector',
+        commands: [
+          '# 安装 PostgreSQL',
+          'sudo apt install -y postgresql postgresql-contrib',
+          '# 安装 pgvector（从源码编译）',
+          'cd /tmp && git clone --branch v0.7.4 https://github.com/pgvector/pgvector.git',
+          'cd /tmp/pgvector && make && sudo make install',
+          '# 创建数据库和用户',
+          "sudo -u postgres psql -c \"CREATE USER ai_manager WITH PASSWORD '123456';\"",
+          'sudo -u postgres psql -c "CREATE DATABASE ai_manager_rag OWNER ai_manager;"',
+          'sudo -u postgres psql -d ai_manager_rag -c "CREATE EXTENSION vector;"',
+          '# 创建向量表（复制整个 SQL 块到 psql 执行）',
+          'sudo -u postgres psql -d ai_manager_rag <<SQL',
+          'CREATE TABLE IF NOT EXISTS rag_vectors (',
+          '  id BIGSERIAL PRIMARY KEY, chunk_id BIGINT NOT NULL, doc_id BIGINT NOT NULL,',
+          '  embedding VECTOR(1536) NOT NULL, content TEXT NOT NULL',
+          ');',
+          'CREATE INDEX idx_rag_vectors_embedding ON rag_vectors USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);',
+          'SQL',
+          '# 开放远程连接',
+          'echo "host    ai_manager_rag    ai_manager    192.168.0.0/24    md5" | sudo tee -a /etc/postgresql/*/main/pg_hba.conf',
+          "sudo sed -i \"s/#listen_addresses = .*/listen_addresses = '*'/\" /etc/postgresql/*/main/postgresql.conf",
+          'sudo systemctl restart postgresql',
+        ],
+        platform: 'linux',
+      },
+      {
         title: '从应用节点 114 测试连通',
         commands: [
           'mysql -h 192.168.0.118 -u ai_manager -p123456 ai_manager_admin -e "SELECT 1;"',
           'redis-cli -h 192.168.0.118 ping',
+          'psql -h 192.168.0.118 -U ai_manager -d ai_manager_rag -c "SELECT 1;"',
           '# 若 118 不通可试无线 192.168.0.116',
         ],
         platform: 'linux',
@@ -540,7 +615,8 @@ export const deployStepSections: DeployStepSection[] = [
         commands: [
           'sudo apt update',
           '# ARM 架构树莓派包名：default-jdk（非 openjdk-17-jdk）、mariadb-client（非 mysql-client）',
-          'sudo apt install -y default-jdk nginx maven nodejs npm git mariadb-client redis-tools rsync',
+          '# psql 客户端用于验证 pgvector 连接',
+          'sudo apt install -y default-jdk nginx maven nodejs npm git mariadb-client postgresql-client redis-tools rsync',
           'java -version',
           'node -v && npm -v',
         ],
@@ -579,6 +655,7 @@ export const deployStepSections: DeployStepSection[] = [
         commands: [
           'mysql -h 192.168.0.118 -u ai_manager -p123456 ai_manager_admin -e "SELECT 1;"',
           'redis-cli -h 192.168.0.118 ping',
+          'psql -h 192.168.0.118 -U ai_manager -d ai_manager_rag -c "SELECT 1;"',
         ],
         platform: 'linux',
       },
@@ -617,7 +694,7 @@ export const deployStepSections: DeployStepSection[] = [
           'sudo mv /tmp/backend.env /opt/ai-manager/backend/backend.env',
           'sudo chown aimanager:aimanager /opt/ai-manager/backend/admin-server.jar /opt/ai-manager/backend/backend.env',
           'sudo chmod 600 /opt/ai-manager/backend/backend.env',
-          'grep -E "MYSQL_HOST|REDIS_HOST|SPRING_PROFILES" /opt/ai-manager/backend/backend.env',
+          'grep -E "MYSQL_HOST|REDIS_HOST|PGVECTOR_HOST|SPRING_PROFILES" /opt/ai-manager/backend/backend.env',
           'cd ~/ai_manager',
           'sudo cp deploy/systemd/ai-manager-backend.service /etc/systemd/system/',
           'sudo systemctl daemon-reload',
@@ -787,6 +864,9 @@ export const deployTroubleshooting: DeployTroubleRow[] = [
   { symptom: 'API 失败、页面能开', action: '检查 Nginx /api/ 反代；curl http://127.0.0.1:8080/api/health' },
   { symptom: 'MySQL 连接失败', action: '114 上 mysql -h 192.168.0.118；118 上 docker compose ps' },
   { symptom: 'Redis DOWN', action: 'redis-cli -h 192.168.0.118 ping；检查 backend.env 中 REDIS_HOST' },
+  { symptom: 'pgvector 连接失败', action: '114 上 psql -h 192.168.0.118 -U ai_manager -d ai_manager_rag；检查 PostgreSQL 是否监听 5432 端口及 pg_hba.conf 权限' },
+  { symptom: 'RAG 搜索返回空', action: '检查 rag_vectors 表是否有数据；确认 Embedding API Key 已配置；查看后端日志中的嵌入调用错误' },
+  { symptom: '文档上传后状态一直是 processing', action: '检查后端日志是否有解析/嵌入异常；确认该模型提供商的 Embedding API 可正常访问；检查 /opt/ai-manager/rag-docs 目录权限' },
   {
     symptom: '前端白屏 Unexpected token',
     action: '重新 npm run build 并 rsync；使用 index.html + Hash 路由，勿用 index_pc.html',
@@ -802,7 +882,9 @@ export const deployTroubleshooting: DeployTroubleRow[] = [
 
 export const deployImportantNotes = [
   '生产环境请使用 index.html + Hash 路由（/#/home），不要使用 index_pc.html。',
-  '后端连接数据节点优先使用有线 IP：192.168.0.118（backend.env 中 MYSQL_HOST / REDIS_HOST）。',
+  '后端连接数据节点优先使用有线 IP：192.168.0.118（backend.env 中 MYSQL_HOST / REDIS_HOST / PGVECTOR_HOST）。',
+  '向量数据库使用 PostgreSQL + pgvector，需先安装 pgvector 扩展再建表，见数据节点部署步骤。',
+  'RAG 知识库上传目录默认为 /opt/ai-manager/rag-docs，需确保 aimanager 用户有写入权限。',
   '首次部署必须配置 Nginx（deploy/nginx/ai-manager.conf）并安装 backend.env、systemd 服务。',
   'ARM 架构树莓派 apt 包名：用 default-jdk 替代 openjdk-17-jdk，mariadb-client 替代 mysql-client。',
   'MariaDB 客户端连接需加 --skip-ssl 参数（非 MySQL 的 --ssl-mode=DISABLED）。',

@@ -6,6 +6,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_system.h"
+#include "esp_wifi.h"
 #include "gt911_touch.h"
 
 #include "hal/brownout_ll.h"
@@ -76,6 +77,7 @@ extern "C" void app_main(void) {
   brownout_ll_ana_reset_enable(false);
   brownout_ll_bod_enable(false);
   brownout_ll_reset_config(false, 0, BROWNOUT_RESET_LEVEL_SYSTEM);
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
 
   /* ---- Stage 1: NVS ---- */
   esp_err_t err = nvs_flash_init();
@@ -144,6 +146,9 @@ extern "C" void app_main(void) {
   if (dog_sync_start() != ESP_OK) {
     ESP_LOGW(TAG, "Pixel Dog sync not started (disabled or WiFi not configured)");
   }
+
+  /* Reduce WiFi TX power to minimise peak current draw on USB-only power */
+  esp_wifi_set_max_tx_power(8);
 
   /* ---- Stage 8: restore display + backlight after phy_init spike ---- */
   wifi_sta_wait_heavy_init_done(8000);

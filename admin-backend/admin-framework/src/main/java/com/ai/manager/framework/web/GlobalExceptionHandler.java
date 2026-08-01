@@ -9,6 +9,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.io.IOException;
+
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -31,6 +33,16 @@ public class GlobalExceptionHandler {
             }
         }
         return ApiResult.fail(ResultCode.BAD_REQUEST.getCode(), message);
+    }
+
+    @ExceptionHandler(IOException.class)
+    public ApiResult<Void> handleIo(IOException ex) {
+        if ("Broken pipe".equals(ex.getMessage())) {
+            log.warn("Client disconnected (broken pipe)", ex);
+        } else {
+            log.error("IO exception", ex);
+        }
+        return ApiResult.fail(ResultCode.INTERNAL_ERROR);
     }
 
     @ExceptionHandler(Exception.class)

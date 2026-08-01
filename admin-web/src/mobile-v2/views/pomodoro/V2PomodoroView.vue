@@ -1019,6 +1019,32 @@ function shouldApplyRemoteSession(session: PomodoroActiveSession): boolean {
     if (runState === 'RUNNING' && !paused.value && !ticking.value) return true
   }
 
+  /* ── ADMIN-ADMIN 同步：仅在有意义的变更时才应用 ── */
+  if (owner === 'ADMIN') {
+    // 本地完全空闲（无 pending、无 ticking、无 paused）→ 始终应用远程状态
+    const localCompletelyIdle = phase.value === 'idle' && !pendingPhase.value && !ticking.value && !paused.value
+    if (localCompletelyIdle) return true
+
+    // 本地活跃 → 比较状态是否真正变更
+    const remotePhase = mapServerPhase(serverPhase)
+    const remotePending = mapServerPendingPhase(session.pendingPhase)
+
+    // phase 变更（包括 idle + pendingPhase → RUNNING 另一阶段：remotePhase 从 idle 变为 work/shortBreak/longBreak）
+    if (remotePhase !== phase.value) return true
+    // runState 变更（IDLE ↔ RUNNING ↔ PAUSED）
+    const localRunState: string = paused.value ? 'PAUSED' : (ticking.value ? 'RUNNING' : 'IDLE')
+    if (runState !== localRunState) return true
+    // pendingPhase 变更
+    if (remotePending !== pendingPhase.value) return true
+    // 完成轮次变更
+    if ((session.sessionWorkRounds ?? 0) !== sessionWorkRounds.value) return true
+    // 计划变更
+    if (session.planId && session.planId !== selectedPlanId.value) return true
+
+    // 无有意义变更 → 跳过，避免每秒钟因 syncedAtMs 更新而重置本地 tick
+    return false
+  }
+
   return synced > lastAppliedSyncedMs.value
 }
 
@@ -1149,21 +1175,28 @@ function applyRemoteSession(session: PomodoroActiveSession) {
       pendingPhase.value = null
       phase.value = 'idle'
       remainingSec.value = 0
-    } else {
-      phase.value = mapServerPhase(serverPhase)
+    } else if (remaining <= 0) {
+      // runState=IDLE 且剩余时间为0 → 阶段已完成，设为 idle + pendingPhase
+      phase.value = 'idle'
       plannedSec.value = total
-      remainingSec.value = remaining
+      remainingSec.value = 0
       const remotePending = mapServerPendingPhase(session.pendingPhase)
       if (remotePending) {
         pendingPhase.value = remotePending
-      } else if (remaining <= 0 && phase.value === 'work' && activePlan.value) {
+      } else if (serverPhase === 'WORK' && activePlan.value) {
         const plan = activePlan.value
         pendingPhase.value = sessionWorkRounds.value % plan.roundsBeforeLongBreak === 0 ? 'longBreak' : 'shortBreak'
-      } else if (remaining <= 0 && (phase.value === 'shortBreak' || phase.value === 'longBreak')) {
+      } else if (serverPhase === 'SHORT_BREAK' || serverPhase === 'LONG_BREAK') {
         pendingPhase.value = 'work'
       } else {
         pendingPhase.value = null
       }
+    } else {
+      // runState=IDLE 但剩余时间>0 → 阶段被中断，保留 phase 以便恢复
+      phase.value = mapServerPhase(serverPhase)
+      plannedSec.value = total
+      remainingSec.value = remaining
+      pendingPhase.value = null
     }
 
     const rounds = session.sessionWorkRounds ?? 0

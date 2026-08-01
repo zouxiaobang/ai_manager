@@ -941,14 +941,13 @@ function scrollToHeading(index: number) {
   userNavigationTimer = setTimeout(() => { userNavigationIndex = -1 }, 400)
   const root = getScrollRoot()
   if (root) {
-    const targetRect = target.getBoundingClientRect()
     const rootRect = root.getBoundingClientRect()
-    root.scrollBy({ top: targetRect.top - rootRect.top - 12, behavior: 'instant' })
+    const targetRect = target.getBoundingClientRect()
+    root.scrollTop += targetRect.top - rootRect.top - 12
   } else {
     target.scrollIntoView({ behavior: 'instant', block: 'start' })
   }
   emit('heading-active', index)
-  editorRef.value?.focus()
 }
 
 function getHtml(): string {

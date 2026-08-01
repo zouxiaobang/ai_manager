@@ -1,0 +1,23 @@
+[Unit]
+Description=Claude Code Terminal Relay
+Documentation=https://github.com/anthropics/claude-code
+After=network.target
+
+[Service]
+Type=simple
+User=kyle
+WorkingDirectory=/home/kyle/ai_manager/claude-relay
+ExecStart=/usr/bin/node server.mjs
+Environment=PORT=3001
+Environment=BIND_HOST=127.0.0.1
+Environment=CLAUDE_CLI_PATH=claude
+Environment=CLAUDE_WORK_DIR=/home/kyle
+Restart=on-failure
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

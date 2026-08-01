@@ -1,0 +1,15 @@
+{
+  "name": "claude-relay",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "WebSocket relay server for Claude Code CLI - bridges xterm.js PTY to browser",
+  "scripts": {
+    "start": "node server.mjs",
+    "dev": "node --watch server.mjs"
+  },
+  "dependencies": {
+    "node-pty": "^1.0.0",
+    "ws": "^8.18.0"
+  }
+}

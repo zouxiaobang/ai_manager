@@ -6,6 +6,9 @@ import { resolve } from 'node:path'
 
 const piBuild = process.env.PI_BUILD === '1'
 
+// 代理目标可用 VITE_API_TARGET 覆盖（worktree 独立端口联调，见仓库根 dev.ps1）
+const apiTarget = process.env.VITE_API_TARGET || 'http://127.0.0.1:8080'
+
 function buildManualChunks(id: string) {
   if (!id.includes('node_modules')) {
     if (id.includes('MonthlySettlementPanel')) return 'monthly-settlement'
@@ -18,6 +21,7 @@ function buildManualChunks(id: string) {
     if (id.includes('pomodoro/ReportPanel')) return 'pomo-report'
     return undefined
   }
+  if (id.includes('xterm')) return 'xterm'
   if (id.includes('echarts')) return 'echarts'
   if (id.includes('exceljs')) return 'exceljs'
   if (id.includes('three')) return 'three'
@@ -88,11 +92,16 @@ export default defineConfig(({ command }) => ({
     strictPort: true,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8080',
+        target: apiTarget,
         changeOrigin: true,
       },
       '/uploads': {
-        target: 'http://127.0.0.1:8080',
+        target: apiTarget,
+        changeOrigin: true,
+      },
+      '/claude-relay': {
+        target: 'http://127.0.0.1:3001',
+        ws: true,
         changeOrigin: true,
       },
     },

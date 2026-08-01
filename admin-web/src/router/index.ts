@@ -256,6 +256,12 @@ const router = createRouter({
           meta: { titleKey: 'library.title' },
         },
         {
+          path: 'ai-knowledge',
+          name: 'ai-knowledge',
+          component: () => import('@/views/ai-knowledge/AiKnowledgeView.vue'),
+          meta: { titleKey: 'aiKnowledge.title' },
+        },
+        {
           path: 'library/trash',
           name: 'library-trash',
           component: () => import('@/views/library/LibraryTrashView.vue'),
@@ -349,6 +355,18 @@ const router = createRouter({
           component: () => import('@/views/SettingsView.vue'),
 
           meta: { titleKey: 'portal.menu.settings' },
+
+        },
+
+        {
+
+          path: 'claude',
+
+          name: 'claude-terminal',
+
+          component: () => import('@/views/ClaudeTerminalView.vue'),
+
+          meta: { titleKey: 'claudeTerminal.title' },
 
         },
 

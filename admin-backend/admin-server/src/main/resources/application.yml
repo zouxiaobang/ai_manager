@@ -29,6 +29,15 @@ spring:
     password: ${MYSQL_PASSWORD:123456}
     hikari:
       connection-init-sql: SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci
+  # pgvector 数据源（PostgreSQL）
+  datasource-pg:
+    url: jdbc:postgresql://${PGVECTOR_HOST:192.168.0.118}:${PGVECTOR_PORT:5432}/${PGVECTOR_DATABASE:ai_manager_rag}
+    username: ${PGVECTOR_USER:ai_manager}
+    password: ${PGVECTOR_PASSWORD:123456}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 10000
+      maximum-pool-size: 5
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
@@ -72,6 +81,15 @@ ai-manager:
     # 环境子目录：dev 写入 /apps/ai_blog/dev/...；生产留空沿用 /apps/ai_blog/...
     environment-folder: ${BAIDU_PAN_ENV_FOLDER:}
     default-user-id: 1
+  rag:
+    upload-path: ${RAG_UPLOAD_PATH:uploads/rag-docs}
+    chunk:
+      max-size: 500
+      overlap: 50
+      strategy: recursive
+    search:
+      top-k: 5
+      similarity-threshold: 0.72
   note-storage:
     local-root: uploads/notebook-content
     cache-ttl-seconds: 3600

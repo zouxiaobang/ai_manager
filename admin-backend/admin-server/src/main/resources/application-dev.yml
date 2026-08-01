@@ -29,3 +29,6 @@ ai-manager:
   note-storage:
     # 本地未绑定百度网盘时可先用 LOCAL；绑定后改回 BAIDU_PAN
     type: LOCAL
+  # 本地开发使用相对路径存储上传文档
+  rag:
+    upload-path: uploads/rag-docs

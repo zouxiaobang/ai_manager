@@ -1,0 +1,401 @@
+<mxfile host="Electron" modified="2026-07-23T01:43:52.293Z" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/24.6.4 Chrome/124.0.6367.207 Electron/30.0.6 Safari/537.36" etag="hp4BXZMwHpIxk4tMan8U" version="24.6.4" type="device">
+  <diagram name="第 1 页" id="bSMaH8zzk2TSKq96TS9g">
+    <mxGraphModel dx="1098" dy="1180" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="t1FZhLUimNwmqpMdruxw-1" value="Agent" style="rounded=0;whiteSpace=wrap;html=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;verticalAlign=top;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="106" y="103" width="601" height="488" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-5" style="edgeStyle=none;rounded=1;sketch=1;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;fontFamily=Comic Sans MS;fontSize=16;fillColor=#dae8fc;strokeColor=#6c8ebf;" edge="1" parent="1" source="t1FZhLUimNwmqpMdruxw-2" target="t1FZhLUimNwmqpMdruxw-3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-6" value="Use" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" connectable="0" parent="t1FZhLUimNwmqpMdruxw-5">
+          <mxGeometry x="-0.1342" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-2" value="大模型" style="rounded=1;whiteSpace=wrap;html=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="123" y="184" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-3" value="工具列表" style="rounded=1;whiteSpace=wrap;html=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="126" y="475" width="121" height="39" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-7" value="" style="shape=curlyBracket;whiteSpace=wrap;html=1;rounded=1;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="265" y="162" width="20" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-8" value="擅长回答问题" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="299" y="154" width="139" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-9" value="无法去感知或改变外接环境" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="299" y="264" width="139" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-10" value="" style="shape=curlyBracket;whiteSpace=wrap;html=1;rounded=1;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;sketch=1;fontFamily=Comic Sans MS;fontSize=16;fillColor=#f5f5f5;fontColor=#333333;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="460" y="219" width="20" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-11" value="无法读取某个文件的内容" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=16;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="487" y="204" width="191" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-12" value="无法执行某段程序" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=16;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="487" y="266" width="146" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-13" value="。。。" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=16;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="496" y="319" width="68" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-14" value="" style="shape=curlyBracket;whiteSpace=wrap;html=1;rounded=1;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="263" y="434.5" width="20" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-15" value="读写文件内容" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="290" y="422" width="115" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-16" value="遍历文件列表" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="290" y="462" width="115" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-17" value="运行终端命令" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="294" y="503" width="115" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-18" value="。。。" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="296" y="541" width="80" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-21" style="edgeStyle=none;rounded=1;sketch=1;html=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1" source="t1FZhLUimNwmqpMdruxw-19" target="t1FZhLUimNwmqpMdruxw-20">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-19" value="User：提交任务" style="ellipse;whiteSpace=wrap;html=1;rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="65" y="675" width="120" height="47" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-23" style="edgeStyle=none;rounded=1;sketch=1;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1" source="t1FZhLUimNwmqpMdruxw-20" target="t1FZhLUimNwmqpMdruxw-22">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-20" value="LLM：思考" style="rounded=1;whiteSpace=wrap;html=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="42" y="770" width="166" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-25" style="edgeStyle=none;rounded=1;sketch=1;html=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1" source="t1FZhLUimNwmqpMdruxw-22" target="t1FZhLUimNwmqpMdruxw-24">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-32" value="是" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" connectable="0" parent="t1FZhLUimNwmqpMdruxw-25">
+          <mxGeometry x="-0.1579" y="-1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-31" style="edgeStyle=none;rounded=1;sketch=1;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1" source="t1FZhLUimNwmqpMdruxw-22" target="t1FZhLUimNwmqpMdruxw-30">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-33" value="否" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" connectable="0" parent="t1FZhLUimNwmqpMdruxw-31">
+          <mxGeometry x="-0.0704" y="3" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-22" value="是否调用工具" style="rhombus;whiteSpace=wrap;html=1;rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="43" y="847" width="164" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-27" style="edgeStyle=none;rounded=1;sketch=1;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1" source="t1FZhLUimNwmqpMdruxw-24" target="t1FZhLUimNwmqpMdruxw-26">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-24" value="LLM：行动（执行工具）" style="rounded=1;whiteSpace=wrap;html=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="283" y="864.5" width="192" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-28" style="edgeStyle=orthogonalEdgeStyle;rounded=1;sketch=1;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1" source="t1FZhLUimNwmqpMdruxw-26" target="t1FZhLUimNwmqpMdruxw-20">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="660" y="785" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-26" value="LLM：观察（查看工具结果）" style="rounded=1;whiteSpace=wrap;html=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="551" y="864.5" width="218" height="29" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-30" value="返回最终结论" style="ellipse;whiteSpace=wrap;html=1;rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="65" y="982" width="120" height="47" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-34" value="" style="shape=curlyBracket;whiteSpace=wrap;html=1;rounded=1;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="101" y="1247" width="20" height="164" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-35" value="模型角色" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="126" y="1232" width="161" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-36" value="运行规则" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="129" y="1270" width="161" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-37" value="环境信息" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="129" y="1348" width="161" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-38" value="。。。" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="129" y="1384" width="161" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-39" value="数据格式" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="129" y="1312" width="161" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-40" value="System Prompt" style="rounded=0;whiteSpace=wrap;html=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="87" y="1506" width="216" height="211" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-42" value="你的回答必须包含两个XML，一个叫question，用于存放用户问题，一个叫answer，用于存放你的回答" style="rounded=1;whiteSpace=wrap;html=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="101" y="1552" width="188" height="137" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-43" value="User Prompt" style="rounded=0;whiteSpace=wrap;html=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="89" y="1736" width="216" height="82" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-44" value="这个笔记好不好" style="rounded=1;whiteSpace=wrap;html=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;align=left;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="103" y="1770" width="184" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-45" value="" style="shape=curlyBracket;whiteSpace=wrap;html=1;rounded=1;flipH=1;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="322" y="1650" width="20" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-46" value="" style="endArrow=classic;html=1;rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="361" y="1714" as="sourcePoint" />
+            <mxPoint x="424" y="1714" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-47" value="LLM的回答" style="rounded=1;whiteSpace=wrap;html=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;verticalAlign=top;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="442" y="1603" width="260" height="224" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-48" value="&amp;lt;question&amp;gt;&lt;div&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;这个笔记好不好？&lt;br&gt;&lt;/div&gt;&lt;div&gt;&amp;lt;/question&amp;gt;&lt;/div&gt;&lt;div&gt;&amp;lt;answer&amp;gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;white-space: pre;&quot;&gt;&#x9;&lt;/span&gt;当然很好啦~&lt;br&gt;&lt;/div&gt;&lt;div&gt;&amp;lt;/answer&amp;gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;align=left;verticalAlign=top;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="473" y="1661" width="207" height="139" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-49" value="Agent" style="rounded=0;whiteSpace=wrap;html=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;fillColor=#dae8fc;strokeColor=#6c8ebf;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="196" y="1932" width="454" height="329" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-53" style="edgeStyle=none;rounded=1;sketch=1;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0;entryDx=0;entryDy=0;fontFamily=Comic Sans MS;fontSize=16;startArrow=block;startFill=1;" edge="1" parent="1" source="t1FZhLUimNwmqpMdruxw-50" target="t1FZhLUimNwmqpMdruxw-52">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-50" value="大模型" style="rounded=1;whiteSpace=wrap;html=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="235" y="2023" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-54" style="edgeStyle=none;rounded=1;sketch=1;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=1;entryDx=0;entryDy=0;fontFamily=Comic Sans MS;fontSize=16;startArrow=block;startFill=1;" edge="1" parent="1" source="t1FZhLUimNwmqpMdruxw-51" target="t1FZhLUimNwmqpMdruxw-52">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-51" value="工具" style="rounded=1;whiteSpace=wrap;html=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="235" y="2124" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-52" value="Agent主程序" style="ellipse;whiteSpace=wrap;html=1;rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="444" y="2065" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-55" value="用户" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="38" y="2392" width="100" height="623" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-56" value="Agent主程序" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="263" y="2390" width="100" height="623" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-57" value="大模型" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="486" y="2385" width="100" height="623" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-58" value="工具" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="694" y="2392" width="100" height="623" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-59" value="1. 提出任务" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1" target="t1FZhLUimNwmqpMdruxw-56">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="88" y="2477" as="sourcePoint" />
+            <mxPoint x="168" y="2477" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-60" value="2. 将问题和system prompt&lt;div&gt;交给大模型&lt;/div&gt;" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="312" y="2525" as="sourcePoint" />
+            <mxPoint x="537" y="2525" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-61" value="3. Thought + Action" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1" target="t1FZhLUimNwmqpMdruxw-56">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="535" y="2576" as="sourcePoint" />
+            <mxPoint x="455" y="2576" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-62" value="4. 展示" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="309" y="2613" as="sourcePoint" />
+            <mxPoint x="87" y="2613" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-63" value="5. 请求Action中的工具" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1" target="t1FZhLUimNwmqpMdruxw-58">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="312" y="2653" as="sourcePoint" />
+            <mxPoint x="537" y="2653" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-64" value="6. 工具的执行结果" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1" target="t1FZhLUimNwmqpMdruxw-56">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="742" y="2705" as="sourcePoint" />
+            <mxPoint x="520" y="2705" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-65" value="7. 展示" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="309" y="2744" as="sourcePoint" />
+            <mxPoint x="87" y="2744" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-66" value="8. Observation" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="313" y="2804" as="sourcePoint" />
+            <mxPoint x="538" y="2804" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-67" value="9. Thought + Final_answer" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="535" y="2858" as="sourcePoint" />
+            <mxPoint x="313" y="2858" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-68" value="10. 展示最终结论" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="309" y="2904" as="sourcePoint" />
+            <mxPoint x="87" y="2904" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-69" value="" style="rounded=0;whiteSpace=wrap;html=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;fillColor=none;dashed=1;dashPattern=8 8;" vertex="1" parent="1">
+          <mxGeometry x="26" y="2483" width="781" height="394" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-70" value="重复" style="rounded=1;whiteSpace=wrap;html=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="43" y="2493" width="92" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-71" value="调用方式" style="ellipse;whiteSpace=wrap;html=1;rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="48" y="3057" width="197" height="54" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-73" value="用户" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="35" y="3630" width="100" height="623" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-74" value="Agent主程序" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="178" y="3630" width="100" height="623" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-75" value="Plan模型" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="356.5" y="3630" width="100" height="623" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-76" value="执行Agent" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="691" y="3630" width="100" height="623" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-77" value="1. 提出任务" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1" target="t1FZhLUimNwmqpMdruxw-74">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="85" y="3715" as="sourcePoint" />
+            <mxPoint x="165" y="3715" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-78" value="2. 将问题Plan模型" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="227" y="3755" as="sourcePoint" />
+            <mxPoint x="406" y="3757" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-79" value="3. 执行计划：TODO" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="399.75" y="3800" as="sourcePoint" />
+            <mxPoint x="226.25" y="3800" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-81" value="4. 执行计划中的第一个步骤" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1">
+          <mxGeometry x="-0.001" width="80" relative="1" as="geometry">
+            <mxPoint x="228" y="3865" as="sourcePoint" />
+            <mxPoint x="740.5" y="3865" as="targetPoint" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-82" value="5. 执行结果" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="736.5" y="3905" as="sourcePoint" />
+            <mxPoint x="225" y="3905" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-84" value="6. 根据执行结果，重新规划步骤" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1" target="t1FZhLUimNwmqpMdruxw-89">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="228" y="3950" as="sourcePoint" />
+            <mxPoint x="453" y="3950" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-85" value="7. 返回新的执行计划" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1" target="t1FZhLUimNwmqpMdruxw-74">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="574" y="3991" as="sourcePoint" />
+            <mxPoint x="352" y="3991" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-86" value="9. 展示最终结论" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1" source="t1FZhLUimNwmqpMdruxw-74">
+          <mxGeometry x="0.0035" relative="1" as="geometry">
+            <mxPoint x="306" y="4142" as="sourcePoint" />
+            <mxPoint x="84" y="4142" as="targetPoint" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-87" value="" style="rounded=0;whiteSpace=wrap;html=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;fillColor=none;dashed=1;dashPattern=8 8;" vertex="1" parent="1">
+          <mxGeometry x="169.5" y="3823" width="613.5" height="213" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-88" value="重复" style="rounded=1;whiteSpace=wrap;html=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="715" y="3828" width="92" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-89" value="RePlan模型" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="526.5" y="3632" width="100" height="623" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-90" value="可以是ReAct模式" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="674" y="3595" width="130" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-92" value="8. 得出最终答案" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1" target="t1FZhLUimNwmqpMdruxw-74">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="576" y="4087" as="sourcePoint" />
+            <mxPoint x="432" y="4087" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-93" value="" style="shape=curlyBracket;whiteSpace=wrap;html=1;rounded=1;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="61" y="4416" width="20" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-94" value="元数据MetaData（使用两个横线包围）" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="97" y="4399" width="293" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-95" value="指令：模型要遵循其中的规则（自定义）" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="97" y="4517" width="293" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-96" value="" style="shape=curlyBracket;whiteSpace=wrap;html=1;rounded=1;labelPosition=left;verticalLabelPosition=middle;align=right;verticalAlign=middle;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="389" y="4380.5" width="20" height="67" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-97" value="name" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="414" y="4362" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-98" value="description" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="430" y="4431" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-99" value="用户" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="28" y="4747" width="100" height="623" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-100" value="Claude Code" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="356.5" y="4742" width="100" height="623" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-101" value="大模型" style="shape=umlLifeline;perimeter=lifelinePerimeter;whiteSpace=wrap;html=1;container=1;dropTarget=0;collapsible=0;recursiveResize=0;outlineConnect=0;portConstraint=eastwest;newEdgeStyle={&quot;curved&quot;:0,&quot;rounded&quot;:0};rounded=1;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" vertex="1" parent="1">
+          <mxGeometry x="683" y="4735" width="100" height="623" as="geometry" />
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-103" value="1. 帮我总结以下会议内容" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1" target="t1FZhLUimNwmqpMdruxw-100">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="78" y="4832" as="sourcePoint" />
+            <mxPoint x="158" y="4832" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-104" value="&lt;font color=&quot;#ff3333&quot;&gt;2. 用户请求 + AgentSkill列表（只有MetaData）&lt;/font&gt;" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" edge="1" parent="1" target="t1FZhLUimNwmqpMdruxw-101">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="401.5" y="4870" as="sourcePoint" />
+            <mxPoint x="626.5" y="4870" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-105" value="3. 选择“会议总结助手”这个Skill" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="734.5" y="4925" as="sourcePoint" />
+            <mxPoint x="409.5" y="4925" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-107" value="4. “会议总结助手”整个SKILL.md文件" style="html=1;verticalAlign=bottom;endArrow=block;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1" source="t1FZhLUimNwmqpMdruxw-100">
+          <mxGeometry width="80" relative="1" as="geometry">
+            <mxPoint x="302" y="5008" as="sourcePoint" />
+            <mxPoint x="733.5" y="5008" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-108" value="5. 总结内容" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1" target="t1FZhLUimNwmqpMdruxw-100">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="732" y="5060" as="sourcePoint" />
+            <mxPoint x="510" y="5060" as="targetPoint" />
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="t1FZhLUimNwmqpMdruxw-112" value="6. 返回最终结论" style="html=1;verticalAlign=bottom;endArrow=open;dashed=1;endSize=8;curved=0;rounded=0;sketch=1;fontFamily=Comic Sans MS;fontSize=16;" edge="1" parent="1" target="t1FZhLUimNwmqpMdruxw-99">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="409" y="5097" as="sourcePoint" />
+            <mxPoint x="187" y="5097" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

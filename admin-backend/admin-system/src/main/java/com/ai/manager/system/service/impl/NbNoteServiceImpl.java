@@ -43,7 +43,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import org.springframework.transaction.annotation.Transactional;
-
 import org.springframework.util.StringUtils;
 
 
@@ -218,16 +217,13 @@ public class NbNoteServiceImpl extends ServiceImpl<NbNoteMapper, NbNote> impleme
 
         updateById(note);
 
-        if (request.getContent() != null) {
-
-            noteContentSyncService.scheduleSync(note.getId());
-
+        if (request.getTagIds() != null) {
+            nbNoteTagService.syncNoteTags(note.getId(), request.getTagIds());
         }
 
-        if (request.getTagIds() != null) {
-
-            nbNoteTagService.syncNoteTags(note.getId(), request.getTagIds());
-
+        // 异步触发正文同步到网盘
+        if (request.getContent() != null) {
+            noteContentSyncService.scheduleSync(note.getId());
         }
 
         addDogXp("NOTE_CREATE", 15);
@@ -282,16 +278,13 @@ public class NbNoteServiceImpl extends ServiceImpl<NbNoteMapper, NbNote> impleme
 
         updateById(existing);
 
-        if (request.getContent() != null) {
-
-            noteContentSyncService.scheduleSync(id);
-
+        if (request.getTagIds() != null) {
+            nbNoteTagService.syncNoteTags(id, request.getTagIds());
         }
 
-        if (request.getTagIds() != null) {
-
-            nbNoteTagService.syncNoteTags(id, request.getTagIds());
-
+        // 异步触发正文同步到网盘
+        if (request.getContent() != null) {
+            noteContentSyncService.scheduleSync(id);
         }
 
         return toDetailVO(getById(id), true);
