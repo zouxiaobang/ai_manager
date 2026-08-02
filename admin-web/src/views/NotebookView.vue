@@ -382,6 +382,7 @@
                     <button
                       type="button"
                       class="notebook-editor__config-btn"
+                      :class="{ 'is-toc-collapsed': !tocVisible }"
                       :title="t('notebook.config')"
                       :aria-label="t('notebook.config')"
                     >
@@ -3054,6 +3055,11 @@ onBeforeUnmount(() => {
   &:hover {
     color: var(--wr-rail-active-color);
     background: var(--wr-stat-blue-bg);
+  }
+
+  /* 目录折叠时右侧有竖条「目录」展开钮（right:0），左移避开重叠 */
+  &.is-toc-collapsed {
+    margin-right: 16px;
   }
 }
 
