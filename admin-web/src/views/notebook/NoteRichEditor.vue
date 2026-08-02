@@ -84,8 +84,6 @@ function buildToolbarConfig(): Partial<IToolbarConfig> {
           'showShortcuts',
         ],
       },
-      '|',
-      'fullScreen',
     ],
   }
 }
@@ -363,14 +361,11 @@ function patchToolbarPointer() {
     btn.style.cursor = 'pointer'
   })
   root.querySelectorAll('.w-e-toolbar .w-e-bar-item').forEach((item) => {
-    item.classList.remove('is-fullscreen', 'is-more-tools')
+    item.classList.remove('is-more-tools')
   })
   root.querySelector('.w-e-toolbar button[data-menu-key="group-more"]')
     ?.closest('.w-e-bar-item')
     ?.classList.add('is-more-tools')
-  root.querySelector('.w-e-toolbar button[data-menu-key="fullScreen"]')
-    ?.closest('.w-e-bar-item')
-    ?.classList.add('is-fullscreen')
 }
 
 function initToolbar(editor: IDomEditor) {
@@ -1115,10 +1110,6 @@ onBeforeUnmount(() => {
 :deep(.w-e-toolbar .w-e-bar-item) {
   cursor: pointer;
   flex-shrink: 0;
-}
-
-:deep(.w-e-toolbar .w-e-bar-item.is-fullscreen) {
-  margin-left: auto;
 }
 
 :deep(.w-e-toolbar .w-e-bar-item.is-more-tools button) {
