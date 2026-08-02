@@ -26,10 +26,10 @@
           {{ file.updateTime }}
         </el-descriptions-item>
         <el-descriptions-item :label="t('library.sha256')">
-          <span class="library-detail-panel__hash">{{ (file as any).contentHash || '-' }}</span>
+          <span class="library-detail-panel__hash">{{ file.contentHash || '-' }}</span>
         </el-descriptions-item>
         <el-descriptions-item :label="t('library.storagePath')">
-          <span class="library-detail-panel__path">{{ (file as any).storagePath || '-' }}</span>
+          <span class="library-detail-panel__path">{{ file.storagePath || '-' }}</span>
         </el-descriptions-item>
       </el-descriptions>
 
@@ -99,8 +99,9 @@ import { ElMessage } from 'element-plus'
 import type { DocFile } from '@/api/library/types'
 import { togglePin, removeFile, updateFileDescription } from '@/api/library/file'
 
+// contentHash/storagePath 仅详情接口返回，作为可选字段并入 props 类型
 const props = defineProps<{
-  file: DocFile | null
+  file: (DocFile & { contentHash?: string; storagePath?: string }) | null
 }>()
 
 const emit = defineEmits<{

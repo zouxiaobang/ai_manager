@@ -99,7 +99,6 @@ onMounted(() => {
 
 function handleSelectCarton(cartonItem: { id: string | number }) {
   selectedCartonId.value = cartonItem.id
-  console.log('Selected carton:', cartonItem.id)
 }
 </script>
 

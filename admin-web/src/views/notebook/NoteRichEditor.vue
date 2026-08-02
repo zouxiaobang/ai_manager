@@ -33,6 +33,7 @@ import { Boot, createToolbar, DomEditor, i18nAddResources, i18nChangeLanguage } 
 import type { IDomEditor, IEditorConfig, IToolbarConfig, IButtonMenu } from '@wangeditor/editor'
 import { ElMessageBox } from 'element-plus'
 import { Transforms } from 'slate'
+import type { Element as SlateElement } from 'slate'
 import { getNotebookImageUrl, uploadNotebookImage } from '@/api/notebook/image'
 import StorageImagePickerDialog from '@/components/storage/StorageImagePickerDialog.vue'
 import { HEADING_SELECTOR } from './noteToc'
@@ -419,7 +420,8 @@ function onNotebookImagePicked(fileName: string) {
   pendingImageInsert = null
 }
 
-const editorConfig: Partial<IEditorConfig> = {
+// hoverbarKeys 是 wangEditor 非标准配置，用交叉类型显式声明避免 any
+const editorConfig: Partial<IEditorConfig> & { hoverbarKeys?: Record<string, { menuKeys: string[] }> } = {
   placeholder: props.placeholder ?? t('notebook.contentPlaceholder'),
   readOnly: false,
   autoFocus: true,
@@ -453,7 +455,7 @@ const editorConfig: Partial<IEditorConfig> = {
       menuKeys: ['editLink'],
     },
   },
-} as any
+}
 
 function normalizeHtmlContent(content?: string | null): string {
   const text = content ?? ''
@@ -669,10 +671,10 @@ function onEditorKeydown(event: Event) {
     const editor = editorRef.value
     if (!editor) return
     if (ke.key === '0') {
-      Transforms.setNodes(editor, { type: 'paragraph' } as any, { mode: 'highest' })
+      Transforms.setNodes(editor, { type: 'paragraph' } as Partial<SlateElement>, { mode: 'highest' })
       Transforms.unsetNodes(editor, 'level', { mode: 'highest' })
     } else {
-      Transforms.setNodes(editor, { type: `header${ke.key}` } as any, { mode: 'highest' })
+      Transforms.setNodes(editor, { type: `header${ke.key}` } as Partial<SlateElement>, { mode: 'highest' })
     }
     return
   }

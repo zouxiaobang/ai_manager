@@ -278,7 +278,7 @@ import MobilePage from '@/mobile/components/MobilePage.vue'
 import { MOBILE_PRODUCTS_KEY } from '@/mobile/views/products/productsContext'
 import { useMobileProducts } from '@/mobile/views/products/useMobileProducts'
 import { getEcommerceImageUrl } from '@/api/ecommerce/image'
-import type { EcSku } from '@/api/ecommerce/product'
+import type { EcProductListItem, EcSku } from '@/api/ecommerce/product'
 import type { EcFactoryType } from '@/api/ecommerce/factory'
 import MobileProductsSkuCard from '@/mobile/views/products/components/MobileProductsSkuCard.vue'
 
@@ -361,7 +361,7 @@ function skuStatusChipClass(status?: string): string {
 
 const detailVisible = ref(false)
 
-async function handleDetail(item: any) {
+async function handleDetail(item: EcProductListItem) {
   await products.loadProductDetail(item.id)
   detailVisible.value = true
 }

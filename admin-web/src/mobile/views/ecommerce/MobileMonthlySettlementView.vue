@@ -252,8 +252,8 @@ async function loadData(month: string) {
   try {
     const data = await fetchMonthlySettlement(month)
     result.value = data
-  } catch (e: any) {
-    error.value = e?.message || '请求失败，请检查网络连接'
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : '请求失败，请检查网络连接'
     result.value = null
   } finally {
     loading.value = false

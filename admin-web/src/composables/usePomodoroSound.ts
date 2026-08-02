@@ -85,7 +85,12 @@ function ensureAudioContext(): Promise<AudioContext | null> {
     }
 
     try {
-      const Adapter = (window as any).AudioContext || (window as any).webkitAudioContext
+      // webkitAudioContext 是 Safari 旧前缀，不在标准类型里，用结构类型收窄
+      const audioWindow = window as unknown as {
+        AudioContext?: typeof AudioContext
+        webkitAudioContext?: typeof AudioContext
+      }
+      const Adapter = audioWindow.AudioContext || audioWindow.webkitAudioContext
       if (!Adapter) {
         resolve(null)
         return

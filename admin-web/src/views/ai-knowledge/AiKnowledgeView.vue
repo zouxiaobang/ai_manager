@@ -1922,8 +1922,8 @@ async function handleFileSelected(event: Event) {
     const result = await uploadRagDocument(file)
     ElMessage.success(`${t('common.save')}：${result.fileName}`)
     await loadRagData()
-  } catch (e: any) {
-    ElMessage.error(e?.message || t('aiKnowledge.status.error'))
+  } catch (e: unknown) {
+    ElMessage.error(e instanceof Error ? e.message : t('aiKnowledge.status.error'))
   } finally {
     uploading.value = false
     // 重置 input 以允许重复上传同名文件

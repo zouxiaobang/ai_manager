@@ -139,7 +139,7 @@ import MobileCard from '@/mobile/components/MobileCard.vue'
 import WarRoomStatIcon from '@/components/war-room/WarRoomStatIcon.vue'
 import { fetchHealth } from '@/api/health'
 import type { HealthData } from '@/api/types'
-import { fetchPinnedTodos, fetchTodayTodos, updateTodo } from '@/api/notebook/todo'
+import { fetchPinnedTodos, fetchTodayTodos, updateTodo, type NbTodoItem } from '@/api/notebook/todo'
 import { fetchDailyChecklist, type DailyChecklistItem } from '@/api/dailyChecklist'
 import { functionItems } from '@/data/function-items'
 import { useTodoReminders } from '@/composables/useTodoReminders'
@@ -151,7 +151,7 @@ const { refreshTodayCount } = useTodoReminders()
 
 const pendingCount = ref(0)
 const doneCount = ref(0)
-const pinnedTodos = ref<any[]>([])
+const pinnedTodos = ref<NbTodoItem[]>([])
 const moduleCount = computed(() => functionItems.length)
 const prevPrepHint = ref('')
 
@@ -292,8 +292,8 @@ async function loadHealth() {
 async function loadTodos() {
   try {
     const today = await fetchTodayTodos()
-    pendingCount.value = today.filter((row: any) => row.completed !== 1).length
-    doneCount.value = today.filter((row: any) => row.completed === 1).length
+    pendingCount.value = today.filter((row: NbTodoItem) => row.completed !== 1).length
+    doneCount.value = today.filter((row: NbTodoItem) => row.completed === 1).length
     const pinned = await fetchPinnedTodos()
     pinnedTodos.value = pinned
   } catch {
@@ -315,18 +315,18 @@ function yesterdayDateString(): string {
 async function loadPrepHint() {
   try {
     const data = await fetchDailyChecklist(yesterdayDateString())
-    const hint = data.find((item: any) => item.itemKey === 'prep_hint')
+    const hint = data.find((item: DailyChecklistItem) => item.itemKey === 'prep_hint')
     prevPrepHint.value = hint?.content || ''
   } catch {
     prevPrepHint.value = ''
   }
 }
 
-async function onTogglePinned(item: any, checked: boolean) {
+async function onTogglePinned(item: NbTodoItem, checked: boolean) {
   try {
     await updateTodo(item.id, { completed: checked })
     if (checked) {
-      pinnedTodos.value = pinnedTodos.value.filter((r: any) => r.id !== item.id)
+      pinnedTodos.value = pinnedTodos.value.filter((r: NbTodoItem) => r.id !== item.id)
       doneCount.value = doneCount.value + 1
       pendingCount.value = Math.max(0, pendingCount.value - 1)
     }

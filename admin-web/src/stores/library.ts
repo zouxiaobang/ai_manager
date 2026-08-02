@@ -37,7 +37,10 @@ export const useLibraryStore = defineStore('library', () => {
     if (eventQueue.value.length === 0) return
     const batch = [...eventQueue.value]
     eventQueue.value = []
-    submitEvents(batch).catch(() => {})
+    // 行为追踪上报失败不阻断主流程，但记录告警便于排查
+    submitEvents(batch).catch((err) => {
+      console.warn('[library] 事件上报失败', err)
+    })
   }
 
   function track(event: LibraryEvent) {
