@@ -750,6 +750,7 @@ export default {
     fullscreenOpen: 'Fullscreen',
     fullscreenClose: 'Exit fullscreen',
     fullscreenHint: 'Esc to exit',
+    config: 'Settings',
     baiduPanRequiredTitle: 'Baidu Netdisk required',
     baiduPanRequiredDesc: 'Note content is stored in Baidu Netdisk app data. Please authorize first.',
     baiduPanConnect: 'Bind Netdisk',

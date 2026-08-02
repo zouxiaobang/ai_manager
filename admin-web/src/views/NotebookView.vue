@@ -310,7 +310,7 @@
                     </span>
                   </div>
                 </div>
-                <div class="notebook-editor__actions-col">
+                <div v-if="!isTabletRange" class="notebook-editor__actions-col">
                   <div class="notebook-editor__pin-actions">
                     <button
                       type="button"
@@ -369,10 +369,121 @@
                     </button>
                   </div>
                 </div>
+                <!-- 平板档：置顶/收藏/MD模式/全屏/标签 收进一个配置按钮（和标题同行，释放内容区高度） -->
+                <el-popover
+                  v-else
+                  v-model:visible="configMenuVisible"
+                  placement="bottom-end"
+                  :width="240"
+                  trigger="click"
+                  popper-class="notebook-editor-config-popper"
+                >
+                  <template #reference>
+                    <button
+                      type="button"
+                      class="notebook-editor__config-btn"
+                      :title="t('notebook.config')"
+                      :aria-label="t('notebook.config')"
+                    >
+                      <el-icon :size="16"><MoreFilled /></el-icon>
+                    </button>
+                  </template>
+                  <div class="notebook-editor-config">
+                    <button
+                      type="button"
+                      class="notebook-editor-config__item"
+                      :class="{ 'is-active': currentNote.isPinned === 1 }"
+                      @click="configMenuVisible = false; togglePin()"
+                    >
+                      <el-icon><Top /></el-icon>
+                      <span>{{ currentNote.isPinned === 1 ? t('notebook.unpin') : t('notebook.pin') }}</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="notebook-editor-config__item"
+                      :class="{ 'is-active': currentNote.isFavorite === 1 }"
+                      @click="configMenuVisible = false; toggleFavorite()"
+                    >
+                      <el-icon><Star /></el-icon>
+                      <span>{{ currentNote.isFavorite === 1 ? t('notebook.unfavorite') : t('notebook.favorite') }}</span>
+                    </button>
+                    <template v-if="isMdNote">
+                      <div class="notebook-editor-config__sep" />
+                      <div class="notebook-editor-config__md">
+                        <button
+                          type="button"
+                          class="notebook-editor-config__md-item"
+                          :class="{ 'is-active': mdViewMode === 'edit' }"
+                          @click="configMenuVisible = false; mdViewMode = 'edit'"
+                        >
+                          <el-icon><Edit /></el-icon>
+                          {{ t('notebook.mdEdit') }}
+                        </button>
+                        <button
+                          type="button"
+                          class="notebook-editor-config__md-item"
+                          :class="{ 'is-active': mdViewMode === 'split' }"
+                          @click="configMenuVisible = false; mdViewMode = 'split'"
+                        >
+                          <span class="notebook-editor__md-split-icon">‖</span>
+                          {{ t('notebook.mdSplit') }}
+                        </button>
+                        <button
+                          type="button"
+                          class="notebook-editor-config__md-item"
+                          :class="{ 'is-active': mdViewMode === 'preview' }"
+                          @click="configMenuVisible = false; mdViewMode = 'preview'"
+                        >
+                          <el-icon><View /></el-icon>
+                          {{ t('notebook.mdPreview') }}
+                        </button>
+                      </div>
+                    </template>
+                    <div class="notebook-editor-config__sep" />
+                    <button
+                      type="button"
+                      class="notebook-editor-config__item"
+                      @click="configMenuVisible = false; openFullscreen()"
+                    >
+                      <el-icon><FullScreen /></el-icon>
+                      <span>{{ t('notebook.fullscreenOpen') }}</span>
+                    </button>
+                    <div class="notebook-editor-config__sep" />
+                    <div class="notebook-editor-config__label">{{ t('notebook.tags') }}</div>
+                    <button
+                      v-for="(tag, tagIndex) in allTags"
+                      :key="tag.id"
+                      type="button"
+                      class="notebook-editor-config__item"
+                      :class="{ 'is-selected': editForm.tagIds.includes(tag.id) }"
+                      @click="toggleNoteTag(tag.id)"
+                    >
+                      <span
+                        class="notebook-tag-picker__pill"
+                        :style="getTagPillStyle(tag, tagIndex)"
+                      >
+                        # {{ tag.name }}
+                      </span>
+                      <el-icon v-if="editForm.tagIds.includes(tag.id)" class="notebook-editor-config__check"><Check /></el-icon>
+                    </button>
+                    <el-empty
+                      v-if="!allTags.length"
+                      :description="t('notebook.noTags')"
+                      :image-size="48"
+                    />
+                    <button
+                      type="button"
+                      class="notebook-editor-config__manage"
+                      @click="configMenuVisible = false; openTagManage()"
+                    >
+                      {{ t('notebook.tagManage') }}
+                    </button>
+                  </div>
+                </el-popover>
               </div>
 
               <!-- 标签区域：笔记标签管理和添加 -->
-              <div class="notebook-editor__tags">
+              <div v-if="!isTabletRange" class="notebook-editor__tags">
                 <span
                   v-for="(tag, tagIndex) in selectedNoteTags"
                   :key="tag.id"
@@ -731,6 +842,7 @@ import {
   Link,
   Loading,
   Menu,
+  MoreFilled,
   Plus,
   Search,
   Star,
@@ -806,6 +918,8 @@ function onEscapeKeyForSidebar(e: KeyboardEvent) {
 const shortViewportMql = typeof window !== 'undefined' ? window.matchMedia('(max-height: 900px)') : null
 const tabsCollapsed = ref(shortViewportMql?.matches ?? false)
 const tabSwitchVisible = ref(false)
+// 平板档：标题行右侧「配置」按钮的浮层菜单显隐
+const configMenuVisible = ref(false)
 // 编辑器标题行是否右移：左上角存在悬浮按钮（紧凑档抽屉开关 / 矮视口标签页开关）时，
 // 标题、时间字数、置顶等按钮会被遮挡，右移避开。
 const editorTitleShifted = computed(
@@ -2920,6 +3034,29 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 
+/* 平板档「配置」按钮：与标题同行，收纳置顶/收藏/MD模式/全屏/标签 */
+.notebook-editor__config-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  margin-top: 6px;
+  padding: 0;
+  border: 1px solid var(--wr-border);
+  border-radius: 8px;
+  background: var(--wr-card);
+  color: var(--wr-text-secondary);
+  cursor: pointer;
+  box-shadow: var(--wr-shadow);
+
+  &:hover {
+    color: var(--wr-rail-active-color);
+    background: var(--wr-stat-blue-bg);
+  }
+}
+
 .notebook-editor__title {
   width: 100%;
   min-width: 0;
@@ -3651,6 +3788,110 @@ onBeforeUnmount(() => {
 
   .notebook-tabs-switch__check {
     font-size: 14px;
+  }
+}
+
+/* 平板档「配置」按钮浮层菜单（el-popover 渲染在 body，需全局样式） */
+.notebook-editor-config-popper {
+  .notebook-editor-config {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .notebook-editor-config__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 10px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--wr-text-secondary, #666666);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover,
+    &.is-active {
+      color: var(--wr-rail-active-color, #2563eb);
+      background: var(--wr-stat-blue-bg, #eff6ff);
+    }
+  }
+
+  .notebook-editor-config__check {
+    margin-left: auto;
+    font-size: 14px;
+  }
+
+  .notebook-editor-config__label {
+    padding: 4px 10px 2px;
+    font-size: 11px;
+    color: var(--wr-muted, #999999);
+  }
+
+  .notebook-editor-config__sep {
+    height: 1px;
+    margin: 4px 0;
+    background: var(--wr-border, #e8ecef);
+  }
+
+  .notebook-editor-config__md {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+  }
+
+  .notebook-editor-config__md-item {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 6px 4px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--wr-text-secondary, #666666);
+    font-size: 12px;
+    cursor: pointer;
+
+    &.is-active {
+      color: var(--el-color-primary);
+      background: var(--wr-stat-blue-bg, #eff6ff);
+    }
+  }
+
+  .notebook-editor-config__manage {
+    margin-top: 2px;
+    padding: 8px 10px;
+    border: none;
+    border-top: 1px solid var(--wr-border, #e8ecef);
+    border-radius: 0;
+    background: transparent;
+    color: var(--wr-rail-active-color, #2563eb);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--wr-stat-blue-bg, #eff6ff);
+    }
+  }
+
+  /* 复用标签 pill 样式（scoped 样式不达 popper，此处兜底） */
+  .notebook-tag-picker__pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+  }
+
+  .notebook-editor__md-split-icon {
+    font-weight: 700;
+    letter-spacing: -1px;
   }
 }
 </style>

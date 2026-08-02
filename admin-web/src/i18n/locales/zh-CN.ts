@@ -749,6 +749,7 @@ export default {
     fullscreenOpen: '全屏阅读',
     fullscreenClose: '退出全屏',
     fullscreenHint: 'Esc 退出',
+    config: '配置',
     baiduPanRequiredTitle: '需要绑定百度网盘',
     baiduPanRequiredDesc: '笔记正文将保存到百度网盘「我的应用数据」，请先完成授权。',
     baiduPanConnect: '绑定云盘',
