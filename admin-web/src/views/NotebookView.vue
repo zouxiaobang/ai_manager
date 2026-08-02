@@ -539,6 +539,39 @@
     >
       {{ t('notebook.baiduPanConnect') }}
     </el-button>
+    <!-- 矮视口标签页收起：小图标按钮切换 全部/回收站 -->
+    <div v-if="tabsCollapsed" class="notebook-tabs-switch">
+      <el-popover
+        v-model:visible="tabSwitchVisible"
+        placement="bottom-start"
+        :width="132"
+        trigger="click"
+        popper-class="notebook-tabs-switch-popper"
+      >
+        <template #reference>
+          <button
+            type="button"
+            class="notebook-tabs-switch__btn"
+            :aria-label="t('notebook.tabs.switch')"
+          >
+            <el-icon :size="16"><Menu /></el-icon>
+          </button>
+        </template>
+        <div class="notebook-tabs-switch__menu">
+          <button
+            v-for="tab in tabSwitchOptions"
+            :key="tab.name"
+            type="button"
+            class="notebook-tabs-switch__item"
+            :class="{ 'is-active': activeTab === tab.name }"
+            @click="onTabSwitchSelect(tab.name)"
+          >
+            <el-icon v-if="activeTab === tab.name" class="notebook-tabs-switch__check"><Check /></el-icon>
+            <span>{{ tab.label }}</span>
+          </button>
+        </div>
+      </el-popover>
+    </div>
     </div>
 
     <!-- 树节点右键菜单：笔记/文件夹的右键操作菜单 -->
@@ -751,6 +784,35 @@ function onEscapeKeyForSidebar(e: KeyboardEvent) {
   if (e.key === 'Escape' && isCompactRange.value && sidebarVisible.value) {
     sidebarVisible.value = false
   }
+}
+
+// 矮视口（高度 ≤ 900px）：标签页整行收起为小图标按钮
+const shortViewportMql = typeof window !== 'undefined' ? window.matchMedia('(max-height: 900px)') : null
+const tabsCollapsed = ref(shortViewportMql?.matches ?? false)
+const tabSwitchVisible = ref(false)
+
+function applyShortViewport() {
+  tabsCollapsed.value = shortViewportMql?.matches ?? false
+}
+
+applyShortViewport()
+shortViewportMql?.addEventListener('change', applyShortViewport)
+
+// 兜底：部分内嵌 WebView / 旧浏览器 matchMedia change 事件不可靠，窗口 resize 时重新应用
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', applyShortViewport)
+}
+
+const tabSwitchOptions = computed<{ name: 'all' | 'trash'; label: string }[]>(() => [
+  { name: 'all', label: t('notebook.tabs.all') },
+  { name: 'trash', label: t('notebook.tabs.trash') },
+])
+
+function onTabSwitchSelect(name: 'all' | 'trash') {
+  tabSwitchVisible.value = false
+  if (activeTab.value === name) return
+  activeTab.value = name
+  void onTabChange(name)
 }
 const treeLoading = ref(false) // 树结构加载状态
 const treeData = ref<NbTreeNode[]>([]) // 笔记文件夹树数据
@@ -2140,6 +2202,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  shortViewportMql?.removeEventListener('change', applyShortViewport)
+  window.removeEventListener('resize', applyShortViewport)
   window.removeEventListener('pagehide', onPageHide)
   window.removeEventListener('keydown', onSearchShortcut)
   window.removeEventListener('keydown', onSaveKeydown)
@@ -2321,6 +2385,33 @@ onBeforeUnmount(() => {
   top: 4px;
   right: 8px;
   z-index: 10;
+}
+
+.notebook-tabs-switch {
+  position: absolute;
+  top: 4px;
+  left: 8px;
+  z-index: 10;
+}
+
+.notebook-tabs-switch__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--wr-border);
+  border-radius: 8px;
+  background: var(--wr-card);
+  color: var(--wr-text-secondary);
+  cursor: pointer;
+  box-shadow: var(--wr-shadow);
+
+  &:hover {
+    color: var(--wr-rail-active-color);
+    background: var(--wr-stat-blue-bg);
+  }
 }
 
 :deep(.notebook-tabs) {
@@ -3332,6 +3423,159 @@ onBeforeUnmount(() => {
     &:hover {
       background: var(--wr-stat-blue-bg);
     }
+  }
+}
+
+/* 矮视口（平板横屏 / 笔记本小屏）：压缩固定条与留白，放大内容区可读高度 */
+@media (max-height: 900px) {
+  .war-room-panel--notebook {
+    padding: 8px 12px;
+  }
+
+  .notebook-tab-all {
+    gap: 8px;
+  }
+
+  .notebook-tabs-wrap :deep(.el-tabs__header) {
+    margin-bottom: 8px;
+  }
+
+  .notebook-stats {
+    gap: 8px;
+  }
+
+  .notebook-stat-card {
+    height: 56px;
+    gap: 10px;
+    padding: 8px 12px;
+  }
+
+  .notebook-stat-card__icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    font-size: 15px;
+  }
+
+  .notebook-stat-card__label {
+    font-size: 12px;
+  }
+
+  .notebook-stat-card__value {
+    font-size: 18px;
+  }
+
+  .notebook-sidebar {
+    width: 220px;
+  }
+
+  .notebook-sidebar__toolbar {
+    gap: 6px;
+    padding: 8px 8px 6px;
+  }
+
+  .notebook-sidebar__search :deep(.el-input__wrapper) {
+    min-height: 34px;
+  }
+
+  .notebook-toc {
+    width: 200px;
+  }
+
+  .notebook-editor {
+    padding: 8px 12px;
+  }
+
+  .notebook-main {
+    padding: 8px 12px;
+  }
+
+  .notebook-editor__header {
+    margin-bottom: 8px;
+  }
+
+  .notebook-editor__title-row {
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+
+  .notebook-editor__title :deep(.el-input__inner) {
+    font-size: 20px;
+  }
+
+  .notebook-editor__meta-line {
+    font-size: 11px;
+  }
+
+  .notebook-editor__tags {
+    margin-bottom: 0;
+  }
+
+  .notebook-editor__content,
+  .notebook-editor__content-editor,
+  .notebook-editor__md-preview,
+  .notebook-editor__md-textarea,
+  .notebook-editor__md-split,
+  .notebook-editor__content-loading {
+    min-height: 200px;
+  }
+}
+
+/* 矮视口（高度 ≤ 900px，如平板横屏）：统计、标签页收起，最大化内容区 */
+@media (max-height: 900px) {
+  .notebook-stats {
+    display: none;
+  }
+
+  .notebook-tabs :deep(.el-tabs__header) {
+    display: none;
+  }
+
+  .notebook-tab-all {
+    gap: 0;
+  }
+}
+</style>
+
+<style lang="scss">
+/* 矮视口（高度 ≤ 900px）：收起“笔记本”页面标题（仅笔记本页），放大内容区 */
+@media (max-height: 900px) {
+  .war-room-page:has(.notebook-page) .war-room-page__header {
+    display: none;
+  }
+}
+
+/* 标签页收起按钮的浮层菜单（el-popover 渲染在 body，需全局样式） */
+.notebook-tabs-switch-popper {
+  .notebook-tabs-switch__menu {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .notebook-tabs-switch__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 10px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--wr-text-secondary, #666666);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover,
+    &.is-active {
+      color: var(--wr-rail-active-color, #2563eb);
+      background: var(--wr-stat-blue-bg, #eff6ff);
+    }
+  }
+
+  .notebook-tabs-switch__check {
+    font-size: 14px;
   }
 }
 </style>

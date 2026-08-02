@@ -45,18 +45,25 @@ export function purgeLegacyShellStorage() {
   }
 }
 
+/** 平板设备（iPad / Android 平板 / 触摸型 macOS）——一律走 PC 壳 */
+export function isTabletUserAgent(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent
+  // iPad（含 iPadOS 13+ 桌面 UA：MacIntel + 触摸）
+  if (/iPad/i.test(ua)) return true
+  // Android 平板：手机 UA 带 Mobile，平板不带
+  if (/Android/i.test(ua) && !/Mobile/i.test(ua)) return true
+  if (navigator.maxTouchPoints > 1 && /MacIntel|Macintosh/i.test(navigator.platform)) return true
+  return false
+}
+
 /** UA / Client Hints */
 export function isMobileUserAgent(): boolean {
   if (typeof navigator === 'undefined') return false
-
   const ua = navigator.userAgent
+  // 平板不是手机（平板由 resolveAutoShell 统一走 PC 壳）
+  if (isTabletUserAgent()) return false
   if (/Android|webOS|iPhone|iPod|BlackBerry|IOMobile|Opera Mini|Mobile/i.test(ua)) {
-    return true
-  }
-  if (/iPad/i.test(ua)) {
-    return true
-  }
-  if (navigator.maxTouchPoints > 1 && /MacIntel|Macintosh/i.test(navigator.platform)) {
     return true
   }
 
@@ -80,6 +87,8 @@ export function isMobileDevice(): boolean {
 
 /** 纯自动识别（不含手动偏好） */
 export function resolveAutoShell(): AppShell {
+  // 平板一律 PC 壳（不分横竖屏）；手机仍按 UA / 视口判定
+  if (isTabletUserAgent()) return 'pc'
   return isMobileDevice() ? 'mobile' : 'pc'
 }
 

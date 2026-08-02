@@ -31,12 +31,18 @@
     }
   }
 
-  function isUaMobile() {
+  function isUaTablet() {
     var ua = navigator.userAgent || '';
     return (
-      /Android|webOS|iPhone|iPod|iPad|BlackBerry|IOMobile|Opera Mini|Mobile/i.test(ua) ||
+      /iPad/i.test(ua) ||
+      (/Android/i.test(ua) && !/Mobile/i.test(ua)) ||
       (navigator.maxTouchPoints > 1 && /MacIntel|Macintosh/i.test(navigator.platform))
     );
+  }
+
+  function isUaPhone() {
+    var ua = navigator.userAgent || '';
+    return /Android|webOS|iPhone|iPod|BlackBerry|IOMobile|Opera Mini|Mobile/i.test(ua);
   }
 
   function isNarrow() {
@@ -44,7 +50,9 @@
   }
 
   function autoShell() {
-    return isUaMobile() || isNarrow() ? 'mobile' : 'pc';
+    // 平板一律 PC 壳（不分横竖屏）；手机仍按 UA / 视口判定
+    if (isUaTablet()) return 'pc';
+    return isUaPhone() || isNarrow() ? 'mobile' : 'pc';
   }
 
   function resolveShell() {
