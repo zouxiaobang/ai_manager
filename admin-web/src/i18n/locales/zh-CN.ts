@@ -751,7 +751,7 @@ export default {
     fullscreenHint: 'Esc 退出',
     baiduPanRequiredTitle: '需要绑定百度网盘',
     baiduPanRequiredDesc: '笔记正文将保存到百度网盘「我的应用数据」，请先完成授权。',
-    baiduPanConnect: '去绑定',
+    baiduPanConnect: '绑定云盘',
     baiduPanConnected: '百度网盘绑定成功',
     baiduPanAuthFailed: '百度网盘授权失败，请稍后重试',
     baiduPanReconnect: '重新绑定',

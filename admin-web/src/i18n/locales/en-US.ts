@@ -752,7 +752,7 @@ export default {
     fullscreenHint: 'Esc to exit',
     baiduPanRequiredTitle: 'Baidu Netdisk required',
     baiduPanRequiredDesc: 'Note content is stored in Baidu Netdisk app data. Please authorize first.',
-    baiduPanConnect: 'Connect',
+    baiduPanConnect: 'Bind Netdisk',
     baiduPanConnected: 'Baidu Netdisk connected',
     baiduPanAuthFailed: 'Baidu Netdisk authorization failed. Please try again later.',
     baiduPanReconnect: 'Reconnect',

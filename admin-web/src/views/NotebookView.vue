@@ -6,6 +6,18 @@
 <template>
   <!-- 页面主容器：笔记本页面整体布局 -->
   <WarRoomPage :title="t('notebook.title')" fill>
+    <!-- 页面头部右侧：百度网盘绑定按钮（link 样式、不悬浮；已绑定时显示为绿色） -->
+    <template #meta>
+      <el-button
+        type="link"
+        :icon="Link"
+        class="notebook-bind-pan-btn"
+        :class="{ 'is-bound': baiduPanStatus?.authorized }"
+        @click="openBaiduPanAuthorize"
+      >
+        {{ t('notebook.baiduPanConnect') }}
+      </el-button>
+    </template>
     <div class="notebook-page war-room-panel war-room-panel--notebook">
     <!-- 百度网盘授权提示：未授权时显示警告提示和连接按钮 -->
     <el-alert
@@ -232,7 +244,7 @@
             <!-- 笔记工作区：编辑器 + 目录 -->
             <div v-if="currentNote" class="notebook-workspace">
               <!-- 笔记编辑器区域 -->
-              <div class="notebook-editor">
+              <div class="notebook-editor" :class="{ 'editor-title-shifted': editorTitleShifted }">
               <!-- 编辑器头部：标题、元信息、操作按钮 -->
               <div class="notebook-editor__header">
               <!-- 标题行：标题输入框 + 操作按钮列 -->
@@ -542,15 +554,6 @@
         />
       </el-tab-pane>
     </el-tabs>
-    <el-button
-      type="warning"
-      plain
-      :icon="Link"
-      class="notebook-tabs-extra"
-      @click="openBaiduPanAuthorize"
-    >
-      {{ t('notebook.baiduPanConnect') }}
-    </el-button>
     <!-- 矮视口标签页收起：小图标按钮切换 全部/回收站 -->
     <div v-if="tabsCollapsed" class="notebook-tabs-switch">
       <el-popover
@@ -803,6 +806,11 @@ function onEscapeKeyForSidebar(e: KeyboardEvent) {
 const shortViewportMql = typeof window !== 'undefined' ? window.matchMedia('(max-height: 900px)') : null
 const tabsCollapsed = ref(shortViewportMql?.matches ?? false)
 const tabSwitchVisible = ref(false)
+// 编辑器标题行是否右移：左上角存在悬浮按钮（紧凑档抽屉开关 / 矮视口标签页开关）时，
+// 标题、时间字数、置顶等按钮会被遮挡，右移避开。
+const editorTitleShifted = computed(
+  () => (isCompactRange.value && !sidebarVisible.value) || tabsCollapsed.value,
+)
 
 function applyShortViewport() {
   tabsCollapsed.value = shortViewportMql?.matches ?? false
@@ -2393,11 +2401,11 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 
-.notebook-tabs-extra {
-  position: absolute;
-  top: 4px;
-  right: 8px;
-  z-index: 10;
+/* 页面头部右侧的百度网盘绑定按钮（link 样式、不悬浮） */
+.notebook-bind-pan-btn {
+  &.is-bound {
+    color: var(--el-color-success);
+  }
 }
 
 .notebook-tabs-switch {
@@ -2885,6 +2893,11 @@ onBeforeUnmount(() => {
   align-items: flex-start;
   gap: 16px;
   margin-bottom: 14px;
+}
+
+/* 左上角存在悬浮按钮（紧凑档抽屉开关 / 矮视口标签页开关）时，标题行右移避免被遮挡 */
+.notebook-editor.editor-title-shifted .notebook-editor__title-row {
+  padding-left: 32px;
 }
 
 .notebook-editor__title-col {
