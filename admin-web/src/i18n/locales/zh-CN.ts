@@ -665,6 +665,7 @@ export default {
       toc: '目录',
       todos: '待办',
       trash: '回收站',
+      switch: '切换标签页',
     },
     stats: {
       notes: '笔记总数',

@@ -666,6 +666,7 @@ export default {
       toc: 'Outline',
       todos: 'Todos',
       trash: 'Trash',
+      switch: 'Switch tabs',
     },
     stats: {
       notes: 'Notes',
