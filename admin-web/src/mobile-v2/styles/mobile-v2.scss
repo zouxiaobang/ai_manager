@@ -108,6 +108,17 @@ html.is-mobile-shell .mobile-v2-app select {
   border-top: 1px solid var(--wr-border, #e8ecef);
   box-sizing: border-box;
   transform: translateZ(0);
+  transition: min-height 0.25s ease, height 0.25s ease, opacity 0.25s ease;
+}
+
+/* 滚动后收起 tabbar，回收 52px 高度给内容区 */
+.mobile-v2-app__tabbar.is-hidden {
+  height: 0;
+  min-height: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .mobile-v2-app__tab {
@@ -235,4 +246,33 @@ html.is-mobile-shell .mobile-v2-app select {
   text-align: center;
   color: var(--wr-muted, #999999);
   font-size: 14px;
+}
+
+/* 横屏（平板/手机横向）：压缩固定条与留白，放大内容区可读高度 */
+@media (orientation: landscape) {
+  .mobile-v2-app__header {
+    min-height: 40px;
+    padding: 4px 12px;
+    padding-top: max(4px, env(safe-area-inset-top));
+  }
+
+  .mobile-v2-app__title {
+    font-size: 16px;
+  }
+
+  .mobile-v2-app__tabbar {
+    min-height: 40px;
+  }
+
+  .mobile-v2-page {
+    gap: 8px;
+    padding: 8px 12px;
+    max-width: 860px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  .mobile-v2-card {
+    padding: 10px 12px;
+  }
 }

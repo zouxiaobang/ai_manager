@@ -16,7 +16,6 @@
 
         <V2Card>
           <div class="v2-note-detail__header">
-            <h2 class="v2-note-detail__title">{{ note.title || t('notebook.untitled') }}</h2>
             <div class="v2-note-detail__meta">
               <span v-if="note.tags && note.tags.length">
                 <span v-for="tag in note.tags" :key="tag.id" class="v2-note-detail__tag">{{ tag.name }}</span>
@@ -58,10 +57,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, nextTick } from 'vue'
+import { computed, ref, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { fetchNote, type NbNoteDetail } from '@/api/notebook'
+import { useMobileV2AppHeaderTitle } from '@/composables/useMobileV2AppHeaderTitle'
 import V2Page from '@/mobile-v2/components/V2Page.vue'
 import V2Card from '@/mobile-v2/components/V2Card.vue'
 
@@ -73,6 +73,7 @@ interface TocItem {
 
 const route = useRoute()
 const { t } = useI18n()
+const { setHeaderTitle } = useMobileV2AppHeaderTitle()
 
 const loading = ref(true)
 const note = ref<NbNoteDetail | null>(null)
@@ -234,10 +235,16 @@ function simpleMarkdownToHtml(md: string): string {
   }
   try {
     note.value = await fetchNote(id)
+    // 把笔记标题提升为 header 标题，正文区不再重复占用一行大标题
+    setHeaderTitle(note.value?.title || t('notebook.untitled'))
   } finally {
     loading.value = false
   }
 })()
+
+onBeforeUnmount(() => {
+  setHeaderTitle(null)
+})
 </script>
 
 <style scoped lang="scss">
@@ -365,17 +372,7 @@ function simpleMarkdownToHtml(md: string): string {
 }
 
 .v2-note-detail__header {
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--wr-border, #e8ecef);
-}
-
-.v2-note-detail__title {
-  margin: 0 0 8px;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--wr-text, #333333);
-  line-height: 1.4;
+  margin-bottom: 10px;
 }
 
 .v2-note-detail__meta {
@@ -516,6 +513,19 @@ function simpleMarkdownToHtml(md: string): string {
     margin: 16px 0;
     border: none;
     border-top: 1px solid var(--wr-border, #e0e0e0);
+  }
+}
+
+/* 横屏：收紧正文行高与段距，放大内容区可读行数 */
+@media (orientation: landscape) {
+  .v2-note-detail__content {
+    line-height: 1.6;
+
+    :deep(p),
+    :deep(li) {
+      margin-bottom: 8px;
+      line-height: 1.6;
+    }
   }
 }
 </style>

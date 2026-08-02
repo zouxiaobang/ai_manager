@@ -24,7 +24,7 @@
       </div>
     </header>
 
-    <main class="mobile-v2-app__main">
+    <main ref="mainRef" class="mobile-v2-app__main" @scroll="onMainScroll">
       <router-view v-slot="{ Component }">
         <keep-alive :include="cachedComponents">
           <component :is="Component" />
@@ -32,7 +32,7 @@
       </router-view>
     </main>
 
-    <nav v-show="showTabBar" class="mobile-v2-app__tabbar">
+    <nav v-show="showTabBar" class="mobile-v2-app__tabbar" :class="{ 'is-hidden': tabbarHidden }">
       <button
         v-for="tab in tabs"
         :key="tab.key"
@@ -59,6 +59,7 @@ import {
 } from '@element-plus/icons-vue'
 import type { Component } from 'vue'
 import WarRoomSvgIcon from '@/components/war-room/WarRoomSvgIcon.vue'
+import { useMobileV2AppHeaderTitle } from '@/composables/useMobileV2AppHeaderTitle'
 
 const headerActionIconMap: Record<string, Component> = { Search, DataAnalysis }
 
@@ -75,10 +76,22 @@ const tabs = [
   { key: 'more', path: '/more', iconName: 'user-center' as const, labelKey: 'mobile.v2.mine' },
 ] as const
 
+const { dynamicTitle } = useMobileV2AppHeaderTitle()
+
 const showTabBar = computed(() => !route.meta.hideTabBar)
 const showBack = computed(() => Boolean(route.meta.hideTabBar))
 const showAppHeader = computed(() => route.meta.hideAppHeader !== true)
 const activeTab = computed(() => (route.meta.tab as string) ?? '')
+
+// 滚动超过阈值后收起底部 tabbar，回收高度给内容区（方案：tabbar 自动隐藏）
+const mainRef = ref<HTMLElement>()
+const tabbarHidden = ref(false)
+
+function onMainScroll() {
+  const el = mainRef.value
+  if (!el) return
+  tabbarHidden.value = el.scrollTop > 80
+}
 
 interface HeaderActionMeta {
   icon: string
@@ -93,6 +106,8 @@ const headerActionIcon = computed(() => {
 })
 
 const pageTitle = computed(() => {
+  // 子页面可动态覆盖 header 标题（如笔记阅读页显示 note.title）
+  if (dynamicTitle.value) return dynamicTitle.value
   const key = route.meta.titleKey as string | undefined
   return key ? t(key) : t('portal.title')
 })
