@@ -29,3 +29,10 @@ npm run build:pi     # 仅 vite build（Pi 部署，跳过类型检查）
 - **worktree 内验证前端必须单独起 vite**（主 checkout 的 vite 看不到 worktree 改动）：
   `.\dev.ps1 N frontend` → 端口 517N，`vite_api_target` 自动指向 808N
 - 构建体积相关：vite.config 有手写 `manualChunks`（xterm/echarts/exceljs/three/wangeditor 等独立分包），新加大依赖时注意别破坏
+
+## 测试约定
+
+- 测试命令：`npm run test`（vitest run）/ `npm run test:watch` / `npm run test:coverage`（含覆盖率报告与门禁）
+- 测试目录：`src/**/__tests__/*.spec.ts`，与被测文件同目录放置
+- 覆盖率门禁：阈值见 `vitest.config.ts` 的 `coverage.thresholds`，先按「不回归」设当前水平，随测试补充逐步抬高至 80%
+- vitest 使用独立 `vitest.config.ts`（仅 vue 插件 + `@` 别名），与 vite.config.ts 的 VitePWA/manualChunks 隔离，避免干扰测试

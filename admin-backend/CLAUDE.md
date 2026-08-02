@@ -33,6 +33,15 @@ worktree 内联调用 `.\dev.ps1 N backend` 换端口（808N，N 为任务编号
 
 - 模块级编译+单测：`mvn -pl admin-system -am test`
 - 只编译：`mvn compile` / `mvn -pl admin-system -am compile`
+- 覆盖率报告：`mvn -pl admin-common -am verify` 后看 `admin-common/target/site/jacoco/index.html`
+- 覆盖率门禁：admin-common 已开 JaCoCo `check`（LINE/BRANCH ≥ 80%）；admin-system 达标后按同法开启
+
+## 测试约定
+
+- 测试框架：JUnit 5 + Mockito + AssertJ（父 POM 已注入 `spring-boot-starter-test`，版本由 BOM 托管）
+- 服务层单测：`@ExtendWith(MockitoExtension)` + `@Mock` Mapper；对继承 `ServiceImpl` 的类用 `ReflectionTestUtils.setField(service, "baseMapper", mock)` 注入（Mockito 无法注入父类泛型字段）
+- 控制器单测：`MockMvcBuilders.standaloneSetup(controller).setValidator(new LocalValidatorFactoryBean()).setControllerAdvice(new GlobalExceptionHandler())`——主配置类在 admin-server，admin-system 内不能用 `@WebMvcTest`（找不到 `@SpringBootConfiguration`）
+- 覆盖范围：`admin-system/src/test/java/` 与主代码包结构一一对应
 
 ## 依赖
 
