@@ -104,7 +104,7 @@ public class EcFactoryController {
      * @return 创建后的工厂信息
      */
     @PostMapping
-    public ApiResult<EcFactory> create(@RequestBody EcFactorySaveRequest request) {
+    public ApiResult<EcFactory> create(@jakarta.validation.Valid @RequestBody EcFactorySaveRequest request) {
         return ApiResult.ok(ecFactoryService.createFactory(request));
     }
 
@@ -119,7 +119,7 @@ public class EcFactoryController {
      * @return 更新后的工厂信息
      */
     @PutMapping("/{id}")
-    public ApiResult<EcFactory> update(@PathVariable Long id, @RequestBody EcFactorySaveRequest request) {
+    public ApiResult<EcFactory> update(@PathVariable Long id, @jakarta.validation.Valid @RequestBody EcFactorySaveRequest request) {
         return ApiResult.ok(ecFactoryService.updateFactory(id, request));
     }
 

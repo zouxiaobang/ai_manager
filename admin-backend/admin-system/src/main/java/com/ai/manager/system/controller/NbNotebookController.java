@@ -49,7 +49,7 @@ public class NbNotebookController {
      * @return 创建后的笔记本信息
      */
     @PostMapping
-    public ApiResult<NbNotebook> create(@RequestBody NbNotebookSaveRequest request) {
+    public ApiResult<NbNotebook> create(@jakarta.validation.Valid @RequestBody NbNotebookSaveRequest request) {
         return ApiResult.ok(nbNotebookService.createNotebook(request));
     }
 
@@ -64,7 +64,7 @@ public class NbNotebookController {
      * @return 更新后的笔记本信息
      */
     @PutMapping("/{id}")
-    public ApiResult<NbNotebook> update(@PathVariable Long id, @RequestBody NbNotebookSaveRequest request) {
+    public ApiResult<NbNotebook> update(@PathVariable Long id, @jakarta.validation.Valid @RequestBody NbNotebookSaveRequest request) {
         return ApiResult.ok(nbNotebookService.updateNotebook(id, request));
     }
 

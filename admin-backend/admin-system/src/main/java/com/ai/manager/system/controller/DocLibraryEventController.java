@@ -19,7 +19,7 @@ public class DocLibraryEventController {
     private final DocLibraryEventLogMapper docLibraryEventLogMapper;
 
     @PostMapping
-    public ApiResult<Void> batchSave(@RequestBody List<DocLibraryEventLog> events) {
+    public ApiResult<Void> batchSave(@jakarta.validation.Valid @RequestBody List<DocLibraryEventLog> events) {
         for (DocLibraryEventLog event : events) {
             docLibraryEventLogMapper.insert(event);
         }

@@ -46,7 +46,7 @@ public class DeployLogController {
     }
 
     @PostMapping("/ai-analyze")
-    public ApiResult<DeployLogAiAnalyzeVO> analyze(@RequestBody(required = false) DeployLogAnalyzeRequest request) {
+    public ApiResult<DeployLogAiAnalyzeVO> analyze(@jakarta.validation.Valid @RequestBody(required = false) DeployLogAnalyzeRequest request) {
         return ApiResult.ok(deployLogService.analyze(request));
     }
 }

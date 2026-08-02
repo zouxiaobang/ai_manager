@@ -140,13 +140,13 @@ public class DocLibraryFileController {
     }
 
     @PutMapping("/{id}/rename")
-    public ApiResult<Void> renameFile(@PathVariable Long id, @RequestBody DocLibraryFileRenameRequest request) {
+    public ApiResult<Void> renameFile(@PathVariable Long id, @jakarta.validation.Valid @RequestBody DocLibraryFileRenameRequest request) {
         docLibraryFileService.renameFile(id, request);
         return ApiResult.ok();
     }
 
     @PutMapping("/{id}/move")
-    public ApiResult<Void> moveFile(@PathVariable Long id, @RequestBody DocLibraryFileMoveRequest request) {
+    public ApiResult<Void> moveFile(@PathVariable Long id, @jakarta.validation.Valid @RequestBody DocLibraryFileMoveRequest request) {
         docLibraryFileService.moveFile(id, request);
         return ApiResult.ok();
     }
@@ -176,7 +176,7 @@ public class DocLibraryFileController {
     }
 
     @PostMapping("/batch/move")
-    public ApiResult<Void> batchMove(@RequestBody DocLibraryFileBatchMoveRequest request) {
+    public ApiResult<Void> batchMove(@jakarta.validation.Valid @RequestBody DocLibraryFileBatchMoveRequest request) {
         docLibraryFileService.batchMove(request.getFolderId(), request);
         return ApiResult.ok();
     }

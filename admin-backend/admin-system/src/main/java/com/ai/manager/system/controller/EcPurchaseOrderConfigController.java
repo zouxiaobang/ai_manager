@@ -20,7 +20,7 @@ public class EcPurchaseOrderConfigController {
   }
 
   @PutMapping
-  public ApiResult<EcPurchaseOrderConfigVO> save(@RequestBody EcPurchaseOrderConfigSaveRequest request) {
+  public ApiResult<EcPurchaseOrderConfigVO> save(@jakarta.validation.Valid @RequestBody EcPurchaseOrderConfigSaveRequest request) {
     return ApiResult.ok(ecPurchaseOrderConfigService.saveConfig(request));
   }
 }

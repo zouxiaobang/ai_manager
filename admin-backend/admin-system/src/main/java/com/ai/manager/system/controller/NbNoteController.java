@@ -66,7 +66,7 @@ public class NbNoteController {
      * @return 笔记元数据列表
      */
     @PostMapping("/meta")
-    public ApiResult<List<NbNoteListMetaVO>> meta(@RequestBody NbNoteMetaBatchRequest request) {
+    public ApiResult<List<NbNoteListMetaVO>> meta(@jakarta.validation.Valid @RequestBody NbNoteMetaBatchRequest request) {
         List<Long> ids = request == null ? List.of() : request.getIds();
         return ApiResult.ok(nbNoteService.listMetaByIds(ids));
     }
@@ -108,7 +108,7 @@ public class NbNoteController {
      * @return 创建后的笔记详情
      */
     @PostMapping
-    public ApiResult<NbNoteDetailVO> create(@RequestBody NbNoteSaveRequest request) {
+    public ApiResult<NbNoteDetailVO> create(@jakarta.validation.Valid @RequestBody NbNoteSaveRequest request) {
         return ApiResult.ok(nbNoteService.createNote(request));
     }
 
@@ -123,7 +123,7 @@ public class NbNoteController {
      * @return 更新后的笔记详情
      */
     @PutMapping("/{id}")
-    public ApiResult<NbNoteDetailVO> update(@PathVariable Long id, @RequestBody NbNoteSaveRequest request) {
+    public ApiResult<NbNoteDetailVO> update(@PathVariable Long id, @jakarta.validation.Valid @RequestBody NbNoteSaveRequest request) {
         return ApiResult.ok(nbNoteService.updateNote(id, request));
     }
 

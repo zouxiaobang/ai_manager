@@ -49,7 +49,7 @@ public class EcExpressPriceController {
      * @return 创建后的快递价格信息
      */
     @PostMapping
-    public ApiResult<EcExpressPriceVO> create(@RequestBody EcExpressPriceSaveRequest request) {
+    public ApiResult<EcExpressPriceVO> create(@jakarta.validation.Valid @RequestBody EcExpressPriceSaveRequest request) {
         return ApiResult.ok(ecExpressPriceService.createPrice(request));
     }
 
@@ -65,7 +65,7 @@ public class EcExpressPriceController {
      */
     @PutMapping("/{id}")
     public ApiResult<EcExpressPriceVO> update(@PathVariable Long id,
-                                              @RequestBody EcExpressPriceSaveRequest request) {
+                                              @jakarta.validation.Valid @RequestBody EcExpressPriceSaveRequest request) {
         return ApiResult.ok(ecExpressPriceService.updatePrice(id, request));
     }
 

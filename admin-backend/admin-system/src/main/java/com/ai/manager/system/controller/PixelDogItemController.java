@@ -21,12 +21,12 @@ public class PixelDogItemController {
     }
 
     @PostMapping
-    public ApiResult<PixelDogItemVO> createItem(@RequestBody PixelDogItem item) {
+    public ApiResult<PixelDogItemVO> createItem(@jakarta.validation.Valid @RequestBody PixelDogItem item) {
         return ApiResult.ok(pixelDogItemService.createItem(item));
     }
 
     @PutMapping("/{id}")
-    public ApiResult<PixelDogItemVO> updateItem(@PathVariable Long id, @RequestBody PixelDogItem item) {
+    public ApiResult<PixelDogItemVO> updateItem(@PathVariable Long id, @jakarta.validation.Valid @RequestBody PixelDogItem item) {
         item.setId(id);
         return ApiResult.ok(pixelDogItemService.updateItem(item));
     }

@@ -97,7 +97,7 @@ public class PomodoroPlanController {
      * @return 创建后的番茄钟计划
      */
     @PostMapping
-    public ApiResult<PomodoroPlan> create(@RequestBody PomodoroPlanSaveRequest request) {
+    public ApiResult<PomodoroPlan> create(@jakarta.validation.Valid @RequestBody PomodoroPlanSaveRequest request) {
         return ApiResult.ok(pomodoroPlanService.createPlan(request));
     }
 
@@ -112,7 +112,7 @@ public class PomodoroPlanController {
      * @return 更新后的番茄钟计划
      */
     @PutMapping("/{id}")
-    public ApiResult<PomodoroPlan> update(@PathVariable Long id, @RequestBody PomodoroPlanSaveRequest request) {
+    public ApiResult<PomodoroPlan> update(@PathVariable Long id, @jakarta.validation.Valid @RequestBody PomodoroPlanSaveRequest request) {
         return ApiResult.ok(pomodoroPlanService.updatePlan(id, request));
     }
 

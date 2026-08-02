@@ -22,12 +22,12 @@ public class NbNoteTagController {
     }
 
     @PostMapping
-    public ApiResult<NbNoteTagVO> create(@RequestBody NbNoteTagSaveRequest request) {
+    public ApiResult<NbNoteTagVO> create(@jakarta.validation.Valid @RequestBody NbNoteTagSaveRequest request) {
         return ApiResult.ok(nbNoteTagService.createTag(request));
     }
 
     @PutMapping("/{id}")
-    public ApiResult<NbNoteTagVO> update(@PathVariable Long id, @RequestBody NbNoteTagSaveRequest request) {
+    public ApiResult<NbNoteTagVO> update(@PathVariable Long id, @jakarta.validation.Valid @RequestBody NbNoteTagSaveRequest request) {
         return ApiResult.ok(nbNoteTagService.updateTag(id, request));
     }
 

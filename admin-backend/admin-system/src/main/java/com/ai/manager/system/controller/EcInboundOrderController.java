@@ -75,7 +75,7 @@ public class EcInboundOrderController {
      * @return 创建后的入库单详情
      */
     @PostMapping
-    public ApiResult<EcInboundOrderDetailVO> create(@RequestBody EcInboundOrderSaveRequest request) {
+    public ApiResult<EcInboundOrderDetailVO> create(@jakarta.validation.Valid @RequestBody EcInboundOrderSaveRequest request) {
         return ApiResult.ok(ecInboundOrderService.createOrder(request));
     }
 
@@ -91,7 +91,7 @@ public class EcInboundOrderController {
      */
     @PutMapping("/{id}")
     public ApiResult<EcInboundOrderDetailVO> update(@PathVariable Long id,
-                                                    @RequestBody EcInboundOrderSaveRequest request) {
+                                                    @jakarta.validation.Valid @RequestBody EcInboundOrderSaveRequest request) {
         return ApiResult.ok(ecInboundOrderService.updateOrder(id, request));
     }
 
@@ -107,7 +107,7 @@ public class EcInboundOrderController {
      */
     @PostMapping("/{id}/confirm")
     public ApiResult<EcInboundOrderDetailVO> confirm(@PathVariable Long id,
-                                                   @RequestBody EcInboundOrderConfirmRequest request) {
+                                                   @jakarta.validation.Valid @RequestBody EcInboundOrderConfirmRequest request) {
         return ApiResult.ok(ecInboundOrderService.confirmOrder(id, request));
     }
 

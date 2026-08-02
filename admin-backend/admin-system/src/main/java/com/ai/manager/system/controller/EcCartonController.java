@@ -149,7 +149,7 @@ public class EcCartonController {
      * @return 创建后的纸箱信息
      */
     @PostMapping
-    public ApiResult<EcCartonListItemVO> create(@RequestBody EcCartonSaveRequest request) {
+    public ApiResult<EcCartonListItemVO> create(@jakarta.validation.Valid @RequestBody EcCartonSaveRequest request) {
         return ApiResult.ok(ecCartonService.createCarton(request));
     }
 
@@ -164,7 +164,7 @@ public class EcCartonController {
      * @return 更新后的纸箱信息
      */
     @PutMapping("/{id}")
-    public ApiResult<EcCartonListItemVO> update(@PathVariable Long id, @RequestBody EcCartonSaveRequest request) {
+    public ApiResult<EcCartonListItemVO> update(@PathVariable Long id, @jakarta.validation.Valid @RequestBody EcCartonSaveRequest request) {
         return ApiResult.ok(ecCartonService.updateCarton(id, request));
     }
 

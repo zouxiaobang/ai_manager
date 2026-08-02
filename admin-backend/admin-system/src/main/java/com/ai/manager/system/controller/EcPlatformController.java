@@ -83,7 +83,7 @@ public class EcPlatformController {
      * @return 创建后的平台信息
      */
     @PostMapping
-    public ApiResult<EcPlatformListItemVO> create(@RequestBody EcPlatformSaveRequest request) {
+    public ApiResult<EcPlatformListItemVO> create(@jakarta.validation.Valid @RequestBody EcPlatformSaveRequest request) {
         return ApiResult.ok(ecPlatformService.createPlatform(request));
     }
 
@@ -99,7 +99,7 @@ public class EcPlatformController {
      */
     @PutMapping("/{id}")
     public ApiResult<EcPlatformListItemVO> update(@PathVariable Long id,
-                                                   @RequestBody EcPlatformSaveRequest request) {
+                                                   @jakarta.validation.Valid @RequestBody EcPlatformSaveRequest request) {
         return ApiResult.ok(ecPlatformService.updatePlatform(id, request));
     }
 

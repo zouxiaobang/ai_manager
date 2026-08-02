@@ -41,7 +41,7 @@ public class PomodoroRecordController {
      * @return 创建后的番茄钟记录
      */
     @PostMapping("/records")
-    public ApiResult<PomodoroRecord> createRecord(@RequestBody PomodoroRecordCreateRequest request) {
+    public ApiResult<PomodoroRecord> createRecord(@jakarta.validation.Valid @RequestBody PomodoroRecordCreateRequest request) {
         return ApiResult.ok(pomodoroRecordService.createRecord(request));
     }
 

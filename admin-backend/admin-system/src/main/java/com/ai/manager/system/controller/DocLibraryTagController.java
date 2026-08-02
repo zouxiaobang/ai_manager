@@ -30,12 +30,12 @@ public class DocLibraryTagController {
     }
 
     @PostMapping
-    public ApiResult<DocLibraryTagVO> createTag(@RequestBody DocLibraryTagSaveRequest request) {
+    public ApiResult<DocLibraryTagVO> createTag(@jakarta.validation.Valid @RequestBody DocLibraryTagSaveRequest request) {
         return ApiResult.ok(docLibraryTagService.createTag(request));
     }
 
     @PutMapping("/{id}")
-    public ApiResult<DocLibraryTagVO> updateTag(@PathVariable Long id, @RequestBody DocLibraryTagSaveRequest request) {
+    public ApiResult<DocLibraryTagVO> updateTag(@PathVariable Long id, @jakarta.validation.Valid @RequestBody DocLibraryTagSaveRequest request) {
         return ApiResult.ok(docLibraryTagService.updateTag(id, request));
     }
 

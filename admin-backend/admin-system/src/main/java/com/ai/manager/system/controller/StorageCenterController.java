@@ -73,7 +73,7 @@ public class StorageCenterController {
      * @return 保存后的存储配置
      */
     @PutMapping("/config")
-    public ApiResult<StorageCenterConfigVO> saveConfig(@RequestBody StorageCenterConfigSaveRequest request) {
+    public ApiResult<StorageCenterConfigVO> saveConfig(@jakarta.validation.Valid @RequestBody StorageCenterConfigSaveRequest request) {
         return ApiResult.ok(storageCenterService.saveConfig(request));
     }
 

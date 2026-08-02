@@ -108,7 +108,7 @@ public class EcMonthlySettlementController {
      */
     @PostMapping("/buyer-excludes")
     public ApiResult<EcSettlementBuyerExcludeVO> saveBuyerExclude(
-            @RequestBody EcSettlementBuyerExcludeSaveRequest request) {
+            @jakarta.validation.Valid @RequestBody EcSettlementBuyerExcludeSaveRequest request) {
         return ApiResult.ok(monthlySettlementService.saveBuyerExclude(request));
     }
 
@@ -138,7 +138,7 @@ public class EcMonthlySettlementController {
      */
     @PostMapping("/order-decisions")
     public ApiResult<EcMonthlySettlementVO> saveOrderDecisions(
-            @RequestBody EcSettlementOrderDecisionBatchRequest request) {
+            @jakarta.validation.Valid @RequestBody EcSettlementOrderDecisionBatchRequest request) {
         return ApiResult.ok(monthlySettlementService.saveOrderDecisions(request));
     }
 
@@ -202,7 +202,7 @@ public class EcMonthlySettlementController {
      */
     @PostMapping("/express-bill/manual/lines")
     public ApiResult<EcSettlementExpressBillImportVO> saveManualExpressBillLines(
-            @RequestBody EcSettlementExpressBillManualSaveRequest request) {
+            @jakarta.validation.Valid @RequestBody EcSettlementExpressBillManualSaveRequest request) {
         return ApiResult.ok(monthlySettlementService.saveManualExpressBillLines(request));
     }
 

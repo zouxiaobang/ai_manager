@@ -5,8 +5,14 @@ import com.ai.manager.system.domain.dto.DailyChecklistSaveRequest;
 import com.ai.manager.system.domain.vo.DailyChecklistStatsVO;
 import com.ai.manager.system.domain.vo.DailyChecklistVO;
 import com.ai.manager.system.service.DailyChecklistService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -25,7 +31,7 @@ public class DailyChecklistController {
     }
 
     @PostMapping
-    public ApiResult<Void> save(@RequestBody DailyChecklistSaveRequest request) {
+    public ApiResult<Void> save(@Valid @RequestBody DailyChecklistSaveRequest request) {
         dailyChecklistService.saveByDate(request);
         return ApiResult.ok();
     }

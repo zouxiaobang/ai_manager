@@ -26,7 +26,7 @@ public class PixelDogStateController {
     }
 
     @PutMapping("/state")
-    public ApiResult<PixelDogStateVO> updateState(@RequestBody PixelDogState state) {
+    public ApiResult<PixelDogStateVO> updateState(@jakarta.validation.Valid @RequestBody PixelDogState state) {
         return ApiResult.ok(pixelDogStateService.updateState(state));
     }
 

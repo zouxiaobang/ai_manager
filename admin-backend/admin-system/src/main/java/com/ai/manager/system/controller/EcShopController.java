@@ -84,7 +84,7 @@ public class EcShopController {
      * @return 创建后的店铺信息
      */
     @PostMapping
-    public ApiResult<EcShopListItemVO> create(@RequestBody EcShopSaveRequest request) {
+    public ApiResult<EcShopListItemVO> create(@jakarta.validation.Valid @RequestBody EcShopSaveRequest request) {
         return ApiResult.ok(ecShopService.createShop(request));
     }
 
@@ -99,7 +99,7 @@ public class EcShopController {
      * @return 更新后的店铺信息
      */
     @PutMapping("/{id}")
-    public ApiResult<EcShopListItemVO> update(@PathVariable Long id, @RequestBody EcShopSaveRequest request) {
+    public ApiResult<EcShopListItemVO> update(@PathVariable Long id, @jakarta.validation.Valid @RequestBody EcShopSaveRequest request) {
         return ApiResult.ok(ecShopService.updateShop(id, request));
     }
 

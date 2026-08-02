@@ -89,7 +89,7 @@ public class EcExpressStationController {
      * @return 创建后的快递站点详情
      */
     @PostMapping
-    public ApiResult<EcExpressStationDetailVO> create(@RequestBody EcExpressStationSaveRequest request) {
+    public ApiResult<EcExpressStationDetailVO> create(@jakarta.validation.Valid @RequestBody EcExpressStationSaveRequest request) {
         return ApiResult.ok(ecExpressStationService.createStation(request));
     }
 
@@ -105,7 +105,7 @@ public class EcExpressStationController {
      */
     @PutMapping("/{id}")
     public ApiResult<EcExpressStationDetailVO> update(@PathVariable Long id,
-                                                      @RequestBody EcExpressStationSaveRequest request) {
+                                                      @jakarta.validation.Valid @RequestBody EcExpressStationSaveRequest request) {
         return ApiResult.ok(ecExpressStationService.updateStation(id, request));
     }
 

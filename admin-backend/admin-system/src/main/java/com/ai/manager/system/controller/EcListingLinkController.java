@@ -75,7 +75,7 @@ public class EcListingLinkController {
      * @return 定价计算结果
      */
     @PostMapping("/calculate-pricing")
-    public ApiResult<EcListingLinkPricingVO> calculatePricing(@RequestBody EcListingLinkPricingRequest request) {
+    public ApiResult<EcListingLinkPricingVO> calculatePricing(@jakarta.validation.Valid @RequestBody EcListingLinkPricingRequest request) {
         return ApiResult.ok(ecListingLinkService.calculatePricing(request));
     }
 
@@ -117,7 +117,7 @@ public class EcListingLinkController {
      * @return 创建后的Listing链接详情
      */
     @PostMapping
-    public ApiResult<EcListingLinkDetailVO> create(@RequestBody EcListingLinkSaveRequest request) {
+    public ApiResult<EcListingLinkDetailVO> create(@jakarta.validation.Valid @RequestBody EcListingLinkSaveRequest request) {
         return ApiResult.ok(ecListingLinkService.createLink(request));
     }
 
@@ -147,7 +147,7 @@ public class EcListingLinkController {
      */
     @PutMapping("/{id}")
     public ApiResult<EcListingLinkDetailVO> update(@PathVariable Long id,
-                                                   @RequestBody EcListingLinkSaveRequest request) {
+                                                   @jakarta.validation.Valid @RequestBody EcListingLinkSaveRequest request) {
         return ApiResult.ok(ecListingLinkService.updateLink(id, request));
     }
 

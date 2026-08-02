@@ -29,12 +29,12 @@ public class DocLibraryFolderController {
     }
 
     @PostMapping
-    public ApiResult<DocLibraryTreeVO> createFolder(@RequestBody DocLibraryFolderSaveRequest request) {
+    public ApiResult<DocLibraryTreeVO> createFolder(@jakarta.validation.Valid @RequestBody DocLibraryFolderSaveRequest request) {
         return ApiResult.ok(docLibraryFolderService.createFolder(request));
     }
 
     @PutMapping("/{id}")
-    public ApiResult<DocLibraryTreeVO> updateFolder(@PathVariable Long id, @RequestBody DocLibraryFolderSaveRequest request) {
+    public ApiResult<DocLibraryTreeVO> updateFolder(@PathVariable Long id, @jakarta.validation.Valid @RequestBody DocLibraryFolderSaveRequest request) {
         return ApiResult.ok(docLibraryFolderService.updateFolder(id, request));
     }
 

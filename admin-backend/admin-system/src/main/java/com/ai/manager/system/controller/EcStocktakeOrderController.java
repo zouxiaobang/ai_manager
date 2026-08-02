@@ -70,7 +70,7 @@ public class EcStocktakeOrderController {
      * @return 创建后的盘点单详情
      */
     @PostMapping
-    public ApiResult<EcStocktakeOrderDetailVO> create(@RequestBody EcStocktakeOrderSaveRequest request) {
+    public ApiResult<EcStocktakeOrderDetailVO> create(@jakarta.validation.Valid @RequestBody EcStocktakeOrderSaveRequest request) {
         return ApiResult.ok(ecStocktakeOrderService.createOrder(request));
     }
 
@@ -86,7 +86,7 @@ public class EcStocktakeOrderController {
      */
     @PutMapping("/{id}")
     public ApiResult<EcStocktakeOrderDetailVO> update(@PathVariable Long id,
-                                                      @RequestBody EcStocktakeOrderSaveRequest request) {
+                                                      @jakarta.validation.Valid @RequestBody EcStocktakeOrderSaveRequest request) {
         return ApiResult.ok(ecStocktakeOrderService.updateOrder(id, request));
     }
 

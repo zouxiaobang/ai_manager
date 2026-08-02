@@ -36,7 +36,7 @@ public class DeployDatabaseController {
     }
 
     @PostMapping("/sql/execute")
-    public ApiResult<DeploySqlExecuteResultVO> executeSql(@RequestBody DeploySqlExecuteRequest request) {
+    public ApiResult<DeploySqlExecuteResultVO> executeSql(@jakarta.validation.Valid @RequestBody DeploySqlExecuteRequest request) {
         String target = request == null ? "local" : request.getTarget();
         String sql = request == null ? "" : request.getSql();
         return ApiResult.ok(deploySqlTerminalService.execute(target, sql));

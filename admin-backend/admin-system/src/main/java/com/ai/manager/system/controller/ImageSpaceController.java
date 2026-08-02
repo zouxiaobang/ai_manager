@@ -122,7 +122,7 @@ public class ImageSpaceController {
      * @return 重命名后的图片详情
      */
     @PutMapping("/images/rename")
-    public ApiResult<ImageSpaceImageDetailVO> rename(@RequestBody ImageSpaceRenameRequest request) {
+    public ApiResult<ImageSpaceImageDetailVO> rename(@jakarta.validation.Valid @RequestBody ImageSpaceRenameRequest request) {
         return ApiResult.ok(imageSpaceService.renameImage(request));
     }
 

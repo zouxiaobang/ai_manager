@@ -67,7 +67,7 @@ public class EcProductController {
      * @return 创建后的商品详情
      */
     @PostMapping
-    public ApiResult<EcProductDetailVO> create(@RequestBody EcProductSaveRequest request) {
+    public ApiResult<EcProductDetailVO> create(@jakarta.validation.Valid @RequestBody EcProductSaveRequest request) {
         return ApiResult.ok(ecProductService.createProduct(request));
     }
 
@@ -82,7 +82,7 @@ public class EcProductController {
      * @return 更新后的商品详情
      */
     @PutMapping("/{id}")
-    public ApiResult<EcProductDetailVO> update(@PathVariable Long id, @RequestBody EcProductSaveRequest request) {
+    public ApiResult<EcProductDetailVO> update(@PathVariable Long id, @jakarta.validation.Valid @RequestBody EcProductSaveRequest request) {
         return ApiResult.ok(ecProductService.updateProduct(id, request));
     }
 

@@ -98,7 +98,7 @@ public class EcSalesOrderController {
      * @return 创建后的销售订单详情
      */
     @PostMapping
-    public ApiResult<EcSalesOrderDetailVO> create(@RequestBody EcSalesOrderSaveRequest request) {
+    public ApiResult<EcSalesOrderDetailVO> create(@jakarta.validation.Valid @RequestBody EcSalesOrderSaveRequest request) {
         return ApiResult.ok(ecSalesOrderService.createOrder(request));
     }
 
@@ -114,7 +114,7 @@ public class EcSalesOrderController {
      */
     @PutMapping("/{id}")
     public ApiResult<EcSalesOrderDetailVO> update(@PathVariable Long id,
-                                                    @RequestBody EcSalesOrderSaveRequest request) {
+                                                    @jakarta.validation.Valid @RequestBody EcSalesOrderSaveRequest request) {
         return ApiResult.ok(ecSalesOrderService.updateOrder(id, request));
     }
 
@@ -175,7 +175,7 @@ public class EcSalesOrderController {
     @PostMapping("/{id}/lines/{lineId}/refund")
     public ApiResult<EcSalesOrderDetailVO> refundLine(@PathVariable Long id,
                                                       @PathVariable Long lineId,
-                                                      @RequestBody EcSalesOrderLineRefundRequest request) {
+                                                      @jakarta.validation.Valid @RequestBody EcSalesOrderLineRefundRequest request) {
         return ApiResult.ok(ecSalesOrderService.refundLine(id, lineId, request));
     }
 
@@ -233,7 +233,7 @@ public class EcSalesOrderController {
      * @return 导入预览结果
      */
     @PostMapping("/import/preview")
-    public ApiResult<EcSalesOrderImportPreviewVO> previewImport(@RequestBody EcSalesOrderImportPreviewRequest request) {
+    public ApiResult<EcSalesOrderImportPreviewVO> previewImport(@jakarta.validation.Valid @RequestBody EcSalesOrderImportPreviewRequest request) {
         return ApiResult.ok(ecSalesOrderService.previewImport(request));
     }
 
@@ -270,7 +270,7 @@ public class EcSalesOrderController {
     @PostMapping("/import/{batchId}/manual-costs")
     public ApiResult<EcSalesOrderImportPreviewVO> updateImportManualCosts(
             @PathVariable Long batchId,
-            @RequestBody EcSalesOrderImportManualCostUpdateRequest request) {
+            @jakarta.validation.Valid @RequestBody EcSalesOrderImportManualCostUpdateRequest request) {
         return ApiResult.ok(ecSalesOrderService.updateImportManualCosts(batchId, request));
     }
 
@@ -287,7 +287,7 @@ public class EcSalesOrderController {
     @PostMapping("/import/{batchId}/commit")
     public ApiResult<EcSalesOrderImportPreviewVO> commitImport(
             @PathVariable Long batchId,
-            @RequestBody(required = false) EcSalesOrderImportManualCostUpdateRequest request) {
+            @jakarta.validation.Valid @RequestBody(required = false) EcSalesOrderImportManualCostUpdateRequest request) {
         return ApiResult.ok(ecSalesOrderService.commitImport(batchId, request));
     }
 

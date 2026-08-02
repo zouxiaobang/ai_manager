@@ -100,7 +100,7 @@ public class NbTodoController {
      * @return 创建后的待办事项
      */
     @PostMapping
-    public ApiResult<NbTodoItemVO> create(@RequestBody NbTodoSaveRequest request) {
+    public ApiResult<NbTodoItemVO> create(@jakarta.validation.Valid @RequestBody NbTodoSaveRequest request) {
         return ApiResult.ok(nbTodoService.create(request));
     }
 
@@ -115,7 +115,7 @@ public class NbTodoController {
      * @return 更新后的待办事项
      */
     @PutMapping("/{id}")
-    public ApiResult<NbTodoMutationVO> update(@PathVariable Long id, @RequestBody NbTodoSaveRequest request) {
+    public ApiResult<NbTodoMutationVO> update(@PathVariable Long id, @jakarta.validation.Valid @RequestBody NbTodoSaveRequest request) {
         return ApiResult.ok(nbTodoService.update(id, request));
     }
 

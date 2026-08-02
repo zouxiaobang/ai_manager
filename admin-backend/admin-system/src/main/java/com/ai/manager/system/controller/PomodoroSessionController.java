@@ -50,7 +50,7 @@ public class PomodoroSessionController {
      * @return 同步后的番茄钟会话信息
      */
     @PutMapping
-    public ApiResult<PomodoroSessionVO> sync(@RequestBody PomodoroSessionSyncRequest request) {
+    public ApiResult<PomodoroSessionVO> sync(@jakarta.validation.Valid @RequestBody PomodoroSessionSyncRequest request) {
         return ApiResult.ok(pomodoroSessionService.syncSession(request));
     }
 }

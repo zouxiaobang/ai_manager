@@ -49,14 +49,14 @@ public class SysImportController {
     }
 
     @PostMapping("/profiles")
-    public ApiResult<SysImportProfileVO> createProfile(@RequestBody SysImportProfileSaveRequest request) {
+    public ApiResult<SysImportProfileVO> createProfile(@jakarta.validation.Valid @RequestBody SysImportProfileSaveRequest request) {
         request.setId(null);
         return ApiResult.ok(sysImportService.saveProfile(request));
     }
 
     @PutMapping("/profiles/{id}")
     public ApiResult<SysImportProfileVO> updateProfile(@PathVariable Long id,
-                                                       @RequestBody SysImportProfileSaveRequest request) {
+                                                       @jakarta.validation.Valid @RequestBody SysImportProfileSaveRequest request) {
         request.setId(id);
         return ApiResult.ok(sysImportService.saveProfile(request));
     }

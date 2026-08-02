@@ -249,7 +249,7 @@ public class EcInventoryController {
      * @return 库存详情
      */
     @PostMapping("/inbound")
-    public ApiResult<EcInventoryDetailVO> quickInbound(@RequestBody EcInventoryInboundRequest request) {
+    public ApiResult<EcInventoryDetailVO> quickInbound(@jakarta.validation.Valid @RequestBody EcInventoryInboundRequest request) {
         return ApiResult.ok(ecInventoryService.quickInbound(request));
     }
 
@@ -312,7 +312,7 @@ public class EcInventoryController {
      * @return 创建后的库存信息
      */
     @PostMapping
-    public ApiResult<EcInventoryListItemVO> create(@RequestBody EcInventorySaveRequest request) {
+    public ApiResult<EcInventoryListItemVO> create(@jakarta.validation.Valid @RequestBody EcInventorySaveRequest request) {
         return ApiResult.ok(ecInventoryService.createInventory(request));
     }
 
@@ -328,7 +328,7 @@ public class EcInventoryController {
      */
     @PutMapping("/{id}")
     public ApiResult<EcInventoryListItemVO> update(@PathVariable Long id,
-                                                   @RequestBody EcInventorySaveRequest request) {
+                                                   @jakarta.validation.Valid @RequestBody EcInventorySaveRequest request) {
         return ApiResult.ok(ecInventoryService.updateInventory(id, request));
     }
 
@@ -344,7 +344,7 @@ public class EcInventoryController {
      */
     @PostMapping("/{id}/adjust")
     public ApiResult<EcInventoryListItemVO> adjust(@PathVariable Long id,
-                                                   @RequestBody EcInventoryAdjustRequest request) {
+                                                   @jakarta.validation.Valid @RequestBody EcInventoryAdjustRequest request) {
         return ApiResult.ok(ecInventoryService.adjustInventory(id, request));
     }
 

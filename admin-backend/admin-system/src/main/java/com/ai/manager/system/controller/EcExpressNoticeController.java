@@ -22,13 +22,13 @@ public class EcExpressNoticeController {
     }
 
     @PostMapping
-    public ApiResult<EcExpressNoticeVO> create(@RequestBody EcExpressNoticeSaveRequest request) {
+    public ApiResult<EcExpressNoticeVO> create(@jakarta.validation.Valid @RequestBody EcExpressNoticeSaveRequest request) {
         return ApiResult.ok(ecExpressNoticeService.createNotice(request));
     }
 
     @PutMapping("/{id}")
     public ApiResult<EcExpressNoticeVO> update(@PathVariable Long id,
-                                                @RequestBody EcExpressNoticeSaveRequest request) {
+                                                @jakarta.validation.Valid @RequestBody EcExpressNoticeSaveRequest request) {
         return ApiResult.ok(ecExpressNoticeService.updateNotice(id, request));
     }
 

@@ -68,7 +68,7 @@ public class AiKnowledgeController {
      * <p>路径：/api/ai-knowledge/config</p>
      */
     @PutMapping("/config")
-    public ApiResult<AiKnowledgeConfigVO> saveConfig(@RequestBody AiKnowledgeConfigSaveRequest request) {
+    public ApiResult<AiKnowledgeConfigVO> saveConfig(@jakarta.validation.Valid @RequestBody AiKnowledgeConfigSaveRequest request) {
         return ApiResult.ok(aiKnowledgeService.saveConfig(request));
     }
 
@@ -92,7 +92,7 @@ public class AiKnowledgeController {
      * <p>路径：/api/ai-knowledge/chat</p>
      */
     @PostMapping("/chat")
-    public ApiResult<AiKnowledgeChatResponse> chat(@RequestBody AiKnowledgeChatRequest request) {
+    public ApiResult<AiKnowledgeChatResponse> chat(@jakarta.validation.Valid @RequestBody AiKnowledgeChatRequest request) {
         return ApiResult.ok(aiKnowledgeService.chat(request));
     }
 
@@ -103,7 +103,7 @@ public class AiKnowledgeController {
      * <p>路径：/api/ai-knowledge/chat/stream</p>
      */
     @PostMapping("/chat/stream")
-    public SseEmitter chatStream(@RequestBody AiKnowledgeChatRequest request) {
+    public SseEmitter chatStream(@jakarta.validation.Valid @RequestBody AiKnowledgeChatRequest request) {
         SseEmitter emitter = new SseEmitter(0L);
         aiKnowledgeService.chatStream(request, emitter);
         return emitter;
@@ -129,7 +129,7 @@ public class AiKnowledgeController {
      * <p>路径：/api/ai-knowledge/rag/embedding-config</p>
      */
     @PutMapping("/rag/embedding-config")
-    public ApiResult<Void> saveEmbeddingConfig(@RequestBody AiKnowledgeConfigSaveRequest request) {
+    public ApiResult<Void> saveEmbeddingConfig(@jakarta.validation.Valid @RequestBody AiKnowledgeConfigSaveRequest request) {
         aiKnowledgeService.saveEmbeddingConfig(request);
         return ApiResult.ok();
     }
@@ -187,7 +187,7 @@ public class AiKnowledgeController {
      * <p>路径：/api/ai-knowledge/rag/search</p>
      */
     @PostMapping("/rag/search")
-    public ApiResult<AiKnowledgeRagSearchResultVO> searchRag(@RequestBody AiKnowledgeRagSearchRequest request) {
+    public ApiResult<AiKnowledgeRagSearchResultVO> searchRag(@jakarta.validation.Valid @RequestBody AiKnowledgeRagSearchRequest request) {
         return ApiResult.ok(aiKnowledgeService.searchRag(request));
     }
 
@@ -263,7 +263,7 @@ public class AiKnowledgeController {
      * 更新对话
      */
     @PutMapping("/chat/conversations/{id}")
-    public ApiResult<Void> updateChatConversation(@PathVariable Long id, @RequestBody AiChatConversationSaveRequest request) {
+    public ApiResult<Void> updateChatConversation(@PathVariable Long id, @jakarta.validation.Valid @RequestBody AiChatConversationSaveRequest request) {
         aiKnowledgeService.updateChatConversation(id, request);
         return ApiResult.ok();
     }
@@ -297,7 +297,7 @@ public class AiKnowledgeController {
      * 记录一次聊天用量
      */
     @PostMapping("/chat/usage")
-    public ApiResult<Void> recordChatUsage(@RequestBody AiChatUsageRecordRequest request) {
+    public ApiResult<Void> recordChatUsage(@jakarta.validation.Valid @RequestBody AiChatUsageRecordRequest request) {
         aiKnowledgeService.recordChatUsage(request);
         return ApiResult.ok();
     }
