@@ -45,6 +45,7 @@ import com.ai.manager.system.service.support.EcSalesOrderInventorySupport;
 import com.ai.manager.system.service.support.EcSalesOrderMatchSupport;
 import com.ai.manager.system.service.support.EcSalesOrderMatchSupport.LinkSkuMatchResult;
 import com.ai.manager.system.service.support.EcSalesOrderPricingSupport;
+import com.ai.manager.system.service.support.EcSalesOrderVoAssembler;
 import com.ai.manager.system.service.support.ExpressStationNameAliasSupport;
 import com.ai.manager.system.service.support.SysImportFieldRegistry;
 import com.ai.manager.system.service.support.SysImportParseSupport;
@@ -122,6 +123,7 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
     private final ExpressStationNameAliasSupport expressStationNameAliasSupport;
     private final ObjectMapper objectMapper;
     private final EcSystemSettingsService ecSystemSettingsService;
+    private final EcSalesOrderVoAssembler salesOrderVoAssembler;
 
     private static final DateTimeFormatter ORDER_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final DateTimeFormatter ORDER_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -1183,15 +1185,6 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         }
     }
 
-    private String resolvePlatformStatus(EcSalesOrder order) {
-        if (StringUtils.hasText(order.getPlatformStatus())) {
-            return order.getPlatformStatus().trim();
-        }
-        if (SOURCE_MANUAL.equals(order.getSource())) {
-            return MANUAL_DEFAULT_PLATFORM_STATUS;
-        }
-        return null;
-    }
 
     private void recalculateOrderTotals(Long orderId) {
         List<EcSalesOrderLine> lines = loadLineEntities(orderId);
@@ -1338,58 +1331,7 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
     private EcSalesOrderDetailVO toDetailVO(EcSalesOrder order, List<EcSalesOrderLineVO> lines,
                                             Map<Long, EcShop> shopMap, Map<Long, EcPlatform> platformMap,
                                             Map<Long, String> stationNameMap, int lineCount) {
-        EcSalesOrderDetailVO vo = new EcSalesOrderDetailVO();
-        vo.setId(order.getId());
-        vo.setOrderNo(order.getOrderNo());
-        vo.setShopId(order.getShopId());
-        EcShop shop = shopMap.get(order.getShopId());
-        if (shop != null) {
-            vo.setShopName(shop.getName());
-            if (shop.getPlatformId() != null) {
-                vo.setPlatformId(shop.getPlatformId());
-                EcPlatform platform = platformMap.get(shop.getPlatformId());
-                if (platform != null) {
-                    vo.setPlatformName(platform.getName());
-                }
-            }
-        }
-        vo.setPlatformOrderNo(order.getPlatformOrderNo());
-        vo.setSource(order.getSource());
-        vo.setStatus(order.getStatus());
-        vo.setPlatformStatus(resolvePlatformStatus(order));
-        vo.setExpressStationId(order.getExpressStationId());
-        if (order.getExpressStationId() != null) {
-            vo.setExpressStationName(stationNameMap.get(order.getExpressStationId()));
-        }
-        vo.setOrderTime(order.getOrderTime());
-        vo.setPayTime(order.getPayTime());
-        vo.setShipTime(order.getShipTime());
-        vo.setCompleteTime(order.getCompleteTime());
-        vo.setBuyerName(order.getBuyerName());
-        vo.setBuyerPhone(order.getBuyerPhone());
-        vo.setReceiveProvince(order.getReceiveProvince());
-        vo.setReceiveCity(order.getReceiveCity());
-        vo.setReceiveDistrict(order.getReceiveDistrict());
-        vo.setReceiveAddress(order.getReceiveAddress());
-        vo.setTrackingNumber(order.getTrackingNumber());
-        vo.setBuyerRemark(order.getBuyerRemark());
-        vo.setSellerRemark(order.getSellerRemark());
-        vo.setReceivedAmount(order.getReceivedAmount());
-        vo.setTotalCostAmount(order.getTotalCostAmount());
-        vo.setFreightAmount(order.getFreightAmount());
-        vo.setEstimatedFreightAmount(order.getEstimatedFreightAmount());
-        vo.setActualFreightAmount(order.getActualFreightAmount());
-        vo.setOrderCouponAmount(order.getOrderCouponAmount());
-        vo.setPlatformFeeAmount(order.getPlatformFeeAmount());
-        vo.setProfitAmount(order.getProfitAmount());
-        vo.setTotalLossAmount(order.getTotalLossAmount());
-        vo.setHasShortage(order.getHasShortage() != null && order.getHasShortage() == 1);
-        vo.setImportBatchId(order.getImportBatchId());
-        vo.setCreateTime(order.getCreateTime());
-        vo.setUpdateTime(order.getUpdateTime());
-        vo.setLines(lines);
-        vo.setLineCount(lineCount > 0 ? lineCount : lines.size());
-        return vo;
+        return salesOrderVoAssembler.toDetailVO(order, lines, shopMap, platformMap, stationNameMap, lineCount);
     }
 
     private Map<Long, Integer> loadLineCountMap(List<Long> orderIds) {
@@ -1427,51 +1369,11 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
     }
 
     private EcSalesOrderLineVO toLineVO(EcSalesOrderLine line) {
-        EcSalesOrderLineVO vo = new EcSalesOrderLineVO();
-        vo.setId(line.getId());
-        vo.setOrderId(line.getOrderId());
-        vo.setSortOrder(line.getSortOrder());
-        vo.setListingLinkSkuId(line.getListingLinkSkuId());
-        vo.setLinkName(line.getLinkName());
-        vo.setSkuSpecName(line.getSkuSpecName());
-        vo.setSkuCodes(line.getSkuCodes());
-        vo.setSkuQuantity(line.getSkuQuantity());
-        vo.setShippedQuantity(line.getShippedQuantity());
-        vo.setShortQuantity(line.getShortQuantity());
-        vo.setStatus(line.getStatus());
-        vo.setPlatformLineStatus(line.getPlatformLineStatus());
-        vo.setRefundType(line.getRefundType());
-        vo.setRefundTime(line.getRefundTime());
-        vo.setRefundAmount(line.getRefundAmount());
-        vo.setLossAmount(line.getLossAmount());
-        vo.setUnitPrice(line.getUnitPrice());
-        vo.setDiscountPct(line.getDiscountPct());
-        vo.setLineCouponAmount(line.getLineCouponAmount());
-        vo.setLineReceivedAmount(line.getLineReceivedAmount());
-        vo.setSkuAmount(line.getSkuAmount());
-        vo.setCartonAmount(line.getCartonAmount());
-        vo.setExpressAmount(line.getExpressAmount());
-        vo.setBaseCostAmount(line.getBaseCostAmount());
-        vo.setPlatformFeeAmount(line.getPlatformFeeAmount());
-        vo.setCostPrice(line.getCostPrice());
-        vo.setMinSetAmount(line.getMinSetAmount());
-        vo.setProfit(line.getProfit());
-        vo.setPricingRisk(line.getPricingRisk());
-        vo.setPlatformLineNo(line.getPlatformLineNo());
-        vo.setPlatformItemName(line.getPlatformItemName());
-        return vo;
+        return salesOrderVoAssembler.toLineVO(line);
     }
 
     private EcSalesOrderShortageVO toShortageVO(EcSalesOrderShortage s) {
-        EcSalesOrderShortageVO vo = new EcSalesOrderShortageVO();
-        vo.setId(s.getId());
-        vo.setSkuCode(s.getSkuCode());
-        vo.setNeedQty(s.getNeedQty());
-        vo.setDeductedQty(s.getDeductedQty());
-        vo.setShortQty(s.getShortQty());
-        vo.setStatus(s.getStatus());
-        vo.setCreateTime(s.getCreateTime());
-        return vo;
+        return salesOrderVoAssembler.toShortageVO(s);
     }
 
     private EcSalesOrderImportRowVO toImportRowVO(EcOrderImportRow row) {
