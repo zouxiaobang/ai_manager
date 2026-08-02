@@ -6,8 +6,12 @@ const LEGACY_STORAGE_KEYS = ['ai-manager-app-shell-pref', 'ai-manager-app-shell'
 export const MOBILE_MAX_WIDTH = 768
 /** 平板中宽档（PC 壳内响应式上限，与 MOBILE_MAX_WIDTH=768 无耦合） */
 export const TABLET_MAX_WIDTH = 1200
-/** 平板窄档：左侧树改为抽屉 */
-export const TABLET_COMPACT_MAX_WIDTH = 1024
+/**
+ * 平板窄档：左侧树改为原位抽屉。
+ * 层级关系：≤1300 侧栏收起为抽屉；≤1200 额外把右侧 TOC 默认折叠。
+ * 因此 1201–1300 → 侧栏抽屉 + TOC 仍显示；≤1200 → 侧栏抽屉 + TOC 默认折叠。
+ */
+export const TABLET_COMPACT_MAX_WIDTH = 1300
 
 import {
   isMobileHomeThemeId,

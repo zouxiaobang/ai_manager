@@ -87,7 +87,7 @@
               aria-controls="notebook-sidebar"
               @click="sidebarVisible = true"
             >
-              <el-icon :size="18"><Menu /></el-icon>
+              <el-icon :size="18"><FolderOpened /></el-icon>
             </button>
             <!-- 左侧侧边栏：搜索栏、新建按钮、笔记文件夹树 -->
           <aside
@@ -96,6 +96,18 @@
             :class="{ 'is-offcanvas': isCompactRange, 'is-collapsed': isCompactRange && !sidebarVisible }"
             :aria-expanded="sidebarAriaExpanded"
           >
+            <!-- 紧凑档抽屉头部：标题 + 关闭按钮（仅抽屉模式显示） -->
+            <div v-if="isCompactRange" class="notebook-sidebar__drawer-head">
+              <span class="notebook-sidebar__drawer-title">{{ t('notebook.treeTitle') }}</span>
+              <button
+                type="button"
+                class="notebook-sidebar__drawer-close"
+                :aria-label="t('notebook.hideSidebar')"
+                @click="sidebarVisible = false"
+              >
+                <el-icon><Close /></el-icon>
+              </button>
+            </div>
             <!-- 侧边栏工具栏：搜索框和新建按钮 -->
             <div class="notebook-sidebar__toolbar">
               <!-- 搜索框区域 -->
@@ -711,6 +723,7 @@ import {
   Document,
   Edit,
   Folder,
+  FolderOpened,
   FullScreen,
   Link,
   Loading,
@@ -765,7 +778,7 @@ const activeTab = ref('all') // 当前激活的标签页
 // 平板中宽档（PC 壳内响应式，769–1200px）：TOC 默认折叠，可手动展开
 const tabletMql = typeof window !== 'undefined' ? window.matchMedia(`(max-width: ${TABLET_MAX_WIDTH}px)`) : null
 const isTabletRange = ref(tabletMql?.matches ?? false)
-// 平板窄档（≤1024px）：左侧树改为原位抽屉
+// 平板窄档（≤1300px）：左侧树改为原位抽屉（1201–1300 时 TOC 仍显示，≤1200 才折叠）
 const compactMql = typeof window !== 'undefined' ? window.matchMedia(`(max-width: ${TABLET_COMPACT_MAX_WIDTH}px)`) : null
 const isCompactRange = ref(compactMql?.matches ?? false)
 const tocVisible = ref(!isTabletRange.value) // 目录是否可见（平板档默认折叠）
@@ -1803,7 +1816,7 @@ function beginOpenNote(noteId: number, stub: NbNoteDetail, nodeKey?: string) {
   contentLoadBlocked.value = false
   contentLoading.value = true
   // 桌面档（>1200）打开笔记时展开目录；平板档保持折叠（可手动展开）。
-  // 紧凑档（≤1024）统一收抽屉：覆盖树点击/新建/粘贴全部调用点。
+  // 紧凑档（≤1300）统一收抽屉：覆盖树点击/新建/粘贴全部调用点。
   // 边界：紧凑档右键重命名 → loadTree → beginOpenNote 会收掉刚用过的抽屉，属可容忍行为。
   if (!isTabletRange.value) tocVisible.value = true
   if (isCompactRange.value) sidebarVisible.value = false
@@ -2604,6 +2617,41 @@ onBeforeUnmount(() => {
   }
 }
 
+/* 紧凑档抽屉头部：标题 + 关闭按钮（仅抽屉模式显示） */
+.notebook-sidebar__drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 12px 12px 0;
+}
+
+.notebook-sidebar__drawer-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--wr-text);
+}
+
+.notebook-sidebar__drawer-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--wr-text-secondary);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--wr-rail-active-color);
+    background: var(--wr-stat-blue-bg);
+  }
+}
+
 .notebook-sidebar__toolbar {
   flex-shrink: 0;
   display: flex;
@@ -3380,7 +3428,8 @@ onBeforeUnmount(() => {
   }
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1300px) {
+  /* 与 deviceShell.ts 的 TABLET_COMPACT_MAX_WIDTH=1300 保持一致：左侧树收为原位抽屉 */
   .notebook-sidebar {
     position: absolute;
     inset: 0 auto 0 0;
@@ -3423,6 +3472,15 @@ onBeforeUnmount(() => {
     &:hover {
       background: var(--wr-stat-blue-bg);
     }
+  }
+}
+
+/* 紧凑档 + 矮视口同时生效：矮视口下 tabs 头/统计隐藏、布局顶格，
+   抽屉开关按钮与标签页收起按钮（notebook-tabs-switch）都会落在左上角而重叠。
+   将抽屉开关按钮下移避开标签页收起按钮。 */
+@media (max-height: 900px) and (max-width: 1300px) {
+  .notebook-sidebar-toggle {
+    top: 48px;
   }
 }
 
@@ -3472,6 +3530,10 @@ onBeforeUnmount(() => {
   .notebook-sidebar__toolbar {
     gap: 6px;
     padding: 8px 8px 6px;
+  }
+
+  .notebook-sidebar__drawer-head {
+    padding: 8px 8px 0;
   }
 
   .notebook-sidebar__search :deep(.el-input__wrapper) {
