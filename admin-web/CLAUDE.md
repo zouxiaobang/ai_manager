@@ -21,11 +21,11 @@ npm run build:pi     # 仅 vite build（Pi 部署，跳过类型检查）
 - 代理：
   - `/api`、`/uploads` → `http://127.0.0.1:8080`
   - `/claude-relay` → `http://127.0.0.1:3001`（WebSocket）
-  - 代理目标可用环境变量 `VITE_API_TARGET` 覆盖（默认 8080），用于 worktree 独立端口联调
+  - 代理目标可用环境变量 `vite_api_target` 覆盖（默认 8080），用于 worktree 独立端口联调
 
 ## 开发约定
 
 - 路径别名 `@/` → `./src/*`；TypeScript strict，`noUnusedLocals`/`noUnusedParameters` 开启
 - **worktree 内验证前端必须单独起 vite**（主 checkout 的 vite 看不到 worktree 改动）：
-  `.\dev.ps1 -Task N -Side frontend` → 端口 517N，`VITE_API_TARGET` 自动指向 808N
+  `.\dev.ps1 N frontend` → 端口 517N，`vite_api_target` 自动指向 808N
 - 构建体积相关：vite.config 有手写 `manualChunks`（xterm/echarts/exceljs/three/wangeditor 等独立分包），新加大依赖时注意别破坏

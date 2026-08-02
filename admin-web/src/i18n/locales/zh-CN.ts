@@ -680,6 +680,8 @@ export default {
     pinned: '置顶笔记',
     showToc: '展开目录',
     hideToc: '收起目录',
+    showSidebar: '展开侧栏',
+    hideSidebar: '收起侧栏',
     moreTools: '更多',
     wordCount: '共 {count} 字',
     todayAt: '今天 {time}',

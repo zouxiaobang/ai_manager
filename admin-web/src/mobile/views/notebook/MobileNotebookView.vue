@@ -1,198 +1,123 @@
 <template>
-  <!-- 移动端笔记本页面主容器 -->
-  <div v-loading="loading" class="mobile-notebook-d">
-    <!-- 侧边抽屉遮罩层：点击关闭抽屉 -->
-    <div
-      v-show="drawerOpen"
-      class="notebook-drawer-overlay"
-      @click="closeDrawer"
-    />
+  <MobilePage>
+    <span v-if="totalNoteCount > 0" class="notebook-header__subtitle">{{ totalNoteCount }} {{ t('notebook.stats.notes') }}</span>
 
-    <!-- 左侧文件夹抽屉：展示文件夹树形结构 -->
-    <div class="notebook-drawer" :class="{ 'notebook-drawer--open': drawerOpen }">
-      <!-- 抽屉头部：标题 + 关闭按钮 -->
-      <div class="notebook-drawer__header">
-        <span class="notebook-drawer__title">
-          <svg width="18" height="18" class="drawer-title-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-          {{ t('notebook.stats.folders') }}
-        </span>
-        <!-- 关闭抽屉按钮 -->
-        <button class="notebook-drawer__close" @click="closeDrawer">✕</button>
+    <MobileCard v-if="folders.length > 0">
+      <div class="section-header">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <span>{{ t('notebook.stats.folders') }}</span>
+        <span class="section-header__count">{{ folders.length }}</span>
       </div>
-
-      <!-- 抽屉内容区：文件夹树 + 全部笔记 + 回收站 -->
-      <div class="notebook-drawer__tree">
-        <!-- 全部笔记根节点：展示所有笔记 -->
-        <div class="drawer-node drawer-node--active" @click="closeDrawer; currentView = 'all'">
-          <svg width="16" height="16" class="drawer-node__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
-          <span class="drawer-node__label">{{ t('notebook.tabs.all') }}</span>
-          <span class="drawer-node__count">{{ totalNoteCount }}</span>
-        </div>
-
-        <!-- 递归文件夹/笔记树组件 -->
-        <DrawerTree
-          :nodes="rootFolders"
-          :expanded-keys="expandedDrawerFolders"
-          @toggle="toggleDrawerFolder"
-          @navigate="navigateToFolder"
-          @open-note="openNote"
-          @close-drawer="closeDrawer"
-        />
-
-        <!-- 回收站入口 -->
-        <div class="drawer-node drawer-node--trash" @click="closeDrawer">
-          <svg width="16" height="16" class="drawer-node__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-          <span class="drawer-node__label">{{ t('notebook.tabs.trash') }}</span>
+      <div class="folder-grid">
+        <div
+          v-for="folder in folders"
+          :key="folder.nodeKey"
+          class="folder-card"
+          @click="openFolder(folder)"
+        >
+          <div class="folder-card__icon" :style="{ background: getFolderColor(folder.nodeKey) }">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <div class="folder-card__name">{{ folder.name }}</div>
+          <div class="folder-card__count">{{ countFolderNotes(folder) }} {{ t('notebook.stats.notes') }}</div>
         </div>
       </div>
+    </MobileCard>
+
+    <MobileCard v-if="pinnedNotes.length > 0">
+      <div class="section-header">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>
+        <span>{{ t('notebook.pinned') }}</span>
+        <span class="section-header__count">{{ pinnedNotes.length }}</span>
+      </div>
+      <div class="note-cards">
+        <div
+          v-for="note in pinnedNotes"
+          :key="note.id"
+          class="note-card note-card--pinned"
+          @click="openNote(note.id)"
+        >
+          <div class="note-card__pin">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="#9b0000" stroke="#9b0000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>
+          </div>
+          <div class="note-card__title">{{ note.title }}</div>
+          <div class="note-card__excerpt">{{ note.contentExcerpt || t('notebook.emptyContent') }}</div>
+          <div class="note-card__footer">{{ note.folderName || t('notebook.uncategorized') }} · {{ formatTime(note.updateTime) }}</div>
+        </div>
+      </div>
+    </MobileCard>
+
+    <MobileCard v-if="recentNotes.length > 0">
+      <div class="section-header">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--wr-stat-blue, #2563eb)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        <span>{{ t('notebook.recent') }}</span>
+      </div>
+      <div class="note-list">
+        <div
+          v-for="note in recentNotes"
+          :key="note.id"
+          class="note-item"
+          @click="openNote(note.id)"
+        >
+          <div class="note-item__icon" :style="{ background: getNoteColor(note.id) }">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+          </div>
+          <div class="note-item__body">
+            <div class="note-item__title">{{ note.title }}</div>
+            <div class="note-item__excerpt">{{ note.contentExcerpt || t('notebook.emptyContent') }}</div>
+          </div>
+          <div class="note-item__meta">{{ formatTime(note.updateTime) }}</div>
+        </div>
+      </div>
+    </MobileCard>
+
+    <div v-if="folders.length === 0 && pinnedNotes.length === 0 && recentNotes.length === 0" class="empty-state">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--wr-muted, #999999)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      <div class="empty-state__text">{{ t('notebook.emptyTree') }}</div>
     </div>
 
-    <!-- 主内容区域 -->
-    <div class="notebook-main">
-      <!-- 顶部导航栏：汉堡菜单 + 标题 + 搜索按钮 -->
-      <div class="notebook-main__nav">
-        <!-- 汉堡菜单按钮：打开侧边抽屉 -->
-        <button class="notebook-main__hamburger" @click="openDrawer">
-          <span class="hamburger-line" />
-          <span class="hamburger-line" />
-          <span class="hamburger-line" />
-        </button>
-
-        <!-- 标题区域：页面标题 + 笔记数量副标题 -->
-        <div class="notebook-main__title-area">
-          <h2 class="notebook-main__title">{{ t('portal.menu.notebook') }}</h2>
-          <span v-if="totalNoteCount > 0" class="notebook-main__subtitle">{{ totalNoteCount }} {{ t('notebook.stats.notes') }}</span>
-        </div>
-
-        <!-- 搜索按钮：跳转到搜索页面 -->
-        <button class="notebook-main__search-btn" @click="onSearchClick">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-        </button>
-      </div>
-
-      <!-- 当前路径面包屑：显示当前所在位置 -->
-      <div class="notebook-main__path">
-        <svg width="12" height="12" class="path-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        <span class="notebook-main__path-text">{{ t('notebook.tabs.all') }}</span>
-      </div>
-
-      <!-- 内容卡片区域：置顶笔记 + 文件夹列表 -->
-      <div class="notebook-main__content">
-        <!-- 置顶笔记区域：展示已置顶的笔记卡片 -->
-        <div v-if="pinnedNotes.length" class="content-section">
-          <div class="content-section__label content-section__label--pinned">
-            <svg width="14" height="14" class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>
-            <span>{{ t('mobile.notebook.pinned') }}</span>
-            <span class="content-section__count">{{ pinnedNotes.length }}</span>
-          </div>
-
-          <!-- 置顶笔记卡片列表 -->
-          <div class="content-card-list">
-            <!-- 置顶笔记卡片：点击打开笔记详情 -->
-            <SchemeADoodleFrame
-              v-for="item in pinnedNotes"
-              :key="item.id"
-              :seed="item.id"
-              color="#fbbf24"
-              sketch
-              :shadow="false"
-              class="content-card content-card--pinned"
-              @click="openNote(item.id)"
-            >
-              <div class="content-card__body">
-                <div class="content-card__title-row">
-                  <svg width="14" height="14" class="content-card__pin-icon" viewBox="0 0 24 24" fill="#9b0000" stroke="#9b0000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>
-                  <span class="content-card__title">{{ item.title }}</span>
-                </div>
-                <div class="content-card__meta">
-                  <svg width="12" height="12" class="meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                  {{ item.folderPath || '未分类' }}
-                </div>
-              </div>
-            </SchemeADoodleFrame>
-          </div>
-        </div>
-
-        <!-- 文件夹区域：展示根级文件夹卡片列表 -->
-        <div v-if="rootFolders.filter(n => n.nodeType === 'FOLDER').length" class="content-section">
-          <div class="content-section__label content-section__label--folder">
-            <svg width="16" height="16" class="section-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-            <span>{{ t('notebook.stats.folders') }}</span>
-            <span class="content-section__count">{{ rootFolders.filter(n => n.nodeType === 'FOLDER').length }}</span>
-          </div>
-
-          <!-- 文件夹卡片列表 -->
-          <div class="content-card-list">
-            <!-- 文件夹卡片：点击进入文件夹详情 -->
-            <SchemeADoodleFrame
-              v-for="folder in rootFolders.filter(n => n.nodeType === 'FOLDER')"
-              :key="folder.nodeKey"
-              :seed="getSeedFromKey(folder.nodeKey)"
-              color="#f97316"
-              sketch
-              :shadow="false"
-              class="content-card content-card--folder"
-              @click="openFolder(folder)"
-            >
-              <div class="content-card__body">
-                <div class="content-card__row">
-                  <svg width="22" height="22" class="content-card__folder-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                  <div class="content-card__folder-info">
-                    <span class="content-card__title">{{ folder.name }}</span>
-                    <span class="content-card__meta">{{ getFolderSummary(folder) }}</span>
-                  </div>
-                  <span class="content-card__arrow">›</span>
-                </div>
-              </div>
-            </SchemeADoodleFrame>
-          </div>
-        </div>
-
-        <!-- 空状态：无文件夹且无置顶笔记时展示 -->
-        <div v-if="rootFolders.filter(n => n.nodeType === 'FOLDER').length === 0 && pinnedNotes.length === 0" class="content-empty">
-          <svg width="48" height="48" class="content-empty__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          <div class="content-empty__text">{{ t('notebook.emptyTree') }}</div>
-        </div>
-
-        <div style="height: 80px;" />
-      </div>
-    </div>
-
-  </div>
+  </MobilePage>
 </template>
 
 <script setup lang="ts">
-/**
- * 移动端笔记本首页视图组件
- * 功能说明：
- * - 移动端笔记本模块的入口页面
- * - 左侧抽屉展示文件夹树形结构导航
- * - 主内容区展示置顶笔记和根级文件夹卡片
- * - 支持搜索、打开文件夹、打开笔记等导航操作
- * - 提供手绘风格的卡片式UI展示
- */
-import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useI18n } from 'vue-i18n'
-import { fetchNotebookTree } from '@/api/notebook'
-import type { NbTreeNode } from '@/api/notebook'
-import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
-import DrawerTree from '@/mobile/views/notebook/components/DrawerTree.vue'
+import {onMounted, ref} from 'vue'
+import {useRouter} from 'vue-router'
+import {useI18n} from 'vue-i18n'
+import MobilePage from '@/mobile/components/MobilePage.vue'
+import MobileCard from '@/mobile/components/MobileCard.vue'
+import {
+  fetchNotebookTree,
+  fetchRecentNotes,
+  type NbNoteDetail,
+  type NbTreeNode
+} from '@/api/notebook'
 
-const router = useRouter() // 路由实例
-const { t } = useI18n() // 国际化翻译函数
+const router = useRouter()
+const { t } = useI18n()
 
-const loading = ref(false) // 页面加载状态
-const drawerOpen = ref(false) // 侧边抽屉是否打开
-const rootFolders = ref<NbTreeNode[]>([]) // 根文件夹节点列表
-const pinnedNotes = ref<Array<{ id: number; title: string; folderPath: string; isPinned: boolean }>>([]) // 置顶笔记列表
-const expandedDrawerFolders = ref(new Set<string>()) // 抽屉中展开的文件夹key集合
-const currentView = ref<'all' | 'folder'>('all') // 当前视图模式：全部/文件夹
+const loading = ref(false)
+const rootFolders = ref<NbTreeNode[]>([])
+const folders = ref<NbTreeNode[]>([])
+const pinnedNotes = ref<Array<{ id: number; title: string; contentExcerpt?: string; folderName?: string; updateTime?: string }>>([])
+const recentNotes = ref<NbNoteDetail[]>([])
+const totalNoteCount = ref(0)
 
-// 递归统计所有笔记数量
+const FOLDER_COLORS = ['#2563eb', '#7c3aed', '#059669', '#ea580c', '#0891b2', '#dc2626']
+const NOTE_COLORS = ['#2563eb', '#7c3aed', '#059669', '#ea580c', '#0891b2', '#f97316', '#d97706', '#6b7280']
+
+function getFolderColor(key: string): string {
+  let hash = 0
+  for (let i = 0; i < key.length; i++) {
+    hash = ((hash << 5) - hash) + key.charCodeAt(i)
+    hash |= 0
+  }
+  return FOLDER_COLORS[Math.abs(hash) % FOLDER_COLORS.length]
+}
+
+function getNoteColor(id: number): string {
+  return NOTE_COLORS[id % NOTE_COLORS.length]
+}
+
 function countAllNotes(nodes: NbTreeNode[]): number {
   let count = 0
   for (const n of nodes) {
@@ -202,343 +127,94 @@ function countAllNotes(nodes: NbTreeNode[]): number {
   return count
 }
 
-const totalNoteCount = ref(0) // 笔记总数
-
-// 根据key生成哈希种子，用于手绘边框随机性
-function getSeedFromKey(key: string): number {
-  let hash = 0
-  for (let i = 0; i < key.length; i++) {
-    hash = ((hash << 5) - hash) + key.charCodeAt(i)
-    hash |= 0
-  }
-  return Math.abs(hash)
-}
-
-// 统计节点下的笔记数量（递归）
-function countChildNotes(node: NbTreeNode): number {
+function countFolderNotes(node: NbTreeNode): number {
   let count = 0
   if (node.nodeType === 'NOTE') count = 1
   if (node.children?.length) {
-    count += node.children.reduce((acc, child) => acc + countChildNotes(child), 0)
+    count += node.children.reduce((acc, child) => acc + countFolderNotes(child), 0)
   }
   return count
 }
 
-// 统计节点下的子文件夹数量（递归）
-function countChildFolders(node: NbTreeNode): number {
-  let count = 0
-  if (node.children?.length) {
-    for (const child of node.children) {
-      if (child.nodeType === 'FOLDER') count += 1 + countChildFolders(child)
-    }
+function formatTime(time?: string): string {
+  if (!time) return ''
+  const date = new Date(time)
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  
+  if (days === 0) {
+    return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
+  } else if (days === 1) {
+    return t('notebook.yesterday')
+  } else if (days < 7) {
+    return `${days} ${t('notebook.daysAgo')}`
+  } else {
+    return `${date.getMonth() + 1}/${date.getDate()}`
   }
-  return count
 }
 
-// 获取文件夹摘要信息（笔记数 + 文件夹数）
-function getFolderSummary(node: NbTreeNode): string {
-  const notes = countChildNotes(node)
-  const folders = countChildFolders(node)
-  const parts: string[] = []
-  if (notes > 0) parts.push(`${notes} ${t('notebook.stats.notes')}`)
-  if (folders > 0) parts.push(`${folders} ${t('notebook.stats.folders')}`)
-  return parts.join(' · ') || t('notebook.folderEmpty')
-}
-
-function openDrawer() { drawerOpen.value = true } // 打开侧边抽屉
-function closeDrawer() { drawerOpen.value = false } // 关闭侧边抽屉
-
-// 切换抽屉中文件夹的展开/折叠状态
-function toggleDrawerFolder(nodeKey: string) {
-  const s = new Set(expandedDrawerFolders.value)
-  if (s.has(nodeKey)) s.delete(nodeKey)
-  else s.add(nodeKey)
-  expandedDrawerFolders.value = s
-}
-
-// 导航到指定文件夹页面
-function navigateToFolder(node: NbTreeNode) {
-  router.push(`/notebook/folder/${node.nodeKey}`)
-}
-
-// 点击搜索按钮，跳转到搜索页面
-function onSearchClick() {
-  router.push('/notebook/search')
-}
-
-// 打开文件夹详情页
-function openFolder(folder: NbTreeNode) {
-  router.push(`/notebook/folder/${folder.nodeKey}`)
-}
-
-// 打开笔记详情页
-function openNote(id: number) {
-  router.push(`/notebook/${id}`)
-}
-
-// 加载笔记本树数据
-async function loadNotes() {
+async function loadData() {
   loading.value = true
   try {
-    const tree = await fetchNotebookTree() // 请求笔记本树API
+    const [tree, recent] = await Promise.all([
+      fetchNotebookTree(),
+      fetchRecentNotes(10),
+    ])
+    
     rootFolders.value = tree
-    totalNoteCount.value = countAllNotes(tree) // 统计总笔记数
-
-    // 递归收集置顶笔记
+    totalNoteCount.value = countAllNotes(tree)
+    
+    folders.value = tree.filter(n => n.nodeType === 'FOLDER')
+    
     const pinned: typeof pinnedNotes.value = []
     function collectPinned(node: NbTreeNode, folderPath: string) {
       if (node.nodeType === 'NOTE' && node.noteId && node.isPinned === 1) {
         pinned.push({
           id: node.noteId,
           title: node.name,
-          folderPath,
-          isPinned: true,
+          contentExcerpt: node.contentExcerpt,
+          folderName: folderPath || undefined,
+          updateTime: node.noteId?.toString(),
         })
       }
       if (node.children?.length) {
-        const nextPath =
-          node.nodeType === 'FOLDER'
-            ? folderPath ? `${folderPath} / ${node.name}` : node.name
-            : folderPath
+        const nextPath = node.nodeType === 'FOLDER' 
+          ? (folderPath ? `${folderPath} / ${node.name}` : node.name)
+          : folderPath
         for (const child of node.children) collectPinned(child, nextPath)
       }
     }
     for (const node of tree) collectPinned(node, '')
     pinnedNotes.value = pinned
+    
+    const pinnedIds = new Set(pinned.map(n => n.id))
+    recentNotes.value = recent.filter(n => !pinnedIds.has(n.id))
   } finally {
     loading.value = false
   }
 }
 
-onMounted(() => { void loadNotes() }) // 组件挂载时加载数据
+function openFolder(folder: NbTreeNode) {
+  router.push(`/notebook/folder/${folder.nodeKey}`)
+}
+
+function openNote(id: number) {
+  router.push(`/notebook/${id}`)
+}
+
+onMounted(() => {
+  void loadData()
+})
 </script>
 
 <style scoped lang="scss">
-// =========================================
-// Colors
-// =========================================
-$blue: #2563eb;
-$orange: #f97316;
-$yellow: #fbbf24;
-$bg: #f0ede8;
-$surface: #faf8f5;
-$text-primary: #1e293b;
-$text-secondary: #64748b;
-$text-muted: #94a3b8;
-$border: #e2e8f0;
-
-// =========================================
-// Main Container
-// =========================================
-.mobile-notebook-d {
-  position: relative;
-  min-height: calc(100vh - 120px);
-  min-height: calc(100dvh - 120px);
-  background: $bg;
-  display: flex;
-  overflow: hidden;
-}
-
-// =========================================
-// Drawer Overlay
-// =========================================
-.notebook-drawer-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.4);
-  z-index: 50;
-  animation: fadeIn 0.2s ease;
-}
-
-// =========================================
-// Drawer
-// =========================================
-.notebook-drawer {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 280px;
-  height: 100%;
-  height: 100dvh;
-  background: #f8f6f3;
-  z-index: 55;
-  transform: translateX(-100%);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  display: flex;
-  flex-direction: column;
-  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.1);
-
-  &--open {
-    transform: translateX(0);
-  }
-
-  &__header {
-    padding: 16px;
-    border-bottom: 1px solid $border;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-shrink: 0;
-  }
-
-  &__title {
-    font-family: 'ZCOOL KuaiLe', cursive;
-    font-size: 18px;
-    color: $text-primary;
-  }
-
-  &__close {
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    font-size: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: $text-muted;
-
-    &:hover {
-      background: $border;
-    }
-  }
-
-  &__tree {
-    flex: 1;
-    overflow-y: auto;
-    padding: 8px;
-  }
-}
-
-// Drawer Nodes
-.drawer-node {
+.notebook-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  font-size: 14px;
-  color: $text-primary;
-  user-select: none;
-
-  &:hover {
-    background: rgba($blue, 0.06);
-  }
-
-  &:active {
-    background: rgba($blue, 0.1);
-  }
-
-  &--active {
-    background: #dbeafe;
-    color: $blue;
-    font-weight: 600;
-  }
-
-  &--folder {
-    font-weight: 500;
-
-    &.drawer-node--expanded {
-      background: rgba($orange, 0.06);
-    }
-  }
-
-  &--subfolder {
-    padding-left: 36px;
-  }
-
-  &--note {
-    padding-left: 36px;
-  }
-
-  &--trash {
-    margin-top: 8px;
-    border-top: 1px solid $border;
-    padding-top: 12px;
-    border-radius: 0;
-    color: $text-muted;
-  }
-
-  &__icon {
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-    display: block;
-  }
-
-  &__arrow {
-    font-size: 10px;
-    color: $text-muted;
-    flex-shrink: 0;
-    width: 16px;
-    text-align: center;
-    transition: transform 0.2s;
-  }
-
-  &__label {
-    flex: 1;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  &__count {
-    font-size: 11px;
-    color: $text-muted;
-    background: $border;
-    padding: 1px 8px;
-    border-radius: 8px;
-    flex-shrink: 0;
-  }
-}
-
-// =========================================
-// Main Content
-// =========================================
-.notebook-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-
-  &__nav {
-    padding: 8px 16px 4px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-shrink: 0;
-    background: white;
-  }
-
-  &__hamburger {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    border: 2px solid $border;
-    background: white;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    cursor: pointer;
-    transition: all 0.15s;
-    flex-shrink: 0;
-
-    &:hover {
-      border-color: $blue;
-      background: #dbeafe;
-    }
-
-    &:active {
-      transform: scale(0.95);
-    }
-  }
+  justify-content: space-between;
+  padding: 0 4px;
+  margin-bottom: 4px;
 
   &__title-area {
     flex: 1;
@@ -546,87 +222,47 @@ $border: #e2e8f0;
   }
 
   &__title {
-    font-family: 'ZCOOL KuaiLe', cursive;
-    font-size: 20px;
-    color: $text-primary;
     margin: 0;
-    line-height: 1.2;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--wr-text, #333333);
+    line-height: 1.3;
   }
 
   &__subtitle {
-    font-size: 11px;
-    color: $text-muted;
-    display: block;
+    font-size: 12px;
+    color: var(--wr-text-secondary, #666666);
   }
 
   &__search-btn {
     width: 36px;
     height: 36px;
     border-radius: 10px;
-    border: 2px solid $border;
-    background: white;
+    border: 1.5px solid var(--wr-border, #e8ecef);
+    background: var(--wr-card, #ffffff);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    color: $text-muted;
+    color: var(--wr-text-secondary, #666666);
     transition: all 0.15s;
     flex-shrink: 0;
 
     &:hover {
-      border-color: $blue;
-      color: $blue;
+      border-color: var(--wr-stat-blue, #2563eb);
+      color: var(--wr-stat-blue, #2563eb);
     }
-
-    &:active {
-      transform: scale(0.95);
-    }
-  }
-
-  &__path {
-    padding: 4px 16px 8px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: $text-muted;
-    flex-shrink: 0;
-    background: white;
-  }
-
-  &__path-text {
-    color: $text-secondary;
-    font-weight: 500;
-  }
-
-  &__content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 8px 12px 0;
-    scroll-behavior: smooth;
-    -webkit-overflow-scrolling: touch;
-    background: white;
   }
 }
 
-// =========================================
-// Content Sections
-// =========================================
-.content-section {
-  margin-bottom: 16px;
-
-  &__label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    font-weight: 700;
-    padding: 0 4px 8px;
-
-    &--pinned { color: #d97706; }
-    &--folder { color: $orange; }
-    &--note { color: $blue; }
-  }
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--wr-text, #333333);
+  margin-bottom: 12px;
 
   &__count {
     font-size: 11px;
@@ -635,129 +271,174 @@ $border: #e2e8f0;
     padding: 0 8px;
     border-radius: 8px;
     line-height: 18px;
+    color: var(--wr-text-secondary, #666666);
   }
 }
 
-.content-card-list {
+.folder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.folder-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-// =========================================
-// Content Cards (with left stripe + doodle frame)
-// =========================================
-.content-card {
+  align-items: center;
+  gap: 6px;
+  padding: 16px 8px;
+  background: var(--wr-index-bg, #eff6ff);
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  overflow: hidden;
+  transition: transform 0.15s;
 
   &:hover {
-    transform: scale(0.99);
+    transform: translateY(-2px);
   }
 
-  &:active {
-    transform: scale(0.98);
+  &__icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--wr-text, #333333);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  &__count {
+    font-size: 11px;
+    color: var(--wr-text-secondary, #666666);
+  }
+}
+
+.note-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.note-card {
+  padding: 14px;
+  background: var(--wr-card, #ffffff);
+  border: 1px solid var(--wr-border, #e8ecef);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+
+  &:hover {
+    box-shadow: var(--wr-shadow, 0 4px 12px rgb(0 0 0 / 5%));
   }
 
   &--pinned {
     background: #fffbeb;
+    border-color: #fbbf24;
   }
 
-  &--folder {
-    background: #fff;
-  }
-
-  &--note {
-    background: white;
-  }
-
-  &__left-stripe {
-    position: absolute;
-    left: 0;
-    top: 4px;
-    bottom: 4px;
-    width: 4px;
-    border-radius: 2px;
-    z-index: 3;
-    opacity: 0.8;
-  }
-
-  &__body {
-    padding: 12px 20px 12px 24px;
-    position: relative;
-    z-index: 1;
-  }
-
-  &__row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  &__title-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 4px;
-  }
-
-  &__pin-icon {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-    display: block;
-  }
-
-  &__note-icon {
-    width: 14px;
-    height: 14px;
-    flex-shrink: 0;
-    display: block;
-  }
-
-  &__folder-icon {
-    width: 22px;
-    height: 22px;
-    flex-shrink: 0;
-    display: block;
+  &__pin {
+    margin-bottom: 6px;
   }
 
   &__title {
-    font-family: 'ZCOOL KuaiLe', cursive;
-    font-size: 15px;
-    color: $text-primary;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--wr-text, #333333);
+    margin-bottom: 4px;
   }
 
-  &__folder-info {
+  &__excerpt {
+    font-size: 13px;
+    color: var(--wr-text-secondary, #666666);
+    line-height: 1.5;
+    margin-bottom: 8px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  &__footer {
+    font-size: 11px;
+    color: var(--wr-muted, #999999);
+  }
+}
+
+.note-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.note-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--wr-border, #e8ecef);
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: var(--wr-index-bg, #eff6ff);
+  }
+
+  &__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  &__body {
     flex: 1;
     min-width: 0;
   }
 
-  &__meta {
-    font-size: 11px;
-    color: $text-muted;
-    margin-top: 2px;
-    display: flex;
-    align-items: center;
-    gap: 2px;
+  &__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--wr-text, #333333);
+    line-height: 1.4;
+    margin-bottom: 4px;
   }
 
-  &__arrow {
-    font-size: 18px;
-    color: $orange;
-    font-weight: bold;
+  &__excerpt {
+    font-size: 13px;
+    color: var(--wr-text-secondary, #666666);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  &__meta {
+    font-size: 11px;
+    color: var(--wr-muted, #999999);
     flex-shrink: 0;
+    margin-top: 2px;
   }
 }
 
-// =========================================
-// Empty State
-// =========================================
-.content-empty {
+.empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -765,107 +446,12 @@ $border: #e2e8f0;
   padding: 60px 20px;
   text-align: center;
 
-  &__icon {
-    width: 48px;
-    height: 48px;
-    margin-bottom: 12px;
-    color: $text-muted;
-  }
-
   &__text {
-    font-family: 'ZCOOL KuaiLe', cursive;
-    font-size: 16px;
-    color: $text-muted;
+    font-size: 14px;
+    color: var(--wr-muted, #999999);
+    margin-top: 12px;
   }
 }
 
-// =========================================
-// Inline icon helpers
-// =========================================
-.section-icon {
-  width: 16px;
-  height: 16px;
-  display: block;
-  flex-shrink: 0;
-}
 
-.meta-icon {
-  width: 12px;
-  height: 12px;
-  display: inline-block;
-  vertical-align: middle;
-  flex-shrink: 0;
-  margin-right: 2px;
-}
-
-.path-icon {
-  width: 12px;
-  height: 12px;
-  display: block;
-  flex-shrink: 0;
-}
-
-.drawer-title-icon {
-  display: inline-block;
-  vertical-align: middle;
-  margin-right: 4px;
-}
-
-// =========================================
-// FAB
-// =========================================
-.notebook-fab {
-  position: fixed;
-  bottom: 80px;
-  right: 20px;
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  background: $blue;
-  color: white;
-  border: none;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba($blue, 0.35);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  z-index: 40;
-
-  &:hover {
-    transform: scale(1.05);
-    box-shadow: 0 6px 20px rgba($blue, 0.45);
-  }
-
-  &:active {
-    transform: scale(0.95);
-  }
-}
-
-// =========================================
-// Hamburger lines
-// =========================================
-.hamburger-line {
-  display: block;
-  width: 16px;
-  height: 2px;
-  background: $text-primary;
-  border-radius: 1px;
-  transition: all 0.2s;
-}
-
-// =========================================
-// Animations
-// =========================================
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-// =========================================
-// Loading overlay
-// =========================================
-:deep(.el-loading-mask) {
-  background: rgba($bg, 0.6);
-}
 </style>

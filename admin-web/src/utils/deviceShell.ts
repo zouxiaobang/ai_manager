@@ -4,6 +4,10 @@ const LEGACY_STORAGE_KEYS = ['ai-manager-app-shell-pref', 'ai-manager-app-shell'
 
 /** 视口宽度 ≤ 此值时视为移动布局 */
 export const MOBILE_MAX_WIDTH = 768
+/** 平板中宽档（PC 壳内响应式上限，与 MOBILE_MAX_WIDTH=768 无耦合） */
+export const TABLET_MAX_WIDTH = 1200
+/** 平板窄档：左侧树改为抽屉 */
+export const TABLET_COMPACT_MAX_WIDTH = 1024
 
 import {
   isMobileHomeThemeId,

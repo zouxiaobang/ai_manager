@@ -1,7 +1,6 @@
 import { createRouter, createWebHashHistory, type RouteLocationNormalized } from 'vue-router'
 import MobileLayout from '@/mobile/layouts/MobileLayout.vue'
 
-/** 保存每个路由路径的滚动位置，用于返回时恢复 */
 const scrollPositions = new Map<string, number>()
 
 function saveScrollPosition(route: RouteLocationNormalized) {
@@ -26,9 +25,6 @@ function restoreScrollPosition(route: RouteLocationNormalized) {
 
 const router = createRouter({
   history: createWebHashHistory(),
-  scrollBehavior() {
-    // 不在这里处理滚动，使用 beforeEach/afterEach 手动管理
-  },
   routes: [
     {
       path: '/',
@@ -39,47 +35,41 @@ const router = createRouter({
           path: 'home',
           name: 'mobile-home',
           component: () => import('@/mobile/views/home/MobileHomeView.vue'),
-          meta: { titleKey: 'mobile.home.pageTitle', tab: 'home' },
+          meta: { titleKey: 'portal.dashboard.warRoom.title', tab: 'home' },
         },
         {
           path: 'notebook',
           name: 'mobile-notebook',
           component: () => import('@/mobile/views/notebook/MobileNotebookView.vue'),
-          meta: { titleKey: 'portal.menu.notebook', tab: 'notebook', hideAppHeader: true },
-        },
-        {
-          path: 'notebook/:id',
-          name: 'mobile-note-detail',
-          component: () => import('@/mobile/views/notebook/MobileNoteDetailView.vue'),
-          meta: { titleKey: 'notebook.title', hideTabBar: true, hideAppHeader: true },
-        },
-        {
-          path: 'notebook/folder/:folderKey',
-          name: 'mobile-notebook-folder',
-          component: () => import('@/mobile/views/notebook/MobileNotebookFolderView.vue'),
-          meta: { titleKey: 'mobile.notebook.folder', hideTabBar: true, hideAppHeader: true },
+          meta: {
+            titleKey: 'portal.menu.notebook',
+            tab: 'notebook',
+            headerAction: { icon: 'Search', to: '/notebook/search', ariaLabelKey: 'notebook.search' },
+          },
         },
         {
           path: 'notebook/search',
           name: 'mobile-note-search',
           component: () => import('@/mobile/views/notebook/MobileNoteSearchView.vue'),
-          meta: { titleKey: 'mobile.notebook.search', hideTabBar: true, hideAppHeader: true },
+          meta: { titleKey: 'notebook.search', tab: 'notebook', hideAppHeader: true },
+        },
+        {
+          path: 'notebook/folder/:key',
+          name: 'mobile-note-folder',
+          component: () => import('@/mobile/views/notebook/MobileNoteFolderView.vue'),
+          meta: { titleKey: 'portal.menu.notebook', tab: 'notebook', hideTabBar: true },
+        },
+        {
+          path: 'notebook/:id',
+          name: 'mobile-note-detail',
+          component: () => import('@/mobile/views/notebook/MobileNoteDetailView.vue'),
+          meta: { titleKey: 'portal.menu.notebook', tab: 'notebook', hideTabBar: true },
         },
         {
           path: 'todos',
           name: 'mobile-todos',
           component: () => import('@/mobile/views/todos/MobileTodosView.vue'),
-          meta: { titleKey: 'portal.menu.todos', tab: 'todos', hideAppHeader: true },
-        },
-        {
-          path: 'pomodoro',
-          redirect: '/home',
-        },
-        {
-          path: 'pixel-dog',
-          name: 'mobile-pixel-dog',
-          component: () => import('@/mobile/views/pixel-dog/PixelDogMobileView.vue'),
-          meta: { titleKey: 'functions.items.pixelDog.name', hideTabBar: true, hideAppHeader: true },
+          meta: { titleKey: 'portal.menu.todos', tab: 'todos' },
         },
         {
           path: 'functions',
@@ -88,95 +78,10 @@ const router = createRouter({
           meta: { titleKey: 'portal.menu.functions', tab: 'more' },
         },
         {
-          path: 'ecommerce',
-          name: 'mobile-ecommerce',
-          component: () => import('@/mobile/views/ecommerce/MobileEcommerceView.vue'),
-          meta: { titleKey: 'ecommerce.workbenchTitle', tab: 'more', hideAppHeader: true },
-        },
-        {
-          path: 'ecommerce/monthly-settlement',
-          name: 'mobile-ecommerce-monthly-settlement',
-          component: () => import('@/mobile/views/monthly-settlement/MobileMonthlySettlementView.vue'),
-          meta: { titleKey: 'ecommerce.nav.monthlySettlement', hideTabBar: true, hideAppHeader: true },
-        },
-        {
-          path: 'ecommerce/orders',
-          name: 'mobile-ecommerce-orders',
-          component: () => import('@/mobile/views/order/MobileOrderView.vue'),
-          meta: { titleKey: 'ecommerce.nav.order', hideTabBar: true, hideAppHeader: true },
-        },
-        {
-          path: 'ecommerce/inventory',
-          name: 'mobile-ecommerce-inventory',
-          component: () => import('@/mobile/views/inventory/MobileInventoryView.vue'),
-          meta: { titleKey: 'ecommerce.nav.inventory', hideTabBar: true, hideAppHeader: true },
-        },
-        {
-          path: 'ecommerce/products',
-          name: 'mobile-ecommerce-products',
-          component: () => import('@/mobile/views/products/MobileProductsView.vue'),
-          meta: { titleKey: 'ecommerce.nav.product', hideTabBar: true, hideAppHeader: true },
-        },
-        {
-          path: 'ecommerce/express',
-          name: 'mobile-ecommerce-express',
-          component: () => import('@/mobile/views/express/MobileExpressView.vue'),
-          meta: { titleKey: 'ecommerce.nav.express', hideTabBar: true, hideAppHeader: true },
-        },
-        
-        {
-          path: 'ecommerce/shops',
-          name: 'mobile-ecommerce-shops',
-          component: () => import('@/mobile/views/shop/MobileShopView.vue'),
-          meta: { titleKey: 'ecommerce.nav.platformShop', hideTabBar: true, hideAppHeader: true },
-        },
-        {
-          path: 'ecommerce/cartons',
-          name: 'mobile-ecommerce-cartons',
-          component: () => import('@/mobile/views/carton/MobileCartonView.vue'),
-          meta: { titleKey: 'ecommerce.nav.carton', hideTabBar: true, hideAppHeader: true },
-        },
-        {
-          path: 'ecommerce/factory',
-          name: 'mobile-ecommerce-factory',
-          component: () => import('@/mobile/views/factory/MobileFactoryView.vue'),
-          meta: { titleKey: 'ecommerce.factory.pageTitle', hideTabBar: true, hideAppHeader: true },
-        },
-        {
-          path: 'ecommerce/factory/production',
-          name: 'mobile-ecommerce-factory-production',
-          redirect: { name: 'mobile-ecommerce-factory' },
-        },
-        {
-          path: 'ecommerce/factory/machines',
-          name: 'mobile-ecommerce-factory-machines',
-          redirect: { name: 'mobile-ecommerce-factory' },
-        },
-        {
-          path: 'ecommerce/factory/quality',
-          name: 'mobile-ecommerce-factory-quality',
-          redirect: { name: 'mobile-ecommerce-factory' },
-        },
-        {
-          path: 'ecommerce/factory/inventory',
-          name: 'mobile-ecommerce-factory-inventory',
-          redirect: { name: 'mobile-ecommerce-factory' },
-        },
-        {
-          path: 'ecommerce/factory/workshop',
-          name: 'mobile-ecommerce-factory-workshop',
-          redirect: { name: 'mobile-ecommerce-factory' },
-        },
-        {
-          path: 'ecommerce/factory/schedule',
-          name: 'mobile-ecommerce-factory-schedule',
-          redirect: { name: 'mobile-ecommerce-factory' },
-        },
-        {
           path: 'settings',
           name: 'mobile-settings',
           component: () => import('@/mobile/views/settings/MobileSettingsView.vue'),
-          meta: { titleKey: 'portal.menu.settings', tab: 'more' },
+          meta: { titleKey: 'portal.menu.settings', hideTabBar: true },
         },
         {
           path: 'more',
@@ -185,28 +90,108 @@ const router = createRouter({
           meta: { titleKey: 'mobile.nav.more', tab: 'more' },
         },
         {
+          path: 'ecommerce',
+          name: 'mobile-ecommerce',
+          component: () => import('@/mobile/views/ecommerce/MobileEcommerceView.vue'),
+          meta: { titleKey: 'ecommerce.workbenchTitle', tab: 'more' },
+        },
+        {
+          path: 'ecommerce/orders',
+          name: 'mobile-ecommerce-orders',
+          component: () => import('@/mobile/views/ecommerce/MobileOrderView.vue'),
+          meta: { titleKey: 'ecommerce.nav.order', hideTabBar: true },
+        },
+        {
+          path: 'ecommerce/products',
+          name: 'mobile-ecommerce-products',
+          component: () => import('@/mobile/views/ecommerce/MobileProductView.vue'),
+          meta: { titleKey: 'ecommerce.nav.product', hideTabBar: true },
+        },
+        {
+          path: 'ecommerce/inventory',
+          name: 'mobile-ecommerce-inventory',
+          component: () => import('@/mobile/views/ecommerce/MobileInventoryView.vue'),
+          meta: { titleKey: 'ecommerce.nav.inventory', hideTabBar: true },
+        },
+        {
+          path: 'ecommerce/express',
+          name: 'mobile-ecommerce-express',
+          component: () => import('@/mobile/views/ecommerce/MobileExpressView.vue'),
+          meta: { titleKey: 'ecommerce.nav.express', hideTabBar: true },
+        },
+        {
+          path: 'ecommerce/shops',
+          name: 'mobile-ecommerce-shops',
+          component: () => import('@/mobile/views/ecommerce/MobileShopView.vue'),
+          meta: { titleKey: 'ecommerce.nav.platformShop', hideTabBar: true },
+        },
+        {
+          path: 'ecommerce/cartons',
+          name: 'mobile-ecommerce-cartons',
+          component: () => import('@/mobile/views/ecommerce/MobileCartonView.vue'),
+          meta: { titleKey: 'ecommerce.nav.carton', hideTabBar: true },
+        },
+        {
+          path: 'ecommerce/factory',
+          name: 'mobile-ecommerce-factory',
+          component: () => import('@/mobile/views/ecommerce/MobileFactoryView.vue'),
+          meta: { titleKey: 'ecommerce.factory.pageTitle', hideTabBar: true },
+        },
+        {
+          path: 'ecommerce/monthly-settlement',
+          name: 'mobile-ecommerce-monthly-settlement',
+          component: () => import('@/mobile/views/ecommerce/MobileMonthlySettlementView.vue'),
+          meta: { titleKey: 'ecommerce.nav.monthlySettlement', hideTabBar: true },
+        },
+        {
           path: 'users',
           name: 'mobile-users',
           component: () => import('@/mobile/views/users/MobileUsersView.vue'),
           meta: { titleKey: 'portal.menu.permission', hideTabBar: true },
         },
         {
+          path: 'pixel-dog',
+          name: 'mobile-pixel-dog',
+          component: () => import('@/mobile/views/pixel-dog/MobilePixelDogView.vue'),
+          meta: { titleKey: 'functions.items.pixelDog.name', hideTabBar: true },
+        },
+        {
+          path: 'pomodoro',
+          name: 'mobile-pomodoro',
+          component: () => import('@/mobile/views/pomodoro/MobilePomodoroView.vue'),
+          meta: { titleKey: 'portal.menu.pomodoro', hideTabBar: true },
+        },
+        {
           path: '24hour',
           name: 'mobile-24hour',
-          component: () => import('@/mobile/views/twenty-four-hour/MobileTwentyFourHourView.vue'),
-          meta: { titleKey: 'portal.menu.24hour', hideTabBar: true, hideAppHeader: true },
+          component: () => import('@/mobile/views/24hour/MobileTwentyFourHourView.vue'),
+          meta: {
+            titleKey: 'portal.menu.24hour',
+            tab: '24hour',
+            headerAction: { icon: 'DataAnalysis', to: '/24hour/stats', ariaLabelKey: 'portal.dashboard.navStats' },
+          },
+        },
+        {
+          path: '24hour/stats',
+          name: 'mobile-24hour-stats',
+          component: () => import('@/mobile/views/24hour/MobileTwentyFourHourStatsView.vue'),
+          meta: { titleKey: 'portal.dashboard.navStats', hideTabBar: true, hideAppHeader: true },
+        },
+        {
+          path: 'profile',
+          name: 'mobile-profile',
+          component: () => import('@/mobile/views/profile/MobileProfileEditView.vue'),
+          meta: { titleKey: 'mobile.v2.profile', hideTabBar: true },
         },
       ],
     },
   ],
 })
 
-// 离开页面时保存滚动位置
 router.beforeEach((_to, from) => {
   saveScrollPosition(from)
 })
 
-// 进入页面时恢复滚动位置
 router.afterEach((to) => {
   restoreScrollPosition(to)
 })

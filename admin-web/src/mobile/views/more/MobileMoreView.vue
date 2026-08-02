@@ -1,124 +1,288 @@
 <template>
-  <!-- 移动端更多功能页主容器 -->
-  <div class="mobile-page">
-    <!-- 功能菜单列表：各项功能入口 -->
-    <section
-      v-for="item in menuItems"
-      :key="item.path"
-      class="mobile-card mobile-more__item"
-      @click="go(item.path)"
-    >
-      <!-- 菜单项：图标 + 标题描述 + 箭头 -->
+  <MobilePage>
+    <MobileCard class="v2-mine-profile" @click="goProfileEdit">
+      <div class="v2-mine-profile__inner">
+        <div class="v2-mine-profile__avatar">
+          <el-icon :size="36"><UserFilled /></el-icon>
+        </div>
+        <div class="v2-mine-profile__info">
+          <div class="v2-mine-profile__nickname">{{ nickname }}</div>
+          <div class="v2-mine-profile__id">ID: {{ userId }}</div>
+        </div>
+        <el-icon class="v2-mine-profile__arrow"><ArrowRight /></el-icon>
+      </div>
+    </MobileCard>
+
+    <MobileCard class="v2-mine-settings" @click="goSettings">
       <div class="mobile-list-item">
-        <el-icon :size="22"><component :is="item.icon" /></el-icon>
+        <el-icon :size="20"><Setting /></el-icon>
         <div class="mobile-list-item__body">
-          <div class="mobile-list-item__title">{{ t(item.labelKey) }}</div>
-          <div v-if="item.descKey" class="mobile-list-item__meta">{{ t(item.descKey) }}</div>
+          <div class="mobile-list-item__title">{{ t('mobile.more.settings') }}</div>
         </div>
         <el-icon><ArrowRight /></el-icon>
       </div>
-    </section>
+    </MobileCard>
 
-    <!-- 打开桌面版按钮：切换到PC端界面 -->
-    <el-button class="mobile-more__desktop" @click="openDesktop">
-      {{ t('mobile.more.openDesktop') }}
-    </el-button>
-    <!-- 重置外壳按钮：清除设备外壳偏好设置 -->
-    <el-button link type="primary" @click="resetShell">
-      {{ t('mobile.more.resetShell') }}
-    </el-button>
-  </div>
+    <div class="v2-mine-functions-title">
+      {{ t('functions.allTitle', { count: functionModules.length }) }}
+    </div>
+
+    <div class="v2-mine-functions-grid">
+      <button
+        v-for="entry in functionModules"
+        :key="entry.key"
+        type="button"
+        class="v2-mine-fn-card"
+        @click="openFunction(entry)"
+      >
+        <span
+          class="v2-mine-fn-card__icon"
+          :style="{ background: `${entry.barColor}18`, color: entry.barColor }"
+        >
+          <img :src="entry.iconUrl" :alt="entry.name" />
+        </span>
+        <span class="v2-mine-fn-card__name">{{ entry.name }}</span>
+        <span class="v2-mine-fn-card__desc">{{ entry.desc }}</span>
+        <span v-if="!entry.route" class="v2-mine-fn-card__badge">{{ t('functions.soon') }}</span>
+      </button>
+    </div>
+  </MobilePage>
 </template>
 
 <script setup lang="ts">
-/**
- * 移动端更多功能视图组件
- * 功能说明：
- * - 移动端更多功能入口页面
- * - 展示功能菜单列表（功能中心、电商、设置、用户管理）
- * - 提供切换到桌面版的入口
- * - 提供重置设备外壳偏好的功能
- * - 使用国际化多语言支持
- */
-import type { Component } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import {
-  ArrowRight,
-  Grid,
-  Setting,
-  ShoppingCart,
-  User,
-} from '@element-plus/icons-vue'
-import { clearAppShellPreference, setAppShellPreference } from '@/utils/deviceShell'
+import { ElMessage } from 'element-plus'
+import { ArrowRight, Setting, UserFilled } from '@element-plus/icons-vue'
+import MobilePage from '@/mobile/components/MobilePage.vue'
+import MobileCard from '@/mobile/components/MobileCard.vue'
+import { functionItems } from '@/data/function-items'
+import { moduleVisuals, railModuleVisuals } from '@/data/module-visuals'
+import { warRoomIconUrl } from '@/data/war-room-icons'
 
-const router = useRouter() // 路由实例
-const { t } = useI18n() // 国际化翻译函数
+const router = useRouter()
+const { t } = useI18n()
 
-// 更多菜单项接口定义
-interface MoreMenuItem {
-  path: string
-  icon: Component
-  labelKey: string
-  descKey?: string
+const nickname = ref('User')
+const userId = ref('—')
+
+interface FunctionModule {
+  key: string
+  name: string
+  desc: string
+  iconUrl: string
+  barColor: string
+  route?: string
 }
 
-// 菜单项配置数据
-const menuItems: MoreMenuItem[] = [
-  {
-    path: '/functions',
-    icon: Grid,
-    labelKey: 'mobile.more.functions',
-    descKey: 'functions.subtitle',
-  },
-  {
-    path: '/ecommerce',
-    icon: ShoppingCart,
-    labelKey: 'mobile.more.ecommerce',
-    descKey: 'functions.items.ecommerce.desc',
-  },
-  {
-    path: '/settings',
-    icon: Setting,
-    labelKey: 'mobile.more.settings',
-  },
-  {
-    path: '/users',
-    icon: User,
-    labelKey: 'mobile.more.users',
-  },
+const extraModules: { key: string; i18nKey: string; icon: string; barColor: string; route?: string }[] = [
+  { key: 'pomodoro', i18nKey: 'pomodoro', icon: 'pomodoro', barColor: '#e85d4c', route: '/pomodoro' },
+  { key: 'ecommerce', i18nKey: 'ecommerce', icon: 'ecommerce', barColor: '#f59e0b', route: '/ecommerce' },
+  { key: 'pixel-dog', i18nKey: 'pixelDog', icon: 'pixel-dog', barColor: '#8b5cf6', route: '/pixel-dog' },
+  { key: '24hour', i18nKey: 'twentyFourHour', icon: '24hour', barColor: '#0ea5e9', route: '/24hour' },
 ]
 
-// 跳转到指定路由
-function go(path: string) {
-  router.push(path)
+const functionModules = computed<FunctionModule[]>(() => {
+  const items: FunctionModule[] = []
+
+  for (const fi of functionItems) {
+    const visual = moduleVisuals[fi.key]
+    items.push({
+      key: fi.key,
+      name: t(`functions.items.${fi.key}.name`),
+      desc: t(`functions.items.${fi.key}.desc`),
+      iconUrl: warRoomIconUrl('modules', visual.icon),
+      barColor: visual.barColor,
+      route: fi.route,
+    })
+  }
+
+  for (const em of extraModules) {
+    const rail = railModuleVisuals[em.key as keyof typeof railModuleVisuals]
+    items.push({
+      key: em.key,
+      name: t(`functions.items.${em.i18nKey}.name`),
+      desc: t(`functions.items.${em.i18nKey}.desc`),
+      iconUrl: warRoomIconUrl(rail ? 'modules' : 'nav', em.icon),
+      barColor: em.barColor,
+      route: em.route,
+    })
+  }
+
+  return items
+})
+
+function openFunction(fn: FunctionModule) {
+  if (fn.route) {
+    router.push(fn.route)
+  } else {
+    ElMessage.info(t('functions.openSoon', { name: fn.name }))
+  }
 }
 
-// 打开桌面版：设置外壳偏好为PC并跳转
-function openDesktop() {
-  setAppShellPreference('pc')
-  const base = import.meta.env.BASE_URL || '/'
-  window.location.href = `${base}index.html`
+function goSettings() {
+  router.push('/settings')
 }
 
-// 重置外壳：清除外壳偏好设置并刷新页面
-function resetShell() {
-  clearAppShellPreference()
-  window.location.href = `${import.meta.env.BASE_URL || '/'}index.html`
+function goProfileEdit() {
+  router.push('/profile')
 }
+
+onMounted(() => {
+  const savedName = localStorage.getItem('user-nickname')
+  const savedId = localStorage.getItem('user-id')
+  if (savedName) nickname.value = savedName
+  if (savedId) userId.value = savedId
+})
 </script>
 
 <style scoped lang="scss">
-.mobile-more__item {
+.v2-mine-profile {
   cursor: pointer;
-  padding: 4px 12px;
+  padding: 0;
+  transition: border-color 0.15s;
+
+  &:hover {
+    border-color: var(--wr-stat-blue, #2563eb);
+  }
+
+  &__inner {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  &__avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--wr-stat-blue, #2563eb), color-mix(in srgb, var(--wr-stat-blue, #2563eb) 70%, white));
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  &__info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__nickname {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--wr-text, #333333);
+  }
+
+  &__id {
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--wr-muted, #999999);
+    line-height: 1.3;
+  }
+
+  &__arrow {
+    flex-shrink: 0;
+    color: var(--wr-muted, #999999);
+  }
 }
 
-.mobile-more__item .mobile-list-item {
-  padding: 10px 0;
+.v2-mine-settings {
+  cursor: pointer;
+  padding: 4px 16px;
+  transition: border-color 0.15s;
+
+  &:hover {
+    border-color: var(--wr-stat-blue, #2563eb);
+  }
+
+  .mobile-list-item {
+    padding: 10px 0;
+  }
 }
 
-.mobile-more__desktop {
-  width: 100%;
+.v2-mine-functions-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--wr-text, #333333);
+  padding: 0 4px;
+}
+
+.v2-mine-functions-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.v2-mine-fn-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--wr-border, #e8ecef);
+  border-radius: 14px;
+  background: var(--wr-card, #ffffff);
+  box-shadow: var(--wr-shadow, 0 4px 12px rgb(0 0 0 / 5%));
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  font-family: inherit;
+  overflow: hidden;
+
+  &:hover {
+    border-color: #bfdbfe;
+    box-shadow: 0 8px 20px rgb(37 99 235 / 10%);
+    transform: translateY(-2px);
+  }
+
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    flex-shrink: 0;
+
+    img {
+      width: 24px;
+      height: 24px;
+      object-fit: contain;
+    }
+  }
+
+  &__name {
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--wr-text, #333333);
+  }
+
+  &__desc {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 1.45;
+    color: var(--wr-text-secondary, #666666);
+  }
+
+  &__badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 10px;
+    color: var(--wr-muted, #999999);
+    background: var(--wr-stat-gray-bg, #f3f4f6);
+  }
 }
 </style>

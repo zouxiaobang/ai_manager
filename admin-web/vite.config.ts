@@ -6,8 +6,8 @@ import { resolve } from 'node:path'
 
 const piBuild = process.env.PI_BUILD === '1'
 
-// 代理目标可用 VITE_API_TARGET 覆盖（worktree 独立端口联调，见仓库根 dev.ps1）
-const apiTarget = process.env.VITE_API_TARGET || 'http://127.0.0.1:8080'
+// 代理目标可用 vite_api_target 覆盖（worktree 独立端口联调，见仓库根 dev.ps1）
+const apiTarget = process.env.vite_api_target || 'http://127.0.0.1:8080'
 
 function buildManualChunks(id: string) {
   if (!id.includes('node_modules')) {

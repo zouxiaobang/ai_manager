@@ -1,5 +1,5 @@
 <template>
-  <div class="mobile-app" @touchstart="handleTouchStart" @touchmove="handleTouchMove">
+  <div class="mobile-app">
     <header v-if="showAppHeader" class="mobile-app__header">
       <el-button
         v-if="showBack"
@@ -10,30 +10,21 @@
       />
       <div class="mobile-app__heading">
         <h1 class="mobile-app__title">{{ pageTitle }}</h1>
-        <p class="mobile-app__date">{{ headerDate }}</p>
       </div>
       <div class="mobile-app__header-actions">
-        <el-badge
-          :value="todayTodoCount"
-          :max="99"
-          :hidden="todayTodoCount === 0"
+        <button
+          v-if="headerActionMeta"
+          type="button"
+          class="mobile-app__todo-btn"
+          :aria-label="t(headerActionMeta.ariaLabelKey)"
+          @click="router.push(headerActionMeta.to)"
         >
-          <button
-            type="button"
-            class="mobile-app__todo-btn"
-            :aria-label="t('mobile.header.todoEntry')"
-            @click="goTodos"
-          >
-            <MobileTodoHeaderIcon />
-          </button>
-        </el-badge>
+          <el-icon :size="20"><component :is="headerActionIcon" /></el-icon>
+        </button>
       </div>
     </header>
 
-    <main
-      class="mobile-app__main"
-      :class="{ 'mobile-app__main--with-tabbar': showTabBar }"
-    >
+    <main class="mobile-app__main">
       <router-view v-slot="{ Component }">
         <keep-alive :include="cachedComponents">
           <component :is="Component" />
@@ -50,21 +41,7 @@
         :class="{ 'is-active': activeTab === tab.key }"
         @click="goTab(tab.path)"
       >
-        <template v-if="useSchemeATabbar">
-          <span class="mobile-app__tab-icon">
-            <img :src="schemeATabIcon(tab.key)" alt="" />
-          </span>
-        </template>
-        <template v-else>
-          <span
-            v-if="tab.key === 'todos' && todayTodoCount > 0"
-            class="mobile-app__tab-badge"
-            :data-count="todayTodoCount > 99 ? '99+' : todayTodoCount"
-          >
-            <el-icon><component :is="tab.icon" /></el-icon>
-          </span>
-          <el-icon v-else><component :is="tab.icon" /></el-icon>
-        </template>
+        <WarRoomSvgIcon group="nav" :name="tab.iconName" :size="22" class="mobile-app__tab-svg" />
         <span>{{ t(tab.labelKey) }}</span>
       </button>
     </nav>
@@ -72,64 +49,48 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import {
   ArrowLeft,
-  HomeFilled,
-  List,
-  MoreFilled,
-  Notebook,
+  DataAnalysis,
+  Search,
 } from '@element-plus/icons-vue'
-import MobileTodoHeaderIcon from '@/mobile/components/MobileTodoHeaderIcon.vue'
-import { formatMobileHeaderDate } from '@/mobile/utils/headerDate'
-import { isMobileHomeRoute } from '@/mobile/utils/homeBackGuard'
-import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets'
-import { useAppStore } from '@/stores/app'
-import { useTodoReminders } from '@/composables/useTodoReminders'
+import type { Component } from 'vue'
+import WarRoomSvgIcon from '@/components/war-room/WarRoomSvgIcon.vue'
+
+const headerActionIconMap: Record<string, Component> = { Search, DataAnalysis }
 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
-const appStore = useAppStore()
-const { todayTodoCount, refreshTodayCount } = useTodoReminders()
 
-/** 需要 keep-alive 缓存的组件名称列表 */
-const cachedComponents = ref<string[]>(['MobileEcommerceView'])
-
-const useSchemeATabbar = computed(() => appStore.mobileHomeTheme === 'scheme-a')
-
-const schemeATabIcons: Record<string, string> = {
-  home: schemeAAssets.tabHome,
-  notebook: schemeAAssets.tabNotebook,
-  todos: schemeAAssets.tabTodos,
-  more: schemeAAssets.tabMore,
-}
-
-function schemeATabIcon(key: string) {
-  return schemeATabIcons[key] ?? schemeAAssets.tabMore
-}
-
-const headerDate = computed(() => formatMobileHeaderDate())
+const cachedComponents = ref<string[]>([])
 
 const tabs = [
-  { key: 'home', path: '/home', icon: HomeFilled, labelKey: 'mobile.nav.home' },
-  { key: 'notebook', path: '/notebook', icon: Notebook, labelKey: 'mobile.nav.notebook' },
-  { key: 'todos', path: '/todos', icon: List, labelKey: 'mobile.nav.todos' },
-  { key: 'more', path: '/more', icon: MoreFilled, labelKey: 'mobile.nav.more' },
+  { key: 'home', path: '/home', iconName: 'home' as const, labelKey: 'mobile.nav.home' },
+  { key: 'notebook', path: '/notebook', iconName: 'notebook' as const, labelKey: 'mobile.nav.notebook' },
+  { key: '24hour', path: '/24hour', iconName: '24hour' as const, labelKey: 'portal.menu.24hour' },
+  { key: 'more', path: '/more', iconName: 'user-center' as const, labelKey: 'mobile.v2.mine' },
 ] as const
 
 const showTabBar = computed(() => !route.meta.hideTabBar)
-const showBack = computed(
-  () => Boolean(route.meta.hideTabBar) && !isMobileHomeRoute(route.name),
-)
-const showAppHeader = computed(
-  () =>
-  !(isMobileHomeRoute(route.name) && appStore.mobileHomeTheme === 'scheme-a')
-    && route.meta.hideAppHeader !== true,
-)
+const showBack = computed(() => Boolean(route.meta.hideTabBar))
+const showAppHeader = computed(() => route.meta.hideAppHeader !== true)
 const activeTab = computed(() => (route.meta.tab as string) ?? '')
+
+interface HeaderActionMeta {
+  icon: string
+  to: string
+  ariaLabelKey: string
+}
+
+const headerActionMeta = computed(() => route.meta.headerAction as HeaderActionMeta | undefined)
+const headerActionIcon = computed(() => {
+  const meta = headerActionMeta.value
+  return meta ? headerActionIconMap[meta.icon] : null
+})
 
 const pageTitle = computed(() => {
   const key = route.meta.titleKey as string | undefined
@@ -148,47 +109,28 @@ function goTab(path: string) {
 function goBack() {
   router.back()
 }
+</script>
 
-function goTodos() {
-  router.push('/todos')
-}
+<style scoped lang="scss">
+.mobile-app__todo-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--wr-stat-blue, #2563eb);
+  cursor: pointer;
 
-let touchStartX = 0
-let touchStartY = 0
-
-function handleTouchStart(e: TouchEvent) {
-  touchStartX = e.touches[0].clientX
-  touchStartY = e.touches[0].clientY
-}
-
-function handleTouchMove(e: TouchEvent) {
-  if (!isMobileHomeRoute(route.name)) return
-  const touchCurrentX = e.touches[0].clientX
-  const touchCurrentY = e.touches[0].clientY
-  const deltaX = touchCurrentX - touchStartX
-  const deltaY = touchCurrentY - touchStartY
-  if (Math.abs(deltaX) > Math.abs(deltaY) && deltaX > 50 && touchStartX < 100) {
-    e.preventDefault()
+  &:active {
+    opacity: 0.75;
   }
 }
 
-watch(
-  () => route.fullPath,
-  () => {
-    void refreshTodayCount()
-  },
-)
-
-function syncHomeRouteClass() {
-  if (typeof document === 'undefined') return
-  const onHome = isMobileHomeRoute(route.name)
-  document.documentElement.classList.toggle('mobile-home-route', onHome)
+.mobile-app__tab-svg {
+  color: inherit;
 }
-
-onMounted(syncHomeRouteClass)
-onUnmounted(() => {
-  document.documentElement.classList.remove('mobile-home-route')
-})
-watch(() => route.name, syncHomeRouteClass)
-</script>
-
+</style>

@@ -14,7 +14,7 @@
         />
         <div class="shop-info-sheet__header-info">
           <div class="shop-info-sheet__title-row">
-            <img class="shop-info-sheet__title-icon" :src="schemeAAssets.starBlue" alt="" />
+            <span class="shop-info-sheet__title-icon">⭐</span>
             <h2 class="shop-info-sheet__title">{{ shopData.name }}</h2>
           </div>
           <div class="shop-info-sheet__header-tags">
@@ -35,7 +35,7 @@
       <!-- Fee Section -->
       <div class="shop-info-sheet__section">
         <div class="shop-info-sheet__section-head">
-          <img :src="schemeAAssets.starYellow" class="shop-info-sheet__section-star" alt="" />
+          <span class="shop-info-sheet__section-star">⭐</span>
           <span class="shop-info-sheet__section-title">手续费率</span>
         </div>
         <div class="shop-info-sheet__fee-grid">
@@ -69,7 +69,7 @@
       <!-- Other Info -->
       <div class="shop-info-sheet__section">
         <div class="shop-info-sheet__section-head">
-          <img :src="schemeAAssets.starBlue" class="shop-info-sheet__section-star" alt="" />
+          <span class="shop-info-sheet__section-star">⭐</span>
           <span class="shop-info-sheet__section-title">其他信息</span>
         </div>
         <div class="shop-info-sheet__info-list">
@@ -102,7 +102,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import MobileBottomSheet from '@/mobile/components/MobileBottomSheet.vue'
-import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets.ts'
 import { fetchShop } from '@/api/ecommerce/shop.ts'
 import type { EcShop } from '@/api/ecommerce/shop.ts'
 import { resolveShopIcon } from '@/utils/shopVisual.ts'
@@ -199,9 +198,11 @@ const totalFeePct = computed(() => {
 }
 
 .shop-info-sheet__title-icon {
+  font-size: 18px;
   width: 18px;
   height: 18px;
   flex-shrink: 0;
+  line-height: 1;
 }
 
 .shop-info-sheet__title {
@@ -267,9 +268,11 @@ const totalFeePct = computed(() => {
 }
 
 .shop-info-sheet__section-star {
+  font-size: 18px;
   width: 18px;
   height: 18px;
   flex-shrink: 0;
+  line-height: 1;
 }
 
 .shop-info-sheet__section-title {

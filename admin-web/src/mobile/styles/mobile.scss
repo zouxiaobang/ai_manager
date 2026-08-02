@@ -1,6 +1,16 @@
-@import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap');
+@use '@/styles/war-room' as *;
 
-$mobile-font: 'ZCOOL KuaiLe', 'Alibaba PuHuiTi', 'PingFang SC', sans-serif;
+html.dark .mobile-app {
+  --wr-bg: #1a1a1e;
+  --wr-card: #27272a;
+  --wr-border: #3f3f46;
+  --wr-text: #e4e4e7;
+  --wr-text-secondary: #a1a1aa;
+  --wr-muted: #71717a;
+  --wr-shadow: 0 4px 12px rgb(0 0 0 / 30%);
+  --wr-stat-blue: #60a5fa;
+  --wr-index-bg: #18181b;
+}
 
 .mobile-app {
   height: 100vh;
@@ -9,84 +19,30 @@ $mobile-font: 'ZCOOL KuaiLe', 'Alibaba PuHuiTi', 'PingFang SC', sans-serif;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  color: var(--el-text-color-primary);
-  background: #fff;
-  --mobile-header-title-color: #0a3b73;
-  --mobile-header-date-color: #4c4c4c;
-  --mobile-header-icon-color: #0a3b73;
-  --mobile-header-border-color: #e0e0e0;
-  --mobile-page-bg: #fafafa;
-  --mobile-tabbar-height: calc(56px + env(safe-area-inset-bottom, 0px));
-  --mobile-tab-active-color: #166534;
-  --mobile-font: #{$mobile-font};
-  background: var(--mobile-page-bg);
-  font-family: var(--mobile-font);
+  background: var(--wr-bg, #f9f9fa);
+  font-family: var(--app-font-family, 'Alibaba PuHuiTi', 'PingFang SC', sans-serif);
+  color: var(--wr-text, #333333);
 }
 
-/* 仅主内容区滚动，避免 PWA standalone 下 fixed 底栏随滑动收起 */
-html.is-mobile-shell,
-html.is-mobile-shell body,
-html.is-mobile-shell #app {
-  height: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
-  -webkit-text-size-adjust: 100%;
-  text-size-adjust: 100%;
-  touch-action: manipulation;
-}
-
-/* iOS 输入框字号 < 16px 会自动放大页面，聚焦后常无法恢复 */
-html.is-mobile-shell {
-  .el-input__wrapper input,
-  .el-textarea__inner,
-  input,
-  textarea,
-  select {
-    font-size: 16px !important;
-    font-family: var(--mobile-font) !important;
+html.is-mobile-shell .mobile-app {
+  .el-button,
+  .el-input,
+  .el-input__wrapper,
+  .el-select,
+  .el-dialog,
+  .el-card,
+  .el-form-item__label,
+  .el-radio,
+  .el-checkbox {
+    font-family: inherit;
   }
 }
 
-.mobile-app * {
-  font-family: inherit;
-}
-
-.mobile-app__main {
-  font-family: var(--mobile-font);
-}
-
-.mobile-app__header {
-  font-family: var(--mobile-font);
-}
-
-.mobile-app__tabbar {
-  font-family: var(--mobile-font);
-}
-
-.mobile-app :deep(.el-button) {
-  font-family: var(--mobile-font);
-}
-
-.mobile-app :deep(.el-input),
-.mobile-app :deep(.el-input__wrapper) {
-  font-family: var(--mobile-font);
-}
-
-.mobile-app :deep(.el-tabbar) {
-  font-family: var(--mobile-font);
-}
-
-.mobile-app :deep(.el-card) {
-  font-family: var(--mobile-font);
-}
-
-.mobile-app :deep(.el-dialog) {
-  font-family: var(--mobile-font);
-}
-
-html.dark .mobile-app {
-  --mobile-header-border-color: #4c4d4f;
-  --mobile-page-bg: var(--el-bg-color-page);
+html.is-mobile-shell .mobile-app input,
+html.is-mobile-shell .mobile-app textarea,
+html.is-mobile-shell .mobile-app select {
+  font-size: 16px !important;
+  font-family: inherit !important;
 }
 
 .mobile-app__header {
@@ -95,18 +51,16 @@ html.dark .mobile-app {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 56px;
-  padding: 10px 12px;
-  padding-top: max(10px, env(safe-area-inset-top));
-  background: var(--el-bg-color);
-  border-bottom: 1px solid var(--mobile-header-border-color);
+  min-height: 52px;
+  padding: 8px 16px;
+  padding-top: max(8px, env(safe-area-inset-top));
+  background: var(--wr-card, #ffffff);
+  border-bottom: 1px solid var(--wr-border, #e8ecef);
   box-sizing: border-box;
 }
 
 .mobile-app__back {
   flex-shrink: 0;
-  align-self: flex-start;
-  margin-top: 2px;
 }
 
 .mobile-app__heading {
@@ -116,51 +70,21 @@ html.dark .mobile-app {
 
 .mobile-app__title {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
-  line-height: 1.25;
-  color: var(--mobile-header-title-color);
+  line-height: 1.3;
+  color: var(--wr-text, #1a1a1a);
+  letter-spacing: -0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.mobile-app__date {
-  margin: 4px 0 0;
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 1.2;
-  color: var(--mobile-header-date-color);
-}
-
 .mobile-app__header-actions {
   display: flex;
-  align-items: flex-start;
-  gap: 4px;
-  flex-shrink: 0;
-  padding-top: 2px;
-
-  .el-badge__content {
-    border: none;
-  }
-}
-
-.mobile-app__todo-btn {
-  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--mobile-header-icon-color);
-  cursor: pointer;
-
-  &:active {
-    opacity: 0.75;
-  }
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .mobile-app__main {
@@ -170,8 +94,7 @@ html.dark .mobile-app {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;
-  padding: 0;
-  background: var(--mobile-page-bg);
+  background: var(--wr-bg, #f9f9fa);
 }
 
 .mobile-app__tabbar {
@@ -179,10 +102,10 @@ html.dark .mobile-app {
   z-index: 100;
   display: flex;
   align-items: stretch;
-  min-height: 56px;
+  min-height: 52px;
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  background: var(--el-bg-color);
-  border-top: 1px solid var(--el-border-color-lighter);
+  background: var(--wr-card, #ffffff);
+  border-top: 1px solid var(--wr-border, #e8ecef);
   box-sizing: border-box;
   transform: translateZ(0);
 }
@@ -197,12 +120,15 @@ html.dark .mobile-app {
   padding: 6px 4px;
   border: none;
   background: transparent;
-  color: var(--el-text-color-secondary);
+  color: var(--wr-muted, #999999);
   font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
+  transition: color 0.15s;
 
   &.is-active {
-    color: var(--mobile-tab-active-color);
+    color: var(--wr-stat-blue, #2563eb);
+    font-weight: 700;
   }
 
   .el-icon {
@@ -234,21 +160,46 @@ html.dark .mobile-app {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  padding: 16px;
+}
+
+.mobile-page--flush {
+  padding: 0;
 }
 
 .mobile-card {
-  padding: 12px;
+  padding: 16px;
+  background: var(--wr-card, #ffffff);
+  border: 1px solid var(--wr-border, #e8ecef);
   border-radius: 12px;
-  background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color-lighter);
+  box-shadow: var(--wr-shadow, 0 4px 12px rgb(0 0 0 / 5%));
+}
+
+.mobile-card + .mobile-card {
+  margin-top: 0;
+}
+
+.mobile-card--flush {
+  padding: 0;
+  overflow: hidden;
+}
+
+.mobile-section-title {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--wr-text, #333333);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .mobile-list-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 12px 0;
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  border-bottom: 1px solid var(--wr-border, #e8ecef);
 
   &:last-child {
     border-bottom: none;
@@ -266,87 +217,39 @@ html.dark .mobile-app {
 }
 
 .mobile-list-item__title {
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   line-height: 1.4;
+  color: var(--wr-text, #333333);
 }
 
 .mobile-list-item__meta {
   margin-top: 4px;
   font-size: 12px;
-  color: var(--el-text-color-secondary);
-}
-
-.mobile-section-title {
-  margin: 0 0 8px;
-  font-size: 15px;
-  font-weight: 600;
+  color: var(--wr-text-secondary, #666666);
+  line-height: 1.4;
 }
 
 .mobile-empty-hint {
   padding: 24px 12px;
   text-align: center;
-  color: var(--el-text-color-secondary);
+  color: var(--wr-muted, #999999);
   font-size: 14px;
 }
 
-/* ========================================
-   Tab Bar 主题样式（保证非首页刷新时也能加载）
-   ======================================== */
-
-/* 非 scheme-a 主题：蓝色底栏 + 黄色激活 */
-html.is-mobile-shell[data-mobile-home-theme]:not([data-mobile-home-theme='scheme-a']) .mobile-app__tabbar {
-  background: #2563eb;
-  border-top: none;
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 -4px 16px rgb(37 99 235 / 22%);
-}
-
-html.is-mobile-shell[data-mobile-home-theme]:not([data-mobile-home-theme='scheme-a']) .mobile-app__tab {
-  color: rgb(255 255 255 / 72%);
-
-  &.is-active {
-    color: #fbbf24;
-    font-weight: 700;
-  }
-}
-
-/* scheme-a 主题：蓝色底栏 + 黄色圆形激活 + 涂鸦字体 */
-html.is-mobile-shell[data-mobile-home-theme='scheme-a'] .mobile-app__tabbar {
-  background: #2563eb;
-  border-top: none;
-  border-radius: 22px 22px 0 0;
-  box-shadow: 0 -4px 18px rgb(37 99 235 / 28%);
-  padding-top: 6px;
-}
-
-html.is-mobile-shell[data-mobile-home-theme='scheme-a'] .mobile-app__tab {
-  color: rgb(255 255 255 / 85%);
-  font-family: 'ZCOOL KuaiLe', 'Alibaba PuHuiTi', 'PingFang SC', sans-serif;
-  font-size: 12px;
-  gap: 4px;
-
-  .mobile-app__tab-icon {
-    display: grid;
-    place-items: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    transition: background 0.15s ease;
-
-    img {
-      width: 24px;
-      height: 24px;
-    }
+/* 平板/桌面宽视口运行移动壳时，将 app 容器约束到平板宽度并居中 */
+/* 需同步设置 html/body 背景，避免居中后两侧露灰边 */
+@media (min-width: 1025px) {
+  html.is-mobile-shell body {
+    background: #f9f9fa;
   }
 
-  &.is-active {
-    color: #fbbf24;
-    font-weight: 400;
+  html.dark.is-mobile-shell body {
+    background: #1a1a1e;
+  }
 
-    .mobile-app__tab-icon {
-      background: #fbbf24;
-      box-shadow: 0 2px 6px rgb(245 158 11 / 45%);
-    }
+  .mobile-app {
+    max-width: 1024px;
+    margin: 0 auto;
   }
 }

@@ -27,7 +27,7 @@ mvn -pl admin-server spring-boot:run   # 单独启动
 ⚠️ **禁止** `mvn -pl admin-server -am spring-boot:run`（单条）——`-am` 会把 run 绑到父 POM（无 main 类）而失败。`-am` 只能用于 package/install/test。
 
 端口 **8080**（`0.0.0.0`），健康检查 `GET http://localhost:8080/api/health`。
-worktree 内联调用 `.\dev.ps1 -Task N -Side backend` 换端口（808N）。
+worktree 内联调用 `.\dev.ps1 N backend` 换端口（808N，N 为任务编号）。
 
 ## 常用验证命令
 

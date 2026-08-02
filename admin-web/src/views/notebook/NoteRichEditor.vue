@@ -1026,9 +1026,9 @@ onBeforeUnmount(() => {
   z-index: 20;
 
   :deep(.w-e-toolbar) {
-    flex-wrap: nowrap;
-    width: max-content;
-    min-width: 100%;
+    flex-wrap: wrap;
+    width: 100%;
+    min-width: 0;
     overflow: visible;
   }
 }

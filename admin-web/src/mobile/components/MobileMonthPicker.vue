@@ -1,90 +1,68 @@
 <template>
-  <div class="mobile-month-picker">
-    <!-- Trigger -->
-    <button
-      class="mobile-month-picker__trigger"
-      :class="{ 'mobile-month-picker__trigger--disabled': disabled }"
-      :disabled="disabled"
-      @click="visible = true"
-      type="button"
-    >
-      <span class="mobile-month-picker__trigger-text">{{ modelValue || placeholder }}</span>
-      <svg
-        class="mobile-month-picker__arrow"
-        :class="{ 'mobile-month-picker__arrow--up': visible }"
-        viewBox="0 0 24 24" width="16" height="16"
-        fill="none" stroke="#94a3b8" stroke-width="2.5"
-        stroke-linecap="round" stroke-linejoin="round"
-      >
+  <div class="v2-month-picker-bar">
+    <button type="button" class="v2-month-picker-bar__arrow" :disabled="disabled" @click="shiftMonth(-1)">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6" />
+      </svg>
+    </button>
+
+    <button type="button" class="v2-month-picker-bar__trigger" :disabled="disabled" @click="visible = true">
+      <span class="v2-month-picker-bar__trigger-text">{{ displayValue }}</span>
+      <svg class="v2-month-picker-bar__trigger-arrow" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <polyline points="6 9 12 15 18 9" />
       </svg>
     </button>
 
-    <!-- Bottom Sheet Popup -->
+    <button type="button" class="v2-month-picker-bar__arrow" :disabled="disabled" @click="shiftMonth(1)">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 18 15 12 9 6" />
+      </svg>
+    </button>
+
     <Teleport to="body">
-      <Transition name="mobile-month-picker">
-        <div v-if="visible" class="mobile-month-picker__overlay" @click.self="close">
-          <div class="mobile-month-picker__panel">
-            <!-- Header: Year Navigator -->
-            <header class="mobile-month-picker__header">
-              <button
-                type="button"
-                class="mobile-month-picker__year-btn"
-                @click="prevYear"
-                :disabled="loading"
-              >
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <Transition name="v2-month-picker">
+        <div v-if="visible" class="v2-month-picker__overlay" @click.self="close">
+          <div class="v2-month-picker__panel">
+            <div class="v2-month-picker__header">
+              <button type="button" class="v2-month-picker__nav-btn" @click="prevYear">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="15 18 9 12 15 6" />
                 </svg>
               </button>
-              <button
-                type="button"
-                class="mobile-month-picker__year-label"
-                @click="toggleYearPanel"
-              >
+              <button type="button" class="v2-month-picker__year-label" @click="toggleYearPanel">
                 {{ viewYear }}
                 <svg
-                  class="mobile-month-picker__year-arrow"
+                  class="v2-month-picker__year-arrow"
                   :class="{ rotated: showYearPanel }"
-                  viewBox="0 0 24 24" width="14" height="14"
-                  fill="none" stroke="#475569" stroke-width="2.5"
+                  viewBox="0 0 24 24" width="12" height="12"
+                  fill="none" stroke="currentColor" stroke-width="2.5"
                   stroke-linecap="round" stroke-linejoin="round"
                 >
                   <polyline points="6 9 12 15 18 9" />
                 </svg>
               </button>
-              <button
-                type="button"
-                class="mobile-month-picker__year-btn"
-                @click="nextYear"
-                :disabled="loading"
-              >
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#3b82f6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <button type="button" class="v2-month-picker__nav-btn" @click="nextYear">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                   <polyline points="9 18 15 12 9 6" />
                 </svg>
               </button>
-              <button
-                type="button"
-                class="mobile-month-picker__close"
-                @click="close"
-                aria-label="关闭"
-              >
-                ✕
+              <button type="button" class="v2-month-picker__close" @click="close" aria-label="关闭">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
               </button>
-            </header>
+            </div>
 
-            <!-- Body: Month Grid / Year List -->
-            <div class="mobile-month-picker__body">
-              <!-- Month Grid -->
-              <div v-if="!showYearPanel" class="mobile-month-picker__months">
+            <div class="v2-month-picker__body">
+              <div v-if="!showYearPanel" class="v2-month-picker__months">
                 <button
                   v-for="m in months"
                   :key="m.value"
                   type="button"
-                  class="mobile-month-picker__month"
+                  class="v2-month-picker__month"
                   :class="{
-                    'mobile-month-picker__month--selected': isSelectedMonth(m.value),
-                    'mobile-month-picker__month--current': isCurrentMonth(m.value),
+                    'is-selected': isSelectedMonth(m.value),
+                    'is-current': isCurrentMonth(m.value),
                   }"
                   @click="selectMonth(m.value)"
                 >
@@ -92,16 +70,15 @@
                 </button>
               </div>
 
-              <!-- Year List -->
-              <div v-else class="mobile-month-picker__years">
+              <div v-else class="v2-month-picker__years">
                 <button
                   v-for="y in yearRange"
                   :key="y"
                   type="button"
-                  class="mobile-month-picker__year"
+                  class="v2-month-picker__year"
                   :class="{
-                    'mobile-month-picker__year--selected': y === viewYear,
-                    'mobile-month-picker__year--current': y === currentYear,
+                    'is-selected': y === viewYear,
+                    'is-current': y === currentYear,
                   }"
                   @click="selectYear(y)"
                 >
@@ -131,40 +108,33 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
-  'change': [value: string]
 }>()
 
-// ─── State ─────────────────────────────
 const visible = ref(false)
 const showYearPanel = ref(false)
-const loading = ref(false)
 
 const currentYear = new Date().getFullYear()
 const currentMonth = new Date().getMonth() + 1
 
-// Parse current value or default to current year
 const [initYear] = props.modelValue
   ? props.modelValue.split('-').map(Number)
   : [currentYear, currentMonth]
 
 const viewYear = ref(initYear || currentYear)
 
+const displayValue = computed(() => {
+  if (!props.modelValue) return props.placeholder
+  const [y, m] = props.modelValue.split('-')
+  return `${y}年${parseInt(m)}月`
+})
+
 const months = [
-  { label: '1月', value: 1 },
-  { label: '2月', value: 2 },
-  { label: '3月', value: 3 },
-  { label: '4月', value: 4 },
-  { label: '5月', value: 5 },
-  { label: '6月', value: 6 },
-  { label: '7月', value: 7 },
-  { label: '8月', value: 8 },
-  { label: '9月', value: 9 },
-  { label: '10月', value: 10 },
-  { label: '11月', value: 11 },
-  { label: '12月', value: 12 },
+  { label: '1月', value: 1 }, { label: '2月', value: 2 }, { label: '3月', value: 3 },
+  { label: '4月', value: 4 }, { label: '5月', value: 5 }, { label: '6月', value: 6 },
+  { label: '7月', value: 7 }, { label: '8月', value: 8 }, { label: '9月', value: 9 },
+  { label: '10月', value: 10 }, { label: '11月', value: 11 }, { label: '12月', value: 12 },
 ]
 
-// Year list: 50 years back, 10 years forward from current year
 const yearRange = computed(() => {
   const years: number[] = []
   for (let y = currentYear - 50; y <= currentYear + 10; y++) {
@@ -173,18 +143,20 @@ const yearRange = computed(() => {
   return years
 })
 
-// ─── Methods ───────────────────────────
-function prevYear() {
-  viewYear.value--
+function shiftMonth(delta: number) {
+  if (props.disabled) return
+  if (!props.modelValue) return
+  const [y, m] = props.modelValue.split('-').map(Number)
+  const d = new Date(y, m - 1 + delta, 1)
+  const yy = d.getFullYear()
+  const mm = `${d.getMonth() + 1}`.padStart(2, '0')
+  viewYear.value = yy
+  emit('update:modelValue', `${yy}-${mm}`)
 }
 
-function nextYear() {
-  viewYear.value++
-}
-
-function toggleYearPanel() {
-  showYearPanel.value = !showYearPanel.value
-}
+function prevYear() { viewYear.value-- }
+function nextYear() { viewYear.value++ }
+function toggleYearPanel() { showYearPanel.value = !showYearPanel.value }
 
 function selectYear(y: number) {
   viewYear.value = y
@@ -192,10 +164,8 @@ function selectYear(y: number) {
 }
 
 function selectMonth(m: number) {
-  const monthStr = `${m}`.padStart(2, '0')
-  const value = `${viewYear.value}-${monthStr}`
+  const value = `${viewYear.value}-${String(m).padStart(2, '0')}`
   emit('update:modelValue', value)
-  emit('change', value)
   visible.value = false
 }
 
@@ -216,58 +186,89 @@ function close() {
 </script>
 
 <style scoped lang="scss">
-/* ===== Trigger ===== */
-.mobile-month-picker__trigger {
-  display: inline-flex;
+.v2-month-picker-bar {
+  display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border: 2px solid #e2e8f0;
-  border-radius: 999px;
-  background: #fff;
-  cursor: pointer;
-  transition: border-color 0.15s;
-  font-family: 'ZCOOL KuaiLe', 'Alibaba PuHuiTi', 'PingFang SC', sans-serif;
-  font-size: 14px;
-  color: #1e293b;
+  gap: 12px;
 
-  &:hover {
-    border-color: #3b82f6;
-  }
-
-  &:active {
-    transform: scale(0.97);
-  }
-
-  &--disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  &__arrow {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--wr-border, #e8ecef);
+    border-radius: 10px;
+    background: var(--wr-card, #fff);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, box-shadow 0.2s, color 0.2s, border-color 0.2s;
+    color: var(--wr-text-secondary, #666);
+    flex-shrink: 0;
 
     &:hover {
-      border-color: #e2e8f0;
+      border-color: var(--ec-stat-blue, #2563eb);
+      color: var(--ec-stat-blue, #2563eb);
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
     }
 
     &:active {
-      transform: none;
+      background: #eff6ff;
+      transform: scale(0.92);
+    }
+
+    &:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+
+      &:hover {
+        border-color: var(--wr-border, #e8ecef);
+        color: var(--wr-text-secondary, #666);
+        box-shadow: none;
+      }
     }
   }
-}
 
-.mobile-month-picker__trigger-text {
-  min-width: 60px;
-  text-align: center;
-}
+  &__trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 14px;
+    border: 1px solid var(--wr-border, #e8ecef);
+    border-radius: 8px;
+    background: var(--wr-card, #fff);
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--wr-text, #333);
 
-.mobile-month-picker__arrow {
-  transition: transform 0.2s;
+    &:hover {
+      border-color: var(--ec-stat-blue, #2563eb);
+    }
 
-  &--up {
-    transform: rotate(180deg);
+    &:active {
+      background: #f3f4f6;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  &__trigger-text {
+    min-width: 64px;
+    text-align: center;
+    font-weight: 600;
+  }
+
+  &__trigger-arrow {
+    color: var(--wr-muted, #999);
+    transition: transform 0.2s;
   }
 }
 
-/* ===== Overlay ===== */
-.mobile-month-picker__overlay {
+.v2-month-picker__overlay {
   position: fixed;
   inset: 0;
   z-index: 200;
@@ -277,83 +278,71 @@ function close() {
   background: rgba(15, 23, 42, 0.45);
 }
 
-/* ===== Panel ===== */
-.mobile-month-picker__panel {
+.v2-month-picker__panel {
   width: 100%;
-  max-height: 92dvh;
+  max-width: 500px;
+  margin: 0 auto;
+  max-height: 80vh;
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: var(--wr-card, #fff);
   border-radius: 20px 20px 0 0;
   overflow: hidden;
-  font-family: 'ZCOOL KuaiLe', 'Alibaba PuHuiTi', 'PingFang SC', sans-serif;
-  color: #1e293b;
+  color: var(--wr-text, #333);
 }
 
-/* ===== Header ===== */
-.mobile-month-picker__header {
+.v2-month-picker__header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 16px 16px 12px;
-  border-bottom: 2px dashed #e2e8f0;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--wr-border, #e8ecef);
   flex-shrink: 0;
 }
 
-.mobile-month-picker__year-btn {
-  width: 36px;
-  height: 36px;
-  border: none;
-  background: #f1f5f9;
-  border-radius: 50%;
+.v2-month-picker__nav-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--wr-border, #e8ecef);
+  background: var(--wr-card, #fff);
+  border-radius: 8px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.15s;
+  color: var(--wr-text, #333);
+  transition: background 0.2s;
   flex-shrink: 0;
 
-  &:hover {
-    background: #e2e8f0;
-  }
-
   &:active {
-    transform: scale(0.92);
-  }
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
+    background: #f3f4f6;
   }
 }
 
-.mobile-month-picker__year-label {
+.v2-month-picker__year-label {
   flex: 1;
   text-align: center;
   border: none;
   background: transparent;
   font-family: inherit;
-  font-size: 18px;
-  font-weight: 800;
-  color: #1e293b;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--wr-text, #333);
   cursor: pointer;
   padding: 4px 8px;
-  border-radius: 8px;
+  border-radius: 6px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
 
   &:hover {
-    background: #f1f5f9;
-  }
-
-  &:active {
-    transform: scale(0.97);
+    background: #f3f4f6;
   }
 }
 
-.mobile-month-picker__year-arrow {
+.v2-month-picker__year-arrow {
+  color: var(--wr-muted, #999);
   transition: transform 0.2s;
 
   &.rotated {
@@ -361,138 +350,127 @@ function close() {
   }
 }
 
-.mobile-month-picker__close {
+.v2-month-picker__close {
   width: 32px;
   height: 32px;
-  border: none;
-  background: #f1f5f9;
-  border-radius: 50%;
-  font-size: 16px;
-  color: #64748b;
+  border: 1px solid var(--wr-border, #e8ecef);
+  background: var(--wr-card, #fff);
+  border-radius: 8px;
+  color: var(--wr-muted, #999);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  transition: background 0.2s;
 
   &:active {
-    transform: scale(0.92);
+    background: #f3f4f6;
   }
 }
 
-/* ===== Body ===== */
-.mobile-month-picker__body {
+.v2-month-picker__body {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 16px max(20px, env(safe-area-inset-bottom));
+  padding: 16px 16px max(24px, env(safe-area-inset-bottom));
 }
 
-/* ===== Month Grid ===== */
-.mobile-month-picker__months {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-}
-
-.mobile-month-picker__month {
-  padding: 14px 8px;
-  border: 2px solid #e2e8f0;
-  border-radius: 12px;
-  background: #fff;
-  font-family: inherit;
-  font-size: 15px;
-  color: #475569;
-  cursor: pointer;
-  transition: all 0.15s;
-  text-align: center;
-
-  &:hover {
-    border-color: #3b82f6;
-    color: #3b82f6;
-  }
-
-  &:active {
-    transform: scale(0.95);
-  }
-
-  &--selected {
-    border-color: #3b82f6;
-    background: #eff6ff;
-    color: #3b82f6;
-    font-weight: 700;
-  }
-
-  &--current {
-    position: relative;
-
-    &::after {
-      content: '';
-      position: absolute;
-      top: 6px;
-      right: 6px;
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #3b82f6;
-    }
-  }
-}
-
-/* ===== Year List ===== */
-.mobile-month-picker__years {
+.v2-month-picker__months {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
 }
 
-.mobile-month-picker__year {
-  padding: 12px 8px;
-  border: 2px solid #e2e8f0;
+.v2-month-picker__month {
+  padding: 14px 8px;
+  border: 1px solid var(--wr-border, #e8ecef);
   border-radius: 10px;
-  background: #fff;
+  background: var(--wr-card, #fff);
   font-family: inherit;
-  font-size: 14px;
-  color: #475569;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--wr-text-secondary, #666);
   cursor: pointer;
   transition: all 0.15s;
   text-align: center;
-
-  &:hover {
-    border-color: #3b82f6;
-    color: #3b82f6;
-  }
 
   &:active {
     transform: scale(0.95);
   }
 
-  &--selected {
-    border-color: #3b82f6;
+  &.is-selected {
+    border-color: var(--ec-stat-blue, #2563eb);
     background: #eff6ff;
-    color: #3b82f6;
+    color: var(--ec-stat-blue, #2563eb);
     font-weight: 700;
   }
 
-  &--current {
-    color: #3b82f6;
+  &.is-current {
+    position: relative;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--ec-stat-blue, #2563eb);
+    }
   }
 }
 
-/* ===== Transition ===== */
-.mobile-month-picker-enter-active,
-.mobile-month-picker-leave-active {
+.v2-month-picker__years {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.v2-month-picker__year {
+  padding: 12px 8px;
+  border: 1px solid var(--wr-border, #e8ecef);
+  border-radius: 8px;
+  background: var(--wr-card, #fff);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--wr-text-secondary, #666);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  &.is-selected {
+    border-color: var(--ec-stat-blue, #2563eb);
+    background: #eff6ff;
+    color: var(--ec-stat-blue, #2563eb);
+    font-weight: 700;
+  }
+
+  &.is-current {
+    color: var(--ec-stat-blue, #2563eb);
+    font-weight: 600;
+  }
+}
+
+.v2-month-picker-enter-active,
+.v2-month-picker-leave-active {
   transition: opacity 0.2s ease;
 
-  .mobile-month-picker__panel {
+  .v2-month-picker__panel {
     transition: transform 0.25s ease;
   }
 }
 
-.mobile-month-picker-enter-from,
-.mobile-month-picker-leave-to {
+.v2-month-picker-enter-from,
+.v2-month-picker-leave-to {
   opacity: 0;
 
-  .mobile-month-picker__panel {
+  .v2-month-picker__panel {
     transform: translateY(100%);
   }
 }

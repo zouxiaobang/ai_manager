@@ -681,6 +681,8 @@ export default {
     pinned: 'Pinned',
     showToc: 'Show outline',
     hideToc: 'Hide outline',
+    showSidebar: 'Show sidebar',
+    hideSidebar: 'Hide sidebar',
     moreTools: 'More',
     wordCount: '{count} characters',
     todayAt: 'Today {time}',

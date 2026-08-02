@@ -1,86 +1,83 @@
 <template>
-  <SchemeADoodleFrame
-    shape="pill"
-    :color="color"
-    sketch
-    :shadow="shadow"
-    class="mobile-doodle-search"
-    :class="classList"
-  >
-    <div class="mobile-doodle-search__inner">
-      <img class="mobile-doodle-search__icon" :src="schemeAAssets.search" alt="" />
+  <div class="v2-doodle-search" :class="rootClass">
+    <div class="v2-doodle-search__inner">
+      <svg class="v2-doodle-search__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8" />
+        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      </svg>
       <input
         :value="modelValue"
-        @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+        @input="onInput"
         type="search"
         enterkeyhint="search"
         :placeholder="placeholder"
-        class="mobile-doodle-search__input"
+        class="v2-doodle-search__input"
       />
       <button
         v-if="modelValue.trim()"
         type="button"
-        class="mobile-doodle-search__clear"
-        @click="$emit('update:modelValue', '')"
+        class="v2-doodle-search__clear"
+        @click="onClear"
       >
         <span>×</span>
       </button>
     </div>
-  </SchemeADoodleFrame>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
-import { schemeAAssets } from '@/mobile/views/home/themes/scheme-a/assets'
-
 const props = withDefaults(
   defineProps<{
     modelValue: string
     placeholder?: string
     color?: string
-    shadow?: boolean
-    class?: string
   }>(),
   {
     placeholder: '搜索...',
     color: '#2563eb',
-    shadow: false,
   },
 )
 
-defineEmits<{
+const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
 
-const classList = computed(() => ({
-  [props.class as string]: !!props.class,
-}))
+function onInput(e: Event) {
+  emit('update:modelValue', (e.target as HTMLInputElement).value)
+}
+
+function onClear() {
+  emit('update:modelValue', '')
+}
+
+const rootClass = {
+  [`v2-doodle-search--${props.color.replace('#', '')}`]: true,
+}
 </script>
 
 <style scoped lang="scss">
-.mobile-doodle-search {
+.v2-doodle-search {
   margin-bottom: 8px;
-
-  :deep(.sa-doodle-frame__body) {
-    padding: 0;
-  }
+  border-radius: 100px;
+  background: #f1f5f9;
+  overflow: hidden;
 }
 
-.mobile-doodle-search__inner {
+.v2-doodle-search__inner {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 12px 16px;
 }
 
-.mobile-doodle-search__icon {
+.v2-doodle-search__icon {
   width: 22px;
   height: 22px;
   flex-shrink: 0;
+  color: #94a3b8;
 }
 
-.mobile-doodle-search__input {
+.v2-doodle-search__input {
   flex: 1;
   border: none;
   outline: none;
@@ -102,7 +99,7 @@ const classList = computed(() => ({
   }
 }
 
-.mobile-doodle-search__clear {
+.v2-doodle-search__clear {
   flex-shrink: 0;
   width: 24px;
   height: 24px;

@@ -46,7 +46,7 @@
   ```
 
 - 端口 **5173**（strictPort），代理：`/api`、`/uploads` → 127.0.0.1:8080；`/claude-relay` → 127.0.0.1:3001(WS)
-- 代理目标支持环境变量 `VITE_API_TARGET` 覆盖（见 vite.config.ts），用于 worktree 独立端口联调
+- 代理目标支持环境变量 `vite_api_target` 覆盖（见 vite.config.ts），用于 worktree 独立端口联调
 
 ## 开发协议（Git Worktree 主力）
 
@@ -57,13 +57,15 @@
   ```
 
 - worktree 落在 `.claude/worktrees/<name>/`（分支 `worktree-<name>`），已 gitignore
-- **端口约定**：主 checkout 占 8080/5173；worktree 任务 N 用 **808N/517N**（`dev.ps1` 辅助启动）
+- **端口约定**：主 checkout 占 8080/5173；worktree 任务 N 用 **808N/517N**（`dev.ps1 1 backend` 起任务 1 后端 8081，`dev.ps1 1 frontend` 起前端 5174）
 - 本地环境变量 `.env` / `.env.local` 通过根目录 `.worktreeinclude` 带入 worktree
-- 完成：合并回 master → 退出 Claude 会话时自动清理 worktree
-- 一键 4 窗格布局：仓库根 `launch-dev.ps1 -TaskA feat-x -TaskB fix-y`
+- 提交：`.\commit.ps1 "feat: xxx"`；完成后合并回 master，清理用 `.\clean.ps1`
+- 一键 4 窗格布局：任意仓库根 `panes feat-x fix-y`（全局命令，脚本 `~/scripts/panes.ps1`，各项目 `.claude/panes.json` 配置每格命令）
 
 ## 约定
 
 - 改完代码优先模块级编译/单测：`mvn -pl admin-system -am test`
 - 前端改动在对应 worktree 内单独起 vite 验证（主 checkout 的 vite 看不到 worktree 改动）
+- **`.ps1` 脚本必须存为 UTF-8 with BOM**（PowerShell 5.1 读无 BOM 的 UTF-8 会按 ANSI/GBK 解码，中文注释/字符串会把脚本解析坏）
+- **子代理团队**（全局用户级 `~/.claude/agents/`，中文名自然语言调起）：架构师-老杨、测试工程师-小郭、代码审查官-老周、调研员-小吴、后端开发-小林、前端开发-小美
 - 生产部署：profile `prod`（`SPRING_PROFILES_ACTIVE`），见 `deploy/`，目标 Pi 192.168.0.114

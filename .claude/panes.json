@@ -1,0 +1,13 @@
+{
+  "shell": "bash",
+  "backend": {
+    "title": "backend 8080",
+    "cwd": "admin-backend",
+    "cmd": "mvn clean install -DskipTests && mvn -pl admin-server spring-boot:run"
+  },
+  "frontend": {
+    "title": "frontend 5173",
+    "cwd": "admin-web",
+    "cmd": "npm run dev"
+  }
+}

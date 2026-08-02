@@ -42,8 +42,6 @@ const THEME_KEY = 'admin-theme'
 const LOCALE_KEY = 'admin-locale'
 /** 本地存储的移动端首页主题 key */
 const MOBILE_HOME_THEME_KEY = 'mobile-home-theme'
-/** 本地存储的移动端 UI 版本 key */
-const MOBILE_UI_VERSION = 'mobile-ui-version'
 /** 本地存储的主色 key */
 const PRIMARY_COLOR_KEY = 'admin-primary-color'
 /** 本地存储的番茄钟提示次数 key */
@@ -92,8 +90,6 @@ export const useAppStore = defineStore('app', () => {
   const locale = ref<LocaleCode>('zh-CN')
   /** 移动端首页主题ID */
   const mobileHomeTheme = ref<MobileHomeThemeId>(MOBILE_HOME_THEME_DEFAULT)
-  /** 移动端 UI 版本 */
-  const mobileUIVersion = ref<'v1' | 'v2'>('v2')
   /** 主色 */
   const primaryColor = ref('#2563eb')
   /** 番茄钟完成时提示音重复次数 */
@@ -220,22 +216,6 @@ export const useAppStore = defineStore('app', () => {
   }
 
   /**
-   * 设置移动端 UI 版本
-   */
-  function setMobileUIVersion(version: 'v1' | 'v2') {
-    mobileUIVersion.value = version
-    localStorage.setItem(MOBILE_UI_VERSION, version)
-  }
-
-  /**
-   * 初始化移动端 UI 版本
-   */
-  function initMobileUIVersion() {
-    const saved = localStorage.getItem(MOBILE_UI_VERSION)
-    mobileUIVersion.value = saved === 'v1' ? 'v1' : 'v2'
-  }
-
-  /**
    * 设置番茄钟提示音重复次数
    */
   function setPomodoroBeeps(beeps: number) {
@@ -355,9 +335,6 @@ export const useAppStore = defineStore('app', () => {
     initLocale,
     setMobileHomeTheme,
     initMobileHomeTheme,
-    mobileUIVersion,
-    setMobileUIVersion,
-    initMobileUIVersion,
     primaryColor,
     applyPrimaryColor,
     initPrimaryColor,

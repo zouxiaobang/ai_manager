@@ -77,8 +77,25 @@
 
           <!-- 主布局区域：左侧侧边栏 + 右侧主内容区 -->
           <div class="notebook-layout">
+            <!-- 紧凑档侧栏开关按钮（抽屉收起时显示，唤出抽屉） -->
+            <button
+              v-if="isCompactRange && !sidebarVisible"
+              type="button"
+              class="notebook-sidebar-toggle"
+              :aria-label="t('notebook.showSidebar')"
+              :aria-expanded="false"
+              aria-controls="notebook-sidebar"
+              @click="sidebarVisible = true"
+            >
+              <el-icon :size="18"><Menu /></el-icon>
+            </button>
             <!-- 左侧侧边栏：搜索栏、新建按钮、笔记文件夹树 -->
-          <aside class="notebook-sidebar">
+          <aside
+            id="notebook-sidebar"
+            class="notebook-sidebar"
+            :class="{ 'is-offcanvas': isCompactRange, 'is-collapsed': isCompactRange && !sidebarVisible }"
+            :aria-expanded="sidebarAriaExpanded"
+          >
             <!-- 侧边栏工具栏：搜索框和新建按钮 -->
             <div class="notebook-sidebar__toolbar">
               <!-- 搜索框区域 -->
@@ -190,6 +207,13 @@
               </div>
             </div>
           </aside>
+
+            <!-- 紧凑档侧栏遮罩（抽屉展开时点击收起） -->
+            <div
+              v-if="isCompactRange && sidebarVisible"
+              class="notebook-sidebar-overlay"
+              @click="sidebarVisible = false"
+            />
 
           <!-- 右侧主内容区：笔记编辑器或文件夹视图 -->
           <main class="notebook-main" :class="{ 'is-editing': !!currentNote }">
@@ -657,6 +681,7 @@ import {
   FullScreen,
   Link,
   Loading,
+  Menu,
   Plus,
   Search,
   Star,
@@ -676,6 +701,7 @@ import { marked } from 'marked'
 import type { NoteFolderListMeta } from './notebook/notePreview'
 import { isContentLoadFailure } from './notebook/notePreview'
 import { useBaiduPanAutoAuth } from '@/composables/useBaiduPanAutoAuth'
+import { TABLET_COMPACT_MAX_WIDTH, TABLET_MAX_WIDTH } from '@/utils/deviceShell'
 import {
   createNoteRequest,
   createNotebook,
@@ -703,7 +729,29 @@ const router = useRouter() // 路由操作实例
 const { baiduPanStatus, isBaiduAuthPending, redirectToBaiduAuthorize } = useBaiduPanAutoAuth() // 百度网盘授权状态
 
 const activeTab = ref('all') // 当前激活的标签页
-const tocVisible = ref(true) // 目录是否可见
+// 平板中宽档（PC 壳内响应式，769–1200px）：TOC 默认折叠，可手动展开
+const tabletMql = typeof window !== 'undefined' ? window.matchMedia(`(max-width: ${TABLET_MAX_WIDTH}px)`) : null
+const isTabletRange = ref(tabletMql?.matches ?? false)
+// 平板窄档（≤1024px）：左侧树改为原位抽屉
+const compactMql = typeof window !== 'undefined' ? window.matchMedia(`(max-width: ${TABLET_COMPACT_MAX_WIDTH}px)`) : null
+const isCompactRange = ref(compactMql?.matches ?? false)
+const tocVisible = ref(!isTabletRange.value) // 目录是否可见（平板档默认折叠）
+const sidebarVisible = ref(!isCompactRange.value) // 侧栏是否可见（窄档默认收起为抽屉）
+// 抽屉 aria-expanded：桌面档不渲染该属性，窄档按抽屉开合输出 true/false
+const sidebarAriaExpanded = computed(() => (isCompactRange.value ? (sidebarVisible.value ? 'true' : 'false') : undefined))
+function onTabletRangeChange(e: MediaQueryListEvent) {
+  isTabletRange.value = e.matches
+  if (e.matches) tocVisible.value = false
+}
+function onCompactRangeChange(e: MediaQueryListEvent) {
+  isCompactRange.value = e.matches
+  if (e.matches) sidebarVisible.value = false
+}
+function onEscapeKeyForSidebar(e: KeyboardEvent) {
+  if (e.key === 'Escape' && isCompactRange.value && sidebarVisible.value) {
+    sidebarVisible.value = false
+  }
+}
 const treeLoading = ref(false) // 树结构加载状态
 const treeData = ref<NbTreeNode[]>([]) // 笔记文件夹树数据
 const trashCount = ref(0) // 回收站数量
@@ -1692,7 +1740,11 @@ function beginOpenNote(noteId: number, stub: NbNoteDetail, nodeKey?: string) {
   saveState.value = 'idle'
   contentLoadBlocked.value = false
   contentLoading.value = true
-  tocVisible.value = true
+  // 桌面档（>1200）打开笔记时展开目录；平板档保持折叠（可手动展开）。
+  // 紧凑档（≤1024）统一收抽屉：覆盖树点击/新建/粘贴全部调用点。
+  // 边界：紧凑档右键重命名 → loadTree → beginOpenNote 会收掉刚用过的抽屉，属可容忍行为。
+  if (!isTabletRange.value) tocVisible.value = true
+  if (isCompactRange.value) sidebarVisible.value = false
   activeTocIndex.value = -1
   void loadNoteDetail(noteId, seq)
 }
@@ -2068,6 +2120,9 @@ onMounted(async () => {
   window.addEventListener('pagehide', onPageHide)
   window.addEventListener('keydown', onSearchShortcut)
   window.addEventListener('keydown', onSaveKeydown)
+  window.addEventListener('keydown', onEscapeKeyForSidebar)
+  tabletMql?.addEventListener('change', onTabletRangeChange)
+  compactMql?.addEventListener('change', onCompactRangeChange)
   document.addEventListener('visibilitychange', onVisibilityChange)
   document.addEventListener('click', closeContextMenu)
   document.addEventListener('scroll', closeContextMenu, true)
@@ -2088,6 +2143,9 @@ onBeforeUnmount(() => {
   window.removeEventListener('pagehide', onPageHide)
   window.removeEventListener('keydown', onSearchShortcut)
   window.removeEventListener('keydown', onSaveKeydown)
+  window.removeEventListener('keydown', onEscapeKeyForSidebar)
+  tabletMql?.removeEventListener('change', onTabletRangeChange)
+  compactMql?.removeEventListener('change', onCompactRangeChange)
   document.removeEventListener('visibilitychange', onVisibilityChange)
   document.removeEventListener('click', closeContextMenu)
   document.removeEventListener('click', onDocumentClickForCreateDropdown, true)
@@ -2134,7 +2192,8 @@ onBeforeUnmount(() => {
 
 .notebook-stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* 下限 185px：1024 视口（内容宽 834px）可落 4 列、769 视口落 3 列，贴合平板档验收；>1200 桌面仍 4 列 */
+  grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
   gap: 12px;
   width: 100%;
   flex-shrink: 0;
@@ -2144,7 +2203,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 14px;
-  height: 88px;
+  min-height: 88px;
   min-width: 0;
   padding: 16px 18px;
   box-sizing: border-box;
@@ -3207,14 +3266,72 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 1200px) {
-  .notebook-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .notebook-stat-card {
+    min-height: 64px;
+  }
+
+  .notebook-stat-card__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    font-size: 18px;
+  }
+
+  .notebook-editor__title-row {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .notebook-editor__actions-col {
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
   }
 }
 
-@media (max-width: 640px) {
-  .notebook-stats {
-    grid-template-columns: 1fr;
+@media (max-width: 1024px) {
+  .notebook-sidebar {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    width: min(300px, 82vw);
+    box-shadow: 0 8px 30px rgb(0 0 0 / 18%);
+    transition: transform 0.25s ease;
+    transform: translateX(0);
+
+    &.is-collapsed {
+      transform: translateX(-105%);
+    }
+  }
+
+  .notebook-sidebar-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 39;
+    background: rgb(0 0 0 / 32%);
+  }
+
+  .notebook-sidebar-toggle {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 30;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid var(--wr-border);
+    border-radius: 10px;
+    background: var(--wr-card);
+    box-shadow: var(--wr-shadow);
+    color: var(--wr-rail-active-color);
+    cursor: pointer;
+
+    &:hover {
+      background: var(--wr-stat-blue-bg);
+    }
   }
 }
 </style>
