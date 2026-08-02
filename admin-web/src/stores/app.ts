@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
+import { createPersistedRef } from '@/utils/persistedRef'
 import {
   isMobileHomeThemeId,
   MOBILE_HOME_THEME_DEFAULT,
@@ -92,18 +93,34 @@ export const useAppStore = defineStore('app', () => {
   const mobileHomeTheme = ref<MobileHomeThemeId>(MOBILE_HOME_THEME_DEFAULT)
   /** 主色 */
   const primaryColor = ref('#2563eb')
-  /** 番茄钟完成时提示音重复次数 */
-  const pomodoroBeeps = ref(5)
-  /** 番茄钟完成时提示音音量 (0-1) */
-  const pomodoroVolume = ref(0.3)
-  /** 番茄钟完成时提示音开关 */
-  const pomodoroSoundEnabled = ref(true)
-  /** 待办提醒声音开关 */
-  const todoRemindEnabled = ref(true)
-  /** 待办提醒音量 (0-1) */
-  const todoRemindVolume = ref(0.3)
-  /** 待办提醒提示次数 */
-  const todoRemindBeeps = ref(3)
+  /** 番茄钟完成时提示音重复次数（1-20，持久化） */
+  const pomodoroBeeps = createPersistedRef(POMODORO_BEEPS_KEY, 5, (raw) => {
+    const n = raw ? Number.parseInt(raw, 10) : 5
+    return n >= 1 && n <= 20 ? n : 5
+  })
+  /** 番茄钟完成时提示音音量 (0-1，持久化) */
+  const pomodoroVolume = createPersistedRef(POMODORO_VOLUME_KEY, 0.3, (raw) => {
+    const v = raw ? Number.parseFloat(raw) : 0.3
+    return v >= 0 && v <= 1 ? v : 0.3
+  })
+  /** 番茄钟完成时提示音开关（持久化） */
+  const pomodoroSoundEnabled = createPersistedRef(POMODORO_SOUND_ENABLED_KEY, true, (raw) =>
+    raw === null ? true : raw === 'true',
+  )
+  /** 待办提醒声音开关（持久化） */
+  const todoRemindEnabled = createPersistedRef(TODO_REMIND_ENABLED_KEY, true, (raw) =>
+    raw === null ? true : raw === 'true',
+  )
+  /** 待办提醒音量 (0-1，持久化) */
+  const todoRemindVolume = createPersistedRef(TODO_REMIND_VOLUME_KEY, 0.3, (raw) => {
+    const v = raw ? Number.parseFloat(raw) : 0.3
+    return v >= 0 && v <= 1 ? v : 0.3
+  })
+  /** 待办提醒提示次数（1-20，持久化） */
+  const todoRemindBeeps = createPersistedRef(TODO_REMIND_BEEPS_KEY, 3, (raw) => {
+    const n = raw ? Number.parseInt(raw, 10) : 3
+    return n >= 1 && n <= 20 ? n : 3
+  })
 
   /**
    * 应用主色到 CSS 变量（含 Element Plus 主题色）
@@ -216,107 +233,45 @@ export const useAppStore = defineStore('app', () => {
   }
 
   /**
-   * 设置番茄钟提示音重复次数
+   * 设置番茄钟提示音重复次数（经 createPersistedRef 自动持久化）
    */
   function setPomodoroBeeps(beeps: number) {
     pomodoroBeeps.value = beeps
-    localStorage.setItem(POMODORO_BEEPS_KEY, String(beeps))
   }
 
   /**
-   * 初始化番茄钟提示音重复次数
-   */
-  function initPomodoroBeeps() {
-    const saved = localStorage.getItem(POMODORO_BEEPS_KEY)
-    const n = saved ? parseInt(saved, 10) : 5
-    pomodoroBeeps.value = n >= 1 && n <= 20 ? n : 5
-  }
-
-  /**
-   * 设置番茄钟提示音音量
+   * 设置番茄钟提示音音量（经 createPersistedRef 自动持久化）
    */
   function setPomodoroVolume(volume: number) {
     pomodoroVolume.value = volume
-    localStorage.setItem(POMODORO_VOLUME_KEY, String(volume))
   }
 
   /**
-   * 初始化番茄钟提示音音量
-   */
-  function initPomodoroVolume() {
-    const saved = localStorage.getItem(POMODORO_VOLUME_KEY)
-    const v = saved ? parseFloat(saved) : 0.3
-    pomodoroVolume.value = v >= 0 && v <= 1 ? v : 0.3
-  }
-
-  /**
-   * 设置番茄钟提示音开关
+   * 设置番茄钟提示音开关（经 createPersistedRef 自动持久化）
    */
   function setPomodoroSoundEnabled(enabled: boolean) {
     pomodoroSoundEnabled.value = enabled
-    localStorage.setItem(POMODORO_SOUND_ENABLED_KEY, String(enabled))
   }
 
   /**
-   * 初始化番茄钟提示音开关
-   */
-  function initPomodoroSoundEnabled() {
-    const saved = localStorage.getItem(POMODORO_SOUND_ENABLED_KEY)
-    if (saved !== null) {
-      pomodoroSoundEnabled.value = saved === 'true'
-    }
-  }
-
-  /**
-   * 设置待办提醒声音开关
+   * 设置待办提醒声音开关（经 createPersistedRef 自动持久化）
    */
   function setTodoRemindEnabled(enabled: boolean) {
     todoRemindEnabled.value = enabled
-    localStorage.setItem(TODO_REMIND_ENABLED_KEY, String(enabled))
   }
 
   /**
-   * 初始化待办提醒声音开关
-   */
-  function initTodoRemindEnabled() {
-    const saved = localStorage.getItem(TODO_REMIND_ENABLED_KEY)
-    if (saved !== null) {
-      todoRemindEnabled.value = saved === 'true'
-    }
-  }
-
-  /**
-   * 设置待办提醒音量
+   * 设置待办提醒音量（经 createPersistedRef 自动持久化）
    */
   function setTodoRemindVolume(volume: number) {
     todoRemindVolume.value = volume
-    localStorage.setItem(TODO_REMIND_VOLUME_KEY, String(volume))
   }
 
   /**
-   * 初始化待办提醒音量
-   */
-  function initTodoRemindVolume() {
-    const saved = localStorage.getItem(TODO_REMIND_VOLUME_KEY)
-    const v = saved ? parseFloat(saved) : 0.3
-    todoRemindVolume.value = v >= 0 && v <= 1 ? v : 0.3
-  }
-
-  /**
-   * 设置待办提醒提示次数
+   * 设置待办提醒提示次数（经 createPersistedRef 自动持久化）
    */
   function setTodoRemindBeeps(beeps: number) {
     todoRemindBeeps.value = beeps
-    localStorage.setItem(TODO_REMIND_BEEPS_KEY, String(beeps))
-  }
-
-  /**
-   * 初始化待办提醒提示次数
-   */
-  function initTodoRemindBeeps() {
-    const saved = localStorage.getItem(TODO_REMIND_BEEPS_KEY)
-    const n = saved ? parseInt(saved, 10) : 3
-    todoRemindBeeps.value = n >= 1 && n <= 20 ? n : 3
   }
 
   // 监听主题变化，同步到 DOM class
@@ -342,19 +297,13 @@ export const useAppStore = defineStore('app', () => {
     pomodoroVolume,
     setPomodoroBeeps,
     setPomodoroVolume,
-    initPomodoroBeeps,
-    initPomodoroVolume,
     pomodoroSoundEnabled,
     setPomodoroSoundEnabled,
-    initPomodoroSoundEnabled,
     todoRemindEnabled,
     todoRemindVolume,
     setTodoRemindEnabled,
     setTodoRemindVolume,
-    initTodoRemindEnabled,
-    initTodoRemindVolume,
     todoRemindBeeps,
     setTodoRemindBeeps,
-    initTodoRemindBeeps,
   }
 })

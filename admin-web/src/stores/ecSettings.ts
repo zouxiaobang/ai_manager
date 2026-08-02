@@ -1,3 +1,4 @@
+import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import {
   fetchDataRetentionSettings,
@@ -77,96 +78,121 @@ function toImportLineStatusMapping(map: Record<string, string>): Record<string, 
   return result
 }
 
-export const useEcSettingsStore = defineStore('ecSettings', {
-  state: () => ({
-    loaded: false,
-    loading: false,
-    inventory: { ...DEFAULT_INVENTORY } as EcInventorySettings,
-    orderImport: { ...DEFAULT_ORDER_IMPORT } as EcOrderImportSettings,
-    orderImportStatus: { ...DEFAULT_ORDER_IMPORT_STATUS } as EcOrderImportStatusSettings,
-    express: { ...DEFAULT_EXPRESS } as EcExpressSettings,
-    settlement: { ...DEFAULT_SETTLEMENT } as EcSettlementSettings,
-    rebate: { ...DEFAULT_REBATE } as EcRebateSettings,
-    notification: { ...DEFAULT_NOTIFICATION } as EcNotificationSettings,
-    dataRetention: { ...DEFAULT_DATA_RETENTION } as EcDataRetentionSettings,
-  }),
-  getters: {
-    statusMappingForImport(): Record<string, ImportLineStatus> {
-      return toImportLineStatusMapping(this.orderImportStatus.statusMapping)
-    },
-  },
-  actions: {
-    async ensureLoaded(force = false) {
-      if (this.loaded && !force) return
-      if (this.loading) return
-      this.loading = true
-      try {
-        const [
-          inventory,
-          orderImport,
-          orderImportStatus,
-          express,
-          settlement,
-          rebate,
-          notification,
-          dataRetention,
-        ] = await Promise.all([
-          fetchInventorySettings(),
-          fetchOrderImportSettings(),
-          fetchOrderImportStatusSettings(),
-          fetchExpressSettings(),
-          fetchSettlementSettings(),
-          fetchRebateSettings(),
-          fetchNotificationSettings(),
-          fetchDataRetentionSettings(),
-        ])
-        this.inventory = inventory
-        this.orderImport = orderImport
-        this.orderImportStatus = orderImportStatus
-        this.express = express
-        this.settlement = settlement
-        this.rebate = rebate
-        this.notification = notification
-        this.dataRetention = dataRetention
-        this.loaded = true
-      } finally {
-        this.loading = false
-      }
-    },
-    applyInventory(settings: EcInventorySettings) {
-      this.inventory = settings
-      this.loaded = true
-    },
-    applyOrderImport(settings: EcOrderImportSettings) {
-      this.orderImport = settings
-      this.loaded = true
-    },
-    applyOrderImportStatus(settings: EcOrderImportStatusSettings) {
-      this.orderImportStatus = settings
-      this.loaded = true
-    },
-    applyExpress(settings: EcExpressSettings) {
-      this.express = settings
-      this.loaded = true
-    },
-    applySettlement(settings: EcSettlementSettings) {
-      this.settlement = settings
-      this.loaded = true
-    },
-    applyRebate(settings: EcRebateSettings) {
-      this.rebate = settings
-      this.loaded = true
-    },
-    applyNotification(settings: EcNotificationSettings) {
-      this.notification = settings
-      this.loaded = true
-    },
-    applyDataRetention(settings: EcDataRetentionSettings) {
-      this.dataRetention = settings
-      this.loaded = true
-    },
-    invalidate() {
-      this.loaded = false
-    },
-  },
+/**
+ * 电商设置 store（组合式）
+ * 维护 8 类设置的本地缓存与加载状态，ensureLoaded 保证并行加载一次。
+ */
+export const useEcSettingsStore = defineStore('ecSettings', () => {
+  const loaded = ref(false)
+  const loading = ref(false)
+  const inventory = ref<EcInventorySettings>({ ...DEFAULT_INVENTORY })
+  const orderImport = ref<EcOrderImportSettings>({ ...DEFAULT_ORDER_IMPORT })
+  const orderImportStatus = ref<EcOrderImportStatusSettings>({ ...DEFAULT_ORDER_IMPORT_STATUS })
+  const express = ref<EcExpressSettings>({ ...DEFAULT_EXPRESS })
+  const settlement = ref<EcSettlementSettings>({ ...DEFAULT_SETTLEMENT })
+  const rebate = ref<EcRebateSettings>({ ...DEFAULT_REBATE })
+  const notification = ref<EcNotificationSettings>({ ...DEFAULT_NOTIFICATION })
+  const dataRetention = ref<EcDataRetentionSettings>({ ...DEFAULT_DATA_RETENTION })
+
+  /** 导入状态映射，兼容默认值 */
+  const statusMappingForImport = computed(() =>
+    toImportLineStatusMapping(orderImportStatus.value.statusMapping),
+  )
+
+  async function ensureLoaded(force = false) {
+    if (loaded.value && !force) return
+    if (loading.value) return
+    loading.value = true
+    try {
+      const [inv, imp, impStatus, exp, sett, reb, notif, retention] = await Promise.all([
+        fetchInventorySettings(),
+        fetchOrderImportSettings(),
+        fetchOrderImportStatusSettings(),
+        fetchExpressSettings(),
+        fetchSettlementSettings(),
+        fetchRebateSettings(),
+        fetchNotificationSettings(),
+        fetchDataRetentionSettings(),
+      ])
+      inventory.value = inv
+      orderImport.value = imp
+      orderImportStatus.value = impStatus
+      express.value = exp
+      settlement.value = sett
+      rebate.value = reb
+      notification.value = notif
+      dataRetention.value = retention
+      loaded.value = true
+    } finally {
+      loading.value = false
+    }
+  }
+
+  function applyInventory(settings: EcInventorySettings) {
+    inventory.value = settings
+    loaded.value = true
+  }
+
+  function applyOrderImport(settings: EcOrderImportSettings) {
+    orderImport.value = settings
+    loaded.value = true
+  }
+
+  function applyOrderImportStatus(settings: EcOrderImportStatusSettings) {
+    orderImportStatus.value = settings
+    loaded.value = true
+  }
+
+  function applyExpress(settings: EcExpressSettings) {
+    express.value = settings
+    loaded.value = true
+  }
+
+  function applySettlement(settings: EcSettlementSettings) {
+    settlement.value = settings
+    loaded.value = true
+  }
+
+  function applyRebate(settings: EcRebateSettings) {
+    rebate.value = settings
+    loaded.value = true
+  }
+
+  function applyNotification(settings: EcNotificationSettings) {
+    notification.value = settings
+    loaded.value = true
+  }
+
+  function applyDataRetention(settings: EcDataRetentionSettings) {
+    dataRetention.value = settings
+    loaded.value = true
+  }
+
+  function invalidate() {
+    loaded.value = false
+  }
+
+  return {
+    loaded,
+    loading,
+    inventory,
+    orderImport,
+    orderImportStatus,
+    express,
+    settlement,
+    rebate,
+    notification,
+    dataRetention,
+    statusMappingForImport,
+    ensureLoaded,
+    applyInventory,
+    applyOrderImport,
+    applyOrderImportStatus,
+    applyExpress,
+    applySettlement,
+    applyRebate,
+    applyNotification,
+    applyDataRetention,
+    invalidate,
+  }
 })

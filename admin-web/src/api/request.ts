@@ -87,23 +87,38 @@ export async function postData<T>(
 /**
  * PUT 请求封装
  * 自动解析 ApiResult<T>，直接返回 data 字段
- * 
+ *
  * @param url - 请求地址
  * @param data - 请求体数据
+ * @param options - 配置选项（silent: 静默错误, timeout: 超时时间）
  * @returns 响应数据（ApiResult.data）
  */
-export async function putData<T>(url: string, data?: unknown): Promise<T> {
-  const response = await request.put<ApiResult<T>>(url, data)
+export async function putData<T>(
+  url: string,
+  data?: unknown,
+  options?: { timeout?: number; silent?: boolean },
+): Promise<T> {
+  const response = await request.put<ApiResult<T>>(url, data, {
+    timeout: options?.timeout,
+    headers: options?.silent ? { 'X-Silent-Error': '1' } : undefined,
+  })
   return response.data.data
 }
 
 /**
  * DELETE 请求封装
- * 
+ *
  * @param url - 请求地址
+ * @param options - 配置选项（silent: 静默错误, timeout: 超时时间）
  */
-export async function deleteData(url: string): Promise<void> {
-  await request.delete(url)
+export async function deleteData(
+  url: string,
+  options?: { timeout?: number; silent?: boolean },
+): Promise<void> {
+  await request.delete(url, {
+    timeout: options?.timeout,
+    headers: options?.silent ? { 'X-Silent-Error': '1' } : undefined,
+  })
 }
 
 export default request
