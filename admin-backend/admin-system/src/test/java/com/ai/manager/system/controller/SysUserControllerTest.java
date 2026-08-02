@@ -4,6 +4,7 @@ import com.ai.manager.common.result.PageResult;
 import com.ai.manager.common.result.PageUtils;
 import com.ai.manager.framework.web.GlobalExceptionHandler;
 import com.ai.manager.system.domain.entity.SysUser;
+import com.ai.manager.system.domain.vo.SysUserVO;
 import com.ai.manager.system.service.SysUserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,11 +46,11 @@ class SysUserControllerTest {
 
     @Test
     void list_shouldReturnPagedUsers() throws Exception {
-        SysUser user = new SysUser();
+        SysUserVO user = new SysUserVO();
         user.setId(1L);
         user.setUsername("admin");
         user.setNickname("管理员");
-        PageResult<SysUser> page = PageUtils.of(List.of(user), 1, 1, 20);
+        PageResult<SysUserVO> page = PageUtils.of(List.of(user), 1, 1, 20);
         when(sysUserService.pageUsers(any(), any())).thenReturn(page);
 
         mockMvc.perform(get("/api/system/users").param("page", "1").param("pageSize", "20"))
@@ -60,15 +61,24 @@ class SysUserControllerTest {
 
     @Test
     void getById_shouldReturnUser() throws Exception {
-        SysUser user = new SysUser();
+        SysUserVO user = new SysUserVO();
         user.setId(5L);
         user.setNickname("张三");
-        when(sysUserService.getById(5L)).thenReturn(user);
+        when(sysUserService.getVO(5L)).thenReturn(user);
 
         mockMvc.perform(get("/api/system/users/5"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(5))
                 .andExpect(jsonPath("$.data.nickname").value("张三"));
+    }
+
+    @Test
+    void getById_withMissingUser_shouldReturn404() throws Exception {
+        when(sysUserService.getVO(99L)).thenReturn(null);
+
+        mockMvc.perform(get("/api/system/users/99"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(404));
     }
 
     @Test

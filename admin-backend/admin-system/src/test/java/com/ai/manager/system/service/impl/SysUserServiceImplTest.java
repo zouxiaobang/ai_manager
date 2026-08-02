@@ -2,6 +2,7 @@ package com.ai.manager.system.service.impl;
 
 import com.ai.manager.common.result.PageResult;
 import com.ai.manager.system.domain.entity.SysUser;
+import com.ai.manager.system.domain.vo.SysUserVO;
 import com.ai.manager.system.mapper.SysUserMapper;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -50,7 +51,7 @@ class SysUserServiceImplTest {
         dbPage.setTotal(1);
         when(sysUserMapper.selectPage(any(Page.class), any(Wrapper.class))).thenReturn(dbPage);
 
-        PageResult<SysUser> result = service.pageUsers(2L, 10L);
+        PageResult<SysUserVO> result = service.pageUsers(2L, 10L);
 
         assertThat(result.getRecords()).hasSize(1);
         assertThat(result.getRecords().get(0).getNickname()).isEqualTo("管理员");
@@ -87,5 +88,29 @@ class SysUserServiceImplTest {
         verify(sysUserMapper).selectPage(captor.capture(), any(Wrapper.class));
         assertThat(captor.getValue().getCurrent()).isEqualTo(1);
         assertThat(captor.getValue().getSize()).isEqualTo(100);
+    }
+
+    @Test
+    void getVO_shouldMapEntityToVOWithoutDeleted() {
+        SysUser user = new SysUser();
+        user.setId(7L);
+        user.setUsername("lisi");
+        user.setNickname("李四");
+        user.setStatus("NORMAL");
+        user.setDeleted(1);
+        when(sysUserMapper.selectById(7L)).thenReturn(user);
+
+        SysUserVO vo = service.getVO(7L);
+
+        assertThat(vo.getId()).isEqualTo(7L);
+        assertThat(vo.getUsername()).isEqualTo("lisi");
+        assertThat(vo.getNickname()).isEqualTo("李四");
+    }
+
+    @Test
+    void getVO_withMissingUser_shouldReturnNull() {
+        when(sysUserMapper.selectById(999L)).thenReturn(null);
+
+        assertThat(service.getVO(999L)).isNull();
     }
 }

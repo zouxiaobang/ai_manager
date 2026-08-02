@@ -4,6 +4,7 @@ import com.ai.manager.common.result.ApiResult;
 import com.ai.manager.common.result.PageResult;
 import com.ai.manager.system.domain.dto.UpdateUserRequest;
 import com.ai.manager.system.domain.entity.SysUser;
+import com.ai.manager.system.domain.vo.SysUserVO;
 import com.ai.manager.system.service.SysUserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -35,8 +36,8 @@ public class SysUserController {
      * @return 用户分页结果
      */
     @GetMapping
-    public ApiResult<PageResult<SysUser>> list(@RequestParam(required = false) Long page,
-                                               @RequestParam(required = false) Long pageSize) {
+    public ApiResult<PageResult<SysUserVO>> list(@RequestParam(required = false) Long page,
+                                                 @RequestParam(required = false) Long pageSize) {
         return ApiResult.ok(sysUserService.pageUsers(page, pageSize));
     }
 
@@ -44,11 +45,15 @@ public class SysUserController {
      * 查询用户详情
      *
      * @param id 用户 ID
-     * @return 用户信息
+     * @return 用户信息（对外 VO，不含内部字段）
      */
     @GetMapping("/{id}")
-    public ApiResult<SysUser> getById(@PathVariable Long id) {
-        return ApiResult.ok(sysUserService.getById(id));
+    public ApiResult<SysUserVO> getById(@PathVariable Long id) {
+        SysUserVO vo = sysUserService.getVO(id);
+        if (vo == null) {
+            return ApiResult.fail(404, "用户不存在");
+        }
+        return ApiResult.ok(vo);
     }
 
     /**
