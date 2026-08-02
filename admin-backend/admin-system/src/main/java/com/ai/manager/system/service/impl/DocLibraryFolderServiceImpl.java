@@ -19,8 +19,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 public class DocLibraryFolderServiceImpl extends ServiceImpl<DocLibraryFolderMapper, DocLibraryFolder> implements DocLibraryFolderService {
 
     @Lazy

@@ -18,9 +18,11 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PomodoroRecordServiceImpl extends ServiceImpl<PomodoroRecordMapper, PomodoroRecord>
         implements PomodoroRecordService {
 

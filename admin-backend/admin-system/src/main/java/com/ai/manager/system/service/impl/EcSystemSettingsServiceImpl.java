@@ -46,9 +46,11 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EcSystemSettingsServiceImpl extends ServiceImpl<EcSystemConfigMapper, EcSystemConfig>
         implements EcSystemSettingsService {
 

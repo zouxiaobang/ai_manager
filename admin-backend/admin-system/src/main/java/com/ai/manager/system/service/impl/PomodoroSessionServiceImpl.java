@@ -16,9 +16,11 @@ import org.springframework.util.StringUtils;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PomodoroSessionServiceImpl implements PomodoroSessionService {
 
     private static final String REDIS_KEY = "pomodoro:session:active";

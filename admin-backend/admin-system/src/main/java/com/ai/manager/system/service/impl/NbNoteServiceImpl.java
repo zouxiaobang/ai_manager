@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 
 import java.util.Objects;
+import lombok.extern.slf4j.Slf4j;
 
 
 
@@ -63,6 +64,7 @@ import java.util.Objects;
 
 @RequiredArgsConstructor
 
+@Slf4j
 public class NbNoteServiceImpl extends ServiceImpl<NbNoteMapper, NbNote> implements NbNoteService {
 
 

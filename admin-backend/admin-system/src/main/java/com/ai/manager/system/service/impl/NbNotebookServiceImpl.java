@@ -23,9 +23,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class NbNotebookServiceImpl extends ServiceImpl<NbNotebookMapper, NbNotebook>
         implements NbNotebookService {
 

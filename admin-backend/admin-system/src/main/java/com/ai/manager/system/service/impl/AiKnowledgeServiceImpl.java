@@ -437,7 +437,10 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
         if (config == null || config.getApiKey() == null || config.getApiKey().isBlank()) {
             try {
                 emitter.send("请先在「配置」标签页填写 API Key");
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                // SSE 通道发送失败通常是客户端已断开，记录告警而不是吞掉
+                log.warn("SSE 发送配置提示失败（客户端可能已断开）", e);
+            }
             emitter.complete();
             return;
         }
@@ -463,7 +466,9 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
                         log.error("AI 流式调用失败：provider={}, model={}", config.getProvider(), config.getModel(), error);
                         try {
                             emitter.send("[ERROR] " + error.getMessage());
-                        } catch (Exception ignored) {}
+                        } catch (Exception e) {
+                            log.warn("SSE 发送错误信息失败（客户端可能已断开）", e);
+                        }
                         emitter.complete();
                     },
                     () -> {
@@ -481,7 +486,9 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
                             emitter.send("[TOKENS] " + tokens);
                             emitter.send("[DONE]");
                             usageTracker.recordUsage(tokens, BigDecimal.ZERO);
-                        } catch (Exception ignored) {}
+                        } catch (Exception e) {
+                            log.warn("SSE 发送完成事件或记录用量失败", e);
+                        }
                         emitter.complete();
                     }
                 );
@@ -1280,7 +1287,10 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
         try {
             BigDecimal balance = queryDefaultProviderBalance();
             usage.setRemainingBalance(balance);
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            // 余额查询失败不阻断用量统计，记录告警后按无余额返回
+            log.warn("查询默认供应商余额失败，按无余额处理", e);
+        }
         return usage;
     }
 

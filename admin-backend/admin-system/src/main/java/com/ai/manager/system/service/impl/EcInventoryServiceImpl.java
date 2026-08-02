@@ -65,9 +65,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInventory> implements EcInventoryService {
 
     private static final String CHANGE_DEDUCT = "DEDUCT";

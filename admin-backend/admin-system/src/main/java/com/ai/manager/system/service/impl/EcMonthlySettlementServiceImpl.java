@@ -61,9 +61,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementService {
 
     private static final Set<String> AUTO_EXCLUDE_STATUS = Set.of("REFUNDED", "CANCELLED");

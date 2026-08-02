@@ -37,9 +37,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EcProductServiceImpl extends ServiceImpl<EcProductMapper, EcProduct> implements EcProductService {
 
     private final EcSkuMapper ecSkuMapper;

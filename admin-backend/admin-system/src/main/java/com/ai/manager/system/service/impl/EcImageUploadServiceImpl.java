@@ -24,9 +24,11 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Stream;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EcImageUploadServiceImpl implements EcImageUploadService {
 
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(

@@ -18,9 +18,11 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EcExpressNoticeServiceImpl extends ServiceImpl<EcExpressNoticeMapper, EcExpressNotice>
         implements EcExpressNoticeService {
 

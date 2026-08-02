@@ -27,9 +27,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DocLibraryFileServiceImpl extends ServiceImpl<DocLibraryFileMapper, DocLibraryFile> implements DocLibraryFileService {
 
     private final DocLibraryFolderService docLibraryFolderService;

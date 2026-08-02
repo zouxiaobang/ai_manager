@@ -20,9 +20,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import java.util.UUID;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class NbNoteImageUploadServiceImpl implements NbNoteImageUploadService {
 
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(

@@ -18,8 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 public class PomodoroPlanServiceImpl extends ServiceImpl<PomodoroPlanMapper, PomodoroPlan>
         implements PomodoroPlanService {
 

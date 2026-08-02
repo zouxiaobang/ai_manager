@@ -13,9 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalTime;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class PixelDogStateServiceImpl implements PixelDogStateService {
 
     private final PixelDogStateMapper pixelDogStateMapper;

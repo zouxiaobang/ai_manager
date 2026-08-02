@@ -28,9 +28,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EcShopServiceImpl extends ServiceImpl<EcShopMapper, EcShop> implements EcShopService {
 
     private final EcPlatformMapper ecPlatformMapper;

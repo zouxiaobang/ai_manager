@@ -17,9 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DocLibraryTagServiceImpl extends ServiceImpl<DocLibraryTagMapper, DocLibraryTag> implements DocLibraryTagService {
 
     private final DocLibraryFileTagMapper docLibraryFileTagMapper;

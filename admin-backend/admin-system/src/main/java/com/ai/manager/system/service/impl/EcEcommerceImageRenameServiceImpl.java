@@ -6,9 +6,11 @@ import com.ai.manager.system.service.support.EcEcommerceImageNameSupport;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class EcEcommerceImageRenameServiceImpl implements EcEcommerceImageRenameService {
 
     private final ImageSpaceService imageSpaceService;
