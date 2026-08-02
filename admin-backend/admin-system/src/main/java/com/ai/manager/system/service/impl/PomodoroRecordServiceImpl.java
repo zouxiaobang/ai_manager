@@ -5,6 +5,7 @@ import com.ai.manager.common.result.ResultCode;
 import com.ai.manager.system.domain.dto.PomodoroRecordCreateRequest;
 import com.ai.manager.system.domain.entity.PomodoroRecord;
 import com.ai.manager.system.domain.vo.PomodoroDailyStatVO;
+import com.ai.manager.system.domain.vo.PomodoroRecordVO;
 import com.ai.manager.system.domain.vo.PomodoroSummaryVO;
 import com.ai.manager.system.mapper.PomodoroRecordMapper;
 import com.ai.manager.system.service.PixelDogStateService;
@@ -31,7 +32,7 @@ public class PomodoroRecordServiceImpl extends ServiceImpl<PomodoroRecordMapper,
     private final PixelDogStateService pixelDogStateService;
 
     @Override
-    public PomodoroRecord createRecord(PomodoroRecordCreateRequest request) {
+    public PomodoroRecordVO createRecord(PomodoroRecordCreateRequest request) {
         if (request == null || !StringUtils.hasText(request.getRecordType())) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "记录类型不能为空");
         }
@@ -67,23 +68,24 @@ public class PomodoroRecordServiceImpl extends ServiceImpl<PomodoroRecordMapper,
             addDogXp("POMODORO_ROUND", 20);
         }
 
-        return record;
+        return toVO(record);
     }
 
     protected void addDogXp(String action, int amount) {
         try {
             pixelDogStateService.addXp(action, amount);
         } catch (Exception e) {
-            // ignore
+            // 副屏经验累计为辅助功能，失败不影响番茄钟主流程，仅留日志便于排查
+            log.warn("累计小狗经验失败 action={}, amount={}", action, amount, e);
         }
     }
 
     @Override
-    public List<PomodoroRecord> listByDateRange(LocalDate startDate, LocalDate endDate) {
+    public List<PomodoroRecordVO> listByDateRange(LocalDate startDate, LocalDate endDate) {
         LocalDate[] range = normalizeRange(startDate, endDate);
         return list(new LambdaQueryWrapper<PomodoroRecord>()
                 .between(PomodoroRecord::getStatDate, range[0], range[1])
-                .orderByDesc(PomodoroRecord::getCreateTime));
+                .orderByDesc(PomodoroRecord::getCreateTime)).stream().map(this::toVO).toList();
     }
 
     @Override
@@ -127,5 +129,19 @@ public class PomodoroRecordServiceImpl extends ServiceImpl<PomodoroRecordMapper,
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "开始日期不能晚于结束日期");
         }
         return new LocalDate[]{start, end};
+    }
+
+    private PomodoroRecordVO toVO(PomodoroRecord record) {
+        PomodoroRecordVO vo = new PomodoroRecordVO();
+        vo.setId(record.getId());
+        vo.setPlanId(record.getPlanId());
+        vo.setRecordType(record.getRecordType());
+        vo.setDurationSec(record.getDurationSec());
+        vo.setRoundIndex(record.getRoundIndex());
+        vo.setStatDate(record.getStatDate());
+        vo.setSource(record.getSource());
+        vo.setRemark(record.getRemark());
+        vo.setCreateTime(record.getCreateTime());
+        return vo;
     }
 }

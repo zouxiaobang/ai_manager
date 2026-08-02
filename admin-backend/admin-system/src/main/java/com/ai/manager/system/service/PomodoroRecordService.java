@@ -3,6 +3,7 @@ package com.ai.manager.system.service;
 import com.ai.manager.system.domain.dto.PomodoroRecordCreateRequest;
 import com.ai.manager.system.domain.entity.PomodoroRecord;
 import com.ai.manager.system.domain.vo.PomodoroDailyStatVO;
+import com.ai.manager.system.domain.vo.PomodoroRecordVO;
 import com.ai.manager.system.domain.vo.PomodoroSummaryVO;
 import com.baomidou.mybatisplus.extension.service.IService;
 
@@ -22,7 +23,7 @@ public interface PomodoroRecordService extends IService<PomodoroRecord> {
      * @param request 记录创建请求参数
      * @return 创建后的番茄钟记录
      */
-    PomodoroRecord createRecord(PomodoroRecordCreateRequest request);
+    PomodoroRecordVO createRecord(PomodoroRecordCreateRequest request);
 
     /**
      * 根据日期范围查询番茄钟记录
@@ -31,7 +32,7 @@ public interface PomodoroRecordService extends IService<PomodoroRecord> {
      * @param endDate   结束日期
      * @return 番茄钟记录列表
      */
-    List<PomodoroRecord> listByDateRange(LocalDate startDate, LocalDate endDate);
+    List<PomodoroRecordVO> listByDateRange(LocalDate startDate, LocalDate endDate);
 
     /**
      * 查询每日番茄钟统计

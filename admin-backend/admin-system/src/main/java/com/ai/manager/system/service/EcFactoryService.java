@@ -4,6 +4,7 @@ import com.ai.manager.common.result.PageResult;
 import com.ai.manager.system.domain.dto.EcFactorySaveRequest;
 import com.ai.manager.system.domain.entity.EcFactory;
 import com.ai.manager.system.domain.vo.EcFactoryStatsVO;
+import com.ai.manager.system.domain.vo.EcFactoryVO;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 import java.util.List;
@@ -25,7 +26,7 @@ public interface EcFactoryService extends IService<EcFactory> {
      * @param pageSize    每页条数
      * @return 工厂分页结果
      */
-    PageResult<EcFactory> pageFactories(String keyword, String factoryType, String status, Long page, Long pageSize);
+    PageResult<EcFactoryVO> pageFactories(String keyword, String factoryType, String status, Long page, Long pageSize);
 
     /**
      * 获取工厂统计数据
@@ -40,7 +41,15 @@ public interface EcFactoryService extends IService<EcFactory> {
      * @param factoryType 工厂类型
      * @return 工厂选项列表
      */
-    List<EcFactory> listFactoryOptions(String factoryType);
+    List<EcFactoryVO> listFactoryOptions(String factoryType);
+
+    /**
+     * 查询工厂详情（响应 VO）
+     *
+     * @param id 工厂ID
+     * @return 工厂详情，不存在返回 null
+     */
+    EcFactoryVO getFactory(Long id);
 
     /**
      * 创建工厂
@@ -48,7 +57,7 @@ public interface EcFactoryService extends IService<EcFactory> {
      * @param request 工厂保存请求参数
      * @return 创建后的工厂信息
      */
-    EcFactory createFactory(EcFactorySaveRequest request);
+    EcFactoryVO createFactory(EcFactorySaveRequest request);
 
     /**
      * 更新工厂
@@ -57,7 +66,7 @@ public interface EcFactoryService extends IService<EcFactory> {
      * @param request 工厂保存请求参数
      * @return 更新后的工厂信息
      */
-    EcFactory updateFactory(Long id, EcFactorySaveRequest request);
+    EcFactoryVO updateFactory(Long id, EcFactorySaveRequest request);
 
     /**
      * 删除工厂

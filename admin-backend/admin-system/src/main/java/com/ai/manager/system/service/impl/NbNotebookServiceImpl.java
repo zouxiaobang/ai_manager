@@ -6,6 +6,7 @@ import com.ai.manager.system.domain.dto.NbNotebookSaveRequest;
 import com.ai.manager.system.domain.entity.NbNotebook;
 import com.ai.manager.system.domain.entity.NbNote;
 import com.ai.manager.system.domain.vo.NbTreeNodeVO;
+import com.ai.manager.system.domain.vo.NbNotebookVO;
 import com.ai.manager.system.mapper.NbNoteMapper;
 import com.ai.manager.system.mapper.NbNotebookMapper;
 import com.ai.manager.system.service.NbNotebookService;
@@ -55,7 +56,7 @@ public class NbNotebookServiceImpl extends ServiceImpl<NbNotebookMapper, NbNoteb
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public NbNotebook createNotebook(NbNotebookSaveRequest request) {
+    public NbNotebookVO createNotebook(NbNotebookSaveRequest request) {
         validateNotebookRequest(request);
         if (request.getParentId() != null) {
             NbNotebook parent = getById(request.getParentId());
@@ -70,12 +71,12 @@ public class NbNotebookServiceImpl extends ServiceImpl<NbNotebookMapper, NbNoteb
         notebook.setColor(request.getColor());
         notebook.setSortOrder(request.getSortOrder() == null ? nextSortOrder(request.getParentId()) : request.getSortOrder());
         save(notebook);
-        return notebook;
+        return toVO(notebook);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public NbNotebook updateNotebook(Long id, NbNotebookSaveRequest request) {
+    public NbNotebookVO updateNotebook(Long id, NbNotebookSaveRequest request) {
         NbNotebook existing = getById(id);
         if (existing == null) {
             throw new BusinessException(ResultCode.NOT_FOUND);
@@ -101,7 +102,7 @@ public class NbNotebookServiceImpl extends ServiceImpl<NbNotebookMapper, NbNoteb
             existing.setSortOrder(request.getSortOrder());
         }
         updateById(existing);
-        return existing;
+        return toVO(existing);
     }
 
     @Override
@@ -234,5 +235,18 @@ public class NbNotebookServiceImpl extends ServiceImpl<NbNotebookMapper, NbNoteb
             current = folder.getParentId();
         }
         return false;
+    }
+
+    private NbNotebookVO toVO(NbNotebook notebook) {
+        NbNotebookVO vo = new NbNotebookVO();
+        vo.setId(notebook.getId());
+        vo.setParentId(notebook.getParentId());
+        vo.setName(notebook.getName());
+        vo.setIcon(notebook.getIcon());
+        vo.setColor(notebook.getColor());
+        vo.setSortOrder(notebook.getSortOrder());
+        vo.setCreateTime(notebook.getCreateTime());
+        vo.setUpdateTime(notebook.getUpdateTime());
+        return vo;
     }
 }

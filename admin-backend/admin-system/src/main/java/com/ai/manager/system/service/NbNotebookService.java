@@ -3,6 +3,7 @@ package com.ai.manager.system.service;
 import com.ai.manager.system.domain.dto.NbNotebookSaveRequest;
 import com.ai.manager.system.domain.entity.NbNotebook;
 import com.ai.manager.system.domain.vo.NbTreeNodeVO;
+import com.ai.manager.system.domain.vo.NbNotebookVO;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 import java.util.List;
@@ -27,7 +28,7 @@ public interface NbNotebookService extends IService<NbNotebook> {
      * @param request 笔记本保存请求参数
      * @return 创建后的笔记本信息
      */
-    NbNotebook createNotebook(NbNotebookSaveRequest request);
+    NbNotebookVO createNotebook(NbNotebookSaveRequest request);
 
     /**
      * 更新笔记本
@@ -36,7 +37,7 @@ public interface NbNotebookService extends IService<NbNotebook> {
      * @param request 笔记本保存请求参数
      * @return 更新后的笔记本信息
      */
-    NbNotebook updateNotebook(Long id, NbNotebookSaveRequest request);
+    NbNotebookVO updateNotebook(Long id, NbNotebookSaveRequest request);
 
     /**
      * 删除笔记本

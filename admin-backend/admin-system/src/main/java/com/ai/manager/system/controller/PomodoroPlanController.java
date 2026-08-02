@@ -3,7 +3,7 @@ package com.ai.manager.system.controller;
 import com.ai.manager.common.result.ApiResult;
 import com.ai.manager.common.result.PageResult;
 import com.ai.manager.system.domain.dto.PomodoroPlanSaveRequest;
-import com.ai.manager.system.domain.entity.PomodoroPlan;
+import com.ai.manager.system.domain.vo.PomodoroPlanVO;
 import com.ai.manager.system.service.PomodoroPlanService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
@@ -38,8 +38,8 @@ public class PomodoroPlanController {
      * @return 番茄钟计划分页结果
      */
     @GetMapping
-    public ApiResult<PageResult<PomodoroPlan>> list(@RequestParam(required = false) Long page,
-                                                    @RequestParam(required = false) Long pageSize) {
+    public ApiResult<PageResult<PomodoroPlanVO>> list(@RequestParam(required = false) Long page,
+                                                      @RequestParam(required = false) Long pageSize) {
         return ApiResult.ok(pomodoroPlanService.pagePlans(page, pageSize));
     }
 
@@ -52,7 +52,7 @@ public class PomodoroPlanController {
      * @return 已启用的番茄钟计划列表
      */
     @GetMapping("/enabled")
-    public ApiResult<List<PomodoroPlan>> listEnabled() {
+    public ApiResult<List<PomodoroPlanVO>> listEnabled() {
         return ApiResult.ok(pomodoroPlanService.listEnabled());
     }
 
@@ -65,7 +65,7 @@ public class PomodoroPlanController {
      * @return 默认番茄钟计划
      */
     @GetMapping("/default")
-    public ApiResult<PomodoroPlan> getDefault() {
+    public ApiResult<PomodoroPlanVO> getDefault() {
         return ApiResult.ok(pomodoroPlanService.getDefaultPlan());
     }
 
@@ -79,8 +79,8 @@ public class PomodoroPlanController {
      * @return 番茄钟计划详情
      */
     @GetMapping("/{id}")
-    public ApiResult<PomodoroPlan> get(@PathVariable Long id) {
-        PomodoroPlan plan = pomodoroPlanService.getById(id);
+    public ApiResult<PomodoroPlanVO> get(@PathVariable Long id) {
+        PomodoroPlanVO plan = pomodoroPlanService.getPlan(id);
         if (plan == null) {
             return ApiResult.fail(com.ai.manager.common.result.ResultCode.NOT_FOUND);
         }
@@ -97,7 +97,7 @@ public class PomodoroPlanController {
      * @return 创建后的番茄钟计划
      */
     @PostMapping
-    public ApiResult<PomodoroPlan> create(@jakarta.validation.Valid @RequestBody PomodoroPlanSaveRequest request) {
+    public ApiResult<PomodoroPlanVO> create(@jakarta.validation.Valid @RequestBody PomodoroPlanSaveRequest request) {
         return ApiResult.ok(pomodoroPlanService.createPlan(request));
     }
 
@@ -112,7 +112,7 @@ public class PomodoroPlanController {
      * @return 更新后的番茄钟计划
      */
     @PutMapping("/{id}")
-    public ApiResult<PomodoroPlan> update(@PathVariable Long id, @jakarta.validation.Valid @RequestBody PomodoroPlanSaveRequest request) {
+    public ApiResult<PomodoroPlanVO> update(@PathVariable Long id, @jakarta.validation.Valid @RequestBody PomodoroPlanSaveRequest request) {
         return ApiResult.ok(pomodoroPlanService.updatePlan(id, request));
     }
 

@@ -2,7 +2,7 @@ package com.ai.manager.system.controller;
 
 import com.ai.manager.common.result.ApiResult;
 import com.ai.manager.system.domain.dto.NbNotebookSaveRequest;
-import com.ai.manager.system.domain.entity.NbNotebook;
+import com.ai.manager.system.domain.vo.NbNotebookVO;
 import com.ai.manager.system.domain.vo.NbTreeNodeVO;
 import com.ai.manager.system.service.NbNotebookService;
 import lombok.RequiredArgsConstructor;
@@ -49,7 +49,7 @@ public class NbNotebookController {
      * @return 创建后的笔记本信息
      */
     @PostMapping
-    public ApiResult<NbNotebook> create(@jakarta.validation.Valid @RequestBody NbNotebookSaveRequest request) {
+    public ApiResult<NbNotebookVO> create(@jakarta.validation.Valid @RequestBody NbNotebookSaveRequest request) {
         return ApiResult.ok(nbNotebookService.createNotebook(request));
     }
 
@@ -64,7 +64,7 @@ public class NbNotebookController {
      * @return 更新后的笔记本信息
      */
     @PutMapping("/{id}")
-    public ApiResult<NbNotebook> update(@PathVariable Long id, @jakarta.validation.Valid @RequestBody NbNotebookSaveRequest request) {
+    public ApiResult<NbNotebookVO> update(@PathVariable Long id, @jakarta.validation.Valid @RequestBody NbNotebookSaveRequest request) {
         return ApiResult.ok(nbNotebookService.updateNotebook(id, request));
     }
 

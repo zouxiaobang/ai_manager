@@ -2,8 +2,8 @@ package com.ai.manager.system.controller;
 
 import com.ai.manager.common.result.ApiResult;
 import com.ai.manager.system.domain.dto.PomodoroRecordCreateRequest;
-import com.ai.manager.system.domain.entity.PomodoroRecord;
 import com.ai.manager.system.domain.vo.PomodoroDailyStatVO;
+import com.ai.manager.system.domain.vo.PomodoroRecordVO;
 import com.ai.manager.system.domain.vo.PomodoroSummaryVO;
 import com.ai.manager.system.service.PomodoroRecordService;
 import lombok.RequiredArgsConstructor;
@@ -41,7 +41,7 @@ public class PomodoroRecordController {
      * @return 创建后的番茄钟记录
      */
     @PostMapping("/records")
-    public ApiResult<PomodoroRecord> createRecord(@jakarta.validation.Valid @RequestBody PomodoroRecordCreateRequest request) {
+    public ApiResult<PomodoroRecordVO> createRecord(@jakarta.validation.Valid @RequestBody PomodoroRecordCreateRequest request) {
         return ApiResult.ok(pomodoroRecordService.createRecord(request));
     }
 
@@ -56,7 +56,7 @@ public class PomodoroRecordController {
      * @return 番茄钟记录列表
      */
     @GetMapping("/records")
-    public ApiResult<List<PomodoroRecord>> listRecords(
+    public ApiResult<List<PomodoroRecordVO>> listRecords(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         return ApiResult.ok(pomodoroRecordService.listByDateRange(startDate, endDate));

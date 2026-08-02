@@ -6,6 +6,7 @@ import com.ai.manager.common.result.PageUtils;
 import com.ai.manager.common.result.ResultCode;
 import com.ai.manager.system.domain.dto.PomodoroPlanSaveRequest;
 import com.ai.manager.system.domain.entity.PomodoroPlan;
+import com.ai.manager.system.domain.vo.PomodoroPlanVO;
 import com.ai.manager.system.mapper.PomodoroPlanMapper;
 import com.ai.manager.system.service.PomodoroPlanService;
 import com.ai.manager.system.service.PomodoroSessionService;
@@ -32,33 +33,34 @@ public class PomodoroPlanServiceImpl extends ServiceImpl<PomodoroPlanMapper, Pom
     }
 
     @Override
-    public PageResult<PomodoroPlan> pagePlans(Long page, Long pageSize) {
+    public PageResult<PomodoroPlanVO> pagePlans(Long page, Long pageSize) {
         long p = PageUtils.normalizePage(page);
         long ps = PageUtils.normalizePageSize(pageSize);
         Page<PomodoroPlan> entityPage = page(new Page<>(p, ps), new LambdaQueryWrapper<PomodoroPlan>()
                 .orderByDesc(PomodoroPlan::getIsDefault)
                 .orderByDesc(PomodoroPlan::getId));
-        return PageUtils.of(entityPage.getRecords(), entityPage.getTotal(), entityPage.getCurrent(), entityPage.getSize());
+        List<PomodoroPlanVO> vos = entityPage.getRecords().stream().map(this::toVO).toList();
+        return PageUtils.of(vos, entityPage.getTotal(), entityPage.getCurrent(), entityPage.getSize());
     }
 
     @Override
-    public List<PomodoroPlan> listEnabled() {
+    public List<PomodoroPlanVO> listEnabled() {
         return list(new LambdaQueryWrapper<PomodoroPlan>()
                 .eq(PomodoroPlan::getStatus, "ENABLED")
                 .orderByDesc(PomodoroPlan::getIsDefault)
-                .orderByDesc(PomodoroPlan::getId));
+                .orderByDesc(PomodoroPlan::getId)).stream().map(this::toVO).toList();
     }
 
     @Override
-    public PomodoroPlan getDefaultPlan() {
+    public PomodoroPlanVO getDefaultPlan() {
         PomodoroPlan plan = getOne(new LambdaQueryWrapper<PomodoroPlan>()
                 .eq(PomodoroPlan::getIsDefault, 1)
                 .eq(PomodoroPlan::getStatus, "ENABLED")
                 .last("LIMIT 1"));
         if (plan != null) {
-            return plan;
+            return toVO(plan);
         }
-        List<PomodoroPlan> enabled = listEnabled();
+        List<PomodoroPlanVO> enabled = listEnabled();
         if (enabled.isEmpty()) {
             throw new BusinessException(ResultCode.NOT_FOUND.getCode(), "暂无可用番茄钟计划");
         }
@@ -66,8 +68,14 @@ public class PomodoroPlanServiceImpl extends ServiceImpl<PomodoroPlanMapper, Pom
     }
 
     @Override
+    public PomodoroPlanVO getPlan(Long id) {
+        PomodoroPlan plan = getById(id);
+        return plan == null ? null : toVO(plan);
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
-    public PomodoroPlan createPlan(PomodoroPlanSaveRequest request) {
+    public PomodoroPlanVO createPlan(PomodoroPlanSaveRequest request) {
         assertPlanEditAllowed();
         validatePlanRequest(request);
         PomodoroPlan plan = toEntity(request, new PomodoroPlan());
@@ -78,12 +86,12 @@ public class PomodoroPlanServiceImpl extends ServiceImpl<PomodoroPlanMapper, Pom
             plan.setIsDefault(0);
         }
         save(plan);
-        return plan;
+        return toVO(plan);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public PomodoroPlan updatePlan(Long id, PomodoroPlanSaveRequest request) {
+    public PomodoroPlanVO updatePlan(Long id, PomodoroPlanSaveRequest request) {
         assertPlanEditAllowed();
         PomodoroPlan existing = getById(id);
         if (existing == null) {
@@ -96,7 +104,7 @@ public class PomodoroPlanServiceImpl extends ServiceImpl<PomodoroPlanMapper, Pom
             plan.setIsDefault(1);
         }
         updateById(plan);
-        return plan;
+        return toVO(plan);
     }
 
     @Override
@@ -151,5 +159,22 @@ public class PomodoroPlanServiceImpl extends ServiceImpl<PomodoroPlanMapper, Pom
 
     private int defaultInt(Integer value, int fallback) {
         return value == null ? fallback : value;
+    }
+
+    private PomodoroPlanVO toVO(PomodoroPlan plan) {
+        PomodoroPlanVO vo = new PomodoroPlanVO();
+        vo.setId(plan.getId());
+        vo.setTitle(plan.getTitle());
+        vo.setWorkDurationMin(plan.getWorkDurationMin());
+        vo.setShortBreakMin(plan.getShortBreakMin());
+        vo.setLongBreakMin(plan.getLongBreakMin());
+        vo.setRoundsBeforeLongBreak(plan.getRoundsBeforeLongBreak());
+        vo.setDailyGoalRounds(plan.getDailyGoalRounds());
+        vo.setDailyGoalMinutes(plan.getDailyGoalMinutes());
+        vo.setIsDefault(plan.getIsDefault());
+        vo.setStatus(plan.getStatus());
+        vo.setCreateTime(plan.getCreateTime());
+        vo.setUpdateTime(plan.getUpdateTime());
+        return vo;
     }
 }

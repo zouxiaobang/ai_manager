@@ -9,6 +9,7 @@ import com.ai.manager.system.domain.entity.EcCarton;
 import com.ai.manager.system.domain.entity.EcFactory;
 import com.ai.manager.system.domain.entity.EcProduct;
 import com.ai.manager.system.domain.vo.EcFactoryStatsVO;
+import com.ai.manager.system.domain.vo.EcFactoryVO;
 import com.ai.manager.system.mapper.EcCartonMapper;
 import com.ai.manager.system.mapper.EcFactoryMapper;
 import com.ai.manager.system.mapper.EcProductMapper;
@@ -33,7 +34,7 @@ public class EcFactoryServiceImpl extends ServiceImpl<EcFactoryMapper, EcFactory
     private final EcCartonMapper ecCartonMapper;
 
     @Override
-    public PageResult<EcFactory> pageFactories(String keyword, String factoryType, String status, Long page, Long pageSize) {
+    public PageResult<EcFactoryVO> pageFactories(String keyword, String factoryType, String status, Long page, Long pageSize) {
         long p = PageUtils.normalizePage(page);
         long ps = PageUtils.normalizePageSize(pageSize);
         LambdaQueryWrapper<EcFactory> wrapper = new LambdaQueryWrapper<EcFactory>()
@@ -49,7 +50,8 @@ public class EcFactoryServiceImpl extends ServiceImpl<EcFactoryMapper, EcFactory
             wrapper.eq(EcFactory::getStatus, status.trim().toUpperCase());
         }
         Page<EcFactory> result = page(new Page<>(p, ps), wrapper);
-        return PageUtils.of(result.getRecords(), result.getTotal(), result.getCurrent(), result.getSize());
+        List<EcFactoryVO> vos = result.getRecords().stream().map(this::toVO).toList();
+        return PageUtils.of(vos, result.getTotal(), result.getCurrent(), result.getSize());
     }
 
     @Override
@@ -69,12 +71,12 @@ public class EcFactoryServiceImpl extends ServiceImpl<EcFactoryMapper, EcFactory
     }
 
     @Override
-    public List<EcFactory> listFactoryOptions(String factoryType) {
+    public List<EcFactoryVO> listFactoryOptions(String factoryType) {
         LambdaQueryWrapper<EcFactory> wrapper = new LambdaQueryWrapper<EcFactory>()
                 .select(EcFactory::getId, EcFactory::getName, EcFactory::getFactoryType, EcFactory::getStatus)
                 .orderByDesc(EcFactory::getId);
         applyFactoryTypeFilter(wrapper, factoryType);
-        return list(wrapper);
+        return list(wrapper).stream().map(this::toVO).toList();
     }
 
     private void applyFactoryTypeFilter(LambdaQueryWrapper<EcFactory> wrapper, String factoryType) {
@@ -92,17 +94,23 @@ public class EcFactoryServiceImpl extends ServiceImpl<EcFactoryMapper, EcFactory
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
-    public EcFactory createFactory(EcFactorySaveRequest request) {
-        validateRequest(request);
-        EcFactory factory = toEntity(request, new EcFactory());
-        save(factory);
-        return factory;
+    public EcFactoryVO getFactory(Long id) {
+        EcFactory factory = getById(id);
+        return factory == null ? null : toVO(factory);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public EcFactory updateFactory(Long id, EcFactorySaveRequest request) {
+    public EcFactoryVO createFactory(EcFactorySaveRequest request) {
+        validateRequest(request);
+        EcFactory factory = toEntity(request, new EcFactory());
+        save(factory);
+        return toVO(factory);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public EcFactoryVO updateFactory(Long id, EcFactorySaveRequest request) {
         EcFactory existing = getById(id);
         if (existing == null) {
             throw new BusinessException(ResultCode.NOT_FOUND);
@@ -110,7 +118,7 @@ public class EcFactoryServiceImpl extends ServiceImpl<EcFactoryMapper, EcFactory
         validateRequest(request);
         EcFactory factory = toEntity(request, existing);
         updateById(factory);
-        return factory;
+        return toVO(factory);
     }
 
     @Override
@@ -170,5 +178,20 @@ public class EcFactoryServiceImpl extends ServiceImpl<EcFactoryMapper, EcFactory
             return null;
         }
         return value.trim();
+    }
+
+    private EcFactoryVO toVO(EcFactory factory) {
+        EcFactoryVO vo = new EcFactoryVO();
+        vo.setId(factory.getId());
+        vo.setName(factory.getName());
+        vo.setFactoryType(factory.getFactoryType());
+        vo.setContactName(factory.getContactName());
+        vo.setContactPhone(factory.getContactPhone());
+        vo.setAddress(factory.getAddress());
+        vo.setRemark(factory.getRemark());
+        vo.setStatus(factory.getStatus());
+        vo.setCreateTime(factory.getCreateTime());
+        vo.setUpdateTime(factory.getUpdateTime());
+        return vo;
     }
 }

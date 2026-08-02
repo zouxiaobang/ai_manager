@@ -3,8 +3,8 @@ package com.ai.manager.system.controller;
 import com.ai.manager.common.result.ApiResult;
 import com.ai.manager.common.result.PageResult;
 import com.ai.manager.system.domain.dto.EcFactorySaveRequest;
-import com.ai.manager.system.domain.entity.EcFactory;
 import com.ai.manager.system.domain.vo.EcFactoryStatsVO;
+import com.ai.manager.system.domain.vo.EcFactoryVO;
 import com.ai.manager.system.service.EcFactoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -41,11 +41,11 @@ public class EcFactoryController {
      * @return 工厂分页结果
      */
     @GetMapping
-    public ApiResult<PageResult<EcFactory>> list(@RequestParam(required = false) String keyword,
-                                                 @RequestParam(required = false) String factoryType,
-                                                 @RequestParam(required = false) String status,
-                                                 @RequestParam(required = false) Long page,
-                                                 @RequestParam(required = false) Long pageSize) {
+    public ApiResult<PageResult<EcFactoryVO>> list(@RequestParam(required = false) String keyword,
+                                                   @RequestParam(required = false) String factoryType,
+                                                   @RequestParam(required = false) String status,
+                                                   @RequestParam(required = false) Long page,
+                                                   @RequestParam(required = false) Long pageSize) {
         return ApiResult.ok(ecFactoryService.pageFactories(keyword, factoryType, status, page, pageSize));
     }
 
@@ -72,7 +72,7 @@ public class EcFactoryController {
      * @return 工厂选项列表
      */
     @GetMapping("/options")
-    public ApiResult<List<EcFactory>> options(@RequestParam(required = false) String factoryType) {
+    public ApiResult<List<EcFactoryVO>> options(@RequestParam(required = false) String factoryType) {
         return ApiResult.ok(ecFactoryService.listFactoryOptions(factoryType));
     }
 
@@ -86,8 +86,8 @@ public class EcFactoryController {
      * @return 工厂详情
      */
     @GetMapping("/{id}")
-    public ApiResult<EcFactory> get(@PathVariable Long id) {
-        EcFactory factory = ecFactoryService.getById(id);
+    public ApiResult<EcFactoryVO> get(@PathVariable Long id) {
+        EcFactoryVO factory = ecFactoryService.getFactory(id);
         if (factory == null) {
             return ApiResult.fail(com.ai.manager.common.result.ResultCode.NOT_FOUND);
         }
@@ -104,7 +104,7 @@ public class EcFactoryController {
      * @return 创建后的工厂信息
      */
     @PostMapping
-    public ApiResult<EcFactory> create(@jakarta.validation.Valid @RequestBody EcFactorySaveRequest request) {
+    public ApiResult<EcFactoryVO> create(@jakarta.validation.Valid @RequestBody EcFactorySaveRequest request) {
         return ApiResult.ok(ecFactoryService.createFactory(request));
     }
 
@@ -119,7 +119,7 @@ public class EcFactoryController {
      * @return 更新后的工厂信息
      */
     @PutMapping("/{id}")
-    public ApiResult<EcFactory> update(@PathVariable Long id, @jakarta.validation.Valid @RequestBody EcFactorySaveRequest request) {
+    public ApiResult<EcFactoryVO> update(@PathVariable Long id, @jakarta.validation.Valid @RequestBody EcFactorySaveRequest request) {
         return ApiResult.ok(ecFactoryService.updateFactory(id, request));
     }
 
