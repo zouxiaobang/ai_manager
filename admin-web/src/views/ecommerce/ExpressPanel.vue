@@ -789,7 +789,6 @@ import {
   type EcExpressNotice,
   type EcExpressPrice,
   type EcExpressStation,
-  type EcExpressStationSaveRequest,
 } from '@/api/ecommerce/express'
 import TablePagination from '@/components/TablePagination.vue'
 import EcImageField from '@/components/ecommerce/EcImageField.vue'
@@ -799,13 +798,26 @@ import { TABLE_ACTIONS_CELL_CLASS } from '@/constants/table'
 import { formatDate } from '@/utils/date'
 import { aliasTagStyle } from '@/utils/expressVisual'
 import {
-  VOLUMETRIC_DIVISOR_CALC,
   computeCalcFreight,
+  computeVolumeWeight,
   formatCalcPrice,
   formatCalcWeight,
   type CalcResult,
 } from './expressCalc'
 import { priceHeatStyle, type PriceFieldKey } from './expressPriceView'
+import {
+  buildNoticeSavePayload,
+  buildPriceSavePayload,
+  buildRecentPriceRegions,
+  buildStationSavePayload,
+  computeNoticeReorders,
+  filterPricesByKeyword,
+  filterPricesByRegions,
+  pickPriceValues,
+  resolveNoticeCount,
+  resolveRegionCount,
+  syncRowCounts,
+} from './expressPanelView'
 
 const { t } = useI18n()
 
@@ -894,10 +906,7 @@ const priceWeightGroups = computed(() => [
   },
 ])
 
-const recentPriceRegions = computed(() => {
-  const names = prices.value.map((item) => item.provinceName.trim()).filter(Boolean)
-  return [...new Set(names)].slice(-6).reverse()
-})
+const recentPriceRegions = computed(() => buildRecentPriceRegions(prices.value))
 
 function getPriceColumnLabel(key: PriceFieldKey) {
   return priceColumns.value.find((col) => col.key === key)?.label ?? key
@@ -913,9 +922,8 @@ function copyPreviousRegionPrice() {
     return
   }
   const previous = prices.value[prices.value.length - 1]
-  priceColumns.value.forEach((col) => {
-    priceForm[col.key] = previous[col.key] ?? null
-  })
+  const values = pickPriceValues(previous, priceColumns.value.map((col) => col.key))
+  Object.assign(priceForm, values)
   ElMessage.success(t('ecommerce.express.copyPreviousRegionPriceSuccess'))
 }
 
@@ -1026,10 +1034,7 @@ async function handleCalculate() {
   if (!hasVolume && !hasWeight) return
 
   if (hasVolume && !hasWeight) {
-    const volWeight = Math.round(
-      (calcLength.value! * calcWidth.value! * calcHeight.value!) / VOLUMETRIC_DIVISOR_CALC * 1000
-    ) / 1000
-    calcWeight.value = volWeight
+    calcWeight.value = computeVolumeWeight(calcLength.value!, calcWidth.value!, calcHeight.value!)
   }
 
   calcLoading.value = true
@@ -1081,17 +1086,12 @@ function getExpandDetail(id: number) {
 }
 
 function filteredExpandPrices(detail?: EcExpressStation | null) {
-  if (!detail?.prices?.length) return []
-  if (!regionFilter.value.length) return detail.prices
-  const selected = new Set(regionFilter.value.map((name) => name.trim()))
-  return detail.prices.filter((price) => selected.has(price.provinceName.trim()))
+  return filterPricesByRegions(detail?.prices, regionFilter.value)
 }
 
-const filteredEditPrices = computed(() => {
-  const keyword = priceRegionKeyword.value.trim().toLowerCase()
-  if (!keyword) return prices.value
-  return prices.value.filter((price) => price.provinceName.toLowerCase().includes(keyword))
-})
+const filteredEditPrices = computed(() =>
+  filterPricesByKeyword(prices.value, priceRegionKeyword.value),
+)
 
 function onPriceRegionSearchInput(value: string) {
   priceRegionKeyword.value = value
@@ -1099,23 +1099,12 @@ function onPriceRegionSearchInput(value: string) {
 
 /** 地区数 = 价格矩阵行数 */
 function regionCount(row: EcExpressStation) {
-  if (row.priceCount != null) {
-    return row.priceCount
-  }
-  return getExpandDetail(row.id)?.prices?.length ?? 0
+  return resolveRegionCount(row, getExpandDetail(row.id))
 }
 
 /** 须知 = 注意事项条数 */
 function noticeItemCount(row: EcExpressStation) {
-  if (row.noticeCount != null) {
-    return row.noticeCount
-  }
-  return getExpandDetail(row.id)?.notices?.length ?? 0
-}
-
-function syncRowCounts(row: EcExpressStation, detail: EcExpressStation) {
-  row.priceCount = detail.prices?.length ?? 0
-  row.noticeCount = detail.notices?.length ?? 0
+  return resolveNoticeCount(row, getExpandDetail(row.id))
 }
 
 function isExpandLoading(id: number) {
@@ -1175,21 +1164,12 @@ async function onNoticeReorder(oldIndex?: number, newIndex?: number) {
     return
   }
 
-  const ordered = [...notices.value]
-  const [moved] = ordered.splice(oldIndex, 1)
-  if (!moved) return
-  ordered.splice(newIndex, 0, moved)
-
-  const previous = new Map(notices.value.map((item) => [item.id, item.sortOrder ?? 0]))
-  ordered.forEach((item, index) => {
-    item.sortOrder = index
-  })
-  notices.value = [...ordered]
-
-  const updates = ordered.filter((item, index) => previous.get(item.id) !== index)
-  if (!updates.length) {
+  const reorder = computeNoticeReorders(notices.value, oldIndex, newIndex)
+  if (!reorder) {
     return
   }
+  const { ordered, updates } = reorder
+  notices.value = ordered
 
   noticeReordering.value = true
   try {
@@ -1370,15 +1350,7 @@ async function onSaveStation(options?: { silent?: boolean; loadingRef?: typeof s
   const loader = options?.loadingRef ?? saving
   loader.value = true
   try {
-    const payload: EcExpressStationSaveRequest = {
-      name: form.name.trim(),
-      avatarUrl: form.avatarUrl?.trim() || undefined,
-      contact: form.contact?.trim() || undefined,
-      address: form.address?.trim() || undefined,
-      labelPrice: form.labelPrice,
-      isDefault: form.isDefault,
-      nameAliases: form.nameAliases.map((item) => item.trim()).filter(Boolean),
-    }
+    const payload = buildStationSavePayload(form)
     if (editingId.value) {
       await updateExpressStation(editingId.value, payload)
       invalidateExpandDetail(editingId.value)
@@ -1533,19 +1505,7 @@ async function onSavePrice(options?: { silent?: boolean; loadingRef?: typeof pri
   const loader = options?.loadingRef ?? priceSaving
   loader.value = true
   try {
-    const payload = {
-      stationId: editingId.value,
-      provinceName: priceForm.provinceName.trim(),
-      priceW03Kg: priceForm.priceW03Kg,
-      priceW05Kg: priceForm.priceW05Kg,
-      priceW1Kg: priceForm.priceW1Kg,
-      priceW15Kg: priceForm.priceW15Kg,
-      priceW2Kg: priceForm.priceW2Kg,
-      priceW25Kg: priceForm.priceW25Kg,
-      priceW3Kg: priceForm.priceW3Kg,
-      over3FirstPrice: priceForm.over3FirstPrice,
-      over3AdditionalPrice: priceForm.over3AdditionalPrice,
-    }
+    const payload = buildPriceSavePayload(priceForm, editingId.value)
     if (priceEditingId.value) {
       await updateExpressPrice(priceEditingId.value, payload)
     } else {
@@ -1608,12 +1568,7 @@ async function onSaveNotice(options?: { silent?: boolean; loadingRef?: typeof no
   const loader = options?.loadingRef ?? noticeSaving
   loader.value = true
   try {
-    const payload = {
-      stationId: editingId.value,
-      content: noticeForm.content.trim(),
-      highlightRed: noticeForm.highlightRed,
-      sortOrder: noticeForm.sortOrder,
-    }
+    const payload = buildNoticeSavePayload(noticeForm, editingId.value)
     if (noticeEditingId.value) {
       await updateExpressNotice(noticeEditingId.value, payload)
     } else {

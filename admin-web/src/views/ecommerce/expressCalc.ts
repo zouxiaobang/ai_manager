@@ -89,6 +89,14 @@ export function computeCalcFreight(
   }
 }
 
+/**
+ * 体积重换算：长宽高(cm) 积 ÷ 8000 → 体积重(kg)，保留三位有效小数。
+ * 与 computeCalcFreight 的体积重口径一致（仅三边均正数时有意义，由调用方保证）。
+ */
+export function computeVolumeWeight(length: number, width: number, height: number): number {
+  return Math.round((length * width * height) / VOLUMETRIC_DIVISOR_CALC * 1000) / 1000
+}
+
 /** 试算金额展示：保留两位小数，空值显示 0.00 */
 export function formatCalcPrice(price?: number | null): string {
   if (price == null) return '0.00'
