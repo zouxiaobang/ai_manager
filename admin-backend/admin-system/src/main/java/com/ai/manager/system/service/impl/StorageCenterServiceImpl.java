@@ -6,15 +6,7 @@ import com.ai.manager.common.result.ResultCode;
 import com.ai.manager.system.config.BaiduPanProperties;
 import com.ai.manager.system.config.NoteStorageProperties;
 import com.ai.manager.system.domain.dto.StorageCenterConfigSaveRequest;
-import com.ai.manager.system.domain.entity.EcCarton;
-import com.ai.manager.system.domain.entity.EcExpressStation;
-import com.ai.manager.system.domain.entity.EcPlatform;
-import com.ai.manager.system.domain.entity.EcProduct;
-import com.ai.manager.system.domain.entity.EcShop;
-import com.ai.manager.system.domain.entity.EcSku;
 import com.ai.manager.system.domain.entity.EcSystemConfig;
-import com.ai.manager.system.domain.entity.NbNote;
-import com.ai.manager.system.domain.entity.SysImportBatch;
 import com.ai.manager.system.domain.vo.BaiduPanAuthStatusVO;
 import com.ai.manager.system.domain.vo.StorageCenterConfigVO;
 import com.ai.manager.system.domain.vo.StorageCenterOverviewVO;
@@ -24,22 +16,14 @@ import com.ai.manager.system.domain.vo.StorageOrphanFileItemVO;
 import com.ai.manager.system.domain.vo.StorageOrphanPreviewVO;
 import com.ai.manager.system.domain.vo.StorageOrphanZonePreviewVO;
 import com.ai.manager.system.domain.vo.StorageZoneVO;
-import com.ai.manager.system.mapper.EcCartonMapper;
-import com.ai.manager.system.mapper.EcExpressStationMapper;
-import com.ai.manager.system.mapper.EcPlatformMapper;
-import com.ai.manager.system.mapper.EcProductMapper;
-import com.ai.manager.system.mapper.EcShopMapper;
-import com.ai.manager.system.mapper.EcSkuMapper;
 import com.ai.manager.system.mapper.EcSystemConfigMapper;
-import com.ai.manager.system.mapper.NbNoteMapper;
-import com.ai.manager.system.mapper.SysImportBatchMapper;
 import com.ai.manager.system.service.BaiduPanAuthService;
 import com.ai.manager.system.service.StorageCenterService;
 import com.ai.manager.system.service.support.StorageConfigSupport;
+import com.ai.manager.system.service.support.StorageOrphanReferenceCollector;
 import com.ai.manager.system.service.support.StorageOverLimitStrategySupport;
 import com.ai.manager.system.service.support.StorageZoneViewAssembler;
 import com.ai.manager.system.service.support.StoragePathSupport;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -60,13 +44,9 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -86,8 +66,6 @@ public class StorageCenterServiceImpl implements StorageCenterService {
     private static final String CONFIG_KEY = "storage_center";
     private static final String CACHE_PREFIX = "nb:content:";
     private static final int ORPHAN_FILE_LIST_LIMIT = 100;
-    private static final Pattern NOTEBOOK_IMAGE_REF_PATTERN = Pattern.compile(
-            "notebook/images[/\\\\]([^\"'\\s>?#]+)", Pattern.CASE_INSENSITIVE);
 
     private final EcSystemConfigMapper ecSystemConfigMapper;
     private final ObjectMapper objectMapper;
@@ -95,14 +73,7 @@ public class StorageCenterServiceImpl implements StorageCenterService {
     private final BaiduPanProperties baiduPanProperties;
     private final NoteStorageProperties noteStorageProperties;
     private final StringRedisTemplate stringRedisTemplate;
-    private final EcProductMapper ecProductMapper;
-    private final EcSkuMapper ecSkuMapper;
-    private final EcCartonMapper ecCartonMapper;
-    private final EcPlatformMapper ecPlatformMapper;
-    private final EcShopMapper ecShopMapper;
-    private final EcExpressStationMapper ecExpressStationMapper;
-    private final NbNoteMapper nbNoteMapper;
-    private final SysImportBatchMapper sysImportBatchMapper;
+    private final StorageOrphanReferenceCollector orphanReferenceCollector;
 
     @Value("${ai-manager.upload.ecommerce-path:uploads/ecommerce}")
     private String ecommerceUploadPath;
@@ -292,7 +263,7 @@ public class StorageCenterServiceImpl implements StorageCenterService {
         }
 
         String name = file.getFileName().toString();
-        Set<String> referenced = collectReferences(zoneKey);
+        Set<String> referenced = orphanReferenceCollector.collectReferences(zoneKey);
         if (referenced.contains(name)) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "文件已被业务引用，无法删除");
         }
@@ -736,7 +707,7 @@ public class StorageCenterServiceImpl implements StorageCenterService {
         }
         zonePreview.setLocalPath(dir.toString());
 
-        Set<String> referenced = collectReferences(zoneKey);
+        Set<String> referenced = orphanReferenceCollector.collectReferences(zoneKey);
         boolean skipImportsDir = ZONE_ECOMMERCE_IMAGES.equals(zoneKey);
         OrphanScanResult scan = scanAndMaybeDelete(dir, referenced, zoneKey, skipImportsDir, dryRun, listLimit);
         zonePreview.setScannedCount(scan.scannedCount());
@@ -755,15 +726,6 @@ public class StorageCenterServiceImpl implements StorageCenterService {
 
 
 
-    private Set<String> collectReferences(String zoneKey) {
-        return switch (zoneKey) {
-            case ZONE_ECOMMERCE_IMAGES -> collectEcommerceImageReferences();
-            case ZONE_NOTEBOOK_IMAGES -> collectNotebookImageReferences();
-            case ZONE_NOTEBOOK_CONTENT -> collectNoteContentReferences();
-            case ZONE_IMPORT_FILES -> collectImportFileReferences();
-            default -> Set.of();
-        };
-    }
 
     private OrphanScanResult scanAndMaybeDelete(
             Path dir,
@@ -823,93 +785,6 @@ public class StorageCenterServiceImpl implements StorageCenterService {
     ) {
     }
 
-    private Set<String> collectEcommerceImageReferences() {
-        Set<String> refs = new HashSet<>();
-        ecProductMapper.selectList(new LambdaQueryWrapper<EcProduct>()
-                        .select(EcProduct::getImageName)
-                        .isNotNull(EcProduct::getImageName))
-                .forEach(row -> refs.add(row.getImageName().trim()));
-        ecSkuMapper.selectList(new LambdaQueryWrapper<EcSku>()
-                        .select(EcSku::getImageName)
-                        .isNotNull(EcSku::getImageName))
-                .forEach(row -> refs.add(row.getImageName().trim()));
-        ecCartonMapper.selectList(new LambdaQueryWrapper<EcCarton>()
-                        .select(EcCarton::getPreviewImage)
-                        .isNotNull(EcCarton::getPreviewImage))
-                .forEach(row -> refs.add(row.getPreviewImage().trim()));
-        ecPlatformMapper.selectList(new LambdaQueryWrapper<EcPlatform>()
-                        .select(EcPlatform::getAvatarUrl)
-                        .isNotNull(EcPlatform::getAvatarUrl))
-                .forEach(row -> refs.add(extractFileName(row.getAvatarUrl())));
-        ecShopMapper.selectList(new LambdaQueryWrapper<EcShop>()
-                        .select(EcShop::getAvatarUrl)
-                        .isNotNull(EcShop::getAvatarUrl))
-                .forEach(row -> refs.add(extractFileName(row.getAvatarUrl())));
-        ecExpressStationMapper.selectList(new LambdaQueryWrapper<EcExpressStation>()
-                        .select(EcExpressStation::getAvatarUrl)
-                        .isNotNull(EcExpressStation::getAvatarUrl))
-                .forEach(row -> refs.add(extractFileName(row.getAvatarUrl())));
-        refs.remove("");
-        return refs;
-    }
-
-    private Set<String> collectNotebookImageReferences() {
-        Set<String> refs = new HashSet<>();
-        Path notesDir = StoragePathSupport.resolveUploadBasePath(noteStorageProperties.getLocalRoot()).resolve("notes");
-        if (!Files.isDirectory(notesDir)) {
-            return refs;
-        }
-        try (Stream<Path> stream = Files.list(notesDir)) {
-            for (Path file : stream.filter(path -> path.toString().endsWith(".html")).toList()) {
-                try {
-                    String content = Files.readString(file, StandardCharsets.UTF_8);
-                    Matcher matcher = NOTEBOOK_IMAGE_REF_PATTERN.matcher(content);
-                    while (matcher.find()) {
-                        refs.add(matcher.group(1).trim());
-                    }
-                } catch (IOException ex) {
-                    log.debug("扫描笔记正文图片引用失败 {}: {}", file, ex.getMessage());
-                }
-            }
-        } catch (IOException ex) {
-            log.warn("读取笔记正文目录失败: {}", ex.getMessage());
-        }
-        refs.remove("");
-        return refs;
-    }
-
-    private Set<String> collectNoteContentReferences() {
-        Set<String> refs = new HashSet<>();
-        nbNoteMapper.selectList(new LambdaQueryWrapper<NbNote>()
-                        .select(NbNote::getId)
-                        .eq(NbNote::getDeleted, 0))
-                .forEach(note -> {
-                    if (note.getId() != null) {
-                        refs.add(note.getId() + ".html");
-                        refs.add(note.getId() + ".meta.json");
-                    }
-                });
-        return refs;
-    }
-
-    private Set<String> collectImportFileReferences() {
-        Set<String> refs = new HashSet<>();
-        sysImportBatchMapper.selectList(new LambdaQueryWrapper<SysImportBatch>()
-                        .select(SysImportBatch::getFilePath)
-                        .isNotNull(SysImportBatch::getFilePath))
-                .forEach(batch -> refs.add(extractFileName(batch.getFilePath())));
-        refs.remove("");
-        return refs;
-    }
-
-    private String extractFileName(String value) {
-        if (!StringUtils.hasText(value)) {
-            return "";
-        }
-        String trimmed = value.trim();
-        int slash = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
-        return slash >= 0 ? trimmed.substring(slash + 1) : trimmed;
-    }
 
     private long resolveZoneUsedBytes(String zoneKey) {
         try {
