@@ -647,6 +647,7 @@ import type { PrepTask } from './monthlySettlementView'
 import { useMonthlySettlementBuyerExclude } from './composables/useMonthlySettlementBuyerExclude'
 import { useMonthlySettlementPendingDecisions } from './composables/useMonthlySettlementPendingDecisions'
 import { useMonthlySettlementPrepTasks } from './composables/useMonthlySettlementPrepTasks'
+import { useMonthlySettlementLoad, type SettlementResultData } from './composables/useMonthlySettlementLoad'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -679,11 +680,6 @@ const expressBillRecords = ref<ExpressBillRecord[]>([])
 const expressStations = ref<EcExpressStation[]>([])
 const lastPendingDecisionAt = ref<string | null>(null)
 const lastCalculatedAt = ref<string | null>(null)
-let prepRequestSeq = 0
-let enterPromise: Promise<void> | null = null
-let pageLoadPromise: Promise<void> | null = null
-let bootstrapped = false
-const ignoreMonthWatch = ref(true)
 
 const expressBillVisible = ref(false)
 
@@ -828,6 +824,9 @@ const { prepTasks } = useMonthlySettlementPrepTasks({
 
 const statusLabel = (s?: string) => viewStatusLabel(s, statusOptions.value)
 
+// applySettlementResult 由下方加载编排 composable 提供；决策表需先建后绑定，打破二者循环依赖
+let applySettlementResult: (data: SettlementResultData | null) => void = () => {}
+
 const {
   syncPendingDecisions,
   onPendingDecisionChange,
@@ -839,7 +838,7 @@ const {
   settlementMonth,
   savingDecisions,
   lastPendingDecisionAt,
-  applySettlementResult,
+  applySettlementResult: (data) => applySettlementResult(data),
   saveDecisions: saveSettlementOrderDecisions,
   notifyWarning: (message) => ElMessage.warning(message),
   notifySuccess: (message) => ElMessage.success(message),
@@ -855,6 +854,52 @@ function syncSelectedShop() {
     selectedShopId.value = shops[0]?.shopId ?? null
   }
 }
+
+const {
+  applySettlementResult: loadApplySettlementResult,
+  runPageLoad,
+  enter,
+  loadPrepData,
+  mount,
+  ignoreMonthWatch,
+} = useMonthlySettlementLoad({
+  t,
+  settlementMonth,
+  calculated,
+  result,
+  selectedShopId,
+  maxProfitShowAll,
+  lastCalculatedAt,
+  orderOverview,
+  expressBillRecords,
+  expressBillImported,
+  shopOptions,
+  expressStations,
+  beginCalculating,
+  endCalculating,
+  beginSubmitting,
+  endSubmitting,
+  beginPrepLoading,
+  endPrepLoading,
+  resetPrepLoading,
+  clearSnapshot,
+  loadSnapshot,
+  syncPendingDecisions,
+  syncSelectedShop,
+  fetchShopOptions,
+  fetchExpressStations: async () => {
+    const page = await fetchExpressStations(undefined, { page: 1, pageSize: 200 })
+    return page.records ?? []
+  },
+  fetchSalesOrderMonthlyOverview,
+  fetchExpressBillImported,
+  fetchExpressBillRecords,
+  calculateMonthlySettlement,
+  fetchMonthlySettlementSnapshot,
+  notifyWarning: (message) => ElMessage.warning(message),
+  notifySuccess: (message) => ElMessage.success(message),
+})
+applySettlementResult = loadApplySettlementResult
 
 function onShopRowClick(row: MonthlySettlementShopSummary) {
   if (row.shopId == null) return
@@ -900,97 +945,6 @@ function goReviewPending() {
   }
 }
 
-function applySettlementResult(data: { shops: MonthlySettlementShopSummary[]; expressBillImported?: boolean; calculatedAt?: string } | null) {
-  if (!data) {
-    result.value = null
-    calculated.value = false
-    selectedShopId.value = null
-    maxProfitShowAll.value = false
-    lastCalculatedAt.value = null
-    return
-  }
-  result.value = data
-  calculated.value = true
-  syncPendingDecisions(data.shops ?? [])
-  syncSelectedShop()
-  lastCalculatedAt.value = data.calculatedAt ?? new Date().toISOString()
-}
-
-async function runPageLoad(source: 'auto' | 'manual') {
-  const month = settlementMonth.value
-  if (!month) {
-    if (source === 'manual') {
-      ElMessage.warning(t('ecommerce.monthlySettlement.monthRequired'))
-    }
-    return
-  }
-  if (pageLoadPromise) {
-    await pageLoadPromise
-    if (source === 'manual') {
-      return runPageLoad('manual')
-    }
-    if (calculated.value && settlementMonth.value === month) {
-      return
-    }
-  }
-
-  pageLoadPromise = (async () => {
-    beginCalculating()
-    if (source === 'manual') beginSubmitting()
-    try {
-      await loadPrepData({ silent: true })
-      if (settlementMonth.value !== month) return
-      if (source === 'manual') {
-        const data = await calculateMonthlySettlement(month)
-        if (settlementMonth.value !== month) return
-        applySettlementResult(data ?? { shops: [] })
-        ElMessage.success(t('ecommerce.monthlySettlement.calculateSaved'))
-      } else {
-        const data = await fetchMonthlySettlementSnapshot(month)
-        if (settlementMonth.value !== month) return
-        applySettlementResult(data)
-      }
-    } catch {
-      if (settlementMonth.value !== month) return
-      if (source === 'auto') {
-        applySettlementResult(null)
-      }
-    } finally {
-      endCalculating()
-      if (source === 'manual') endSubmitting()
-    }
-  })().finally(() => {
-    pageLoadPromise = null
-  })
-  return pageLoadPromise
-}
-
-async function enter() {
-  if (enterPromise) return enterPromise
-  enterPromise = (async () => {
-    if (!shopOptions.value.length) {
-      try {
-        shopOptions.value = await fetchShopOptions()
-      } catch {
-        shopOptions.value = []
-      }
-    }
-    if (!expressStations.value.length) {
-      try {
-        const page = await fetchExpressStations(undefined, { page: 1, pageSize: 200 })
-        expressStations.value = page.records ?? []
-      } catch {
-        expressStations.value = []
-      }
-    }
-    await runPageLoad('auto')
-    bootstrapped = true
-  })().finally(() => {
-    enterPromise = null
-  })
-  return enterPromise
-}
-
 async function init() {
   await enter()
 }
@@ -1002,39 +956,6 @@ async function onCalculate() {
 
 async function load() {
   await onCalculate()
-}
-
-async function loadPrepData(options?: { silent?: boolean }) {
-  if (!settlementMonth.value) {
-    orderOverview.value = null
-    expressBillRecords.value = []
-    clearSnapshot()
-    expressBillImported.value = false
-    resetPrepLoading()
-    return
-  }
-  const seq = ++prepRequestSeq
-  beginPrepLoading(options?.silent)
-  try {
-    const [overview, imported, records] = await Promise.all([
-      fetchSalesOrderMonthlyOverview(settlementMonth.value),
-      fetchExpressBillImported(settlementMonth.value),
-      fetchExpressBillRecords(settlementMonth.value),
-      loadSnapshot(),
-    ])
-    if (seq !== prepRequestSeq) return
-    orderOverview.value = overview
-    expressBillImported.value = !!imported
-    expressBillRecords.value = records ?? []
-  } catch {
-    if (seq !== prepRequestSeq) return
-    orderOverview.value = null
-    expressBillRecords.value = []
-    clearSnapshot()
-    expressBillImported.value = false
-  } finally {
-    endPrepLoading(options?.silent)
-  }
 }
 
 function openExpressBillDialog() {
@@ -1065,10 +986,7 @@ watch(buyerExcludeVisible, (visible) => {
 })
 
 onMounted(() => {
-  const task = bootstrapped || enterPromise ? (enterPromise ?? Promise.resolve()) : enter()
-  void Promise.resolve(task).finally(() => {
-    ignoreMonthWatch.value = false
-  })
+  void mount()
 })
 
 defineExpose({ load, enter, init })
