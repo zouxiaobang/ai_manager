@@ -785,21 +785,17 @@
  * AI 閻儴鐦戞惔鎾汇€夐棃?
  * 包含 AI 对话、RAG 知识库和设置三大功能
  */
-import { computed, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import { useAiKnowledgePrint } from './composables/useAiKnowledgePrint'
 import { useAiKnowledgeChat } from './composables/useAiKnowledgeChat'
 import { useAiKnowledgeCategories } from './composables/useAiKnowledgeCategories'
 import { useAiKnowledgeRag } from './composables/useAiKnowledgeRag'
+import { useAiKnowledgeSettings } from './composables/useAiKnowledgeSettings'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
 import {
-  fetchAiModelConfig,
-  saveAiModelConfig,
-  sendChatMessage,
   AI_PROVIDER_MAP,
   type AiProvider,
-  type AiModelConfig,
   type ChatMessage,
   type ProviderInfo,
   type RagSource,
@@ -837,6 +833,12 @@ const messages = ref<(ChatMessage & { sources?: RagSource[]; collapsed?: boolean
 
 /** 当前激活会话 id（分类/聊天状态机共享，切换会话时由分类状态机更新） */
 const activeConvId = ref<string | null>(null)
+
+/**
+ * 当前对话使用的 AI provider（settings 状态机维护，chat 状态机读取）
+ * 初值取默认 provider openai，配置加载后由 loadConfig 同步更新
+ */
+const chatProvider = ref<AiProvider>('openai')
 
 // 打印能力（markdown → 可打印 HTML），逻辑已拆至 composables/useAiKnowledgePrint
 const { buildPrintableHtml } = useAiKnowledgePrint()
@@ -965,192 +967,6 @@ function findTreeNode(nodes: NbTreeNode[], predicate: (n: NbTreeNode) => boolean
   return null
 }
 
-// ========== 设置 ==========
-const configFormRef = ref<FormInstance | null>(null)
-const configLoading = ref(false)
-const savingConfig = ref(false)
-const testingConnection = ref(false)
-
-function buildDefaultConfig(provider: AiProvider = 'openai'): AiModelConfig {
-  const info = AI_PROVIDER_MAP[provider]
-  return {
-    provider,
-    apiKey: '',
-    apiBaseUrl: info.apiBaseUrl,
-    model: info.model,
-    temperature: info.temperature,
-    maxTokens: info.maxTokens,
-    embeddingModel: info.embeddingModel,
-    defaultProvider: false,
-    maxContextMessages: 10,
-  }
-}
-
-const defaultConfig = buildDefaultConfig()
-
-/** 当前对话使用的 AI provider */
-const chatProvider = ref<AiProvider>(defaultConfig.provider)
-
-function onChatModelChange(provider: AiProvider) {
-  onProviderChange(provider)
-}
-
-/** 加号按钮点击处理 */
-function onPlusClick() {
-  ElMessage.info(t('aiKnowledge.chat.attachComingSoon'))
-}
-
-/** 头像加载失败时的 fallback 处理 */
-function onAvatarError(e: Event) {
-  const img = e.target as HTMLImageElement
-  if (img && !img.src.endsWith('custom.svg')) {
-    img.src = '/icons/providers/custom.svg'
-  }
-}
-
-const configDraft = ref<AiModelConfig>({ ...defaultConfig })
-
-/** 上一次的提供商（用于切换时缓存 API Key） */
-const lastProvider = ref(configDraft.value.provider)
-
-/** 各提供商的草稿缓存（切换时保留未保存的修改） */
-const configDraftCache = ref<Record<string, AiModelConfig>>({})
-
-// 在 Settings 中切换提供商时
-watch(() => configDraft.value.provider, (val) => {
-  chatProvider.value = val
-})
-
-/** API Key 缓存（切换 provider 时保留） */
-const apiKeyCache = ref<Record<string, string>>({})
-
-/** 当前 provider 信息 */
-const providerInfo = computed(() => AI_PROVIDER_MAP[configDraft.value.provider])
-
-/** 模型选项列表（保留用户当前选择的 model） */
-const modelOptions = computed(() => {
-  const currentProvider = configDraft.value.provider
-  const currentModel = configDraft.value.model
-
-  // 构建可用的 provider 选项列表，保留当前配置的 model
-  if (providerList.value.length > 0) {
-    return providerList.value.map(p => {
-      // 若 provider 匹配 configDraft 中的当前配置则保留该 model，否则使用 Settings 默认值
-      const model = p.provider === currentProvider && currentModel
-        ? currentModel
-        : p.model
-      return {
-        key: p.provider,
-        displayModel: model || AI_PROVIDER_MAP[p.provider]?.model || p.provider,
-        configured: p.configured,
-        defaultProvider: p.defaultProvider,
-      }
-    })
-  }
-
-  // fallback: AI_PROVIDER_MAP 中未在 providerList 中出现的条目
-  return Object.entries(AI_PROVIDER_MAP).map(([key, info]) => ({
-    key,
-    displayModel: key === currentProvider && currentModel ? currentModel : info.model || info.label,
-    defaultProvider: false,
-  }))
-})
-
-/** 获取当前 AI provider 的图标 URL */
-const providerAvatarUrl = computed(() => {
-  return `/icons/providers/${chatProvider.value}.svg`
-})
-
-const configRules: FormRules = {
-  apiKey: [{ required: true, message: t('aiKnowledge.settings.apiKeyPlaceholder'), trigger: 'blur' }],
-  model: [{ required: true, message: t('aiKnowledge.settings.modelPlaceholder'), trigger: 'blur' }],
-}
-
-async function loadConfig() {
-  if (configLoading.value) return
-  configLoading.value = true
-  try {
-    const data = await fetchAiModelConfig()
-    configDraft.value = { ...buildDefaultConfig(data.provider), ...data }
-    chatProvider.value = data.provider
-    lastProvider.value = data.provider
-  } catch {
-    // 加载配置失败，使用默认配置
-    configDraft.value = { ...defaultConfig }
-    chatProvider.value = defaultConfig.provider
-    lastProvider.value = defaultConfig.provider
-  } finally {
-    configLoading.value = false
-  }
-}
-
-async function saveConfig() {
-  const valid = await configFormRef.value?.validate().catch(() => false)
-  if (!valid) return
-
-  savingConfig.value = true
-  try {
-    await saveAiModelConfig(configDraft.value)
-    ElMessage.success(t('aiKnowledge.settings.saveSuccess'))
-    // 更新缓存中的已保存值，下次切换不会丢失
-    configDraftCache.value[configDraft.value.provider] = { ...configDraft.value }
-    // 保存后刷新 provider 列表以更新默认配置
-    loadProviders()
-  } catch {
-    ElMessage.error(t('aiKnowledge.settings.saveFailed'))
-  } finally {
-    savingConfig.value = false
-  }
-}
-
-async function testConnection() {
-  testingConnection.value = true
-  try {
-    // 测试连接：发送一条简单消息
-    await sendChatMessage({ question: 'Hi', provider: configDraft.value.provider, useRag: false })
-    ElMessage.success(t('aiKnowledge.settings.testSuccess'))
-  } catch {
-    ElMessage.error(t('aiKnowledge.settings.testFailed'))
-  } finally {
-    testingConnection.value = false
-  }
-}
-
-/**
- * 切换 AI provider 时的处理函数
- * - 更新当前选择的 model 为该 provider 的默认 model
- * - API Key 若不同则清空并提示用户重新填写
- */
-function onProviderChange(provider: AiProvider) {
-  const info = AI_PROVIDER_MAP[provider]
-  if (!info) return
-
-  // 缓存当前提供商的草稿（切换后保留未保存的修改）
-  const old = lastProvider.value
-  if (old && old !== provider) {
-    configDraftCache.value[old] = { ...configDraft.value }
-  }
-
-  // 检查是否有缓存的草稿
-  const cached = configDraftCache.value[provider]
-  if (cached) {
-    configDraft.value = { ...cached }
-  } else {
-    // 从 providerList 恢复已保存的配置
-    const saved = providerList.value.find(p => p.provider === provider)
-    configDraft.value.apiBaseUrl = info.apiBaseUrl
-    configDraft.value.model = saved?.model || info.model
-    configDraft.value.embeddingModel = info.embeddingModel
-    configDraft.value.temperature = info.temperature
-    configDraft.value.maxTokens = info.maxTokens
-    configDraft.value.apiKey = apiKeyCache.value[provider] ?? ''
-    configDraft.value.defaultProvider = saved?.defaultProvider ?? false
-    configDraft.value.maxContextMessages = saved?.maxContextMessages ?? 10
-  }
-
-  lastProvider.value = provider
-}
-
 // ========== 聊天状态机（消息发送/流式/token 统计/清空与压缩） ==========
 // saveMessages 桥接：useAiKnowledgeChat 先于 useAiKnowledgeCategories 初始化，
 // 通过闭包转发 saveMessages，避免两个状态机相互构造依赖
@@ -1179,6 +995,26 @@ const {
   clearConversation,
   compressConversation,
 } = useAiKnowledgeChat({ messages, providerList, chatProvider, useRag, activeConvId, saveMessages: () => saveMessagesBridge() })
+
+// ========== 设置状态机（Chat 配置加载/保存/连接测试/切换草稿缓存） ==========
+// chat 状态机先构造以提供 loadProviders，settings 后构造读取共享 ref，无循环依赖
+const {
+  configFormRef,
+  savingConfig,
+  testingConnection,
+  configDraft,
+  providerInfo,
+  modelOptions,
+  providerAvatarUrl,
+  configRules,
+  onChatModelChange,
+  onPlusClick,
+  onAvatarError,
+  loadConfig,
+  saveConfig,
+  testConnection,
+  onProviderChange,
+} = useAiKnowledgeSettings({ providerList, chatProvider, loadProviders })
 
 // ========== 分类与会话状态机（分类/会话 CRUD、全局搜索、会话持久化与恢复） ==========
 const {
