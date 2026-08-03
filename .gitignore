@@ -57,6 +57,9 @@ Thumbs.db
 application-local.yml
 application-local.properties
 
+# Runtime uploads (not versioned; synced to server via deploy/scripts/sync-local-uploads-to-prod.py)
+admin-backend/uploads/
+
 # Database
 *.db
 
