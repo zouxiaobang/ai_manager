@@ -805,6 +805,7 @@ import {
   formatCalcWeight,
   type CalcResult,
 } from './expressCalc'
+import { priceHeatStyle, type PriceFieldKey } from './expressPriceView'
 
 const { t } = useI18n()
 
@@ -862,17 +863,6 @@ const aliasInputRef = ref<InputInstance>()
 const priceRegionKeyword = ref('')
 const noticeReordering = ref(false)
 let noticeSortable: Sortable | null = null
-
-type PriceFieldKey =
-  | 'priceW03Kg'
-  | 'priceW05Kg'
-  | 'priceW1Kg'
-  | 'priceW15Kg'
-  | 'priceW2Kg'
-  | 'priceW25Kg'
-  | 'priceW3Kg'
-  | 'over3FirstPrice'
-  | 'over3AdditionalPrice'
 
 const priceColumns = computed(() => [
   { key: 'priceW03Kg' as PriceFieldKey, label: t('ecommerce.express.w03') },
@@ -1135,41 +1125,6 @@ function isExpandLoading(id: number) {
 function invalidateExpandDetail(id: number) {
   expandDetails.value.delete(id)
   expandDetails.value = new Map(expandDetails.value)
-}
-
-function collectPriceValues(priceRows: EcExpressPrice[]) {
-  const values: number[] = []
-  for (const row of priceRows) {
-    for (const col of priceColumns.value) {
-      const value = row[col.key]
-      if (value != null && !Number.isNaN(Number(value))) {
-        values.push(Number(value))
-      }
-    }
-  }
-  return values
-}
-
-function priceHeatStyle(value: number | null | undefined, priceRows: EcExpressPrice[]) {
-  if (value == null) {
-    return { background: 'transparent' }
-  }
-  const allValues = collectPriceValues(priceRows)
-  if (!allValues.length) {
-    return { background: 'var(--wr-stat-green-bg, #f0fdf4)' }
-  }
-  const min = Math.min(...allValues)
-  const max = Math.max(...allValues)
-  if (min === max) {
-    return { background: 'var(--wr-stat-green-bg, #f0fdf4)' }
-  }
-  const ratio = (Number(value) - min) / (max - min)
-  const low = [240, 253, 244]
-  const high = [255, 247, 237]
-  const r = Math.round(low[0] + (high[0] - low[0]) * ratio)
-  const g = Math.round(low[1] + (high[1] - low[1]) * ratio)
-  const b = Math.round(low[2] + (high[2] - low[2]) * ratio)
-  return { background: `rgb(${r}, ${g}, ${b})` }
 }
 
 function resetForm() {
