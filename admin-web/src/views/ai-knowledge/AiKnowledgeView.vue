@@ -782,7 +782,7 @@
 
 <script setup lang="ts">
 /**
- * AI 閻儴鐦戞惔鎾汇€夐棃?
+ * AI 知识库视图
  * 包含 AI 对话、RAG 知识库和设置三大功能
  */
 import { ref, watch } from 'vue'
@@ -806,6 +806,7 @@ import {
   createNoteRequest,
   type NbTreeNode,
 } from '@/api/notebook'
+import { buildImportNoteMarkdown, deriveToolbarTitle, findTreeNode } from './composables/aiKnowledgeToolbar'
 
 const { t } = useI18n()
 
@@ -887,12 +888,9 @@ async function handleToolbarCommand(cmd: string, msg: ChatMessage & { collapsed?
       break
 
     case 'import-note': {
-      // 查找当前消息的索引位置
+      // 查找当前消息的索引位置，取上一条用户消息内容作为笔记标题
       const idx = messages.value.findIndex(m => m.id === msg.id)
-      const userMsg = idx > 0 ? messages.value[idx - 1] : null
-      const title = userMsg?.content
-        ? userMsg.content.slice(0, 50).replace(/\n/g, ' ').trim() || 'AI 问答'
-        : 'AI 问答'
+      const title = deriveToolbarTitle(messages.value, idx)
 
       try {
         // 1. 查找或创建 /AI问答/ 目录
@@ -907,11 +905,7 @@ async function handleToolbarCommand(cmd: string, msg: ChatMessage & { collapsed?
 
         // 3. 构建 Markdown 内容
         const date = new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-        const mdContent = `> **${title}**  ·  📅 ${date}
-
----
-
-${msg.content}`
+        const mdContent = buildImportNoteMarkdown(title, msg.content, date)
 
         await createNoteRequest({
           notebookId: aiFolder.notebookId ?? null,
@@ -928,12 +922,9 @@ ${msg.content}`
     }
 
     case 'export-pdf': {
-      // 查找当前消息的索引位置
+      // 查找当前消息的索引位置，取上一条用户消息内容作为导出标题
       const idx = messages.value.findIndex(m => m.id === msg.id)
-      const userMsg = idx > 0 ? messages.value[idx - 1] : null
-      const title = userMsg?.content
-        ? userMsg.content.slice(0, 50).replace(/\n/g, ' ').trim() || 'AI 问答'
-        : 'AI 问答'
+      const title = deriveToolbarTitle(messages.value, idx)
 
       const printHtml = buildPrintableHtml(msg.content, title)
       const blob = new Blob([printHtml], { type: 'text/html' })
@@ -953,18 +944,6 @@ ${msg.content}`
       saveMessages()
       break
   }
-}
-
-/** 递归查找树节点 */
-function findTreeNode(nodes: NbTreeNode[], predicate: (n: NbTreeNode) => boolean): NbTreeNode | null {
-  for (const node of nodes) {
-    if (predicate(node)) return node
-    if (node.children) {
-      const found = findTreeNode(node.children, predicate)
-      if (found) return found
-    }
-  }
-  return null
 }
 
 // ========== 聊天状态机（消息发送/流式/token 统计/清空与压缩） ==========
