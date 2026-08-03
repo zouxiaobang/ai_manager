@@ -1,11 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { ExpressBillRecord, MonthlySettlementShopSummary } from '@/api/ecommerce/monthlySettlement'
 import type { EcSalesOrderMonthlyOverview } from '@/api/ecommerce/salesOrder'
+import type { EcExpressStation } from '@/api/ecommerce/express'
 import type { EcShop } from '@/api/ecommerce/shop'
 import {
   buildExpressBillCards,
+  buildExpressStationMap,
   buildMaxProfitDisplay,
   buildShopImportStatusMap,
+  buildShopOptionMap,
+  buildStatusOptions,
   computeOverallSummary,
   computeShopSpan,
   filterExpressBillRecordsByMonth,
@@ -506,6 +510,45 @@ describe('monthlySettlementView 结算展示纯函数', () => {
         excludedOrderCount: 0,
         pendingOrderCount: 0,
       })
+    })
+  })
+
+  describe('buildShopOptionMap 店铺索引', () => {
+    it('按 id 索引店铺', () => {
+      const map = buildShopOptionMap([
+        { id: 1, name: '店铺甲', platformId: 9, status: 'ENABLED' },
+        { id: 2, name: '店铺乙', platformId: 9, status: 'ENABLED' },
+      ])
+      expect(map.get(1)?.name).toBe('店铺甲')
+      expect(map.get(2)?.name).toBe('店铺乙')
+      expect(map.size).toBe(2)
+    })
+
+    it('空列表空 Map', () => {
+      expect(buildShopOptionMap([]).size).toBe(0)
+    })
+  })
+
+  describe('buildExpressStationMap 快递站索引', () => {
+    it('按 id 索引站点', () => {
+      const map = buildExpressStationMap([{ id: 3, name: '顺丰' } as EcExpressStation, { id: 5, name: '中通' } as EcExpressStation])
+      expect(map.get(3)?.name).toBe('顺丰')
+      expect(map.get(5)?.name).toBe('中通')
+      expect(map.size).toBe(2)
+    })
+
+    it('空列表空 Map', () => {
+      expect(buildExpressStationMap([]).size).toBe(0)
+    })
+  })
+
+  describe('buildStatusOptions 状态选项', () => {
+    it('生成 8 项状态字典并透传文案 key', () => {
+      const options = buildStatusOptions((key) => key)
+      expect(options).toHaveLength(8)
+      expect(options[0]).toEqual({ value: 'DRAFT', label: 'ecommerce.salesOrder.statusDraft' })
+      expect(options[3]).toEqual({ value: 'SHIPPED', label: 'ecommerce.salesOrder.statusShipped' })
+      expect(options[7]).toEqual({ value: 'CANCELLED', label: 'ecommerce.salesOrder.statusCancelled' })
     })
   })
 })

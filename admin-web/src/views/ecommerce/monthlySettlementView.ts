@@ -353,3 +353,35 @@ export function computeOverallSummary(
     pendingOrderCount: sumShopMetric(included, (s) => s.pendingOrderCount),
   }
 }
+
+/** 店铺选项列表 → id 索引 Map，供图标/名称快速反查 */
+export function buildShopOptionMap(shopOptions: EcShop[]): Map<number, EcShop> {
+  const map = new Map<number, EcShop>()
+  for (const shop of shopOptions) {
+    map.set(shop.id, shop)
+  }
+  return map
+}
+
+/** 快递站列表 → id 索引 Map */
+export function buildExpressStationMap(stations: EcExpressStation[]): Map<number, EcExpressStation> {
+  const map = new Map<number, EcExpressStation>()
+  for (const station of stations) {
+    map.set(station.id, station)
+  }
+  return map
+}
+
+/** 订单状态选项字典（salesOrder 状态枚举 → i18n 文案），供状态标签展示 */
+export function buildStatusOptions(t: (key: string) => string): StatusOption[] {
+  return [
+    { value: 'DRAFT', label: t('ecommerce.salesOrder.statusDraft') },
+    { value: 'PAID', label: t('ecommerce.salesOrder.statusPaid') },
+    { value: 'PARTIAL_SHIPPED', label: t('ecommerce.salesOrder.statusPartialShipped') },
+    { value: 'SHIPPED', label: t('ecommerce.salesOrder.statusShipped') },
+    { value: 'PARTIAL_REFUND', label: t('ecommerce.salesOrder.statusPartialRefund') },
+    { value: 'COMPLETED', label: t('ecommerce.salesOrder.statusCompleted') },
+    { value: 'REFUNDED', label: t('ecommerce.salesOrder.statusRefunded') },
+    { value: 'CANCELLED', label: t('ecommerce.salesOrder.statusCancelled') },
+  ]
+}

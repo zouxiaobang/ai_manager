@@ -630,8 +630,11 @@ import {
 import { fetchExpressStations, type EcExpressStation } from '@/api/ecommerce/express'
 import { formatDateTime, defaultOrderMonth } from '@/utils/date'
 import {
+  buildExpressStationMap,
   buildMaxProfitDisplay,
   buildShopImportStatusMap,
+  buildShopOptionMap,
+  buildStatusOptions,
   computeOverallSummary,
   computeShopSpan,
   formatExcludeTime,
@@ -685,13 +688,7 @@ const expressBillVisible = ref(false)
 
 const shopSummaries = computed(() => result.value?.shops ?? [])
 
-const shopOptionMap = computed(() => {
-  const map = new Map<number, EcShop>()
-  for (const shop of shopOptions.value) {
-    map.set(shop.id, shop)
-  }
-  return map
-})
+const shopOptionMap = computed(() => buildShopOptionMap(shopOptions.value))
 
 // 买家排除域：对话框状态机与跨域共享快照（getShop 注入店铺缓存供图标解析）
 const {
@@ -780,24 +777,9 @@ const calculateButtonLabel = computed(() => calculateButton.value.label)
 const calculateButtonMode = computed(() => calculateButton.value.mode)
 const calculateButtonTooltip = computed(() => calculateButton.value.tooltip)
 
-const expressStationMap = computed(() => {
-  const map = new Map<number, EcExpressStation>()
-  for (const station of expressStations.value) {
-    map.set(station.id, station)
-  }
-  return map
-})
+const expressStationMap = computed(() => buildExpressStationMap(expressStations.value))
 
-const statusOptions = computed(() => [
-  { value: 'DRAFT', label: t('ecommerce.salesOrder.statusDraft') },
-  { value: 'PAID', label: t('ecommerce.salesOrder.statusPaid') },
-  { value: 'PARTIAL_SHIPPED', label: t('ecommerce.salesOrder.statusPartialShipped') },
-  { value: 'SHIPPED', label: t('ecommerce.salesOrder.statusShipped') },
-  { value: 'PARTIAL_REFUND', label: t('ecommerce.salesOrder.statusPartialRefund') },
-  { value: 'COMPLETED', label: t('ecommerce.salesOrder.statusCompleted') },
-  { value: 'REFUNDED', label: t('ecommerce.salesOrder.statusRefunded') },
-  { value: 'CANCELLED', label: t('ecommerce.salesOrder.statusCancelled') },
-])
+const statusOptions = computed(() => buildStatusOptions(t))
 
 const { prepTasks } = useMonthlySettlementPrepTasks({
   t,
