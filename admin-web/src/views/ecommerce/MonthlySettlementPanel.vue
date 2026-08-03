@@ -619,7 +619,6 @@ import { ecommercePathForModule } from '@/data/ecommerce-nav'
 import ExpressBillImportDialog from '@/views/ecommerce/ExpressBillImportDialog.vue'
 import MonthStepper from '@/components/ecommerce/MonthStepper.vue'
 import CnyAmount from '@/components/CnyAmount.vue'
-import { formatMoney } from '@/utils/formatMoney'
 import {
   fetchExpressBillImported,
   fetchExpressBillRecords,
@@ -636,6 +635,7 @@ import {
   computeShopSpan,
   formatExcludeTime,
   formatSettlementPeriodLabel,
+  resolveMaxProfitActualDisplay,
   statusLabel as viewStatusLabel,
   sumShopMetric,
 } from './monthlySettlementView'
@@ -666,33 +666,9 @@ const displayedMaxProfit = computed(() =>
   buildMaxProfitDisplay(shopSummaries.value, selectedShopId.value, maxProfitShowAll.value),
 )
 
-const maxProfitActualProfitDisplay = computed(() => {
-  const item = displayedMaxProfit.value
-  if (!item) return { text: '—', unknown: false }
-
-  const reasonCode = item.actualProfitUnknownReason
-  if (reasonCode) {
-    return {
-      text: t(`ecommerce.monthlySettlement.maxProfitUnknownReason.${reasonCode}`),
-      unknown: true,
-    }
-  }
-
-  if (item.actualProfitAmount != null) {
-    return { text: formatMoney(item.actualProfitAmount), unknown: false }
-  }
-
-  if (!expressBillImported.value) {
-    return {
-      text: t('ecommerce.monthlySettlement.maxProfitUnknownReason.EXPRESS_BILL_NOT_IMPORTED'),
-      unknown: true,
-    }
-  }
-  return {
-    text: t('ecommerce.monthlySettlement.maxProfitUnknownReason.ACTUAL_FREIGHT_MISSING'),
-    unknown: true,
-  }
-})
+const maxProfitActualProfitDisplay = computed(() =>
+  resolveMaxProfitActualDisplay(displayedMaxProfit.value, expressBillImported.value, t),
+)
 
 const orderOverview = ref<EcSalesOrderMonthlyOverview | null>(null)
 const expressBillRecords = ref<ExpressBillRecord[]>([])

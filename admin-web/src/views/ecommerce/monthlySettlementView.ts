@@ -1,4 +1,5 @@
 import { formatDateTime } from '@/utils/date'
+import { formatMoney } from '@/utils/formatMoney'
 import { resolveExpressIconMetaFromStation } from '@/utils/expressVisual'
 import type { ExpressBillRecord, MonthlySettlementShopSummary } from '@/api/ecommerce/monthlySettlement'
 import type { EcExpressStation } from '@/api/ecommerce/express'
@@ -209,4 +210,39 @@ export function computeShopSpan(columnIndex: number, isImported: boolean) {
 /** 按状态选项取展示文案；未命中回退原值，空值回退占位符 */
 export function statusLabel(s: string | undefined, options: StatusOption[]): string {
   return options.find((o) => o.value === s)?.label ?? s ?? '—'
+}
+
+/**
+ * 最大利润订单实际利润展示：
+ * 未知原因优先翻译；其次金额格式化；金额缺失时按快递账单导入态给未知提示。
+ */
+export function resolveMaxProfitActualDisplay(
+  item: MaxProfitDisplay | null,
+  expressBillImported: boolean,
+  t: (key: string) => string,
+): { text: string; unknown: boolean } {
+  if (!item) return { text: '—', unknown: false }
+
+  const reasonCode = item.actualProfitUnknownReason
+  if (reasonCode) {
+    return {
+      text: t(`ecommerce.monthlySettlement.maxProfitUnknownReason.${reasonCode}`),
+      unknown: true,
+    }
+  }
+
+  if (item.actualProfitAmount != null) {
+    return { text: formatMoney(item.actualProfitAmount), unknown: false }
+  }
+
+  if (!expressBillImported) {
+    return {
+      text: t('ecommerce.monthlySettlement.maxProfitUnknownReason.EXPRESS_BILL_NOT_IMPORTED'),
+      unknown: true,
+    }
+  }
+  return {
+    text: t('ecommerce.monthlySettlement.maxProfitUnknownReason.ACTUAL_FREIGHT_MISSING'),
+    unknown: true,
+  }
 }

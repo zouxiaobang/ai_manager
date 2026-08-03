@@ -10,6 +10,7 @@ import {
   formatPrepLastTime,
   formatSettlementPeriodLabel,
   pickLatestPrepTime,
+  resolveMaxProfitActualDisplay,
   stationRecordKey,
   statusLabel,
   sumShopMetric,
@@ -288,6 +289,43 @@ describe('monthlySettlementView 结算展示纯函数', () => {
 
     it('空值回退占位符', () => {
       expect(statusLabel(undefined, options)).toBe('—')
+    })
+  })
+
+  describe('resolveMaxProfitActualDisplay', () => {
+    const t = (key: string) => key
+
+    it('空 item 显示占位符', () => {
+      expect(resolveMaxProfitActualDisplay(null, true, t)).toEqual({ text: '—', unknown: false })
+    })
+
+    it('未知原因优先翻译', () => {
+      const item = { shopId: 1, shopName: '店铺甲', actualProfitUnknownReason: 'ACTUAL_FREIGHT_MISSING' as const }
+      expect(resolveMaxProfitActualDisplay(item, true, t)).toEqual({
+        text: 'ecommerce.monthlySettlement.maxProfitUnknownReason.ACTUAL_FREIGHT_MISSING',
+        unknown: true,
+      })
+    })
+
+    it('有实际利润时格式化金额', () => {
+      const item = { shopId: 1, shopName: '店铺甲', actualProfitAmount: 20 }
+      expect(resolveMaxProfitActualDisplay(item, false, t)).toEqual({ text: '¥20.00', unknown: false })
+    })
+
+    it('金额缺失且快递未导入提示先导入', () => {
+      const item = { shopId: 1, shopName: '店铺甲' }
+      expect(resolveMaxProfitActualDisplay(item, false, t)).toEqual({
+        text: 'ecommerce.monthlySettlement.maxProfitUnknownReason.EXPRESS_BILL_NOT_IMPORTED',
+        unknown: true,
+      })
+    })
+
+    it('金额缺失且快递已导入提示运费缺失', () => {
+      const item = { shopId: 1, shopName: '店铺甲' }
+      expect(resolveMaxProfitActualDisplay(item, true, t)).toEqual({
+        text: 'ecommerce.monthlySettlement.maxProfitUnknownReason.ACTUAL_FREIGHT_MISSING',
+        unknown: true,
+      })
     })
   })
 })
