@@ -1,8 +1,11 @@
 import { formatDateTime } from '@/utils/date'
 import { formatMoney } from '@/utils/formatMoney'
 import { resolveExpressIconMetaFromStation } from '@/utils/expressVisual'
+import { resolveShopIconMeta } from '@/utils/shopVisual'
 import type { ExpressBillRecord, MonthlySettlementShopSummary } from '@/api/ecommerce/monthlySettlement'
 import type { EcExpressStation } from '@/api/ecommerce/express'
+import type { EcSalesOrderMonthlyOverview, ShopImportStatus } from '@/api/ecommerce/salesOrder'
+import type { EcShop } from '@/api/ecommerce/shop'
 
 /** 预备清单里的快递账单匹配卡片 */
 export interface PrepExpressBillCard {
@@ -244,5 +247,109 @@ export function resolveMaxProfitActualDisplay(
   return {
     text: t('ecommerce.monthlySettlement.maxProfitUnknownReason.ACTUAL_FREIGHT_MISSING'),
     unknown: true,
+  }
+}
+
+export type CalculateButtonMode = 'disabled' | 'recalculate' | 'precalculate' | 'calculate'
+
+export interface CalculateButtonState {
+  salesOrdersImported: boolean
+  calculated: boolean
+  expressBillImported: boolean
+}
+
+/**
+ * 结算按钮状态机：由「订单导入 / 已结算 / 快递账单导入」三态推导 mode、禁用、文案与提示。
+ * label 判定与原组件一致：已结算优先于销售导入判定（极端态下 mode 为 disabled 但 label 仍可走重算）。
+ */
+export function resolveCalculateButton(
+  state: CalculateButtonState,
+  t: (key: string) => string,
+): { mode: CalculateButtonMode; disabled: boolean; label: string; tooltip: string } {
+  const { salesOrdersImported, calculated, expressBillImported } = state
+  const disabled = !salesOrdersImported
+
+  let mode: CalculateButtonMode
+  if (disabled) mode = 'disabled'
+  else if (calculated) mode = 'recalculate'
+  else if (!expressBillImported) mode = 'precalculate'
+  else mode = 'calculate'
+
+  let label: string
+  if (calculated) label = t('ecommerce.monthlySettlement.recalculate')
+  else if (salesOrdersImported && !expressBillImported) label = t('ecommerce.monthlySettlement.preCalculate')
+  else label = t('ecommerce.monthlySettlement.calculate')
+
+  const tooltip = mode === 'precalculate' ? t('ecommerce.monthlySettlement.preCalculateTip') : ''
+  return { mode, disabled, label, tooltip }
+}
+
+/** 店铺汇总行图标解析：行内店铺名优先，缺失时回退选项店铺补全平台信息 */
+export function resolveShopDisplayIcon(row: MonthlySettlementShopSummary, shopOptionMap: Map<number, EcShop>) {
+  const shop = shopOptionMap.get(row.shopId)
+  return resolveShopIconMeta(
+    row.shopName ?? shop?.name,
+    shop?.platformName,
+    shop?.platformCode,
+    shop?.avatarUrl,
+  )
+}
+
+/** 最大利润订单的归属店铺图标：无 shopId 时仅用订单店铺名，否则按选项补全 */
+export function resolveMaxProfitShopIcon(item: MaxProfitDisplay | null, shopOptionMap: Map<number, EcShop>) {
+  if (!item?.shopId) {
+    return resolveShopIconMeta(item?.shopName)
+  }
+  const shop = shopOptionMap.get(item.shopId)
+  return resolveShopIconMeta(
+    item.shopName ?? shop?.name,
+    shop?.platformName,
+    shop?.platformCode,
+    shop?.avatarUrl,
+  )
+}
+
+/** 订单月度总览 → 店铺导入状态 Map */
+export function buildShopImportStatusMap(overview: EcSalesOrderMonthlyOverview | null): Map<number, ShopImportStatus> {
+  const map = new Map<number, ShopImportStatus>()
+  for (const shop of overview?.shops ?? []) {
+    map.set(shop.shopId, shop.status)
+  }
+  return map
+}
+
+/** 订单导入判定：有订单数或待审数即视为已导入 */
+export function hasSalesOrdersImported(overview: EcSalesOrderMonthlyOverview | null): boolean {
+  const orderCount = overview?.totalOrderCount ?? 0
+  const reviewCount = overview?.pendingReviewCount ?? 0
+  return orderCount > 0 || reviewCount > 0
+}
+
+export interface OverallSummary {
+  totalRevenue: number
+  estimatedTotalCost: number
+  actualTotalCost: number
+  estimatedTotalProfit: number
+  actualTotalProfit: number
+  includedOrderCount: number
+  excludedOrderCount: number
+  pendingOrderCount: number
+}
+
+/** 已导入店铺的结算汇总：isImported 由调用方注入（依赖店铺导入状态表），过滤后逐项求和 */
+export function computeOverallSummary(
+  shops: MonthlySettlementShopSummary[],
+  isImported: (shopId: number) => boolean,
+): OverallSummary {
+  const included = shops.filter((shop) => isImported(shop.shopId))
+  return {
+    totalRevenue: sumShopMetric(included, (s) => s.totalRevenue),
+    estimatedTotalCost: sumShopMetric(included, (s) => s.estimatedTotalCost),
+    actualTotalCost: sumShopMetric(included, (s) => s.actualTotalCost),
+    estimatedTotalProfit: sumShopMetric(included, (s) => s.estimatedTotalProfit),
+    actualTotalProfit: sumShopMetric(included, (s) => s.actualTotalProfit),
+    includedOrderCount: sumShopMetric(included, (s) => s.includedOrderCount),
+    excludedOrderCount: sumShopMetric(included, (s) => s.excludedOrderCount),
+    pendingOrderCount: sumShopMetric(included, (s) => s.pendingOrderCount),
   }
 }

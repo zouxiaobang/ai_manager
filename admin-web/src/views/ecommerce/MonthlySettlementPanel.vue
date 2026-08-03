@@ -613,8 +613,7 @@ import { ElMessage } from 'element-plus'
 import { Check, Warning, ArrowRight, Goods, Delete, Search } from '@element-plus/icons-vue'
 import { useCountingLoading } from '@/composables/useCountingLoading'
 import { fetchShopOptions, type EcShop } from '@/api/ecommerce/shop'
-import { resolveShopIconMeta } from '@/utils/shopVisual'
-import { fetchSalesOrderMonthlyOverview, type EcSalesOrderMonthlyOverview, type ShopImportStatus } from '@/api/ecommerce/salesOrder'
+import { fetchSalesOrderMonthlyOverview, type EcSalesOrderMonthlyOverview } from '@/api/ecommerce/salesOrder'
 import { ecommercePathForModule } from '@/data/ecommerce-nav'
 import ExpressBillImportDialog from '@/views/ecommerce/ExpressBillImportDialog.vue'
 import MonthStepper from '@/components/ecommerce/MonthStepper.vue'
@@ -632,12 +631,17 @@ import { fetchExpressStations, type EcExpressStation } from '@/api/ecommerce/exp
 import { formatDateTime, defaultOrderMonth } from '@/utils/date'
 import {
   buildMaxProfitDisplay,
+  buildShopImportStatusMap,
+  computeOverallSummary,
   computeShopSpan,
   formatExcludeTime,
   formatSettlementPeriodLabel,
+  hasSalesOrdersImported,
+  resolveCalculateButton,
   resolveMaxProfitActualDisplay,
+  resolveMaxProfitShopIcon,
+  resolveShopDisplayIcon,
   statusLabel as viewStatusLabel,
-  sumShopMetric,
 } from './monthlySettlementView'
 import type { PrepTask } from './monthlySettlementView'
 import { useMonthlySettlementBuyerExclude } from './composables/useMonthlySettlementBuyerExclude'
@@ -719,36 +723,14 @@ const {
 })
 
 function getShopIconMeta(row: MonthlySettlementShopSummary) {
-  const shop = shopOptionMap.value.get(row.shopId)
-  return resolveShopIconMeta(
-    row.shopName ?? shop?.name,
-    shop?.platformName,
-    shop?.platformCode,
-    shop?.avatarUrl,
-  )
+  return resolveShopDisplayIcon(row, shopOptionMap.value)
 }
 
 function getMaxProfitShopIcon() {
-  const item = displayedMaxProfit.value
-  if (!item?.shopId) {
-    return resolveShopIconMeta(item?.shopName)
-  }
-  const shop = shopOptionMap.value.get(item.shopId)
-  return resolveShopIconMeta(
-    item.shopName ?? shop?.name,
-    shop?.platformName,
-    shop?.platformCode,
-    shop?.avatarUrl,
-  )
+  return resolveMaxProfitShopIcon(displayedMaxProfit.value, shopOptionMap.value)
 }
 
-const shopImportStatusMap = computed(() => {
-  const map = new Map<number, ShopImportStatus>()
-  for (const shop of orderOverview.value?.shops ?? []) {
-    map.set(shop.shopId, shop.status)
-  }
-  return map
-})
+const shopImportStatusMap = computed(() => buildShopImportStatusMap(orderOverview.value))
 
 function isShopOrdersImported(shopId: number) {
   const status = shopImportStatusMap.value.get(shopId)
@@ -778,61 +760,29 @@ const selectedShop = computed(() => {
   return shopSummaries.value.find((s) => s.shopId === selectedShopId.value) ?? null
 })
 
-const overallSummary = computed(() => {
-  const shops = shopSummaries.value.filter((shop) => isShopOrdersImported(shop.shopId))
-  return {
-    totalRevenue: sumShopMetric(shops, (s) => s.totalRevenue),
-    estimatedTotalCost: sumShopMetric(shops, (s) => s.estimatedTotalCost),
-    actualTotalCost: sumShopMetric(shops, (s) => s.actualTotalCost),
-    estimatedTotalProfit: sumShopMetric(shops, (s) => s.estimatedTotalProfit),
-    actualTotalProfit: sumShopMetric(shops, (s) => s.actualTotalProfit),
-    includedOrderCount: sumShopMetric(shops, (s) => s.includedOrderCount),
-    excludedOrderCount: sumShopMetric(shops, (s) => s.excludedOrderCount),
-    pendingOrderCount: sumShopMetric(shops, (s) => s.pendingOrderCount),
-  }
-})
+const overallSummary = computed(() => computeOverallSummary(shopSummaries.value, isShopOrdersImported))
 
 const totalPendingOrders = computed(() =>
   shopSummaries.value.reduce((sum, shop) => sum + (shop.pendingOrderCount ?? 0), 0),
 )
 
-const salesOrdersImported = computed(() => {
-  const overview = orderOverview.value
-  const orderCount = overview?.totalOrderCount ?? 0
-  const reviewCount = overview?.pendingReviewCount ?? 0
-  return orderCount > 0 || reviewCount > 0
-})
+const salesOrdersImported = computed(() => hasSalesOrdersImported(orderOverview.value))
 
-const calculateButtonDisabled = computed(() => !salesOrdersImported.value)
+const calculateButton = computed(() =>
+  resolveCalculateButton(
+    {
+      salesOrdersImported: salesOrdersImported.value,
+      calculated: calculated.value,
+      expressBillImported: expressBillImported.value,
+    },
+    t,
+  ),
+)
 
-const calculateButtonLabel = computed(() => {
-  if (calculated.value) {
-    return t('ecommerce.monthlySettlement.recalculate')
-  }
-  if (salesOrdersImported.value && !expressBillImported.value) {
-    return t('ecommerce.monthlySettlement.preCalculate')
-  }
-  return t('ecommerce.monthlySettlement.calculate')
-})
-
-const calculateButtonMode = computed(() => {
-  if (!salesOrdersImported.value) return 'disabled'
-  if (calculated.value) return 'recalculate'
-  if (!expressBillImported.value) return 'precalculate'
-  return 'calculate'
-})
-
-const calculateButtonTooltip = computed(() => {
-  if (
-    calculateButtonDisabled.value
-    || calculated.value
-    || expressBillImported.value
-    || !salesOrdersImported.value
-  ) {
-    return ''
-  }
-  return t('ecommerce.monthlySettlement.preCalculateTip')
-})
+const calculateButtonDisabled = computed(() => calculateButton.value.disabled)
+const calculateButtonLabel = computed(() => calculateButton.value.label)
+const calculateButtonMode = computed(() => calculateButton.value.mode)
+const calculateButtonTooltip = computed(() => calculateButton.value.tooltip)
 
 const expressStationMap = computed(() => {
   const map = new Map<number, EcExpressStation>()

@@ -1,20 +1,37 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { ExpressBillRecord, MonthlySettlementShopSummary } from '@/api/ecommerce/monthlySettlement'
+import type { EcSalesOrderMonthlyOverview } from '@/api/ecommerce/salesOrder'
+import type { EcShop } from '@/api/ecommerce/shop'
 import {
   buildExpressBillCards,
   buildMaxProfitDisplay,
+  buildShopImportStatusMap,
+  computeOverallSummary,
   computeShopSpan,
   filterExpressBillRecordsByMonth,
   findBestMaxProfitOrder,
   formatExcludeTime,
   formatPrepLastTime,
   formatSettlementPeriodLabel,
+  hasSalesOrdersImported,
   pickLatestPrepTime,
+  resolveCalculateButton,
   resolveMaxProfitActualDisplay,
+  resolveMaxProfitShopIcon,
+  resolveShopDisplayIcon,
   stationRecordKey,
   statusLabel,
   sumShopMetric,
 } from '../monthlySettlementView'
+import type { MaxProfitDisplay } from '../monthlySettlementView'
+
+// mock 图标解析：断言参数转发而非依赖真实图片 URL 生成
+vi.mock('@/utils/shopVisual', () => ({
+  resolveShopIconMeta: (name?: string, _platformName?: string, _platformCode?: number | null, avatarUrl?: string | null) => ({
+    src: `icon:${name ?? '?'}`,
+    isCustomAvatar: !!avatarUrl,
+  }),
+}))
 
 /** 构造快递账单记录 fixture */
 function makeRecord(partial: Partial<ExpressBillRecord> & { id: number }): ExpressBillRecord {
@@ -325,6 +342,169 @@ describe('monthlySettlementView 结算展示纯函数', () => {
       expect(resolveMaxProfitActualDisplay(item, true, t)).toEqual({
         text: 'ecommerce.monthlySettlement.maxProfitUnknownReason.ACTUAL_FREIGHT_MISSING',
         unknown: true,
+      })
+    })
+  })
+
+  describe('resolveCalculateButton 结算按钮状态机', () => {
+    const t = (key: string) => key
+
+    it('订单未导入：禁用 + 常规文案 + 无提示', () => {
+      expect(
+        resolveCalculateButton({ salesOrdersImported: false, calculated: false, expressBillImported: false }, t),
+      ).toEqual({ mode: 'disabled', disabled: true, label: 'ecommerce.monthlySettlement.calculate', tooltip: '' })
+    })
+
+    it('已导入已结算：重算文案', () => {
+      expect(
+        resolveCalculateButton({ salesOrdersImported: true, calculated: true, expressBillImported: true }, t),
+      ).toEqual({ mode: 'recalculate', disabled: false, label: 'ecommerce.monthlySettlement.recalculate', tooltip: '' })
+    })
+
+    it('已导入未结算且快递未导入：预计算文案 + 提示', () => {
+      expect(
+        resolveCalculateButton({ salesOrdersImported: true, calculated: false, expressBillImported: false }, t),
+      ).toEqual({
+        mode: 'precalculate',
+        disabled: false,
+        label: 'ecommerce.monthlySettlement.preCalculate',
+        tooltip: 'ecommerce.monthlySettlement.preCalculateTip',
+      })
+    })
+
+    it('已导入未结算且快递已导入：常规计算', () => {
+      expect(
+        resolveCalculateButton({ salesOrdersImported: true, calculated: false, expressBillImported: true }, t),
+      ).toEqual({ mode: 'calculate', disabled: false, label: 'ecommerce.monthlySettlement.calculate', tooltip: '' })
+    })
+
+    it('极端态：未导入但已结算，mode 禁用但 label 仍重算（与原组件一致）', () => {
+      expect(
+        resolveCalculateButton({ salesOrdersImported: false, calculated: true, expressBillImported: false }, t),
+      ).toEqual({ mode: 'disabled', disabled: true, label: 'ecommerce.monthlySettlement.recalculate', tooltip: '' })
+    })
+  })
+
+  describe('resolveShopDisplayIcon 店铺图标解析', () => {
+    const optMap = new Map<number, EcShop>([
+      [1, { id: 1, name: '选项店', platformId: 9, status: 'ENABLED', platformName: '平台', platformCode: 2, avatarUrl: 'a.png' }],
+    ])
+
+    it('优先行店铺名，头像走自定义分支', () => {
+      const meta = resolveShopDisplayIcon({ shopId: 1, shopName: '行店' } as MonthlySettlementShopSummary, optMap)
+      expect(meta).toEqual({ src: 'icon:行店', isCustomAvatar: true })
+    })
+
+    it('行店铺名缺失回退选项名', () => {
+      const meta = resolveShopDisplayIcon({ shopId: 1 } as MonthlySettlementShopSummary, optMap)
+      expect(meta).toEqual({ src: 'icon:选项店', isCustomAvatar: true })
+    })
+
+    it('无选项回退占位符', () => {
+      const meta = resolveShopDisplayIcon({ shopId: 9 } as MonthlySettlementShopSummary, new Map())
+      expect(meta.src).toBe('icon:?')
+    })
+  })
+
+  describe('resolveMaxProfitShopIcon 最大利润店铺图标', () => {
+    it('无 shopId 用订单店铺名', () => {
+      const meta = resolveMaxProfitShopIcon({ shopId: 0, shopName: '订单店' } as MaxProfitDisplay, new Map())
+      expect(meta.src).toBe('icon:订单店')
+    })
+
+    it('有 shopId 用选项头像补全', () => {
+      const map = new Map<number, EcShop>([
+        [1, { id: 1, name: '选项店', platformId: 9, status: 'ENABLED', avatarUrl: 'x.png' }],
+      ])
+      const meta = resolveMaxProfitShopIcon({ shopId: 1, shopName: '订单店' } as MaxProfitDisplay, map)
+      expect(meta).toEqual({ src: 'icon:订单店', isCustomAvatar: true })
+    })
+
+    it('null 回退占位符', () => {
+      expect(resolveMaxProfitShopIcon(null, new Map()).src).toBe('icon:?')
+    })
+  })
+
+  describe('buildShopImportStatusMap 店铺导入状态映射', () => {
+    it('null overview 返回空 Map', () => {
+      expect(buildShopImportStatusMap(null).size).toBe(0)
+    })
+
+    it('按 shopId 映射导入状态', () => {
+      const overview: EcSalesOrderMonthlyOverview = {
+        orderMonth: '2026-08',
+        totalShopCount: 2,
+        totalOrderCount: 0,
+        importedShopCount: 0,
+        pendingReviewCount: 0,
+        shops: [
+          { shopId: 1, status: 'IMPORTED', orderCount: 3 },
+          { shopId: 2, status: 'NOT_IMPORTED', orderCount: 0 },
+        ],
+      }
+      const map = buildShopImportStatusMap(overview)
+      expect(map.get(1)).toBe('IMPORTED')
+      expect(map.get(2)).toBe('NOT_IMPORTED')
+      expect(map.size).toBe(2)
+    })
+  })
+
+  describe('hasSalesOrdersImported 订单导入判定', () => {
+    const base: EcSalesOrderMonthlyOverview = {
+      orderMonth: '2026-08',
+      totalShopCount: 0,
+      totalOrderCount: 0,
+      importedShopCount: 0,
+      pendingReviewCount: 0,
+      shops: [],
+    }
+
+    it('null → false', () => {
+      expect(hasSalesOrdersImported(null)).toBe(false)
+    })
+
+    it('总单数 > 0 → true', () => {
+      expect(hasSalesOrdersImported({ ...base, totalOrderCount: 3 })).toBe(true)
+    })
+
+    it('仅待审单数 > 0 → true', () => {
+      expect(hasSalesOrdersImported({ ...base, pendingReviewCount: 2 })).toBe(true)
+    })
+
+    it('全 0 → false', () => {
+      expect(hasSalesOrdersImported(base)).toBe(false)
+    })
+  })
+
+  describe('computeOverallSummary 已导入店铺汇总', () => {
+    it('过滤未导入店铺后求和', () => {
+      const shops = [
+        makeShop({ shopId: 1, totalRevenue: 100, pendingOrderCount: 2 }),
+        makeShop({ shopId: 2, totalRevenue: 50, pendingOrderCount: 3 }),
+        makeShop({ shopId: 3, totalRevenue: 999, pendingOrderCount: 9 }),
+      ]
+      expect(computeOverallSummary(shops, (id) => id !== 3)).toEqual({
+        totalRevenue: 150,
+        estimatedTotalCost: 0,
+        actualTotalCost: 0,
+        estimatedTotalProfit: 0,
+        actualTotalProfit: 0,
+        includedOrderCount: 0,
+        excludedOrderCount: 0,
+        pendingOrderCount: 5,
+      })
+    })
+
+    it('空数组全 0', () => {
+      expect(computeOverallSummary([], () => true)).toEqual({
+        totalRevenue: 0,
+        estimatedTotalCost: 0,
+        actualTotalCost: 0,
+        estimatedTotalProfit: 0,
+        actualTotalProfit: 0,
+        includedOrderCount: 0,
+        excludedOrderCount: 0,
+        pendingOrderCount: 0,
       })
     })
   })
