@@ -43,6 +43,9 @@ import com.ai.manager.system.mapper.EcProductMapper;
 import com.ai.manager.system.mapper.EcSkuMapper;
 import com.ai.manager.system.service.EcInventoryService;
 import com.ai.manager.system.service.EcSystemSettingsService;
+import com.ai.manager.system.service.support.EcInventoryVoAssembler;
+import com.ai.manager.system.service.support.EcInventoryVoAssembler.SkuBrief;
+import com.ai.manager.system.service.support.EcInventoryVoAssembler.SkuContext;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -78,8 +81,6 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
     private static final String CHANGE_STOCKTAKE = "STOCKTAKE";
     private static final String REF_INBOUND_ORDER = "INBOUND_ORDER";
     private static final String STATUS_DRAFT = "DRAFT";
-    private static final String SKU_ON_SALE = "ON_SALE";
-    private static final String PRODUCT_ENABLED = "ENABLED";
     private static final int RECENT_LOG_LIMIT = 5;
 
     private final EcSystemSettingsService ecSystemSettingsService;
@@ -92,6 +93,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
     private final EcSkuMapper ecSkuMapper;
     private final EcProductMapper ecProductMapper;
     private final EcFactoryMapper ecFactoryMapper;
+    private final EcInventoryVoAssembler inventoryVoAssembler;
 
     @Override
     public PageResult<EcInventoryListItemVO> pageInventories(String keyword, Boolean alertOnly, Boolean inStockOnly,
@@ -125,7 +127,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
                 entityPage.getRecords().stream().map(EcInventory::getSkuCode).toList());
         List<EcInventoryListItemVO> records = new ArrayList<>();
         for (EcInventory inventory : entityPage.getRecords()) {
-            EcInventoryListItemVO item = toListItemVO(
+            EcInventoryListItemVO item = inventoryVoAssembler.toListItemVO(
                     inventory, skuBriefMap.get(inventory.getSkuCode()), List.of());
             item.setInTransitQty(inTransitMap.getOrDefault(inventory.getSkuCode(), 0));
             records.add(item);
@@ -163,7 +165,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
             // 状态分类
             if (qty <= 0) {
                 zero++;
-            } else if (isAlertActive(inv)) {
+            } else if (inventoryVoAssembler.isAlertActive(inv)) {
                 low++;
             } else {
                 normal++;
@@ -223,7 +225,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
             // 状态分类 & 预警计数
             if (qty <= 0) {
                 zero++;
-            } else if (isAlertActive(inv)) {
+            } else if (inventoryVoAssembler.isAlertActive(inv)) {
                 low++;
                 alertCount++;
             } else {
@@ -297,7 +299,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
         for (Map.Entry<String, List<EcInventory>> entry : spuGroups.entrySet()) {
             List<EcInventory> groupItems = entry.getValue();
             boolean allZero = groupItems.stream().allMatch(i -> (i.getQuantity() != null ? i.getQuantity() : 0) <= 0);
-            boolean hasAlert = groupItems.stream().anyMatch(this::isAlertActive);
+            boolean hasAlert = groupItems.stream().anyMatch(inventoryVoAssembler::isAlertActive);
 
             if (allZero) {
                 zero++;
@@ -338,7 +340,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
         List<EcInventoryListItemVO> list = new ArrayList<>();
         for (EcInventory inv : inventories) {
             SkuBrief brief = skuBriefMap.get(inv.getSkuCode());
-            EcInventoryListItemVO item = toListItemVO(inv, brief, List.of());
+            EcInventoryListItemVO item = inventoryVoAssembler.toListItemVO(inv, brief, List.of());
             item.setInTransitQty(inTransitMap.getOrDefault(inv.getSkuCode(), 0));
             list.add(item);
         }
@@ -389,7 +391,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
             int totalInTransit = groupItems.stream()
                     .mapToInt(i -> inTransitMap.getOrDefault(i.getSkuCode(), 0)).sum();
             int totalThreshold = groupItems.stream().mapToInt(i -> i.getAlertThreshold() != null ? i.getAlertThreshold() : 0).sum();
-            boolean hasAlert = groupItems.stream().anyMatch(this::isAlertActive);
+            boolean hasAlert = groupItems.stream().anyMatch(inventoryVoAssembler::isAlertActive);
             boolean anyIgnoreAlert = groupItems.stream().anyMatch(i -> i.getIgnoreAlert() != null && i.getIgnoreAlert() == 1);
 
             EcInventoryListItemVO vo = new EcInventoryListItemVO();
@@ -498,7 +500,10 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
         if (recentLogs.size() > RECENT_LOG_LIMIT) {
             recentLogs = recentLogs.subList(0, RECENT_LOG_LIMIT);
         }
-        return toDetailVO(inventory, skuCtx, recentLogs);
+        return inventoryVoAssembler.toDetailVO(inventory, skuCtx, recentLogs,
+                loadInTransitQty(inventory.getSkuCode()),
+                loadRelatedInboundOrders(inventory.getSkuCode()),
+                loadRelatedOutboundOrders(inventory.getSkuCode()));
     }
 
     @Override
@@ -535,7 +540,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
         }
         applySaveFields(request, existing);
         updateById(existing);
-        return toListItemVO(existing, loadSkuBriefMap(List.of(existing.getSkuCode())).get(existing.getSkuCode()), List.of());
+        return inventoryVoAssembler.toListItemVO(existing, loadSkuBriefMap(List.of(existing.getSkuCode())).get(existing.getSkuCode()), List.of());
     }
 
     private EcInventoryListItemVO getInventoryListItem(Long id) {
@@ -544,7 +549,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
             throw new BusinessException(ResultCode.NOT_FOUND);
         }
         Map<String, SkuBrief> skuBriefMap = loadSkuBriefMap(List.of(inventory.getSkuCode()));
-        return toListItemVO(inventory, skuBriefMap.get(inventory.getSkuCode()), List.of());
+        return inventoryVoAssembler.toListItemVO(inventory, skuBriefMap.get(inventory.getSkuCode()), List.of());
     }
 
     @Override
@@ -683,7 +688,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
             vo.setSkuCode(sku.getSkuCode());
             vo.setSpecName(sku.getSpecName());
             vo.setSkuStatus(sku.getStatus());
-            vo.setInboundAllowed(isSkuAvailableForInbound(sku, product));
+            vo.setInboundAllowed(inventoryVoAssembler.isSkuAvailableForInbound(sku, product));
             if (StringUtils.hasText(sku.getImageName())) {
                 vo.setImageName(sku.getImageName().trim());
             } else if (product != null && StringUtils.hasText(product.getImageName())) {
@@ -731,7 +736,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
                         .eq(EcInventoryLog::getInventoryId, inventoryId)
                         .orderByDesc(EcInventoryLog::getId))
                 .stream()
-                .map(this::toLogVO)
+                .map(inventoryVoAssembler::toLogVO)
                 .toList();
     }
 
@@ -746,7 +751,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
                         .eq(EcInventoryLog::getInventoryId, inventoryId)
                         .orderByDesc(EcInventoryLog::getId));
         List<EcInventoryLogVO> records = entityPage.getRecords().stream()
-                .map(this::toLogVO)
+                .map(inventoryVoAssembler::toLogVO)
                 .toList();
         return PageUtils.of(records, entityPage.getTotal(), entityPage.getCurrent(), entityPage.getSize());
     }
@@ -803,7 +808,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
         for (EcInventoryLog log : entityPage.getRecords()) {
             EcInventory inventory = inventoryMap.get(log.getInventoryId());
             SkuContext ctx = inventory != null ? skuContextMap.get(inventory.getSkuCode()) : null;
-            records.add(toGlobalLogVO(log, inventory, ctx));
+            records.add(inventoryVoAssembler.toGlobalLogVO(log, inventory, ctx));
         }
         return PageUtils.of(records, entityPage.getTotal(), entityPage.getCurrent(), entityPage.getSize());
     }
@@ -852,7 +857,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
                         totalStockValue = totalStockValue.add(
                                 sku.getSalePrice().multiply(BigDecimal.valueOf(qty)));
                     }
-                    if (isAlertActive(inventory)) {
+                    if (inventoryVoAssembler.isAlertActive(inventory)) {
                         alertSkuCount++;
                     }
                 }
@@ -1008,7 +1013,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "SKU 货号不存在");
         }
         int qty = outboundQty != null && outboundQty > 0 ? outboundQty : 0;
-        return buildPackingEstimate(ctx, qty);
+        return inventoryVoAssembler.buildPackingEstimate(ctx, qty);
     }
 
     @Override
@@ -1040,7 +1045,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "SKU 货号不存在");
         }
         EcProduct product = ecProductMapper.selectById(sku.getProductId());
-        if (!isSkuAvailableForInbound(sku, product)) {
+        if (!inventoryVoAssembler.isSkuAvailableForInbound(sku, product)) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(),
                     "货号 " + skuCode + " 已停售或所属商品已禁用，不可进货");
         }
@@ -1253,51 +1258,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
         return qty;
     }
 
-    private boolean isAlertActive(EcInventory inventory) {
-        if (inventory.getIgnoreAlert() != null && inventory.getIgnoreAlert() == 1) {
-            return false;
-        }
-        int threshold = inventory.getAlertThreshold() != null ? inventory.getAlertThreshold() : 0;
-        int quantity = inventory.getQuantity() != null ? inventory.getQuantity() : 0;
-        return quantity <= threshold;
-    }
 
-    private EcInventoryListItemVO toListItemVO(EcInventory inventory, SkuBrief brief, List<EcInventoryLogVO> logs) {
-        EcInventoryListItemVO vo = new EcInventoryListItemVO();
-        vo.setId(inventory.getId());
-        vo.setSkuCode(inventory.getSkuCode());
-        if (brief != null) {
-            vo.setSpecName(brief.specName);
-            vo.setProductName(brief.productName);
-            vo.setProductId(brief.productId);
-            vo.setSalePrice(brief.salePrice);
-            vo.setImageName(brief.imageName);
-        }
-        vo.setQuantity(inventory.getQuantity());
-        vo.setIgnoreAlert(inventory.getIgnoreAlert() != null && inventory.getIgnoreAlert() == 1);
-        vo.setAlertThreshold(inventory.getAlertThreshold());
-        vo.setAlertActive(isAlertActive(inventory));
-        vo.setUpdateTime(inventory.getUpdateTime());
-        if (logs.size() > RECENT_LOG_LIMIT) {
-            vo.setRecentLogs(logs.subList(0, RECENT_LOG_LIMIT));
-        } else {
-            vo.setRecentLogs(logs);
-        }
-        return vo;
-    }
-
-    private EcInventoryLogVO toLogVO(EcInventoryLog log) {
-        EcInventoryLogVO vo = new EcInventoryLogVO();
-        vo.setId(log.getId());
-        vo.setInventoryId(log.getInventoryId());
-        vo.setChangeType(log.getChangeType());
-        vo.setChangeQty(log.getChangeQty());
-        vo.setRefType(log.getRefType());
-        vo.setRefId(log.getRefId());
-        vo.setRemark(log.getRemark());
-        vo.setCreateTime(log.getCreateTime());
-        return vo;
-    }
 
     private void requireInventoryExists(Long inventoryId) {
         if (getById(inventoryId) == null) {
@@ -1330,59 +1291,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
                 .collect(Collectors.toSet());
     }
 
-    private EcInventoryGlobalLogVO toGlobalLogVO(EcInventoryLog log, EcInventory inventory, SkuContext ctx) {
-        EcInventoryGlobalLogVO vo = new EcInventoryGlobalLogVO();
-        vo.setId(log.getId());
-        vo.setInventoryId(log.getInventoryId());
-        vo.setChangeType(log.getChangeType());
-        vo.setChangeQty(log.getChangeQty());
-        vo.setRefType(log.getRefType());
-        vo.setRefId(log.getRefId());
-        vo.setRemark(log.getRemark());
-        vo.setCreateTime(log.getCreateTime());
-        if (inventory != null) {
-            vo.setSkuCode(inventory.getSkuCode());
-        }
-        if (ctx != null) {
-            vo.setSpecName(ctx.specName);
-            vo.setProductName(ctx.productName);
-            vo.setFactoryId(ctx.factoryId);
-            vo.setFactoryName(ctx.factoryName);
-        }
-        return vo;
-    }
 
-    private EcInventoryDetailVO toDetailVO(EcInventory inventory, SkuContext ctx, List<EcInventoryLogVO> recentLogs) {
-        EcInventoryDetailVO vo = new EcInventoryDetailVO();
-        vo.setId(inventory.getId());
-        vo.setSkuCode(inventory.getSkuCode());
-        if (ctx != null) {
-            vo.setSpecName(ctx.specName);
-            vo.setProductName(ctx.productName);
-            vo.setSalePrice(ctx.salePrice);
-            vo.setSkuId(ctx.skuId);
-            vo.setProductId(ctx.productId);
-            vo.setFactoryId(ctx.factoryId);
-            vo.setFactoryName(ctx.factoryName);
-            vo.setSkuStatus(ctx.skuStatus);
-        }
-        vo.setQuantity(inventory.getQuantity());
-        vo.setIgnoreAlert(inventory.getIgnoreAlert() != null && inventory.getIgnoreAlert() == 1);
-        vo.setAlertThreshold(inventory.getAlertThreshold());
-        vo.setAlertActive(isAlertActive(inventory));
-        vo.setUpdateTime(inventory.getUpdateTime());
-        vo.setRecentLogs(recentLogs);
-        vo.setInTransitQty(loadInTransitQty(inventory.getSkuCode()));
-        vo.setRelatedInboundOrders(loadRelatedInboundOrders(inventory.getSkuCode()));
-        vo.setRelatedOutboundOrders(loadRelatedOutboundOrders(inventory.getSkuCode()));
-        int qty = inventory.getQuantity() != null ? inventory.getQuantity() : 0;
-        if (ctx != null) {
-            vo.setImageName(ctx.imageName);
-            vo.setPackingEstimate(buildPackingEstimate(ctx, qty));
-            vo.setOutboundPackingEstimate(buildPackingEstimate(ctx, qty));
-        }
-        return vo;
-    }
 
     private int loadInTransitQty(String skuCode) {
         return loadInTransitMap(List.of(skuCode)).getOrDefault(skuCode, 0);
@@ -1560,73 +1469,4 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
         return result;
     }
 
-    private EcInventoryPackingEstimateVO buildPackingEstimate(SkuContext ctx, int outboundQty) {
-        EcInventoryPackingEstimateVO vo = new EcInventoryPackingEstimateVO();
-        vo.setOutboundQty(outboundQty);
-        int unitsPerCarton = ctx.unitsPerCarton != null && ctx.unitsPerCarton > 0 ? ctx.unitsPerCarton : 1;
-        vo.setUnitsPerCarton(unitsPerCarton);
-        vo.setCartonId(ctx.cartonId);
-        vo.setCartonName(ctx.cartonName);
-        if (outboundQty <= 0) {
-            vo.setCartonsNeeded(0);
-            vo.setCartonVolumeCm3(calcVolume(ctx.cartonLengthCm, ctx.cartonWidthCm, ctx.cartonHeightCm));
-            vo.setTotalVolumeCm3(BigDecimal.ZERO);
-            return vo;
-        }
-        int cartonsNeeded = (outboundQty + unitsPerCarton - 1) / unitsPerCarton;
-        vo.setCartonsNeeded(cartonsNeeded);
-        BigDecimal cartonVolume = calcVolume(ctx.cartonLengthCm, ctx.cartonWidthCm, ctx.cartonHeightCm);
-        vo.setCartonVolumeCm3(cartonVolume);
-        if (cartonVolume != null) {
-            vo.setTotalVolumeCm3(cartonVolume.multiply(BigDecimal.valueOf(cartonsNeeded)));
-        }
-        return vo;
-    }
-
-    private BigDecimal calcVolume(BigDecimal length, BigDecimal width, BigDecimal height) {
-        if (length == null || width == null || height == null) {
-            return null;
-        }
-        return length.multiply(width).multiply(height).setScale(2, RoundingMode.HALF_UP);
-    }
-
-    private boolean isSkuAvailableForInbound(EcSku sku, EcProduct product) {
-        if (sku == null) {
-            return false;
-        }
-        if (!SKU_ON_SALE.equals(sku.getStatus())) {
-            return false;
-        }
-        if (product == null) {
-            return false;
-        }
-        return PRODUCT_ENABLED.equals(product.getStatus());
-    }
-
-    private static final class SkuBrief {
-        private String specName;
-        private String productName;
-        private Long productId;
-        private String imageName;
-        private java.math.BigDecimal salePrice;
-    }
-
-    private static final class SkuContext {
-        private Long skuId;
-        private Long productId;
-        private Long factoryId;
-        private String factoryName;
-        private String specName;
-        private String productName;
-        private String skuStatus;
-        private String productStatus;
-        private java.math.BigDecimal salePrice;
-        private String imageName;
-        private Integer unitsPerCarton;
-        private Long cartonId;
-        private String cartonName;
-        private java.math.BigDecimal cartonLengthCm;
-        private java.math.BigDecimal cartonWidthCm;
-        private java.math.BigDecimal cartonHeightCm;
-    }
 }
