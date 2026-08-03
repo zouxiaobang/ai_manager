@@ -526,8 +526,6 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Close, Delete, DocumentCopy, Link, Picture, Plus, Refresh } from '@element-plus/icons-vue'
 import { getEcommerceImageUrl } from '@/api/ecommerce/image'
 import CnyAmount from '@/components/CnyAmount.vue'
-import { resolvePlatformIconMeta } from '@/utils/platformVisual'
-import { resolveShopIconMeta } from '@/utils/shopVisual'
 import { resolveListingLinkSkuImageName } from '@/utils/listingLinkSkuImage'
 import { fetchPlatformOptions, type EcPlatform } from '@/api/ecommerce/platform'
 import { fetchShopOptions, type EcShop } from '@/api/ecommerce/shop'
@@ -579,6 +577,7 @@ import {
   profitChipClass,
   type CardImageStackItem,
 } from './listingLinkCardView'
+import { useListingLinkOptions } from './composables/useListingLinkOptions'
 
 const emit = defineEmits<{ saved: [id: number] }>()
 
@@ -633,10 +632,17 @@ const { page, pageSize, total, records, loading, load, onPageChange, onSizeChang
     }),
 )
 
-const shopOptionMap = computed(() => new Map(shopOptions.value.map((s) => [s.id, s])))
-const platformOptionMap = computed(() => new Map(platformOptions.value.map((p) => [p.id, p])))
-const shopPlatformIconOverride = ref<Record<number, string>>({})
-const linkCardPlatformIconOverride = ref<Record<number, string>>({})
+const {
+  shopOptionLabel,
+  shopOptionShopIcon,
+  shopOptionPlatformIcon,
+  onShopPlatformIconError,
+  linkCardShopIcon,
+  linkCardPlatformIcon,
+  onLinkCardPlatformIconError,
+  productOptionLabel,
+  productLabelById,
+} = useListingLinkOptions({ shopOptions, platformOptions, productOptions })
 
 type SkuRow = EcListingLinkSku
 
@@ -678,85 +684,6 @@ function emptySkuRow(): SkuRow {
     pricingRisk: undefined,
     inventories: undefined,
   }
-}
-
-function shopOptionLabel(s: EcShop) {
-  return s.platformName ? `${s.name} · ${s.platformName}` : s.name
-}
-
-function shopOptionShopIcon(s: EcShop) {
-  return resolveShopIconMeta(s.name, s.platformName, s.platformCode, s.avatarUrl)
-}
-
-function shopOptionPlatformIcon(s: EcShop) {
-  if (shopPlatformIconOverride.value[s.id]) {
-    return shopPlatformIconOverride.value[s.id]
-  }
-  const platform = platformOptionMap.value.get(s.platformId)
-  return resolvePlatformIconMeta(
-    s.platformName ?? platform?.name,
-    s.platformCode ?? platform?.platformCode,
-    platform?.avatarUrl,
-  ).src
-}
-
-function onShopPlatformIconError(s: EcShop) {
-  if (shopPlatformIconOverride.value[s.id]) return
-  shopPlatformIconOverride.value = {
-    ...shopPlatformIconOverride.value,
-    [s.id]: resolvePlatformIconMeta(s.platformName, s.platformCode).src,
-  }
-}
-
-function findShopForLink(row: EcListingLink): EcShop | undefined {
-  return shopOptionMap.value.get(row.shopId)
-}
-
-function resolveLinkPlatform(row: EcListingLink) {
-  const shop = findShopForLink(row)
-  const platformId = row.platformId ?? shop?.platformId
-  const platform = platformId != null ? platformOptionMap.value.get(platformId) : undefined
-  return { shop, platform }
-}
-
-function linkCardShopIcon(row: EcListingLink) {
-  const shop = findShopForLink(row)
-  return resolveShopIconMeta(
-    row.shopName ?? shop?.name,
-    row.platformName ?? shop?.platformName,
-    shop?.platformCode,
-    shop?.avatarUrl,
-  )
-}
-
-function linkCardPlatformIcon(row: EcListingLink) {
-  if (linkCardPlatformIconOverride.value[row.id]) {
-    return { src: linkCardPlatformIconOverride.value[row.id], isCustomAvatar: false }
-  }
-  const { shop, platform } = resolveLinkPlatform(row)
-  return resolvePlatformIconMeta(
-    row.platformName ?? shop?.platformName ?? platform?.name,
-    shop?.platformCode ?? platform?.platformCode,
-    platform?.avatarUrl,
-  )
-}
-
-function onLinkCardPlatformIconError(row: EcListingLink) {
-  if (linkCardPlatformIconOverride.value[row.id]) return
-  const { shop } = resolveLinkPlatform(row)
-  linkCardPlatformIconOverride.value = {
-    ...linkCardPlatformIconOverride.value,
-    [row.id]: resolvePlatformIconMeta(row.platformName ?? shop?.platformName, shop?.platformCode).src,
-  }
-}
-
-function productOptionLabel(p: EcProductListItem) {
-  return p.factoryName ? `${p.name} · ${p.factoryName}` : p.name
-}
-
-function productLabelById(productId: number) {
-  const product = productOptions.value.find((p) => p.id === productId)
-  return product ? productOptionLabel(product) : String(productId)
 }
 
 function removeProduct(productId: number) {
