@@ -526,7 +526,6 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Close, Delete, DocumentCopy, Link, Picture, Plus, Refresh } from '@element-plus/icons-vue'
 import { getEcommerceImageUrl } from '@/api/ecommerce/image'
 import CnyAmount from '@/components/CnyAmount.vue'
-import { formatSignedCnyPlain } from '@/utils/formatMoney'
 import { resolvePlatformIconMeta } from '@/utils/platformVisual'
 import { resolveShopIconMeta } from '@/utils/shopVisual'
 import { resolveListingLinkSkuImageName } from '@/utils/listingLinkSkuImage'
@@ -568,6 +567,18 @@ import {
   summarizeSkuPricing,
 } from './listingLinkSkuView'
 import { defaultListingDate, toListingDate, toListingDateTime } from './listingLinkDate'
+import {
+  CARD_SKU_PREVIEW_LIMIT,
+  cardImageStack as viewCardImageStack,
+  cardSkuOverflow as viewCardSkuOverflow,
+  cardSkuPreviews as viewCardSkuPreviews,
+  formatProfitChip,
+  linkProductIds,
+  markStackImageBroken as viewMarkStackImageBroken,
+  platformStripStyle,
+  profitChipClass,
+  type CardImageStackItem,
+} from './listingLinkCardView'
 
 const emit = defineEmits<{ saved: [id: number] }>()
 
@@ -622,21 +633,10 @@ const { page, pageSize, total, records, loading, load, onPageChange, onSizeChang
     }),
 )
 
-const CARD_SKU_PREVIEW_LIMIT = 2
-
 const shopOptionMap = computed(() => new Map(shopOptions.value.map((s) => [s.id, s])))
 const platformOptionMap = computed(() => new Map(platformOptions.value.map((p) => [p.id, p])))
 const shopPlatformIconOverride = ref<Record<number, string>>({})
 const linkCardPlatformIconOverride = ref<Record<number, string>>({})
-
-const PLATFORM_STRIP_COLORS: Record<string, string> = {
-  淘宝: 'linear-gradient(90deg, #ff6a00, #ff9500)',
-  拼多多: 'linear-gradient(90deg, #e02e24, #f43530)',
-  抖音: 'linear-gradient(90deg, #111827, #4b5563)',
-  京东: 'linear-gradient(90deg, #c81623, #e1251b)',
-}
-
-type CardImageStackItem = { key: string; imageName?: string }
 
 type SkuRow = EcListingLinkSku
 
@@ -827,75 +827,27 @@ function openPlatformUrl() {
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
-function formatProfitChip(profit?: number | null) {
-  if (profit == null) return '—'
-  return formatSignedCnyPlain(Number(profit))
-}
-
-function profitChipClass(sku: EcListingLinkSku) {
-  if (sku.pricingRisk === 'BELOW_MIN' || sku.pricingRisk === 'NEGATIVE_PROFIT') return 'is-danger'
-  const profit = sku.profit ?? 0
-  if (profit < 0) return 'is-danger'
-  if (profit > 0) return 'is-success'
-  return 'is-muted'
-}
-
-function platformStripStyle(row: EcListingLink) {
-  const name = row.platformName?.trim() ?? ''
-  const gradient = PLATFORM_STRIP_COLORS[name] ?? 'linear-gradient(90deg, #2563eb, #3b82f6)'
-  return { background: gradient }
-}
-
 function platformTabLabel(tab: string, platformName?: string) {
   const count = platformTabCounts.value[tab] ?? 0
   const label = tab === 'all' ? t('ecommerce.listingLink.allPlatforms') : (platformName ?? t('ecommerce.listingLink.platform'))
   return `${label} (${count})`
 }
 
-function cardSkuPreviews(row: EcListingLink) {
-  const skus = skuPreviewMap.value[row.id] ?? row.skus ?? []
-  return skus.slice(0, CARD_SKU_PREVIEW_LIMIT)
-}
+/** 卡片 SKU 预览条（包装：绑定已加载的 SKU 预览缓存） */
+const cardSkuPreviews = (row: EcListingLink) =>
+  viewCardSkuPreviews(row, skuPreviewMap.value[row.id], CARD_SKU_PREVIEW_LIMIT)
 
-function cardSkuOverflow(row: EcListingLink) {
-  const totalCount = row.skuCount ?? (skuPreviewMap.value[row.id] ?? row.skus ?? []).length
-  return Math.max(0, totalCount - CARD_SKU_PREVIEW_LIMIT)
-}
+/** 卡片 SKU 折叠数（包装：绑定已加载的 SKU 预览缓存） */
+const cardSkuOverflow = (row: EcListingLink) =>
+  viewCardSkuOverflow(row, skuPreviewMap.value[row.id], CARD_SKU_PREVIEW_LIMIT)
 
-function linkProductIds(row: EcListingLink) {
-  return (row.products ?? []).map((p) => p.productId).filter((id) => id != null)
-}
+/** 卡片图片栈（包装：绑定各图片缓存 map） */
+const cardImageStack = (row: EcListingLink): CardImageStackItem[] =>
+  viewCardImageStack(row, skuPreviewMap.value[row.id], productImageMap.value, skuImageMap.value)
 
-function cardImageStack(row: EcListingLink): CardImageStackItem[] {
-  const productIds = linkProductIds(row)
-  const linkSkus = skuPreviewMap.value[row.id] ?? row.skus ?? []
-
-  if (productIds.length === 1 && linkSkus.length > 1) {
-    const items: CardImageStackItem[] = []
-    const seen = new Set<string>()
-    for (const sku of linkSkus) {
-      for (const code of parseSkuCodes(sku)) {
-        if (seen.has(code)) continue
-        seen.add(code)
-        items.push({ key: `sku-${code}`, imageName: skuImageMap.value[code] })
-      }
-    }
-    if (items.length) return items
-  }
-
-  if (productIds.length > 0) {
-    return productIds.map((id) => ({
-      key: `product-${id}`,
-      imageName: productImageMap.value[id],
-    }))
-  }
-
-  return []
-}
-
-function markStackImageBroken(key: string) {
-  if (brokenStackImageKeys.value.has(key)) return
-  brokenStackImageKeys.value = new Set([...brokenStackImageKeys.value, key])
+/** 标记卡片图片损坏（包装：不可变更新损坏 key 集合） */
+const markStackImageBroken = (key: string) => {
+  brokenStackImageKeys.value = viewMarkStackImageBroken(key, brokenStackImageKeys.value)
 }
 
 async function enrichProductImages(links: EcListingLink[]) {
