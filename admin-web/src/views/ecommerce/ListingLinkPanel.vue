@@ -548,7 +548,7 @@ import {
 } from '@/api/ecommerce/listingLink'
 import TablePagination from '@/components/TablePagination.vue'
 import { usePagination } from '@/composables/usePagination'
-import { formatDate, todayDateString } from '@/utils/date'
+import { formatDate } from '@/utils/date'
 import ListingLinkDetailDrawer from './ListingLinkDetailDrawer.vue'
 import ListingLinkSkuSelect from './ListingLinkSkuSelect.vue'
 import {
@@ -567,6 +567,7 @@ import {
   skuStockTotal,
   summarizeSkuPricing,
 } from './listingLinkSkuView'
+import { defaultListingDate, toListingDate, toListingDateTime } from './listingLinkDate'
 
 const emit = defineEmits<{ saved: [id: number] }>()
 
@@ -988,21 +989,6 @@ function onPlatformTabChange(tab: string | number) {
 function onShopFilterChange() {
   load(true)
   refreshPlatformTabCounts()
-}
-
-function defaultListingDate() {
-  return todayDateString()
-}
-
-function toListingDate(value?: string | null) {
-  if (!value) return defaultListingDate()
-  return value.trim().slice(0, 10)
-}
-
-function toListingDateTime(date: string) {
-  if (!date) return date
-  if (date.length <= 10) return `${date} 00:00:00`
-  return date
 }
 
 function resetForm() {
