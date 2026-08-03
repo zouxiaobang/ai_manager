@@ -545,13 +545,28 @@ import {
   updateListingLink,
   type EcListingLink,
   type EcListingLinkSku,
-  type EcListingLinkSkuInventory,
 } from '@/api/ecommerce/listingLink'
 import TablePagination from '@/components/TablePagination.vue'
 import { usePagination } from '@/composables/usePagination'
 import { formatDate, todayDateString } from '@/utils/date'
 import ListingLinkDetailDrawer from './ListingLinkDetailDrawer.vue'
 import ListingLinkSkuSelect from './ListingLinkSkuSelect.vue'
+import {
+  calcNetRevenue,
+  calcProfitRate,
+  formatPercent,
+  formSkuImageKey,
+  parseSkuCodes,
+  priceScale,
+  primarySkuCode,
+  profitAmountClass,
+  profitRingColor,
+  profitRingPercent,
+  skuCardTone,
+  skuStockAlert,
+  skuStockTotal,
+  summarizeSkuPricing,
+} from './listingLinkSkuView'
 
 const emit = defineEmits<{ saved: [id: number] }>()
 
@@ -751,112 +766,11 @@ function onProductSelectVisible(visible: boolean) {
   if (visible) searchProducts('')
 }
 
-function formatPercent(rate?: number | null) {
-  if (rate == null) return '—'
-  return `${Number(rate).toFixed(2)}%`
-}
-
-function calcNetRevenue(row: SkuRow): number | null {
-  if (row.actualSetAmount == null) return null
-  const setAmount = Number(row.actualSetAmount)
-  const coupon = Number(row.couponAmount ?? 0)
-  const discount = Number(row.discountPct ?? 100)
-  if (discount <= 0 || discount > 100 || setAmount < coupon) return null
-  return Number(((setAmount - coupon) * (discount / 100)).toFixed(2))
-}
-
-function calcProfitRate(profit: number | null, netRevenue: number | null): number | null {
-  if (profit == null || netRevenue == null || netRevenue <= 0) return null
-  return Number(((profit / netRevenue) * 100).toFixed(2))
-}
-
-const skuPricingSummary = computed(() => {
-  const skus = form.skus
-  const profits = skus.map((s) => s.profit).filter((v): v is number => v != null)
-  const rates: number[] = []
-  for (const sku of skus) {
-    const rate = calcProfitRate(sku.profit ?? null, calcNetRevenue(sku))
-    if (rate != null) rates.push(rate)
-  }
-  return {
-    count: skus.length,
-    avgProfit: profits.length ? Number((profits.reduce((a, b) => a + b, 0) / profits.length).toFixed(2)) : null,
-    avgProfitRate: rates.length ? Number((rates.reduce((a, b) => a + b, 0) / rates.length).toFixed(2)) : null,
-  }
-})
-
-function parseFormSkuCodes(row: SkuRow) {
-  return parseLinkSkuCodes(row)
-}
-
-function primarySkuCode(row: SkuRow) {
-  return parseFormSkuCodes(row)[0] || row.skuCodes || '—'
-}
-
-function skuStockTotal(row: SkuRow) {
-  return rowInventories(row).reduce((sum, inv) => sum + (inv.quantity ?? 0), 0)
-}
-
-function skuStockAlert(row: SkuRow) {
-  return rowInventories(row).some((inv) => inv.alertActive)
-}
-
-function profitRingPercent(row: SkuRow) {
-  const rate = calcProfitRate(row.profit ?? null, calcNetRevenue(row))
-  if (rate == null) return 0
-  return Math.min(100, Math.abs(rate))
-}
-
-function profitRingColor(row: SkuRow) {
-  const profit = row.profit ?? 0
-  if (profit < 0 || row.pricingRisk === 'NEGATIVE_PROFIT') return '#ef4444'
-  if (row.pricingRisk === 'BELOW_MIN') return '#f59e0b'
-  return '#22c55e'
-}
-
-function profitAmountClass(row: SkuRow) {
-  const profit = row.profit ?? 0
-  if (profit < 0 || row.pricingRisk === 'NEGATIVE_PROFIT') return 'is-danger'
-  if (row.pricingRisk === 'BELOW_MIN') return 'is-warning'
-  return 'is-success'
-}
-
-function priceScale(row: SkuRow) {
-  const cost = Number(row.costPrice ?? 0)
-  const min = Number(row.minSetAmount ?? 0)
-  const actual = Number(row.actualSetAmount ?? 0)
-  const profit = row.profit ?? 0
-  const belowMin = actual < min || row.pricingRisk === 'BELOW_MIN'
-
-  const costInLeft = min > 0 ? Math.min(100, Math.max(0, (cost / min) * 100)) : 35
-  const gapInLeft = Math.max(0, 100 - costInLeft)
-
-  let rightSeg = 0
-  if (min > 0 && actual > min) {
-    rightSeg = Math.min(100, ((actual - min) / min) * 100)
-  } else if (min > 0 && actual < min) {
-    rightSeg = Math.min(100, ((min - actual) / min) * 100)
-  }
-
-  return {
-    costInLeft,
-    gapInLeft,
-    rightSeg,
-    belowMin,
-    profitClass: belowMin || profit < 0 ? 'is-risk' : 'is-profit',
-  }
-}
-
-function skuCardTone(row: SkuRow) {
-  if (row.pricingRisk === 'BELOW_MIN' || row.pricingRisk === 'NEGATIVE_PROFIT') return 'is-risk'
-  if ((row.profit ?? 0) < 0) return 'is-risk'
-  if ((row.profit ?? 0) > 0) return 'is-profit'
-  return ''
-}
+const skuPricingSummary = computed(() => summarizeSkuPricing(form.skus))
 
 function resolveFormSkuImageName(row: SkuRow): string | undefined {
   return resolveListingLinkSkuImageName(
-    parseFormSkuCodes(row),
+    parseSkuCodes(row),
     form.productIds,
     skuImageMap.value,
     productImageMap.value,
@@ -865,10 +779,6 @@ function resolveFormSkuImageName(row: SkuRow): string | undefined {
 
 function formSkuImageUrl(row: SkuRow) {
   return getEcommerceImageUrl(resolveFormSkuImageName(row))
-}
-
-function formSkuImageKey(row: SkuRow, index: number) {
-  return `edit-${row.skuCodes || row.skuName || index}`
 }
 
 function markEditImageBroken(row: SkuRow, index: number) {
@@ -955,12 +865,6 @@ function linkProductIds(row: EcListingLink) {
   return (row.products ?? []).map((p) => p.productId).filter((id) => id != null)
 }
 
-function parseLinkSkuCodes(sku: EcListingLinkSku) {
-  const codes = sku.skuCodes?.split(',').map((c) => c.trim()).filter(Boolean) ?? []
-  if (codes.length) return codes
-  return sku.skuName?.trim() ? [sku.skuName.trim()] : []
-}
-
 function cardImageStack(row: EcListingLink): CardImageStackItem[] {
   const productIds = linkProductIds(row)
   const linkSkus = skuPreviewMap.value[row.id] ?? row.skus ?? []
@@ -969,7 +873,7 @@ function cardImageStack(row: EcListingLink): CardImageStackItem[] {
     const items: CardImageStackItem[] = []
     const seen = new Set<string>()
     for (const sku of linkSkus) {
-      for (const code of parseLinkSkuCodes(sku)) {
+      for (const code of parseSkuCodes(sku)) {
         if (seen.has(code)) continue
         seen.add(code)
         items.push({ key: `sku-${code}`, imageName: skuImageMap.value[code] })
@@ -1003,7 +907,7 @@ async function enrichProductImages(links: EcListingLink[]) {
     if (!linkProductIds(link).includes(productId)) return false
     const linkSkus = skuPreviewMap.value[link.id] ?? []
     if (linkProductIds(link).length !== 1 || linkSkus.length <= 1) return false
-    return linkSkus.some((sku) => parseLinkSkuCodes(sku).some((code) => !(code in skuImageMap.value)))
+    return linkSkus.some((sku) => parseSkuCodes(sku).some((code) => !(code in skuImageMap.value)))
   }
 
   const pending = [...ids].filter(
@@ -1117,10 +1021,6 @@ function resetForm() {
 
 function addSkuRow() {
   form.skus.push(emptySkuRow())
-}
-
-function rowInventories(row: SkuRow): EcListingLinkSkuInventory[] {
-  return row.inventories ?? []
 }
 
 function skuOptionAlertActive(p: EcInventorySkuOption) {
