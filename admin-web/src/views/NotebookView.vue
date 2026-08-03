@@ -858,6 +858,18 @@ import NoteFullscreenViewer from './notebook/NoteFullscreenViewer.vue'
 import NoteTreeContextMenu, { type TreeContextMenuAction } from './notebook/NoteTreeContextMenu.vue'
 import { exportNoteAsWord } from './notebook/exportNoteWord'
 import { parseNoteToc } from './notebook/noteToc'
+import { formatNoteDisplayTime, getTagPillStyle } from './notebook/noteDisplay'
+import {
+  buildFolderOnlyTree,
+  buildNoteStubFromTree,
+  collectAncestorFolderKeys,
+  collectFolderSubtreeIds,
+  collectSearchExpandKeys,
+  countTreeNodes,
+  filterNode,
+  findNodeByKey,
+  findNodeByNoteId,
+} from './notebook/noteTreeUtils'
 import { marked } from 'marked'
 
 import type { NoteFolderListMeta } from './notebook/notePreview'
@@ -1052,13 +1064,6 @@ function openFullscreen() {
   fullscreenViewerVisible.value = true
 }
 
-const TAG_PILL_THEMES = [
-  { bg: '#eff6ff', color: '#2563eb' },
-  { bg: '#f5f3ff', color: '#7c3aed' },
-  { bg: '#f0fdf4', color: '#16a34a' },
-  { bg: '#fff7ed', color: '#ea580c' },
-] as const
-
 const contextMenu = reactive({
   visible: false,
   x: 0,
@@ -1108,7 +1113,7 @@ const noteWordCount = computed(() => {
   return text.length
 })
 
-const formattedUpdateTime = computed(() => formatNoteDisplayTime(currentNote.value?.updateTime))
+const formattedUpdateTime = computed(() => formatNoteDisplayTime(currentNote.value?.updateTime, t))
 
 /** 检测当前笔记标题（实时输入）是否以 .md 结尾 */
 const isMdNote = computed(() => {
@@ -1174,50 +1179,6 @@ const showMetaStatus = computed(() => {
   return false
 })
 
-function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
-}
-
-function formatNoteDisplayTime(updateTime?: string): string {
-  if (!updateTime) return ''
-  const normalized = updateTime.includes('T') ? updateTime : updateTime.replace(' ', 'T')
-  const date = new Date(normalized)
-  if (Number.isNaN(date.getTime())) {
-    return updateTime.replace(/:\d{2}$/, '')
-  }
-
-  const hh = String(date.getHours()).padStart(2, '0')
-  const mm = String(date.getMinutes()).padStart(2, '0')
-  const timePart = `${hh}:${mm}`
-
-  const diffDays = Math.round(
-    (startOfDay(new Date()).getTime() - startOfDay(date).getTime()) / 86_400_000,
-  )
-
-  if (diffDays === 0) return t('notebook.todayAt', { time: timePart })
-  if (diffDays === 1) return t('notebook.yesterdayAt', { time: timePart })
-  if (diffDays === 2) return t('notebook.dayBeforeYesterdayAt', { time: timePart })
-
-  const yyyy = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${yyyy}-${month}-${day} ${timePart}`
-}
-
-function getTagPillStyle(tag: NbNoteTag, index = 0): Record<string, string> {
-  if (tag.color) {
-    return {
-      backgroundColor: `${tag.color}1a`,
-      color: tag.color,
-    }
-  }
-  const theme = TAG_PILL_THEMES[index % TAG_PILL_THEMES.length]
-  return {
-    backgroundColor: theme.bg,
-    color: theme.color,
-  }
-}
-
 function toggleNoteTag(tagId: number) {
   const index = editForm.tagIds.indexOf(tagId)
   if (index >= 0) {
@@ -1242,15 +1203,6 @@ function onHeadingActive(index: number) {
   activeTocIndex.value = index
 }
 
-function countTreeNodes(nodes: NbTreeNode[], type: NbTreeNode['nodeType']): number {
-  let count = 0
-  for (const node of nodes) {
-    if (node.nodeType === type) count += 1
-    if (node.children?.length) count += countTreeNodes(node.children, type)
-  }
-  return count
-}
-
 const notebookStats = computed(() => ({
   noteCount: countTreeNodes(treeData.value, 'NOTE'),
   folderCount: countTreeNodes(treeData.value, 'FOLDER'),
@@ -1267,15 +1219,6 @@ const moveFolderTree = computed(() => {
   }
   return [rootOption]
 })
-
-function buildFolderOnlyTree(nodes: NbTreeNode[]): NbTreeNode[] {
-  return nodes
-    .filter((node) => node.nodeType === 'FOLDER')
-    .map((node) => ({
-      ...node,
-      children: node.children?.length ? buildFolderOnlyTree(node.children) : undefined,
-    }))
-}
 
 function onTocItemClick(index: number) {
   activeTocIndex.value = index
@@ -1362,41 +1305,6 @@ function onTreeNodeCollapse(data: NbTreeNode) {
   userExpandedKeys.value.delete(data.nodeKey)
 }
 
-function subtreeMatches(node: NbTreeNode, keyword: string): boolean {
-  const lower = keyword.toLowerCase()
-  if (node.name.toLowerCase().includes(lower)) return true
-  return node.children?.some((child) => subtreeMatches(child, keyword)) ?? false
-}
-
-function filterNode(value: string, data: NbTreeNode) {
-  if (!value) return true
-  return subtreeMatches(data, value.trim())
-}
-
-function collectSearchExpandKeys(nodes: NbTreeNode[], keyword: string): string[] {
-  const keys = new Set<string>()
-
-  function walk(nodes: NbTreeNode[], ancestorFolders: string[]) {
-    for (const node of nodes) {
-      if (!subtreeMatches(node, keyword)) continue
-
-      ancestorFolders.forEach((key) => keys.add(key))
-
-      if (node.nodeType === 'FOLDER') {
-        keys.add(node.nodeKey)
-        if (node.children?.length) {
-          walk(node.children, [...ancestorFolders, node.nodeKey])
-        }
-      } else if (node.children?.length) {
-        walk(node.children, ancestorFolders)
-      }
-    }
-  }
-
-  walk(nodes, [])
-  return [...keys]
-}
-
 function expandTreeNodes(keys: string[]) {
   const tree = treeRef.value
   if (!tree) return
@@ -1456,47 +1364,6 @@ async function loadTree(keepSelection = true) {
     treeLoading.value = false
   }
 }
-function collectAncestorFolderKeys(
-  nodes: NbTreeNode[],
-  targetKey: string,
-  ancestors: string[] = [],
-): string[] | null {
-  for (const node of nodes) {
-    if (node.nodeKey === targetKey) {
-      return ancestors
-    }
-    if (node.children?.length) {
-      const nextAncestors =
-        node.nodeType === 'FOLDER' ? [...ancestors, node.nodeKey] : ancestors
-      const found = collectAncestorFolderKeys(node.children, targetKey, nextAncestors)
-      if (found) return found
-    }
-  }
-  return null
-}
-
-function findNodeByKey(nodes: NbTreeNode[], key: string): NbTreeNode | null {
-  for (const node of nodes) {
-    if (node.nodeKey === key) return node
-    if (node.children?.length) {
-      const found = findNodeByKey(node.children, key)
-      if (found) return found
-    }
-  }
-  return null
-}
-
-function findNodeByNoteId(nodes: NbTreeNode[], noteId: number): NbTreeNode | null {
-  for (const node of nodes) {
-    if (node.nodeType === 'NOTE' && node.noteId === noteId) return node
-    if (node.children?.length) {
-      const found = findNodeByNoteId(node.children, noteId)
-      if (found) return found
-    }
-  }
-  return null
-}
-
 async function loadTags() {
   allTags.value = await fetchNoteTags()
 }
@@ -1604,20 +1471,6 @@ function onTreeNodeContextMenu(event: MouseEvent, data: NbTreeNode) {
 function closeContextMenu() {
   contextMenu.visible = false
   contextMenu.node = null
-}
-
-function collectFolderSubtreeIds(folderId: number): number[] {
-  const root = findNodeByKey(treeData.value, `folder-${folderId}`)
-  if (!root) return [folderId]
-  const ids: number[] = []
-  const walk = (node: NbTreeNode) => {
-    if (node.nodeType === 'FOLDER' && node.notebookId) {
-      ids.push(node.notebookId)
-      node.children?.forEach(walk)
-    }
-  }
-  walk(root)
-  return ids
 }
 
 async function onContextMenuAction(action: TreeContextMenuAction) {
@@ -1762,7 +1615,7 @@ async function submitMoveTarget() {
   try {
     const targetFolderId = moveTargetNotebookId.value
     if (moveDialogTarget.value.kind === 'folder') {
-      const forbidden = collectFolderSubtreeIds(moveDialogTarget.value.id)
+      const forbidden = collectFolderSubtreeIds(treeData.value, moveDialogTarget.value.id)
       if (targetFolderId != null && forbidden.includes(targetFolderId)) {
         ElMessage.warning(t('notebook.moveFolderInvalid'))
         return
@@ -1909,18 +1762,6 @@ async function deleteNoteFromMenu(node: NbTreeNode) {
 async function exportNoteFromMenu(noteId: number) {
   const detail = await fetchNote(noteId)
   exportNoteAsWord(detail.title, detail.content ?? '')
-}
-
-function buildNoteStubFromTree(data: NbTreeNode): NbNoteDetail {
-  return {
-    id: data.noteId!,
-    notebookId: data.notebookId,
-    title: data.name,
-    noteType: 'NOTE',
-    isPinned: data.isPinned ?? 0,
-    isFavorite: data.isFavorite ?? 0,
-    status: 'ACTIVE',
-  }
 }
 
 function beginOpenNote(noteId: number, stub: NbNoteDetail, nodeKey?: string) {
