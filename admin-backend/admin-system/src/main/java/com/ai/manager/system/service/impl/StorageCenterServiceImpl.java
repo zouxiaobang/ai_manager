@@ -37,6 +37,7 @@ import com.ai.manager.system.service.BaiduPanAuthService;
 import com.ai.manager.system.service.StorageCenterService;
 import com.ai.manager.system.service.support.StorageConfigSupport;
 import com.ai.manager.system.service.support.StorageOverLimitStrategySupport;
+import com.ai.manager.system.service.support.StorageZoneViewAssembler;
 import com.ai.manager.system.service.support.StoragePathSupport;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -73,10 +74,10 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class StorageCenterServiceImpl implements StorageCenterService {
 
-    public static final String ZONE_ECOMMERCE_IMAGES = "ECOMMERCE_IMAGES";
-    public static final String ZONE_NOTEBOOK_IMAGES = "NOTEBOOK_IMAGES";
-    public static final String ZONE_NOTEBOOK_CONTENT = "NOTEBOOK_CONTENT";
-    public static final String ZONE_IMPORT_FILES = "IMPORT_FILES";
+    public static final String ZONE_ECOMMERCE_IMAGES = StorageZoneViewAssembler.ZONE_ECOMMERCE_IMAGES;
+    public static final String ZONE_NOTEBOOK_IMAGES = StorageZoneViewAssembler.ZONE_NOTEBOOK_IMAGES;
+    public static final String ZONE_NOTEBOOK_CONTENT = StorageZoneViewAssembler.ZONE_NOTEBOOK_CONTENT;
+    public static final String ZONE_IMPORT_FILES = StorageZoneViewAssembler.ZONE_IMPORT_FILES;
 
     private static final Set<String> BROWSE_IMAGE_ZONES = Set.of(ZONE_ECOMMERCE_IMAGES, ZONE_NOTEBOOK_IMAGES);
 
@@ -400,7 +401,7 @@ public class StorageCenterServiceImpl implements StorageCenterService {
             return result;
         }
 
-        String strategy = resolveOverLimitStrategy(config, StorageOverLimitStrategySupport.ZONE_REDIS_CACHE);
+        String strategy = StorageZoneViewAssembler.resolveOverLimitStrategy(config,StorageOverLimitStrategySupport.ZONE_REDIS_CACHE);
         if (StorageOverLimitStrategySupport.REJECT.equals(strategy)) {
             return result;
         }
@@ -439,7 +440,7 @@ public class StorageCenterServiceImpl implements StorageCenterService {
 
     @Override
     public String resolveOverLimitStrategy(String zoneKey) {
-        return resolveOverLimitStrategy(getConfig(), zoneKey);
+        return StorageZoneViewAssembler.resolveOverLimitStrategy(getConfig(), zoneKey);
     }
 
     @Override
@@ -453,7 +454,7 @@ public class StorageCenterServiceImpl implements StorageCenterService {
         if (cacheUsed + incomingBytes <= cacheMax) {
             return;
         }
-        String strategy = resolveOverLimitStrategy(config, StorageOverLimitStrategySupport.ZONE_REDIS_CACHE);
+        String strategy = StorageZoneViewAssembler.resolveOverLimitStrategy(config,StorageOverLimitStrategySupport.ZONE_REDIS_CACHE);
         if (StorageOverLimitStrategySupport.REJECT.equals(strategy)) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "Redis 缓存已达上限，无法继续缓存");
         }
@@ -582,7 +583,7 @@ public class StorageCenterServiceImpl implements StorageCenterService {
             long quotaBytes,
             long usedBytes
     ) {
-        String strategy = resolveOverLimitStrategy(config, limitScopeKey);
+        String strategy = StorageZoneViewAssembler.resolveOverLimitStrategy(config,limitScopeKey);
         if (!StorageOverLimitStrategySupport.isCleanup(strategy)) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "存储空间已达上限，无法继续上传");
         }
@@ -671,18 +672,6 @@ public class StorageCenterServiceImpl implements StorageCenterService {
                 .thenComparingLong(CacheEntry::memoryBytes));
     }
 
-    private String resolveOverLimitStrategy(StorageCenterConfigVO config, String zoneKey) {
-        String specific = switch (zoneKey) {
-            case StorageOverLimitStrategySupport.ZONE_LOCAL_TOTAL -> config.getLocalQuotaOverLimitStrategy();
-            case ZONE_ECOMMERCE_IMAGES -> config.getEcommerceImagesOverLimitStrategy();
-            case ZONE_NOTEBOOK_IMAGES -> config.getNotebookImagesOverLimitStrategy();
-            case ZONE_NOTEBOOK_CONTENT -> config.getNotebookContentOverLimitStrategy();
-            case ZONE_IMPORT_FILES -> config.getImportFilesOverLimitStrategy();
-            case StorageOverLimitStrategySupport.ZONE_REDIS_CACHE -> config.getCacheOverLimitStrategy();
-            default -> null;
-        };
-        return StorageOverLimitStrategySupport.normalize(specific, config.getOverLimitStrategy());
-    }
     private StorageZoneVO buildZone(
             StorageCenterConfigVO config,
             String key,
@@ -721,26 +710,18 @@ public class StorageCenterServiceImpl implements StorageCenterService {
         }
 
         long quotaBytes = StorageConfigSupport.mbToBytes(quotaMb);
-        StorageZoneVO zone = new StorageZoneVO();
-        zone.setKey(key);
-        zone.setLabel(label);
-        zone.setLocalPath(localDir.toString());
-        zone.setCloudPath(cloudPath);
-        zone.setUsedBytes(used);
-        zone.setQuotaBytes(quotaBytes);
-        zone.setFileCount(fileCount);
-        zone.setUsagePercent(StorageConfigSupport.calcPercent(used, quotaBytes));
-        zone.setDualStorageEnabled(Boolean.TRUE.equals(dualStorageEnabled));
-        zone.setCloudAvailable(cloudAvailable);
-        zone.setOverLimitStrategy(resolveOverLimitStrategy(config, key));
-        return zone;
+        return StorageZoneViewAssembler.buildZone(
+                key, label, localDir.toString(), cloudPath,
+                used, quotaBytes, fileCount,
+                Boolean.TRUE.equals(dualStorageEnabled), cloudAvailable,
+                StorageZoneViewAssembler.resolveOverLimitStrategy(config, key));
     }
 
     private StorageOrphanZonePreviewVO scanZoneOrphans(String zoneKey, boolean dryRun, int listLimit) {
         StorageOrphanZonePreviewVO zonePreview = new StorageOrphanZonePreviewVO();
         zonePreview.setZoneKey(zoneKey);
-        zonePreview.setZoneLabel(resolveZoneLabel(zoneKey));
-        zonePreview.setZonePurpose(resolveZonePurpose(zoneKey));
+        zonePreview.setZoneLabel(StorageZoneViewAssembler.resolveZoneLabel(zoneKey));
+        zonePreview.setZonePurpose(StorageZoneViewAssembler.resolveZonePurpose(zoneKey));
         zonePreview.setSupported(isOrphanCleanupSupported(zoneKey));
         zonePreview.setZoneQuotaBytes(resolveZoneQuotaBytes(zoneKey));
 
@@ -772,29 +753,7 @@ public class StorageCenterServiceImpl implements StorageCenterService {
                 || ZONE_IMPORT_FILES.equals(zoneKey);
     }
 
-    private String resolveZoneLabel(String zoneKey) {
-        return switch (zoneKey) {
-            case ZONE_ECOMMERCE_IMAGES -> "电商图片";
-            case ZONE_NOTEBOOK_IMAGES -> "笔记图片";
-            case ZONE_NOTEBOOK_CONTENT -> "笔记正文";
-            case ZONE_IMPORT_FILES -> "销售订单导入";
-            default -> zoneKey;
-        };
-    }
 
-    private String resolveZonePurpose(String zoneKey) {
-        return switch (zoneKey) {
-            case ZONE_ECOMMERCE_IMAGES ->
-                    "商品、SKU、店铺、平台、快递站点与纸箱等业务上传图片；未被任何业务记录引用的文件视为孤立。";
-            case ZONE_NOTEBOOK_IMAGES ->
-                    "笔记编辑器中上传的图片资源；未嵌入任何笔记正文 HTML 的文件视为孤立。";
-            case ZONE_NOTEBOOK_CONTENT ->
-                    "笔记正文 HTML 与版本元数据；无对应有效笔记 ID 的文件视为孤立。";
-            case ZONE_IMPORT_FILES ->
-                    "销售订单 Excel 导入原件；无导入批次（sys_import_batch）记录的文件视为孤立。";
-            default -> "";
-        };
-    }
 
     private Set<String> collectReferences(String zoneKey) {
         return switch (zoneKey) {
