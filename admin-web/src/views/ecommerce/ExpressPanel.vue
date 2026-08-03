@@ -798,6 +798,13 @@ import { usePagination } from '@/composables/usePagination'
 import { TABLE_ACTIONS_CELL_CLASS } from '@/constants/table'
 import { formatDate } from '@/utils/date'
 import { aliasTagStyle } from '@/utils/expressVisual'
+import {
+  VOLUMETRIC_DIVISOR_CALC,
+  computeCalcFreight,
+  formatCalcPrice,
+  formatCalcWeight,
+  type CalcResult,
+} from './expressCalc'
 
 const { t } = useI18n()
 
@@ -942,18 +949,6 @@ const noticeForm = reactive({
 })
 
 // ===== 运费试算 =====
-const VOLUMETRIC_DIVISOR_CALC = 8000
-
-interface CalcResult {
-  volumetricWeight: number
-  billingWeight: number
-  tier: string
-  freight: number
-  labelPrice: number
-  total: number
-  warning?: string
-}
-
 const calcDialogVisible = ref(false)
 const calcStations = ref<EcExpressStation[]>([])
 const calcStationCache = ref<Map<number, EcExpressStation>>(new Map())
@@ -1075,84 +1070,6 @@ async function handleCalculate() {
   } finally {
     calcLoading.value = false
   }
-}
-
-function computeCalcFreight(
-  length: number,
-  width: number,
-  height: number,
-  actualWeight: number,
-  price: EcExpressPrice,
-  labelPrice: number,
-): CalcResult {
-  const hasVolume = length > 0 && width > 0 && height > 0
-  const volumetricWeight = hasVolume ? (length * width * height) / VOLUMETRIC_DIVISOR_CALC : 0
-  const billingWeight = actualWeight
-
-  let freight = 0
-  let tier = ''
-  const warnings: string[] = []
-
-  if (billingWeight <= 0.3) {
-    freight = price.priceW03Kg ?? 0
-    tier = '≤0.3kg'
-    if (price.priceW03Kg == null) warnings.push('该地区未配置 ≤0.3kg 价格')
-  } else if (billingWeight <= 0.5) {
-    freight = price.priceW05Kg ?? 0
-    tier = '≤0.5kg'
-    if (price.priceW05Kg == null) warnings.push('该地区未配置 ≤0.5kg 价格')
-  } else if (billingWeight <= 1) {
-    freight = price.priceW1Kg ?? 0
-    tier = '≤1kg'
-    if (price.priceW1Kg == null) warnings.push('该地区未配置 ≤1kg 价格')
-  } else if (billingWeight <= 1.5) {
-    freight = price.priceW15Kg ?? 0
-    tier = '≤1.5kg'
-    if (price.priceW15Kg == null) warnings.push('该地区未配置 ≤1.5kg 价格')
-  } else if (billingWeight <= 2) {
-    freight = price.priceW2Kg ?? 0
-    tier = '≤2kg'
-    if (price.priceW2Kg == null) warnings.push('该地区未配置 ≤2kg 价格')
-  } else if (billingWeight <= 2.5) {
-    freight = price.priceW25Kg ?? 0
-    tier = '≤2.5kg'
-    if (price.priceW25Kg == null) warnings.push('该地区未配置 ≤2.5kg 价格')
-  } else if (billingWeight <= 3) {
-    freight = price.priceW3Kg ?? 0
-    tier = '≤3kg'
-    if (price.priceW3Kg == null) warnings.push('该地区未配置 ≤3kg 价格')
-  } else {
-    if (price.over3FirstPrice == null) {
-      warnings.push('该地区未配置续重价格，无法计算 >3kg 运费')
-      tier = '>3kg'
-    } else {
-      const over = billingWeight - 3
-      const additionalKg = Math.ceil(over)
-      const additionalPrice = price.over3AdditionalPrice ?? 0
-      freight = price.over3FirstPrice + additionalKg * additionalPrice
-      tier = `>3kg（首重¥${price.over3FirstPrice.toFixed(2)} + 续重${additionalKg}kg×¥${additionalPrice.toFixed(2)}）`
-    }
-  }
-
-  const total = freight
-  return {
-    volumetricWeight,
-    billingWeight,
-    tier,
-    freight,
-    labelPrice,
-    total,
-    warning: warnings.length ? warnings.join('；') : undefined,
-  }
-}
-
-function formatCalcPrice(price?: number | null): string {
-  if (price == null) return '0.00'
-  return Number(price).toFixed(2)
-}
-
-function formatCalcWeight(weight: number): string {
-  return Number(weight).toFixed(3)
 }
 
 const noticePreviewText = computed(() => {
