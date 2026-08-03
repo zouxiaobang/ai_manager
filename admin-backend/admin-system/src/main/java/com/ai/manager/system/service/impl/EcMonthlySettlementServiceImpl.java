@@ -34,6 +34,7 @@ import com.ai.manager.system.service.EcMonthlySettlementService;
 import com.ai.manager.system.service.SysImportService;
 import com.ai.manager.system.service.support.EcExpressBillParseSupport;
 import com.ai.manager.system.service.support.EcExpressBillParseSupport.ExpressBillRow;
+import com.ai.manager.system.service.support.EcExpressBillVoAssembler;
 import com.ai.manager.system.service.support.EcSettlementSummaryAssembler;
 import com.ai.manager.system.service.support.ExpressBillStationFilter;
 import com.ai.manager.system.service.support.SysImportColumnMappingSupport;
@@ -85,6 +86,7 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
     private final SysImportColumnMappingSupport columnMappingSupport;
     private final ObjectMapper objectMapper;
     private final EcSettlementSummaryAssembler summaryAssembler;
+    private final EcExpressBillVoAssembler expressBillVoAssembler;
 
     @Override
     public EcMonthlySettlementVO calculate(String settlementMonth, Long shopId) {
@@ -347,7 +349,7 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
                     line.setShipTime(primary.getShipTime());
                 }
                 if (!StringUtils.hasText(line.getSettlementDestination())) {
-                    line.setSettlementDestination(resolveOrderDestination(primary));
+                    line.setSettlementDestination(expressBillVoAssembler.resolveOrderDestination(primary));
                 }
                 applyFreightToOrders(orders, appliedFreight, station, false);
             }
@@ -382,7 +384,7 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
         bill.setGapOrderRows(0);
         expressBillMapper.updateById(bill);
 
-        EcSettlementExpressBillImportVO vo = toImportVO(bill, station.getName(),
+        EcSettlementExpressBillImportVO vo = expressBillVoAssembler.toImportVO(bill, station.getName(),
                 countManualPendingOrders(bill.getBillMonth(), stationFilter));
         vo.setOverwrittenRows(overwritten);
         return vo;
@@ -417,7 +419,7 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
         expressBillMapper.updateById(bill);
 
         String stationName = stationFilter.otherExpress() ? "其他快递公司" : station.getName();
-        return toImportVO(bill, stationName,
+        return expressBillVoAssembler.toImportVO(bill, stationName,
                 countManualPendingOrders(bill.getBillMonth(), stationFilter));
     }
 
@@ -515,8 +517,8 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
         }
         expressBillMapper.updateById(bill);
 
-        EcSettlementExpressBillImportVO vo = toImportVO(bill,
-                resolveBillStationName(bill, station != null ? station.getName() : null),
+        EcSettlementExpressBillImportVO vo = expressBillVoAssembler.toImportVO(bill,
+                expressBillVoAssembler.resolveBillStationName(bill, station != null ? station.getName() : null),
                 countManualPendingOrders(bill.getBillMonth(), stationFilter));
         vo.setManualAppliedRows(bill.getManualAppliedRows());
         return vo;
@@ -569,14 +571,14 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
             seenOrderIds.add(order.getId());
             EcSettlementExpressBillLine line = lineByOrderId.get(order.getId());
             if (line != null) {
-                result.add(buildManualLineVO(line, bill, station, orderMap, shopNameMap));
+                result.add(expressBillVoAssembler.buildManualLineVO(line, orderMap, shopNameMap));
             } else {
-                result.add(orderToLineVO(order, bill, shopNameMap));
+                result.add(expressBillVoAssembler.orderToLineVO(order, bill, shopNameMap));
             }
         }
         for (EcSettlementExpressBillLine line : savedLines) {
             if (line.getOrderId() == null || !seenOrderIds.contains(line.getOrderId())) {
-                result.add(buildManualLineVO(line, bill, station, orderMap, shopNameMap));
+                result.add(expressBillVoAssembler.buildManualLineVO(line, orderMap, shopNameMap));
             }
         }
         return result;
@@ -599,45 +601,8 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
                         .eq(EcSettlementExpressBillLine::getMatchStatus, "UNMATCHED")
                         .orderByAsc(EcSettlementExpressBillLine::getId));
         return lines.stream()
-                .map(line -> toLineVO(line, bill, station))
+                .map(line -> expressBillVoAssembler.toLineVO(line))
                 .collect(Collectors.toList());
-    }
-
-    private EcSettlementExpressBillLineVO buildManualLineVO(EcSettlementExpressBillLine line,
-                                                            EcSettlementExpressBill bill,
-                                                            EcExpressStation station,
-                                                            Map<Long, EcSalesOrder> orderMap,
-                                                            Map<Long, String> shopNameMap) {
-        EcSettlementExpressBillLineVO vo = toLineVO(line, bill, station);
-        if (line.getOrderId() != null) {
-            EcSalesOrder order = orderMap.get(line.getOrderId());
-            if (order != null) {
-                vo.setShipTime(order.getPayTime());
-                if (order.getShopId() != null) {
-                    vo.setShopName(shopNameMap.get(order.getShopId()));
-                }
-            }
-        }
-        return vo;
-    }
-
-    private EcSettlementExpressBillLineVO orderToLineVO(EcSalesOrder order, EcSettlementExpressBill bill,
-                                                        Map<Long, String> shopNameMap) {
-        EcSettlementExpressBillLineVO vo = new EcSettlementExpressBillLineVO();
-        vo.setBillId(bill.getId());
-        vo.setSource("GAP_ORDER");
-        vo.setOrderId(order.getId());
-        vo.setOrderNo(order.getOrderNo());
-        vo.setPlatformOrderNo(order.getPlatformOrderNo());
-        vo.setTrackingNumber(order.getTrackingNumber() != null
-                ? EcExpressBillParseSupport.normalizeTracking(order.getTrackingNumber()) : null);
-        vo.setShipTime(order.getPayTime());
-        vo.setSettlementDestination(resolveOrderDestination(order));
-        vo.setMatchStatus("PENDING");
-        if (order.getShopId() != null) {
-            vo.setShopName(shopNameMap.get(order.getShopId()));
-        }
-        return vo;
     }
 
     @Override
@@ -651,7 +616,9 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
                 .eq(EcSettlementExpressBill::getStatus, "IMPORTED")
                 .orderByDesc(EcSettlementExpressBill::getCreateTime));
         Map<Long, String> stationNames = loadExpressStationNameMap(bills);
-        return bills.stream().map(b -> toRecordVO(b, stationNames.get(b.getExpressStationId()))).collect(Collectors.toList());
+        return bills.stream()
+                .map(b -> expressBillVoAssembler.toRecordVO(b, stationNames.get(b.getExpressStationId())))
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -659,65 +626,6 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
         int header = headerRow == null || headerRow < 1 ? 1 : headerRow;
         EcSettlementExpressBillPreviewVO vo = new EcSettlementExpressBillPreviewVO();
         vo.setColumns(EcExpressBillParseSupport.readHeaderColumns(file, header));
-        return vo;
-    }
-
-    private EcSettlementExpressBillImportVO toImportVO(EcSettlementExpressBill bill, String stationName,
-                                                       int manualPending) {
-        EcSettlementExpressBillImportVO vo = new EcSettlementExpressBillImportVO();
-        vo.setBillId(bill.getId());
-        vo.setBillMonth(bill.getBillMonth());
-        vo.setOtherExpress(Objects.equals(bill.getOtherExpress(), 1));
-        vo.setExpressStationId(Objects.equals(bill.getOtherExpress(), 1)
-                ? ExpressBillStationFilter.OTHER : bill.getExpressStationId());
-        vo.setExpressStationName(stationName);
-        vo.setTotalRows(bill.getTotalRows());
-        vo.setMatchedRows(bill.getMatchedRows());
-        vo.setUnmatchedRows(bill.getUnmatchedRows());
-        vo.setGapOrderRows(bill.getGapOrderRows());
-        vo.setManualPendingRows(manualPending);
-        return vo;
-    }
-
-    private EcSettlementExpressBillLineVO toLineVO(EcSettlementExpressBillLine line,
-                                                   EcSettlementExpressBill bill,
-                                                   EcExpressStation station) {
-        EcSettlementExpressBillLineVO vo = new EcSettlementExpressBillLineVO();
-        vo.setId(line.getId());
-        vo.setBillId(line.getBillId());
-        vo.setExpressStationId(line.getExpressStationId());
-        vo.setSource(line.getSource());
-        vo.setOrderId(line.getOrderId());
-        vo.setPlatformOrderNo(line.getPlatformOrderNo());
-        vo.setOrderNo(line.getOrderNo());
-        vo.setTrackingNumber(line.getTrackingNumber());
-        vo.setFreightAmount(line.getFreightAmount());
-        vo.setSettlementDestination(line.getSettlementDestination());
-        vo.setWeight(line.getWeight());
-        vo.setShipTime(line.getShipTime());
-        vo.setMatchStatus(line.getMatchStatus());
-        vo.setRemark(line.getRemark());
-        return vo;
-    }
-
-    private EcSettlementExpressBillRecordVO toRecordVO(EcSettlementExpressBill bill, String stationName) {
-        EcSettlementExpressBillRecordVO vo = new EcSettlementExpressBillRecordVO();
-        vo.setId(bill.getId());
-        vo.setBillMonth(bill.getBillMonth());
-        vo.setOtherExpress(Objects.equals(bill.getOtherExpress(), 1));
-        vo.setExpressStationId(Objects.equals(bill.getOtherExpress(), 1)
-                ? ExpressBillStationFilter.OTHER : bill.getExpressStationId());
-        vo.setExpressStationName(resolveBillStationName(bill, stationName));
-        vo.setFileName(bill.getFileName());
-        vo.setImportMode(bill.getImportMode());
-        vo.setTotalRows(bill.getTotalRows());
-        vo.setMatchedRows(bill.getMatchedRows());
-        vo.setUnmatchedRows(bill.getUnmatchedRows());
-        vo.setGapOrderRows(bill.getGapOrderRows());
-        vo.setManualAppliedRows(bill.getManualAppliedRows());
-        vo.setIncludeLabelPrice(Objects.equals(bill.getIncludeLabelPrice(), 1));
-        vo.setStatus(bill.getStatus());
-        vo.setCreateTime(bill.getCreateTime());
         return vo;
     }
 
@@ -756,13 +664,6 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
         if (stationFilter.stationId() != null) {
             wrapper.eq(EcSalesOrder::getExpressStationId, stationFilter.stationId());
         }
-    }
-
-    private String resolveBillStationName(EcSettlementExpressBill bill, String stationName) {
-        if (Objects.equals(bill.getOtherExpress(), 1)) {
-            return "其他快递公司";
-        }
-        return stationName;
     }
 
     private Map<String, EcSettlementExpressBillLine> loadExistingLinesByTracking(String billMonth,
@@ -817,7 +718,7 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
             line.setTrackingNumber(order.getTrackingNumber() != null
                     ? EcExpressBillParseSupport.normalizeTracking(order.getTrackingNumber()) : null);
             line.setShipTime(order.getPayTime());
-            line.setSettlementDestination(resolveOrderDestination(order));
+            line.setSettlementDestination(expressBillVoAssembler.resolveOrderDestination(order));
             line.setMatchStatus("PENDING");
             expressBillLineMapper.insert(line);
             count++;
@@ -864,23 +765,6 @@ public class EcMonthlySettlementServiceImpl implements EcMonthlySettlementServic
         }
         return ecSalesOrderMapper.selectList(new LambdaQueryWrapper<EcSalesOrder>()
                 .apply("REPLACE(tracking_number, ' ', '') = {0}", normalized));
-    }
-
-    private String resolveOrderDestination(EcSalesOrder order) {
-        if (order == null) {
-            return null;
-        }
-        StringBuilder sb = new StringBuilder();
-        if (StringUtils.hasText(order.getReceiveProvince())) {
-            sb.append(order.getReceiveProvince().trim());
-        }
-        if (StringUtils.hasText(order.getReceiveCity())) {
-            if (!sb.isEmpty()) {
-                sb.append(' ');
-            }
-            sb.append(order.getReceiveCity().trim());
-        }
-        return sb.isEmpty() ? null : sb.toString();
     }
 
     private EcSalesOrder resolveOrderForManualLine(EcSettlementExpressBillLine line, String billMonth) {
