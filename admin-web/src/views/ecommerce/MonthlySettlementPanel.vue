@@ -620,17 +620,13 @@ import MonthStepper from '@/components/ecommerce/MonthStepper.vue'
 import CnyAmount from '@/components/CnyAmount.vue'
 import { formatMoney } from '@/utils/formatMoney'
 import {
-  deleteSettlementBuyerExclude,
   fetchExpressBillImported,
   fetchExpressBillRecords,
   calculateMonthlySettlement,
   fetchMonthlySettlementSnapshot,
-  fetchSettlementBuyerExcludes,
-  saveSettlementBuyerExclude,
   saveSettlementOrderDecisions,
   type ExpressBillRecord,
   type MonthlySettlementShopSummary,
-  type SettlementBuyerExclude,
 } from '@/api/ecommerce/monthlySettlement'
 import { fetchExpressStations, type EcExpressStation } from '@/api/ecommerce/express'
 import { formatDateTime, defaultOrderMonth } from '@/utils/date'
@@ -646,6 +642,7 @@ import {
   sumShopMetric,
 } from './monthlySettlementView'
 import type { PrepExpressBillCard, PrepTask, PrepTone } from './monthlySettlementView'
+import { useMonthlySettlementBuyerExclude } from './composables/useMonthlySettlementBuyerExclude'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -698,9 +695,6 @@ const maxProfitActualProfitDisplay = computed(() => {
 const orderOverview = ref<EcSalesOrderMonthlyOverview | null>(null)
 const expressBillRecords = ref<ExpressBillRecord[]>([])
 const expressStations = ref<EcExpressStation[]>([])
-const buyerExcludeCount = ref(0)
-const buyerExcludesSnapshot = ref<SettlementBuyerExclude[]>([])
-const lastBuyerExcludeOpAt = ref<string | null>(null)
 const lastPendingDecisionAt = ref<string | null>(null)
 const lastCalculatedAt = ref<string | null>(null)
 let prepRequestSeq = 0
@@ -712,15 +706,7 @@ let pageLoadPromise: Promise<void> | null = null
 let bootstrapped = false
 const ignoreMonthWatch = ref(true)
 
-const buyerExcludeVisible = ref(false)
 const expressBillVisible = ref(false)
-const loadingExcludes = ref(false)
-const savingBuyerExclude = ref(false)
-const buyerExcludes = ref<SettlementBuyerExclude[]>([])
-const excludeFormShopId = ref<number | undefined>()
-const excludeFormBuyerName = ref('')
-const excludeFormRemark = ref('')
-const excludeSearchKeyword = ref('')
 
 const shopSummaries = computed(() => result.value?.shops ?? [])
 
@@ -730,6 +716,31 @@ const shopOptionMap = computed(() => {
     map.set(shop.id, shop)
   }
   return map
+})
+
+// 买家排除域：对话框状态机与跨域共享快照（getShop 注入店铺缓存供图标解析）
+const {
+  buyerExcludeVisible,
+  loadingExcludes,
+  savingBuyerExclude,
+  excludeFormShopId,
+  excludeFormBuyerName,
+  excludeFormRemark,
+  excludeSearchKeyword,
+  buyerExcludeCount,
+  buyerExcludesSnapshot,
+  lastBuyerExcludeOpAt,
+  buyerExcludeStats,
+  filteredBuyerExcludes,
+  getExcludeShopIconMeta,
+  onBuyerExcludeDialogClosed,
+  loadBuyerExcludes,
+  loadSnapshot,
+  clearSnapshot,
+  addBuyerExclude,
+  removeBuyerExclude,
+} = useMonthlySettlementBuyerExclude({
+  getShop: (shopId) => shopOptionMap.value.get(shopId),
 })
 
 function getShopIconMeta(row: MonthlySettlementShopSummary) {
@@ -754,46 +765,6 @@ function getMaxProfitShopIcon() {
     shop?.platformCode,
     shop?.avatarUrl,
   )
-}
-
-function getExcludeShopIconMeta(item: SettlementBuyerExclude) {
-  if (!item.shopId) {
-    return resolveShopIconMeta(item.shopName ?? undefined)
-  }
-  const shop = shopOptionMap.value.get(item.shopId)
-  return resolveShopIconMeta(
-    item.shopName ?? shop?.name,
-    shop?.platformName,
-    shop?.platformCode,
-    shop?.avatarUrl,
-  )
-}
-
-const buyerExcludeStats = computed(() => {
-  const list = buyerExcludes.value
-  return {
-    total: list.length,
-    globalCount: list.filter((item) => !item.shopId).length,
-    shopCount: list.filter((item) => item.shopId).length,
-  }
-})
-
-const filteredBuyerExcludes = computed(() => {
-  const keyword = excludeSearchKeyword.value.trim().toLowerCase()
-  if (!keyword) return buyerExcludes.value
-  return buyerExcludes.value.filter((item) => {
-    const shop = (item.shopName || t('ecommerce.monthlySettlement.allShops')).toLowerCase()
-    const buyer = item.buyerName.toLowerCase()
-    const remark = (item.remark || '').toLowerCase()
-    return shop.includes(keyword) || buyer.includes(keyword) || remark.includes(keyword)
-  })
-})
-
-function onBuyerExcludeDialogClosed() {
-  excludeFormShopId.value = undefined
-  excludeFormBuyerName.value = ''
-  excludeFormRemark.value = ''
-  excludeSearchKeyword.value = ''
 }
 
 const shopImportStatusMap = computed(() => {
@@ -1102,10 +1073,6 @@ const prepTasks = computed<PrepTask[]>(() => {
   ]
 })
 
-function touchBuyerExcludeOpTime() {
-  lastBuyerExcludeOpAt.value = new Date().toISOString()
-}
-
 const statusLabel = (s?: string) => viewStatusLabel(s, statusOptions.value)
 
 function syncPendingDecisions(shops: MonthlySettlementShopSummary[]) {
@@ -1319,8 +1286,7 @@ async function loadPrepData(options?: { silent?: boolean }) {
   if (!settlementMonth.value) {
     orderOverview.value = null
     expressBillRecords.value = []
-    buyerExcludeCount.value = 0
-    buyerExcludesSnapshot.value = []
+    clearSnapshot()
     expressBillImported.value = false
     prepLoadingCount = 0
     prepLoading.value = false
@@ -1329,24 +1295,21 @@ async function loadPrepData(options?: { silent?: boolean }) {
   const seq = ++prepRequestSeq
   beginPrepLoading(options?.silent)
   try {
-    const [overview, imported, records, excludes] = await Promise.all([
+    const [overview, imported, records] = await Promise.all([
       fetchSalesOrderMonthlyOverview(settlementMonth.value),
       fetchExpressBillImported(settlementMonth.value),
       fetchExpressBillRecords(settlementMonth.value),
-      fetchSettlementBuyerExcludes(),
+      loadSnapshot(),
     ])
     if (seq !== prepRequestSeq) return
     orderOverview.value = overview
     expressBillImported.value = !!imported
     expressBillRecords.value = records ?? []
-    buyerExcludesSnapshot.value = excludes ?? []
-    buyerExcludeCount.value = buyerExcludesSnapshot.value.length
   } catch {
     if (seq !== prepRequestSeq) return
     orderOverview.value = null
     expressBillRecords.value = []
-    buyerExcludesSnapshot.value = []
-    buyerExcludeCount.value = 0
+    clearSnapshot()
     expressBillImported.value = false
   } finally {
     endPrepLoading(options?.silent)
@@ -1395,47 +1358,6 @@ async function savePendingDecisions(shop: MonthlySettlementShopSummary) {
   } finally {
     savingDecisions.value = false
   }
-}
-
-async function loadBuyerExcludes() {
-  loadingExcludes.value = true
-  try {
-    buyerExcludes.value = await fetchSettlementBuyerExcludes()
-    buyerExcludesSnapshot.value = buyerExcludes.value
-    buyerExcludeCount.value = buyerExcludes.value.length
-  } finally {
-    loadingExcludes.value = false
-  }
-}
-
-async function addBuyerExclude() {
-  const name = excludeFormBuyerName.value.trim()
-  if (!name) {
-    ElMessage.warning(t('ecommerce.monthlySettlement.buyerNameRequired'))
-    return
-  }
-  savingBuyerExclude.value = true
-  try {
-    await saveSettlementBuyerExclude({
-      shopId: excludeFormShopId.value ?? null,
-      buyerName: name,
-      remark: excludeFormRemark.value.trim() || undefined,
-      enabled: 1,
-    })
-    excludeFormBuyerName.value = ''
-    excludeFormRemark.value = ''
-    await loadBuyerExcludes()
-    touchBuyerExcludeOpTime()
-    ElMessage.success(t('ecommerce.common.saved'))
-  } finally {
-    savingBuyerExclude.value = false
-  }
-}
-
-async function removeBuyerExclude(id: number) {
-  await deleteSettlementBuyerExclude(id)
-  await loadBuyerExcludes()
-  touchBuyerExcludeOpTime()
 }
 
 function openExpressBillDialog() {
