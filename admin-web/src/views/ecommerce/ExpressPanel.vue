@@ -762,30 +762,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox, type InputInstance, type TableInstance } from 'element-plus'
+import { ElMessage, type TableInstance } from 'element-plus'
 import type { TableColumnCtx } from 'element-plus'
 import { Close, CopyDocument, Delete, Edit, InfoFilled, Plus, Rank, Search } from '@element-plus/icons-vue'
 import CnyAmount from '@/components/CnyAmount.vue'
 import { formatMoney as formatCnyPlain } from '@/utils/formatMoney'
-import Sortable from 'sortablejs'
 import {
-  createExpressNotice,
-  createExpressPrice,
-  createExpressStation,
-  copyExpressStation,
-  deleteExpressNotice,
-  deleteExpressPrice,
-  deleteExpressStation,
   fetchExpressNotices,
   fetchExpressPrices,
+  fetchExpressRegions,
   fetchExpressStation,
   fetchExpressStations,
-  fetchExpressRegions,
-  updateExpressNotice,
-  updateExpressPrice,
-  updateExpressStation,
   type EcExpressNotice,
   type EcExpressPrice,
   type EcExpressStation,
@@ -800,33 +789,24 @@ import { aliasTagStyle } from '@/utils/expressVisual'
 import { formatCalcPrice, formatCalcWeight } from './expressCalc'
 import { priceHeatStyle, type PriceFieldKey } from './expressPriceView'
 import {
-  buildNoticeSavePayload,
-  buildPriceSavePayload,
-  buildRecentPriceRegions,
-  buildStationSavePayload,
-  computeNoticeReorders,
-  filterPricesByKeyword,
   filterPricesByRegions,
-  pickPriceValues,
   resolveNoticeCount,
   resolveRegionCount,
 } from './expressPanelView'
 import { useExpressCalcDialog } from './composables/useExpressCalcDialog'
 import { useExpressExpandDetail } from './composables/useExpressExpandDetail'
+import { useExpressStationForm } from './composables/useExpressStationForm'
+import { useExpressPriceForm } from './composables/useExpressPriceForm'
+import { useExpressNoticeForm } from './composables/useExpressNoticeForm'
 
 const { t } = useI18n()
 
-const saving = ref(false)
-const savingBasic = ref(false)
-const savingPriceSection = ref(false)
-const savingNoticeSection = ref(false)
 const savingAll = ref(false)
 const keyword = ref('')
 const defaultOnly = ref(false)
 const regionFilter = ref<string[]>([])
 const regionOptions = ref<string[]>([])
 const tableRef = ref<TableInstance>()
-const noticeTableRef = ref<TableInstance>()
 
 const { page, pageSize, total, records, loading, load, onPageChange, onSizeChange } = usePagination(
   (p, ps) =>
@@ -835,6 +815,11 @@ const { page, pageSize, total, records, loading, load, onPageChange, onSizeChang
       regionNames: regionFilter.value.length ? regionFilter.value : undefined,
     }),
 )
+
+/** 列表刷新（保存/删除/复制后回最新列表） */
+async function loadStations() {
+  await load()
+}
 
 // 展开行详情（展开 key/详情缓存/加载中 + 加载/失效/行样式）
 const {
@@ -848,38 +833,126 @@ const {
   onExpandChange,
 } = useExpressExpandDetail({ records, fetchExpressStation })
 
-const dialogVisible = ref(false)
+// 共享编辑态与子数据（站点/价格/公告三表单共用）
 const editingId = ref<number | null>(null)
-
 const prices = ref<EcExpressPrice[]>([])
 const notices = ref<EcExpressNotice[]>([])
 
-const priceDialogVisible = ref(false)
-const priceEditingId = ref<number | null>(null)
-const priceSaving = ref(false)
-const priceCollapseActive = ref(['le1'])
+/** 加载当前站点价格/须知（保存/删除/排序后刷新子数据） */
+async function loadStationChildren(stationId: number) {
+  const [priceList, noticeList] = await Promise.all([
+    fetchExpressPrices(stationId),
+    fetchExpressNotices(stationId),
+  ])
+  prices.value = priceList
+  notices.value = noticeList
+}
 
-const noticeDialogVisible = ref(false)
-const noticeEditingId = ref<number | null>(null)
-const noticeSaving = ref(false)
-
-const form = reactive({
-  name: '',
-  avatarUrl: '',
-  contact: '',
-  address: '',
-  labelPrice: null as number | null,
-  isDefault: false,
-  nameAliases: [] as string[],
+// ===== 价格表单（先实例化以提供 resetPriceRegionKeyword 给站点表单）=====
+const {
+  priceForm,
+  priceDialogVisible,
+  priceEditingId,
+  priceSaving,
+  priceCollapseActive,
+  priceRegionKeyword,
+  recentPriceRegions,
+  filteredEditPrices,
+  resetPriceRegionKeyword,
+  selectRecentRegion,
+  copyPreviousRegionPrice,
+  openPriceCreate,
+  openPriceEdit,
+  openPriceCopy,
+  onPriceRegionSearchInput,
+  onSavePrice,
+  onDeletePrice,
+} = useExpressPriceForm({
+  editingId,
+  prices,
+  expandedRowKeys,
+  loadStations,
+  loadStationChildren,
+  invalidateExpandDetail,
+  loadExpandDetail,
 })
 
-const nameAliasInput = ref('')
-const aliasInputVisible = ref(false)
-const aliasInputRef = ref<InputInstance>()
-const priceRegionKeyword = ref('')
-const noticeReordering = ref(false)
-let noticeSortable: Sortable | null = null
+// ===== 站点基本信息表单 =====
+const {
+  dialogVisible,
+  savingBasic,
+  form,
+  nameAliasInput,
+  aliasInputVisible,
+  aliasInputRef,
+  openCreate,
+  openEdit,
+  onSaveStation,
+  onSaveBasicSection,
+  ensureStationSavedForSection,
+  onDelete,
+  onCopy,
+  onAddNameAliasFromPopover,
+  focusAliasInput,
+  removeNameAlias,
+} = useExpressStationForm({
+  editingId,
+  prices,
+  notices,
+  expandedRowKeys,
+  loadStations,
+  loadStationChildren,
+  invalidateExpandDetail,
+  loadExpandDetail,
+  resetPriceRegionKeyword,
+})
 
+// ===== 公告表单 =====
+const {
+  noticeForm,
+  noticeDialogVisible,
+  noticeEditingId,
+  noticeSaving,
+  noticeReordering,
+  noticeTableRef,
+  noticePreviewText,
+  openNoticeCreate,
+  openNoticeEdit,
+  onSaveNotice,
+  onDeleteNotice,
+  destroyNoticeSortable,
+} = useExpressNoticeForm({
+  dialogVisible,
+  editingId,
+  notices,
+  expandedRowKeys,
+  loadStations,
+  loadStationChildren,
+  invalidateExpandDetail,
+  loadExpandDetail,
+})
+
+// ===== 运费试算 =====
+const {
+  calcDialogVisible,
+  calcStations,
+  calcStationId,
+  calcProvince,
+  calcLength,
+  calcWidth,
+  calcHeight,
+  calcWeight,
+  calcLoading,
+  calcResult,
+  availableProvinces,
+  openCalcDialog,
+  handleCalculate,
+} = useExpressCalcDialog({
+  fetchExpressStations: () => fetchExpressStations(undefined, { page: 1, size: 100 }),
+  fetchExpressStation,
+})
+
+// ===== 展示配置与薄包装 =====
 const priceColumns = computed(() => [
   { key: 'priceW03Kg' as PriceFieldKey, label: t('ecommerce.express.w03') },
   { key: 'priceW05Kg' as PriceFieldKey, label: t('ecommerce.express.w05') },
@@ -910,71 +983,9 @@ const priceWeightGroups = computed(() => [
   },
 ])
 
-const recentPriceRegions = computed(() => buildRecentPriceRegions(prices.value))
-
 function getPriceColumnLabel(key: PriceFieldKey) {
   return priceColumns.value.find((col) => col.key === key)?.label ?? key
 }
-
-function selectRecentRegion(name: string) {
-  priceForm.provinceName = name
-}
-
-function copyPreviousRegionPrice() {
-  if (!prices.value.length) {
-    ElMessage.warning(t('ecommerce.express.noPreviousRegionPrice'))
-    return
-  }
-  const previous = prices.value[prices.value.length - 1]
-  const values = pickPriceValues(previous, priceColumns.value.map((col) => col.key))
-  Object.assign(priceForm, values)
-  ElMessage.success(t('ecommerce.express.copyPreviousRegionPriceSuccess'))
-}
-
-const priceForm = reactive<Record<PriceFieldKey, number | null> & { provinceName: string }>({
-  provinceName: '',
-  priceW03Kg: null,
-  priceW05Kg: null,
-  priceW1Kg: null,
-  priceW15Kg: null,
-  priceW2Kg: null,
-  priceW25Kg: null,
-  priceW3Kg: null,
-  over3FirstPrice: null,
-  over3AdditionalPrice: null,
-})
-
-const noticeForm = reactive({
-  content: '',
-  highlightRed: false,
-  sortOrder: 0,
-})
-
-// ===== 运费试算 =====
-// 运费试算弹窗（状态机：站点/省份/尺寸/结果 + 打开预置/切换缓存/计费计算）
-const {
-  calcDialogVisible,
-  calcStations,
-  calcStationId,
-  calcProvince,
-  calcLength,
-  calcWidth,
-  calcHeight,
-  calcWeight,
-  calcLoading,
-  calcResult,
-  availableProvinces,
-  openCalcDialog,
-  handleCalculate,
-} = useExpressCalcDialog({
-  fetchExpressStations: () => fetchExpressStations(undefined, { page: 1, size: 100 }),
-  fetchExpressStation,
-})
-
-const noticePreviewText = computed(() => {
-  const text = noticeForm.content.trim()
-  return text || t('ecommerce.express.noticePreviewPlaceholder')
-})
 
 function formatPrice(value: number | null | undefined) {
   if (value == null) return '—'
@@ -983,14 +994,6 @@ function formatPrice(value: number | null | undefined) {
 
 function filteredExpandPrices(detail?: EcExpressStation | null) {
   return filterPricesByRegions(detail?.prices, regionFilter.value)
-}
-
-const filteredEditPrices = computed(() =>
-  filterPricesByKeyword(prices.value, priceRegionKeyword.value),
-)
-
-function onPriceRegionSearchInput(value: string) {
-  priceRegionKeyword.value = value
 }
 
 /** 地区数 = 价格矩阵行数 */
@@ -1003,140 +1006,6 @@ function noticeItemCount(row: EcExpressStation) {
   return resolveNoticeCount(row, getExpandDetail(row.id))
 }
 
-function resetForm() {
-  form.name = ''
-  form.avatarUrl = ''
-  form.contact = ''
-  form.address = ''
-  form.labelPrice = null
-  form.isDefault = false
-  form.nameAliases = []
-  nameAliasInput.value = ''
-  aliasInputVisible.value = false
-  priceRegionKeyword.value = ''
-}
-
-function destroyNoticeSortable() {
-  noticeSortable?.destroy()
-  noticeSortable = null
-}
-
-function setupNoticeSortable() {
-  destroyNoticeSortable()
-  if (!dialogVisible.value || !editingId.value || !notices.value.length) {
-    return
-  }
-  void nextTick(() => {
-    const tbody = noticeTableRef.value?.$el?.querySelector('.el-table__body-wrapper tbody')
-    if (!tbody) return
-    noticeSortable = Sortable.create(tbody as HTMLElement, {
-      animation: 150,
-      handle: '.express-notice-drag-handle',
-      ghostClass: 'express-notice-row--ghost',
-      disabled: noticeReordering.value,
-      onEnd: (evt) => {
-        void onNoticeReorder(evt.oldIndex, evt.newIndex)
-      },
-    })
-  })
-}
-
-async function onNoticeReorder(oldIndex?: number, newIndex?: number) {
-  if (
-    oldIndex === undefined
-    || newIndex === undefined
-    || oldIndex === newIndex
-    || !editingId.value
-  ) {
-    return
-  }
-
-  const reorder = computeNoticeReorders(notices.value, oldIndex, newIndex)
-  if (!reorder) {
-    return
-  }
-  const { ordered, updates } = reorder
-  notices.value = ordered
-
-  noticeReordering.value = true
-  try {
-    await Promise.all(
-      updates.map((item) =>
-        updateExpressNotice(item.id, {
-          stationId: editingId.value!,
-          content: item.content,
-          highlightRed: item.highlightRed,
-          sortOrder: item.sortOrder,
-        }),
-      ),
-    )
-    invalidateExpandDetail(editingId.value!)
-    if (expandedRowKeys.value.includes(editingId.value)) {
-      await loadExpandDetail(editingId.value)
-    }
-  } catch {
-    if (editingId.value) {
-      await loadStationChildren(editingId.value)
-    }
-    ElMessage.error(t('ecommerce.express.noticeReorderFailed'))
-  } finally {
-    noticeReordering.value = false
-    setupNoticeSortable()
-  }
-}
-
-function addNameAlias(): boolean {
-  const value = nameAliasInput.value.trim()
-  if (!value) return false
-  if (form.nameAliases.includes(value)) {
-    nameAliasInput.value = ''
-    return false
-  }
-  form.nameAliases.push(value)
-  nameAliasInput.value = ''
-  return true
-}
-
-function onAddNameAliasFromPopover() {
-  if (addNameAlias()) {
-    aliasInputVisible.value = false
-  }
-}
-
-function focusAliasInput() {
-  void nextTick(() => aliasInputRef.value?.focus())
-}
-
-function removeNameAlias(index: number) {
-  form.nameAliases.splice(index, 1)
-}
-
-function resetPriceForm() {
-  priceForm.provinceName = ''
-  priceColumns.value.forEach((col) => {
-    priceForm[col.key] = null
-  })
-}
-
-function resetNoticeForm() {
-  noticeForm.content = ''
-  noticeForm.highlightRed = false
-  noticeForm.sortOrder = notices.value.length + 1
-}
-
-async function loadStations() {
-  await load()
-}
-
-async function loadStationChildren(stationId: number) {
-  const [priceList, noticeList] = await Promise.all([
-    fetchExpressPrices(stationId),
-    fetchExpressNotices(stationId),
-  ])
-  prices.value = priceList
-  notices.value = noticeList
-}
-
 function onRowClick(row: EcExpressStation, column: TableColumnCtx<EcExpressStation>) {
   if (column.className === TABLE_ACTIONS_CELL_CLASS || column.type === 'expand') {
     return
@@ -1144,103 +1013,9 @@ function onRowClick(row: EcExpressStation, column: TableColumnCtx<EcExpressStati
   tableRef.value?.toggleRowExpansion(row)
 }
 
-let searchTimer: ReturnType<typeof setTimeout> | null = null
-watch(keyword, () => {
-  if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => load(true), 300)
-})
-
-watch(defaultOnly, () => {
-  expandedRowKeys.value = []
-  load(true)
-})
-
-watch(regionFilter, () => {
-  expandedRowKeys.value = []
-  expandDetails.value = new Map()
-  load(true)
-})
-
-watch(
-  [dialogVisible, () => notices.value.length, editingId],
-  ([visible]) => {
-    if (visible && editingId.value) {
-      setupNoticeSortable()
-      return
-    }
-    destroyNoticeSortable()
-  },
-)
-
-function openCreate() {
-  editingId.value = null
-  resetForm()
-  prices.value = []
-  notices.value = []
-  dialogVisible.value = true
-}
-
-async function openEdit(row: EcExpressStation) {
-  editingId.value = row.id
-  const detail = await fetchExpressStation(row.id)
-  form.name = detail.name
-  form.avatarUrl = detail.avatarUrl || ''
-  form.contact = detail.contact || ''
-  form.address = detail.address || ''
-  form.labelPrice = detail.labelPrice ?? null
-  form.isDefault = !!detail.isDefault
-  form.nameAliases = [...(detail.nameAliases || [])]
-  nameAliasInput.value = ''
-  aliasInputVisible.value = false
-  priceRegionKeyword.value = ''
-  prices.value = detail.prices || []
-  notices.value = detail.notices || []
-  dialogVisible.value = true
-}
-
-async function onSaveStation(options?: { silent?: boolean; loadingRef?: typeof savingBasic }) {
-  if (!form.name.trim()) {
-    ElMessage.warning(t('ecommerce.express.nameRequired'))
-    return false
-  }
-
-  const loader = options?.loadingRef ?? saving
-  loader.value = true
-  try {
-    const payload = buildStationSavePayload(form)
-    if (editingId.value) {
-      await updateExpressStation(editingId.value, payload)
-      invalidateExpandDetail(editingId.value)
-    } else {
-      const created = await createExpressStation(payload)
-      editingId.value = created.id
-    }
-    if (!options?.silent) {
-      ElMessage.success(t('ecommerce.common.saved'))
-    }
-    await loadStations()
-    if (editingId.value) {
-      await loadStationChildren(editingId.value)
-      if (expandedRowKeys.value.includes(editingId.value)) {
-        await loadExpandDetail(editingId.value)
-      }
-    }
-    return true
-  } finally {
-    loader.value = false
-  }
-}
-
-async function onSaveBasicSection() {
-  await onSaveStation({ loadingRef: savingBasic })
-}
-
-async function ensureStationSavedForSection(): Promise<boolean> {
-  if (editingId.value) {
-    return true
-  }
-  return onSaveStation({ silent: true, loadingRef: savingBasic })
-}
+// ===== 段保存 / 全部保存（跨表单协调）=====
+const savingPriceSection = ref(false)
+const savingNoticeSection = ref(false)
 
 async function onSavePriceSection() {
   if (!(await ensureStationSavedForSection())) {
@@ -1307,159 +1082,23 @@ async function onSaveAll() {
   }
 }
 
-async function onDelete(row: EcExpressStation) {
-  await ElMessageBox.confirm(
-    t('ecommerce.express.deleteConfirm', { name: row.name }),
-    { type: 'warning' },
-  )
-  await deleteExpressStation(row.id)
-  ElMessage.success(t('ecommerce.common.deleted'))
-  invalidateExpandDetail(row.id)
-  expandedRowKeys.value = expandedRowKeys.value.filter((id) => id !== row.id)
-  await loadStations()
-}
+// ===== 列表过滤联动 =====
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+watch(keyword, () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => load(true), 300)
+})
 
-async function onCopy(row: EcExpressStation) {
-  await copyExpressStation(row.id)
-  ElMessage.success(t('ecommerce.express.copyStationSuccess'))
-  await loadStations()
-}
+watch(defaultOnly, () => {
+  expandedRowKeys.value = []
+  load(true)
+})
 
-function openPriceCreate() {
-  priceEditingId.value = null
-  resetPriceForm()
-  priceCollapseActive.value = ['le1']
-  priceDialogVisible.value = true
-}
-
-function openPriceEdit(row: EcExpressPrice) {
-  priceEditingId.value = row.id
-  priceForm.provinceName = row.provinceName
-  priceColumns.value.forEach((col) => {
-    priceForm[col.key] = row[col.key] ?? null
-  })
-  priceCollapseActive.value = ['le1', 'mid', 'over3']
-  priceDialogVisible.value = true
-}
-
-function openPriceCopy(row: EcExpressPrice) {
-  priceEditingId.value = null
-  resetPriceForm()
-  priceColumns.value.forEach((col) => {
-    priceForm[col.key] = row[col.key] ?? null
-  })
-  priceCollapseActive.value = ['le1', 'mid', 'over3']
-  priceDialogVisible.value = true
-}
-
-async function onSavePrice(options?: { silent?: boolean; loadingRef?: typeof priceSaving }) {
-  if (!editingId.value) return false
-  if (!priceForm.provinceName.trim()) {
-    ElMessage.warning(t('ecommerce.express.provinceRequired'))
-    return false
-  }
-
-  const loader = options?.loadingRef ?? priceSaving
-  loader.value = true
-  try {
-    const payload = buildPriceSavePayload(priceForm, editingId.value)
-    if (priceEditingId.value) {
-      await updateExpressPrice(priceEditingId.value, payload)
-    } else {
-      await createExpressPrice(payload)
-    }
-    if (!options?.silent) {
-      ElMessage.success(t('ecommerce.common.saved'))
-    }
-    priceDialogVisible.value = false
-    await loadStationChildren(editingId.value)
-    invalidateExpandDetail(editingId.value)
-    if (expandedRowKeys.value.includes(editingId.value)) {
-      await loadExpandDetail(editingId.value)
-    }
-    await loadStations()
-    return true
-  } finally {
-    loader.value = false
-  }
-}
-
-async function onDeletePrice(row: EcExpressPrice) {
-  await ElMessageBox.confirm(
-    t('ecommerce.express.deletePriceConfirm', { province: row.provinceName }),
-    { type: 'warning' },
-  )
-  await deleteExpressPrice(row.id)
-  ElMessage.success(t('ecommerce.common.deleted'))
-  if (editingId.value) {
-    await loadStationChildren(editingId.value)
-    invalidateExpandDetail(editingId.value)
-    if (expandedRowKeys.value.includes(editingId.value)) {
-      await loadExpandDetail(editingId.value)
-    }
-    await loadStations()
-  }
-}
-
-function openNoticeCreate() {
-  noticeEditingId.value = null
-  resetNoticeForm()
-  noticeDialogVisible.value = true
-}
-
-function openNoticeEdit(row: EcExpressNotice) {
-  noticeEditingId.value = row.id
-  noticeForm.content = row.content
-  noticeForm.highlightRed = !!row.highlightRed
-  noticeForm.sortOrder = row.sortOrder ?? 0
-  noticeDialogVisible.value = true
-}
-
-async function onSaveNotice(options?: { silent?: boolean; loadingRef?: typeof noticeSaving }) {
-  if (!editingId.value) return false
-  if (!noticeForm.content.trim()) {
-    ElMessage.warning(t('ecommerce.express.noticeRequired'))
-    return false
-  }
-
-  const loader = options?.loadingRef ?? noticeSaving
-  loader.value = true
-  try {
-    const payload = buildNoticeSavePayload(noticeForm, editingId.value)
-    if (noticeEditingId.value) {
-      await updateExpressNotice(noticeEditingId.value, payload)
-    } else {
-      await createExpressNotice(payload)
-    }
-    if (!options?.silent) {
-      ElMessage.success(t('ecommerce.common.saved'))
-    }
-    noticeDialogVisible.value = false
-    await loadStationChildren(editingId.value)
-    invalidateExpandDetail(editingId.value)
-    if (expandedRowKeys.value.includes(editingId.value)) {
-      await loadExpandDetail(editingId.value)
-    }
-    await loadStations()
-    return true
-  } finally {
-    loader.value = false
-  }
-}
-
-async function onDeleteNotice(row: EcExpressNotice) {
-  await ElMessageBox.confirm(t('ecommerce.express.deleteNoticeConfirm'), { type: 'warning' })
-  await deleteExpressNotice(row.id)
-  ElMessage.success(t('ecommerce.common.deleted'))
-  if (editingId.value) {
-    await loadStationChildren(editingId.value)
-    invalidateExpandDetail(editingId.value)
-    if (expandedRowKeys.value.includes(editingId.value)) {
-      await loadExpandDetail(editingId.value)
-    }
-    await loadStations()
-  }
-}
+watch(regionFilter, () => {
+  expandedRowKeys.value = []
+  expandDetails.value = new Map()
+  load(true)
+})
 
 onMounted(async () => {
   regionOptions.value = await fetchExpressRegions()
