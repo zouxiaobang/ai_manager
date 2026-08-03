@@ -611,6 +611,7 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
 import { Check, Warning, ArrowRight, Goods, Delete, Search } from '@element-plus/icons-vue'
+import { useCountingLoading } from '@/composables/useCountingLoading'
 import { fetchShopOptions, type EcShop } from '@/api/ecommerce/shop'
 import { resolveShopIconMeta } from '@/utils/shopVisual'
 import { fetchSalesOrderMonthlyOverview, type EcSalesOrderMonthlyOverview, type ShopImportStatus } from '@/api/ecommerce/salesOrder'
@@ -651,6 +652,9 @@ const shopOptions = ref<EcShop[]>([])
 const calculating = ref(false)
 const submitting = ref(false)
 const prepLoading = ref(false)
+const { begin: beginCalculating, end: endCalculating } = useCountingLoading(calculating)
+const { begin: beginSubmitting, end: endSubmitting } = useCountingLoading(submitting)
+const { begin: beginPrepLoading, end: endPrepLoading, reset: resetPrepLoading } = useCountingLoading(prepLoading)
 const calculated = ref(false)
 const savingDecisions = ref(false)
 const expressBillImported = ref(false)
@@ -696,9 +700,6 @@ const expressStations = ref<EcExpressStation[]>([])
 const lastPendingDecisionAt = ref<string | null>(null)
 const lastCalculatedAt = ref<string | null>(null)
 let prepRequestSeq = 0
-let prepLoadingCount = 0
-let calculatingCount = 0
-let submittingCount = 0
 let enterPromise: Promise<void> | null = null
 let pageLoadPromise: Promise<void> | null = null
 let bootstrapped = false
@@ -973,44 +974,6 @@ function goReviewPending() {
   }
 }
 
-function beginPrepLoading(silent?: boolean) {
-  if (silent) return
-  prepLoadingCount += 1
-  prepLoading.value = true
-}
-
-function endPrepLoading(silent?: boolean) {
-  if (silent) return
-  prepLoadingCount = Math.max(0, prepLoadingCount - 1)
-  if (prepLoadingCount === 0) {
-    prepLoading.value = false
-  }
-}
-
-function beginCalculating() {
-  calculatingCount += 1
-  calculating.value = true
-}
-
-function endCalculating() {
-  calculatingCount = Math.max(0, calculatingCount - 1)
-  if (calculatingCount === 0) {
-    calculating.value = false
-  }
-}
-
-function beginSubmitting() {
-  submittingCount += 1
-  submitting.value = true
-}
-
-function endSubmitting() {
-  submittingCount = Math.max(0, submittingCount - 1)
-  if (submittingCount === 0) {
-    submitting.value = false
-  }
-}
-
 function applySettlementResult(data: { shops: MonthlySettlementShopSummary[]; expressBillImported?: boolean; calculatedAt?: string } | null) {
   if (!data) {
     result.value = null
@@ -1121,8 +1084,7 @@ async function loadPrepData(options?: { silent?: boolean }) {
     expressBillRecords.value = []
     clearSnapshot()
     expressBillImported.value = false
-    prepLoadingCount = 0
-    prepLoading.value = false
+    resetPrepLoading()
     return
   }
   const seq = ++prepRequestSeq
