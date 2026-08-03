@@ -672,22 +672,19 @@
  * 提供月度统计、店铺导入状态、订单筛选等功能
  */
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import { ArrowDown, CircleCheckFilled, InfoFilled, Loading, UploadFilled } from '@element-plus/icons-vue'
 import { fetchShopOptions, type EcShop } from '@/api/ecommerce/shop'
 import { fetchExpressStations, type EcExpressStation } from '@/api/ecommerce/express'
 import { fetchListingLink, fetchListingLinks } from '@/api/ecommerce/listingLink'
 import {
   createSalesOrder,
-  deleteSalesOrder,
-  fetchSalesOrder,
   fetchSalesOrderMonthlyOverview,
   fetchSalesOrders,
   updateSalesOrder,
   type EcSalesOrder,
-  type EcSalesOrderSaveRequest,
   type EcSalesOrderLineSaveItem,
   type EcSalesOrderMonthlyOverview,
   type EcSalesOrderShopImportStatus,
@@ -701,6 +698,7 @@ import ImportStatusMappingEditor from '@/components/ImportStatusMappingEditor.vu
 import { resolveShopIconMeta } from '@/utils/shopVisual'
 import { usePagination } from '@/composables/usePagination'
 import { useSalesOrderImport, type ShopImportCardView } from './composables/useSalesOrderImport'
+import { useSalesOrderDetail } from './composables/useSalesOrderDetail'
 import { useMobileEcDoodle } from '@/composables/useMobileEcDoodle'
 import { doodleSeedFromKey } from '@/mobile/utils/doodleSeed'
 import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
@@ -713,7 +711,6 @@ const { t } = useI18n() // 国际化函数
 const doodle = useMobileEcDoodle() // 涂鸦风格主题
 
 const route = useRoute()
-const router = useRouter()
 
 const initialRouteMonth = parseOrderMonthFromQuery(route.query.month)
 
@@ -732,14 +729,6 @@ const expressOptions = ref<EcExpressStation[]>([])
 const dialogVisible = ref(false)
 const editingId = ref<number | null>(null)
 const saving = ref(false)
-
-const detailVisible = ref(false)
-const detailLoading = ref(false)
-const detailSaving = ref(false)
-const detailSaveCommitKey = ref(0)
-const deletingDetail = ref(false)
-const detailId = ref<number | null>(null)
-const detail = ref<EcSalesOrder | null>(null)
 
 const shopOptionMap = computed(() => {
   const map = new Map<number, EcShop>()
@@ -827,9 +816,6 @@ function getOrderShopIconMeta(order?: EcSalesOrder | null) {
   )
 }
 
-
-const detailShopIconMeta = computed(() => getOrderShopIconMeta(detail.value))
-
 type LineFormRow = EcSalesOrderLineSaveItem & { _pickerKey?: string }
 
 const form = reactive<{
@@ -888,6 +874,24 @@ const { page, pageSize, total, records, loading, load, onPageChange, onSizeChang
     )
   },
 )
+
+// ========== 详情抽屉（逻辑已拆至 composables/useSalesOrderDetail） ==========
+const {
+  detailVisible,
+  detailLoading,
+  detailSaving,
+  detailSaveCommitKey,
+  deletingDetail,
+  detail,
+  detailShopIconMeta,
+  openDetail,
+  orderRowClassName,
+  openDetailFromRouteQuery,
+  loadDetail,
+  onSaveDetail,
+  onDeleteDetailOrder,
+  onDetailShopChange,
+} = useSalesOrderDetail({ getOrderShopIconMeta, loadLinkSkuOptions, load })
 
 function resolveOrderTimeQuery(): { orderTimeFrom: string; orderTimeTo: string } {
   const range = orderTimeRange.value?.length === 2
@@ -1106,33 +1110,10 @@ function removeLine(index: number) {
   form.lines.splice(index, 1)
 }
 
-function onDetailShopChange(shopId: number) {
-  if (shopId) void loadLinkSkuOptions(shopId)
-}
-
 function openCreate() {
   editingId.value = null
   resetForm()
   dialogVisible.value = true
-}
-
-function openDetail(id: number) {
-  detailId.value = id
-  detailVisible.value = true
-}
-
-function orderRowClassName({ row }: { row: EcSalesOrder }) {
-  return row.id === detailId.value && detailVisible.value ? 'is-selected' : ''
-}
-
-function openDetailFromRouteQuery() {
-  const raw = route.query.orderId
-  const id = typeof raw === 'string' ? Number(raw) : Array.isArray(raw) ? Number(raw[0]) : NaN
-  if (!Number.isFinite(id) || id <= 0) return
-  openDetail(id)
-  const nextQuery = { ...route.query }
-  delete nextQuery.orderId
-  void router.replace({ path: route.path, query: nextQuery })
 }
 
 function applyMonthFromRouteQuery() {
@@ -1141,51 +1122,6 @@ function applyMonthFromRouteQuery() {
   orderMonth.value = month
   orderTimeRange.value = monthDateRange(month)
   return true
-}
-
-async function loadDetail() {
-  if (!detailId.value) return
-  detailLoading.value = true
-  try {
-    detail.value = await fetchSalesOrder(detailId.value)
-  } finally {
-    detailLoading.value = false
-  }
-}
-
-async function onSaveDetail(payload: EcSalesOrderSaveRequest) {
-  if (!detailId.value) return
-  detailSaving.value = true
-  try {
-    await updateSalesOrder(detailId.value, payload)
-    ElMessage.success(t('ecommerce.common.saved'))
-    detailSaveCommitKey.value += 1
-    await load()
-    await loadDetail()
-  } finally {
-    detailSaving.value = false
-  }
-}
-
-async function onDeleteDetailOrder() {
-  if (!detail.value?.id) return
-  if (detail.value.source !== 'MANUAL' && detail.value.status !== 'DRAFT') {
-    ElMessage.warning(t('ecommerce.salesOrder.deleteNotAllowed'))
-    return
-  }
-  const label = detail.value.platformOrderNo || detail.value.orderNo
-  await ElMessageBox.confirm(t('ecommerce.salesOrder.deleteConfirm', { orderNo: label }), { type: 'warning' })
-  deletingDetail.value = true
-  try {
-    await deleteSalesOrder(detail.value.id)
-    ElMessage.success(t('ecommerce.common.deleted'))
-    detailVisible.value = false
-    detail.value = null
-    detailId.value = null
-    await load()
-  } finally {
-    deletingDetail.value = false
-  }
 }
 
 async function onSave() {
