@@ -38,13 +38,13 @@ import com.ai.manager.system.mapper.SysImportProfileMapper;
 import com.ai.manager.system.service.EcSalesOrderImportFileStorage;
 import com.ai.manager.system.service.EcSalesOrderService;
 import com.ai.manager.system.service.EcSystemSettingsService;
-import com.ai.manager.system.service.support.Ec1688ImportLinkNameSupport;
 import com.ai.manager.system.service.support.EcAddressProvinceSupport;
 import com.ai.manager.system.service.support.EcImportStatusSupport;
 import com.ai.manager.system.service.support.EcSalesOrderInventorySupport;
 import com.ai.manager.system.service.support.EcSalesOrderMatchSupport;
 import com.ai.manager.system.service.support.EcSalesOrderMatchSupport.LinkSkuMatchResult;
 import com.ai.manager.system.service.support.EcSalesOrderPricingSupport;
+import com.ai.manager.system.service.support.EcSalesOrderImportParser;
 import com.ai.manager.system.service.support.EcSalesOrderVoAssembler;
 import com.ai.manager.system.service.support.ExpressStationNameAliasSupport;
 import com.ai.manager.system.service.support.SysImportFieldRegistry;
@@ -124,6 +124,7 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
     private final ObjectMapper objectMapper;
     private final EcSystemSettingsService ecSystemSettingsService;
     private final EcSalesOrderVoAssembler salesOrderVoAssembler;
+    private final EcSalesOrderImportParser importParser;
 
     private static final DateTimeFormatter ORDER_TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final DateTimeFormatter ORDER_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -546,7 +547,7 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
                 ? sysImportProfileMapper.selectById(batch.getProfileId()) : null;
         EcImportStatusSupport statusSupport = createStatusSupport(profile);
         Set<String> sellerRemarkOrders = parse1688LinkSku
-                ? collect1688OrdersWithSellerRemark(rows) : Set.of();
+                ? importParser.collect1688OrdersWithSellerRemark(rows) : Set.of();
         int matched = 0;
         int unmatched = 0;
         int statusUnmatched = 0;
@@ -558,15 +559,15 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
             EcOrderImportRow entity = new EcOrderImportRow();
             entity.setBatchId(batch.getId());
             entity.setRowNo(rowNo);
-            entity.setPlatformOrderNo(getMapValue(raw, "platform_order_no", "platformOrderNo"));
+            entity.setPlatformOrderNo(importParser.getMapValue(raw, "platform_order_no", "platformOrderNo"));
             if (parse1688LinkSku) {
-                apply1688LinkSkuParsing(raw);
+                importParser.apply1688LinkSkuParsing(raw);
             }
-            entity.setLinkName(getMapValue(raw, "link_name", "linkName"));
-            entity.setSkuSpecName(getMapValue(raw, "sku_spec_name", "skuSpecName"));
+            entity.setLinkName(importParser.getMapValue(raw, "link_name", "linkName"));
+            entity.setSkuSpecName(importParser.getMapValue(raw, "sku_spec_name", "skuSpecName"));
             entity.setRawJson(toJson(raw));
-            entity.setManualCostPrice(parseDecimal(getMapValue(raw, "manual_cost_price", "manualCostPrice")));
-            applyImportRowStatus(entity, raw, statusSupport);
+            entity.setManualCostPrice(importParser.parseDecimal(importParser.getMapValue(raw, "manual_cost_price", "manualCostPrice")));
+            importParser.applyImportRowStatus(entity, raw, statusSupport);
             if ("UNMATCHED".equals(entity.getStatusMatchStatus())) {
                 statusUnmatched++;
             }
@@ -589,7 +590,7 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
                     } else {
                         entity.setParseStatus("OK");
                         entity.setMatchStatus("UNMATCHED");
-                        entity.setErrorMessage(mergeImportRowMessages(match.getMessage(), entity.getErrorMessage()));
+                        entity.setErrorMessage(importParser.mergeImportRowMessages(match.getMessage(), entity.getErrorMessage()));
                         unmatched++;
                     }
                 }
@@ -598,14 +599,14 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
                 entity.setErrorMessage(ex.getMessage());
                 errors++;
             }
-            if (parse1688LinkSku && requiresManualCostForSellerRemark(entity, raw, sellerRemarkOrders)) {
+            if (parse1688LinkSku && importParser.requiresManualCostForSellerRemark(entity, raw, sellerRemarkOrders)) {
                 if ("MATCHED".equals(entity.getMatchStatus())) {
                     matched--;
                     unmatched++;
                 }
                 entity.setMatchStatus("UNMATCHED");
                 entity.setListingLinkSkuId(null);
-                entity.setErrorMessage(mergeImportRowMessages(
+                entity.setErrorMessage(importParser.mergeImportRowMessages(
                         "订单有卖家备注，请手动填写成本", entity.getErrorMessage()));
             }
             ecOrderImportRowMapper.insert(entity);
@@ -629,37 +630,6 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         return vo;
     }
 
-    private void applyImportRowStatus(EcOrderImportRow entity, Map<String, String> raw,
-                                      EcImportStatusSupport statusSupport) {
-        String platformLineStatus = readImportPlatformStatus(raw);
-        entity.setPlatformLineStatus(StringUtils.hasText(platformLineStatus) ? platformLineStatus.trim() : null);
-        EcImportStatusSupport.ResolveResult resolved = statusSupport.resolveDetailed(platformLineStatus);
-        if (!resolved.matched()) {
-            String inferred = inferLineStatusFromRaw(raw);
-            if (inferred != null) {
-                resolved = new EcImportStatusSupport.ResolveResult(true, inferred, platformLineStatus);
-            }
-        }
-        if (resolved.matched()) {
-            entity.setStatusMatchStatus("MATCHED");
-            entity.setLineStatus(resolved.lineStatus());
-        } else {
-            entity.setStatusMatchStatus("UNMATCHED");
-            entity.setLineStatus(null);
-            String message = StringUtils.hasText(resolved.platformText())
-                    ? "平台状态「" + resolved.platformText() + "」未映射，请选择系统状态"
-                    : "未识别到平台订单状态，请手动选择系统状态";
-            entity.setErrorMessage(mergeImportRowMessages(message, entity.getErrorMessage()));
-        }
-    }
-
-    private String readImportPlatformStatus(Map<String, String> raw) {
-        String platformLineStatus = getMapValue(raw, "platform_line_status", "platformLineStatus");
-        if (!StringUtils.hasText(platformLineStatus)) {
-            platformLineStatus = getMapValue(raw, "platform_status", "platformStatus");
-        }
-        return platformLineStatus;
-    }
 
     private SysImportProfile resolveImportProfile(SysImportBatch batch) {
         return batch.getProfileId() != null ? sysImportProfileMapper.selectById(batch.getProfileId()) : null;
@@ -673,11 +643,11 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         if ("UNMATCHED".equals(row.getStatusMatchStatus()) && StringUtils.hasText(row.getLineStatus())) {
             return;
         }
-        String platformStatus = readImportPlatformStatusFromRow(row);
-        Map<String, String> raw = readImportRowRawAsStringMap(row);
+        String platformStatus = importParser.readImportPlatformStatusFromRow(row);
+        Map<String, String> raw = importParser.readImportRowRawAsStringMap(row);
         EcImportStatusSupport.ResolveResult resolved = statusSupport.resolveDetailed(platformStatus);
         if (!resolved.matched()) {
-            String inferred = inferLineStatusFromRaw(raw);
+            String inferred = importParser.inferLineStatusFromRaw(raw);
             if (inferred != null) {
                 resolved = new EcImportStatusSupport.ResolveResult(true, inferred, platformStatus);
             }
@@ -703,60 +673,6 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         ecOrderImportRowMapper.updateById(row);
     }
 
-    private String readImportPlatformStatusFromRow(EcOrderImportRow row) {
-        if (StringUtils.hasText(row.getPlatformLineStatus())) {
-            return row.getPlatformLineStatus().trim();
-        }
-        Map<String, String> raw = readImportRowRawAsStringMap(row);
-        return readImportPlatformStatus(raw);
-    }
-
-    private Map<String, String> readImportRowRawAsStringMap(EcOrderImportRow row) {
-        if (!StringUtils.hasText(row.getRawJson())) {
-            return Map.of();
-        }
-        try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> map = objectMapper.readValue(row.getRawJson(), Map.class);
-            Map<String, String> result = new LinkedHashMap<>();
-            for (Map.Entry<String, Object> entry : map.entrySet()) {
-                if (entry.getValue() != null && StringUtils.hasText(String.valueOf(entry.getValue()))) {
-                    result.put(entry.getKey(), String.valueOf(entry.getValue()).trim());
-                }
-            }
-            return result;
-        } catch (Exception ignored) {
-            return Map.of();
-        }
-    }
-
-    /** 平台状态列缺失时，根据时间/物流字段推断行状态 */
-    private String inferLineStatusFromRaw(Map<String, String> raw) {
-        if (StringUtils.hasText(getMapValue(raw, "complete_time", "completeTime"))) {
-            return "COMPLETED";
-        }
-        if (StringUtils.hasText(getMapValue(raw, "ship_time", "shipTime"))
-                || StringUtils.hasText(getMapValue(raw, "tracking_number", "trackingNumber"))) {
-            return "SHIPPED";
-        }
-        if (StringUtils.hasText(getMapValue(raw, "pay_time", "payTime"))) {
-            return "PAID";
-        }
-        return null;
-    }
-
-    private String mergeImportRowMessages(String primary, String secondary) {
-        if (!StringUtils.hasText(primary)) {
-            return secondary;
-        }
-        if (!StringUtils.hasText(secondary)) {
-            return primary;
-        }
-        if (primary.contains(secondary) || secondary.contains(primary)) {
-            return primary.length() >= secondary.length() ? primary : secondary;
-        }
-        return primary + "；" + secondary;
-    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -993,7 +909,7 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
                 row.setManualCostPrice(item.getManualCostPrice());
             }
             if (StringUtils.hasText(item.getLineStatus())) {
-                row.setLineStatus(normalizeImportLineStatus(item.getLineStatus()));
+                row.setLineStatus(importParser.normalizeImportLineStatus(item.getLineStatus()));
                 row.setStatusMatchStatus("MATCHED");
             }
             ecOrderImportRowMapper.updateById(row);
@@ -1008,7 +924,7 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         Set<String> excluded = new LinkedHashSet<>();
         for (String status : request.getExcludedLineStatuses()) {
             if (StringUtils.hasText(status)) {
-                excluded.add(normalizeImportLineStatus(status));
+                excluded.add(importParser.normalizeImportLineStatus(status));
             }
         }
         return excluded;
@@ -1019,18 +935,6 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
             return false;
         }
         return excludedLineStatuses.contains(row.getLineStatus().trim().toUpperCase());
-    }
-
-    private static String normalizeImportLineStatus(String status) {
-        if (!StringUtils.hasText(status)) {
-            return null;
-        }
-        String normalized = status.trim().toUpperCase();
-        if (!Set.of("PAID", "SHIPPED", "COMPLETED", "CANCELLED", "PARTIAL_REFUND", "REFUNDED", "RETURNED")
-                .contains(normalized)) {
-            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "无效的行状态: " + status);
-        }
-        return normalized;
     }
 
     private EcSalesOrderImportPreviewVO buildImportPreviewVO(SysImportBatch batch) {
@@ -1384,141 +1288,18 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         vo.setPlatformOrderNo(row.getPlatformOrderNo());
         vo.setLinkName(row.getLinkName());
         vo.setSkuSpecName(row.getSkuSpecName());
-        vo.setSkuQuantity(parseSkuQuantityFromImportRow(row));
+        vo.setSkuQuantity(importParser.parseSkuQuantityFromImportRow(row));
         vo.setMatchStatus(row.getMatchStatus());
         vo.setListingLinkSkuId(row.getListingLinkSkuId());
         vo.setManualCostPrice(row.getManualCostPrice());
         vo.setPlatformLineStatus(row.getPlatformLineStatus());
         vo.setLineStatus(row.getLineStatus());
         vo.setStatusMatchStatus(row.getStatusMatchStatus());
-        vo.setSellerRemark(parseSellerRemarkFromImportRow(row));
+        vo.setSellerRemark(importParser.parseSellerRemarkFromImportRow(row));
         vo.setErrorMessage(row.getErrorMessage());
         return vo;
     }
 
-    private Set<String> collect1688OrdersWithSellerRemark(List<Map<String, String>> rows) {
-        Set<String> result = new LinkedHashSet<>();
-        if (rows == null) {
-            return result;
-        }
-        for (Map<String, String> raw : rows) {
-            String orderNo = getMapValue(raw, "platform_order_no", "platformOrderNo");
-            if (!StringUtils.hasText(orderNo)) {
-                continue;
-            }
-            if (StringUtils.hasText(getMapValue(raw, "seller_remark", "sellerRemark"))) {
-                result.add(orderNo.trim());
-            }
-        }
-        return result;
-    }
-
-    private boolean requiresManualCostForSellerRemark(EcOrderImportRow entity, Map<String, String> raw,
-                                                      Set<String> sellerRemarkOrders) {
-        if (!"OK".equals(entity.getParseStatus())) {
-            return false;
-        }
-        if (StringUtils.hasText(entity.getPlatformOrderNo())
-                && sellerRemarkOrders.contains(entity.getPlatformOrderNo().trim())) {
-            return true;
-        }
-        return StringUtils.hasText(getMapValue(raw, "seller_remark", "sellerRemark"));
-    }
-
-    private String parseSellerRemarkFromImportRow(EcOrderImportRow row) {
-        if (!StringUtils.hasText(row.getRawJson())) {
-            return null;
-        }
-        try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> map = objectMapper.readValue(row.getRawJson(), Map.class);
-            return trimToNull(getMapValueFromObject(map, "seller_remark", "sellerRemark"));
-        } catch (Exception ignored) {
-            return null;
-        }
-    }
-
-    private Integer parseSkuQuantityFromImportRow(EcOrderImportRow row) {
-        if (!StringUtils.hasText(row.getRawJson())) {
-            return null;
-        }
-        try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> map = objectMapper.readValue(row.getRawJson(), Map.class);
-            String qty = getMapValueFromObject(map, "sku_quantity", "skuQuantity", "quantity");
-            if (!StringUtils.hasText(qty)) {
-                return null;
-            }
-            String normalized = qty.trim();
-            if (normalized.contains(".")) {
-                normalized = normalized.substring(0, normalized.indexOf('.'));
-            }
-            int value = Integer.parseInt(normalized);
-            return value > 0 ? value : null;
-        } catch (Exception ignored) {
-            return null;
-        }
-    }
-
-    /** 将订单实收均摊到同单各明细行，用于入库时计算行级利润。 */
-    private List<BigDecimal> allocateOrderReceivedAmongLines(List<EcOrderImportRow> rows) {
-        List<BigDecimal> result = new ArrayList<>();
-        if (rows == null || rows.isEmpty()) {
-            return result;
-        }
-        BigDecimal orderTotal = null;
-        for (EcOrderImportRow row : rows) {
-            orderTotal = parseOrderReceivedFromImportRow(row);
-            if (orderTotal != null) {
-                break;
-            }
-        }
-        if (orderTotal == null || orderTotal.compareTo(BigDecimal.ZERO) <= 0) {
-            for (int i = 0; i < rows.size(); i++) {
-                result.add(null);
-            }
-            return result;
-        }
-        int lineCount = rows.size();
-        if (lineCount == 1) {
-            result.add(orderTotal);
-            return result;
-        }
-        BigDecimal perLine = orderTotal.divide(BigDecimal.valueOf(lineCount), 2, RoundingMode.HALF_UP);
-        BigDecimal allocated = BigDecimal.ZERO;
-        for (int i = 0; i < lineCount - 1; i++) {
-            result.add(perLine);
-            allocated = allocated.add(perLine);
-        }
-        result.add(orderTotal.subtract(allocated).setScale(2, RoundingMode.HALF_UP));
-        return result;
-    }
-
-    private BigDecimal parseOrderReceivedFromImportRow(EcOrderImportRow row) {
-        if (!StringUtils.hasText(row.getRawJson())) {
-            return null;
-        }
-        try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> map = objectMapper.readValue(row.getRawJson(), Map.class);
-            return parseOrderReceivedFromRaw(toStringMap(map));
-        } catch (Exception ignored) {
-            return null;
-        }
-    }
-
-    /** 订单实收：优先 received_amount，其次支付详情中的金额。 */
-    private BigDecimal parseOrderReceivedFromRaw(Map<String, String> raw) {
-        if (raw == null) {
-            return null;
-        }
-        String value = getMapValue(raw, "received_amount", "receivedAmount");
-        if (!StringUtils.hasText(value)) {
-            value = SysImportParseSupport.extractAmountFromPayDetail(
-                    getMapValue(raw, "pay_detail", "payDetail"));
-        }
-        return parseDecimal(value);
-    }
 
     private Map<Long, EcShop> loadShopMap(List<Long> shopIds) {
         if (shopIds == null || shopIds.isEmpty()) {
@@ -1558,22 +1339,6 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         return expressStationNameAliasSupport.resolveStationId(trimmed);
     }
 
-    private void apply1688LinkSkuParsing(Map<String, String> raw) {
-        String combined = getMapValue(raw, "link_name", "linkName");
-        if (!StringUtils.hasText(combined)) {
-            return;
-        }
-        Ec1688ImportLinkNameSupport.ParsedLinkSku parsed = Ec1688ImportLinkNameSupport.parse(combined);
-        if (StringUtils.hasText(parsed.linkName())) {
-            raw.put("link_name", parsed.linkName());
-        }
-        if (StringUtils.hasText(parsed.skuSpecName())) {
-            raw.put("sku_spec_name", parsed.skuSpecName());
-        } else {
-            raw.remove("sku_spec_name");
-            raw.remove("skuSpecName");
-        }
-    }
 
     private boolean is1688Platform(Long platformId) {
         if (platformId == null) {
@@ -1584,48 +1349,9 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
                 && Objects.equals(platform.getPlatformCode(), EcPlatformCode.ALIBABA_1688.getCode());
     }
 
-    private String getMapValue(Map<String, String> map, String... keys) {
-        if (map == null) {
-            return null;
-        }
-        for (String key : keys) {
-            if (map.containsKey(key) && StringUtils.hasText(map.get(key))) {
-                return map.get(key).trim();
-            }
-        }
-        return null;
-    }
-
-    private String getMapValueFromObject(Map<String, Object> map, String... keys) {
-        if (map == null) {
-            return null;
-        }
-        for (String key : keys) {
-            Object val = map.get(key);
-            if (val != null && StringUtils.hasText(String.valueOf(val))) {
-                return String.valueOf(val).trim();
-            }
-        }
-        return null;
-    }
-
-    private BigDecimal parseDecimal(String value) {
-        if (!StringUtils.hasText(value)) {
-            return null;
-        }
-        String cleaned = SysImportParseSupport.normalizeMoneyText(value);
-        if (!StringUtils.hasText(cleaned)) {
-            return null;
-        }
-        try {
-            return new BigDecimal(cleaned);
-        } catch (NumberFormatException ex) {
-            return null;
-        }
-    }
 
     private BigDecimal parseDecimalOrZero(String value) {
-        BigDecimal d = parseDecimal(value);
+        BigDecimal d = importParser.parseDecimal(value);
         return d != null ? d : BigDecimal.ZERO;
     }
 
@@ -1726,8 +1452,8 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
 
     private void insertImportLinesForOrder(EcSalesOrder order, List<EcOrderImportRow> rows, EcShop shop,
                                            EcImportStatusSupport statusSupport) {
-        List<EcOrderImportRow> dedupedRows = dedupeImportRowsByLineKey(rows);
-        List<BigDecimal> allocatedReceived = allocateOrderReceivedAmongLines(dedupedRows);
+        List<EcOrderImportRow> dedupedRows = importParser.dedupeImportRowsByLineKey(rows);
+        List<BigDecimal> allocatedReceived = importParser.allocateOrderReceivedAmongLines(dedupedRows);
         int sort = 0;
         for (int i = 0; i < dedupedRows.size(); i++) {
             EcOrderImportRow row = dedupedRows.get(i);
@@ -1745,28 +1471,6 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         }
     }
 
-    private List<EcOrderImportRow> dedupeImportRowsByLineKey(List<EcOrderImportRow> rows) {
-        if (rows == null || rows.isEmpty()) {
-            return List.of();
-        }
-        LinkedHashMap<String, EcOrderImportRow> deduped = new LinkedHashMap<>();
-        for (EcOrderImportRow row : rows) {
-            deduped.put(importLineKey(row), row);
-        }
-        return new ArrayList<>(deduped.values());
-    }
-
-    private String importLineKey(EcOrderImportRow row) {
-        if (row.getListingLinkSkuId() != null) {
-            return "sku:" + row.getListingLinkSkuId();
-        }
-        String link = row.getLinkName() != null ? row.getLinkName().trim() : "";
-        String spec = row.getSkuSpecName() != null ? row.getSkuSpecName().trim() : "";
-        if (StringUtils.hasText(link) || StringUtils.hasText(spec)) {
-            return "link:" + link + "|" + spec;
-        }
-        return "row:" + row.getRowNo();
-    }
 
     private void applyImportHeaderOverwriteFromRaw(EcSalesOrder order, List<EcOrderImportRow> rows) {
         if (rows == null) {
@@ -1784,59 +1488,59 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> map = objectMapper.readValue(row.getRawJson(), Map.class);
-            BigDecimal received = parseDecimal(getMapValueFromObject(map, "received_amount", "receivedAmount"));
+            BigDecimal received = importParser.parseDecimal(importParser.getMapValueFromObject(map, "received_amount", "receivedAmount"));
             if (received != null) {
                 order.setReceivedAmount(received);
             }
-            String tracking = getMapValueFromObject(map, "tracking_number", "trackingNumber");
+            String tracking = importParser.getMapValueFromObject(map, "tracking_number", "trackingNumber");
             if (StringUtils.hasText(tracking)) {
                 order.setTrackingNumber(tracking);
             }
-            String address = getMapValueFromObject(map, "receive_address", "receiveAddress");
+            String address = importParser.getMapValueFromObject(map, "receive_address", "receiveAddress");
             if (StringUtils.hasText(address)) {
                 order.setReceiveAddress(address);
                 order.setReceiveProvince(EcAddressProvinceSupport.parseProvince(order.getReceiveAddress()));
             }
-            String buyerName = getMapValueFromObject(map, "buyer_name", "buyerName");
+            String buyerName = importParser.getMapValueFromObject(map, "buyer_name", "buyerName");
             if (StringUtils.hasText(buyerName)) {
                 order.setBuyerName(buyerName);
             }
-            String buyerPhone = getMapValueFromObject(map, "buyer_phone", "buyerPhone");
+            String buyerPhone = importParser.getMapValueFromObject(map, "buyer_phone", "buyerPhone");
             if (StringUtils.hasText(buyerPhone)) {
                 order.setBuyerPhone(buyerPhone);
             }
-            LocalDateTime orderTime = parseImportDateTime(map, "order_time", "orderTime");
+            LocalDateTime orderTime = importParser.parseImportDateTime(map, "order_time", "orderTime");
             if (orderTime != null) {
                 order.setOrderTime(orderTime);
             }
-            LocalDateTime payTime = parseImportDateTime(map, "pay_time", "payTime");
+            LocalDateTime payTime = importParser.parseImportDateTime(map, "pay_time", "payTime");
             if (payTime != null) {
                 order.setPayTime(payTime);
             }
-            LocalDateTime shipTime = parseImportDateTime(map, "ship_time", "shipTime");
+            LocalDateTime shipTime = importParser.parseImportDateTime(map, "ship_time", "shipTime");
             if (shipTime != null) {
                 order.setShipTime(shipTime);
             }
-            LocalDateTime completeTime = parseImportDateTime(map, "complete_time", "completeTime");
+            LocalDateTime completeTime = importParser.parseImportDateTime(map, "complete_time", "completeTime");
             if (completeTime != null) {
                 order.setCompleteTime(completeTime);
             }
-            String platformStatus = getMapValueFromObject(map, "platform_status", "platformStatus");
+            String platformStatus = importParser.getMapValueFromObject(map, "platform_status", "platformStatus");
             if (!StringUtils.hasText(platformStatus)) {
-                platformStatus = getMapValueFromObject(map, "platform_line_status", "platformLineStatus");
+                platformStatus = importParser.getMapValueFromObject(map, "platform_line_status", "platformLineStatus");
             }
             if (StringUtils.hasText(platformStatus)) {
                 order.setPlatformStatus(trimToNull(platformStatus));
             }
-            String stationName = getMapValueFromObject(map, "express_station_name", "expressStationName");
+            String stationName = importParser.getMapValueFromObject(map, "express_station_name", "expressStationName");
             if (StringUtils.hasText(stationName)) {
                 order.setExpressStationId(resolveExpressStationIdByName(stationName));
             }
-            String buyerRemark = getMapValueFromObject(map, "buyer_remark", "buyerRemark");
+            String buyerRemark = importParser.getMapValueFromObject(map, "buyer_remark", "buyerRemark");
             if (StringUtils.hasText(buyerRemark)) {
                 order.setBuyerRemark(buyerRemark);
             }
-            String sellerRemark = getMapValueFromObject(map, "seller_remark", "sellerRemark");
+            String sellerRemark = importParser.getMapValueFromObject(map, "seller_remark", "sellerRemark");
             if (StringUtils.hasText(sellerRemark)) {
                 order.setSellerRemark(sellerRemark);
             }
@@ -1853,11 +1557,11 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         } else {
             String platformStatus = item.getPlatformLineStatus();
             if (!StringUtils.hasText(platformStatus)) {
-                platformStatus = readImportPlatformStatusFromRow(row);
+                platformStatus = importParser.readImportPlatformStatusFromRow(row);
             }
             status = statusSupport.resolveLineStatus(platformStatus);
             if (!StringUtils.hasText(status)) {
-                status = inferLineStatusFromRaw(readImportRowRawAsStringMap(row));
+                status = importParser.inferLineStatusFromRaw(importParser.readImportRowRawAsStringMap(row));
             }
         }
         return adjustImportLineStatusForCancelledOrder(order, status);
@@ -1918,19 +1622,13 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         item.setListingLinkSkuId(row.getListingLinkSkuId());
         item.setLinkName(row.getLinkName());
         item.setSkuSpecName(row.getSkuSpecName());
-        item.setSkuQuantity(parseImportQty(row));
+        item.setSkuQuantity(importParser.parseImportQty(row));
         item.setManualCostPrice(row.getManualCostPrice());
         item.setLineReceivedAmount(lineReceivedAmount);
-        item.setPlatformLineStatus(parseImportPlatformLineStatus(row));
+        item.setPlatformLineStatus(importParser.parseImportPlatformLineStatus(row));
         return item;
     }
 
-    private String parseImportPlatformLineStatus(EcOrderImportRow row) {
-        if (StringUtils.hasText(row.getPlatformLineStatus())) {
-            return row.getPlatformLineStatus().trim();
-        }
-        return readImportPlatformStatus(readImportRowRawAsStringMap(row));
-    }
 
     private void applyManualLinePricing(EcSalesOrderLine line, BigDecimal costPrice, BigDecimal lineReceived) {
         line.setCostPrice(costPrice);
@@ -1943,19 +1641,6 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private Map<String, String> toStringMap(Map<String, ?> raw) {
-        if (raw == null) {
-            return Map.of();
-        }
-        Map<String, String> result = new LinkedHashMap<>();
-        for (Map.Entry<String, ?> entry : raw.entrySet()) {
-            if (entry.getValue() != null) {
-                result.put(entry.getKey(), String.valueOf(entry.getValue()));
-            }
-        }
-        return result;
-    }
 
     private String readRawText(Map<String, ?> raw, String... keys) {
         for (String key : keys) {
@@ -1973,22 +1658,6 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
         return null;
     }
 
-    private int parseImportQty(EcOrderImportRow row) {
-        if (!StringUtils.hasText(row.getRawJson())) {
-            return 1;
-        }
-        try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> map = objectMapper.readValue(row.getRawJson(), Map.class);
-            String qty = getMapValueFromObject(map, "sku_quantity", "skuQuantity", "quantity");
-            if (StringUtils.hasText(qty)) {
-                return Math.max(1, Integer.parseInt(qty.trim()));
-            }
-        } catch (Exception ignored) {
-            /* default 1 */
-        }
-        return 1;
-    }
 
     private SysImportProfile resolveImportProfile(Long profileId, EcShop shop) {
         if (profileId != null) {
@@ -2039,73 +1708,69 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
             @SuppressWarnings("unchecked")
             Map<String, Object> map = objectMapper.readValue(row.getRawJson(), Map.class);
             if (order.getReceivedAmount() == null) {
-                order.setReceivedAmount(parseDecimal(getMapValueFromObject(map, "received_amount", "receivedAmount")));
+                order.setReceivedAmount(importParser.parseDecimal(importParser.getMapValueFromObject(map, "received_amount", "receivedAmount")));
             }
             if (!StringUtils.hasText(order.getTrackingNumber())) {
-                order.setTrackingNumber(getMapValueFromObject(map, "tracking_number", "trackingNumber"));
+                order.setTrackingNumber(importParser.getMapValueFromObject(map, "tracking_number", "trackingNumber"));
             }
             if (!StringUtils.hasText(order.getReceiveAddress())) {
-                order.setReceiveAddress(getMapValueFromObject(map, "receive_address", "receiveAddress"));
+                order.setReceiveAddress(importParser.getMapValueFromObject(map, "receive_address", "receiveAddress"));
                 order.setReceiveProvince(EcAddressProvinceSupport.parseProvince(order.getReceiveAddress()));
             }
             if (!StringUtils.hasText(order.getBuyerName())) {
-                order.setBuyerName(getMapValueFromObject(map, "buyer_name", "buyerName"));
+                order.setBuyerName(importParser.getMapValueFromObject(map, "buyer_name", "buyerName"));
             }
             if (!StringUtils.hasText(order.getBuyerPhone())) {
-                order.setBuyerPhone(getMapValueFromObject(map, "buyer_phone", "buyerPhone"));
+                order.setBuyerPhone(importParser.getMapValueFromObject(map, "buyer_phone", "buyerPhone"));
             }
             if (order.getOrderTime() == null) {
-                LocalDateTime orderTime = parseImportDateTime(map, "order_time", "orderTime");
+                LocalDateTime orderTime = importParser.parseImportDateTime(map, "order_time", "orderTime");
                 if (orderTime != null) {
                     order.setOrderTime(orderTime);
                 }
             }
             if (order.getPayTime() == null) {
-                LocalDateTime payTime = parseImportDateTime(map, "pay_time", "payTime");
+                LocalDateTime payTime = importParser.parseImportDateTime(map, "pay_time", "payTime");
                 if (payTime != null) {
                     order.setPayTime(payTime);
                 }
             }
             if (order.getShipTime() == null) {
-                LocalDateTime shipTime = parseImportDateTime(map, "ship_time", "shipTime");
+                LocalDateTime shipTime = importParser.parseImportDateTime(map, "ship_time", "shipTime");
                 if (shipTime != null) {
                     order.setShipTime(shipTime);
                 }
             }
             if (order.getCompleteTime() == null) {
-                LocalDateTime completeTime = parseImportDateTime(map, "complete_time", "completeTime");
+                LocalDateTime completeTime = importParser.parseImportDateTime(map, "complete_time", "completeTime");
                 if (completeTime != null) {
                     order.setCompleteTime(completeTime);
                 }
             }
             if (!StringUtils.hasText(order.getPlatformStatus())) {
-                String platformStatus = getMapValueFromObject(map, "platform_status", "platformStatus");
+                String platformStatus = importParser.getMapValueFromObject(map, "platform_status", "platformStatus");
                 if (!StringUtils.hasText(platformStatus)) {
-                    platformStatus = getMapValueFromObject(map, "platform_line_status", "platformLineStatus");
+                    platformStatus = importParser.getMapValueFromObject(map, "platform_line_status", "platformLineStatus");
                 }
                 order.setPlatformStatus(trimToNull(platformStatus));
             }
             if (order.getExpressStationId() == null) {
-                String stationName = getMapValueFromObject(map, "express_station_name", "expressStationName");
+                String stationName = importParser.getMapValueFromObject(map, "express_station_name", "expressStationName");
                 if (StringUtils.hasText(stationName)) {
                     order.setExpressStationId(resolveExpressStationIdByName(stationName));
                 }
             }
             if (!StringUtils.hasText(order.getBuyerRemark())) {
-                order.setBuyerRemark(trimToNull(getMapValueFromObject(map, "buyer_remark", "buyerRemark")));
+                order.setBuyerRemark(trimToNull(importParser.getMapValueFromObject(map, "buyer_remark", "buyerRemark")));
             }
             if (!StringUtils.hasText(order.getSellerRemark())) {
-                order.setSellerRemark(trimToNull(getMapValueFromObject(map, "seller_remark", "sellerRemark")));
+                order.setSellerRemark(trimToNull(importParser.getMapValueFromObject(map, "seller_remark", "sellerRemark")));
             }
         } catch (Exception ignored) {
             /* optional fields */
         }
     }
 
-    private LocalDateTime parseImportDateTime(Map<String, Object> map, String... keys) {
-        String value = getMapValueFromObject(map, keys);
-        return SysImportParseSupport.tryParseDateTime(value);
-    }
 
     private EcSalesOrder requireDeletableOrder(Long id) {
         EcSalesOrder order = requireOrder(id);
@@ -2293,7 +1958,7 @@ public class EcSalesOrderServiceImpl extends ServiceImpl<EcSalesOrderMapper, EcS
             try {
                 @SuppressWarnings("unchecked")
                 Map<String, Object> map = objectMapper.readValue(row.getRawJson(), Map.class);
-                LocalDateTime orderTime = parseImportDateTime(map, "order_time", "orderTime");
+                LocalDateTime orderTime = importParser.parseImportDateTime(map, "order_time", "orderTime");
                 if (orderTime != null) {
                     return Optional.of(YearMonth.from(orderTime));
                 }
