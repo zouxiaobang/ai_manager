@@ -633,35 +633,19 @@ import {
   type SettlementBuyerExclude,
 } from '@/api/ecommerce/monthlySettlement'
 import { fetchExpressStations, type EcExpressStation } from '@/api/ecommerce/express'
-import { resolveExpressIconMetaFromStation } from '@/utils/expressVisual'
 import { formatDateTime, defaultOrderMonth } from '@/utils/date'
-
-interface PrepExpressBillCard {
-  id: number
-  name: string
-  iconSrc: string
-  isCustomAvatar: boolean
-  matched: number
-  total: number
-  gapCount?: number
-}
-
-type PrepTone = 'success' | 'warning' | 'danger' | 'muted'
-type PrepStatusTagType = 'success' | 'warning' | 'danger' | 'info'
-
-interface PrepTask {
-  key: string
-  title: string
-  desc: string
-  descHighlight?: string
-  tone: PrepTone
-  statusTag?: { label: string; type: PrepStatusTagType }
-  lastOperationTime?: string
-  lastTimeLabelKey?: string
-  expressBillCards?: PrepExpressBillCard[]
-  subItems?: string[]
-  action?: () => void
-}
+import {
+  buildExpressBillCards,
+  buildMaxProfitDisplay,
+  computeShopSpan,
+  filterExpressBillRecordsByMonth,
+  formatExcludeTime,
+  formatSettlementPeriodLabel,
+  pickLatestPrepTime,
+  statusLabel as viewStatusLabel,
+  sumShopMetric,
+} from './monthlySettlementView'
+import type { PrepExpressBillCard, PrepTask, PrepTone } from './monthlySettlementView'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -679,39 +663,9 @@ const pendingDecisions = reactive<Record<number, boolean>>({})
 const selectedShopId = ref<number | null>(null)
 const maxProfitShowAll = ref(false)
 
-const globalMaxProfit = computed(() => {
-  let bestShop: MonthlySettlementShopSummary | null = null
-  let bestOrder: NonNullable<MonthlySettlementShopSummary['maxProfitOrder']> | null = null
-  for (const shop of shopSummaries.value) {
-    const order = shop.maxProfitOrder
-    if (!order?.orderNo && !order?.platformOrderNo) continue
-    const profit = order.profitAmount ?? Number.NEGATIVE_INFINITY
-    if (!bestOrder || profit > (bestOrder.profitAmount ?? Number.NEGATIVE_INFINITY)) {
-      bestShop = shop
-      bestOrder = order
-    }
-  }
-  if (!bestShop || !bestOrder) return null
-  return {
-    ...bestOrder,
-    shopId: bestShop.shopId,
-    shopName: bestShop.shopName || `#${bestShop.shopId}`,
-  }
-})
-
-const displayedMaxProfit = computed(() => {
-  if (maxProfitShowAll.value) {
-    return globalMaxProfit.value
-  }
-  const shop = selectedShop.value
-  const order = shop?.maxProfitOrder
-  if (!shop || (!order?.orderNo && !order?.platformOrderNo)) return null
-  return {
-    ...order,
-    shopId: shop.shopId,
-    shopName: shop.shopName || `#${shop.shopId}`,
-  }
-})
+const displayedMaxProfit = computed(() =>
+  buildMaxProfitDisplay(shopSummaries.value, selectedShopId.value, maxProfitShowAll.value),
+)
 
 const maxProfitActualProfitDisplay = computed(() => {
   const item = displayedMaxProfit.value
@@ -835,11 +789,6 @@ const filteredBuyerExcludes = computed(() => {
   })
 })
 
-function formatExcludeTime(value?: string) {
-  if (!value) return ''
-  return value.replace('T', ' ').slice(0, 19)
-}
-
 function onBuyerExcludeDialogClosed() {
   excludeFormShopId.value = undefined
   excludeFormBuyerName.value = ''
@@ -867,24 +816,10 @@ function shopTableSpanMethod({
   row: MonthlySettlementShopSummary
   columnIndex: number
 }) {
-  if (!isShopOrdersImported(row.shopId)) {
-    if (columnIndex === 1) {
-      return { rowspan: 1, colspan: 6 }
-    }
-    if (columnIndex > 1) {
-      return { rowspan: 0, colspan: 0 }
-    }
-  }
-  return { rowspan: 1, colspan: 1 }
+  return computeShopSpan(columnIndex, isShopOrdersImported(row.shopId))
 }
 
-const settlementPeriodLabel = computed(() => {
-  const month = settlementMonth.value
-  if (!month) return ''
-  const [y, m] = month.split('-')
-  if (!y || !m) return month
-  return `${y}年${m}月`
-})
+const settlementPeriodLabel = computed(() => formatSettlementPeriodLabel(settlementMonth.value))
 
 const lastCalculatedDisplay = computed(() => {
   if (!lastCalculatedAt.value) return ''
@@ -896,13 +831,6 @@ const selectedShop = computed(() => {
   if (selectedShopId.value == null) return null
   return shopSummaries.value.find((s) => s.shopId === selectedShopId.value) ?? null
 })
-
-function sumShopMetric(
-  shops: MonthlySettlementShopSummary[],
-  pick: (shop: MonthlySettlementShopSummary) => number | null | undefined,
-) {
-  return shops.reduce((sum, shop) => sum + (pick(shop) ?? 0), 0)
-}
 
 const overallSummary = computed(() => {
   const shops = shopSummaries.value.filter((shop) => isShopOrdersImported(shop.shopId))
@@ -968,52 +896,6 @@ const expressStationMap = computed(() => {
   return map
 })
 
-function stationRecordKey(record: ExpressBillRecord): string {
-  if (record.otherExpress) return 'other'
-  return String(record.expressStationId ?? record.expressStationName ?? record.id)
-}
-
-function filterExpressBillRecordsByMonth(records: ExpressBillRecord[], month: string) {
-  const monthKey = month.trim()
-  return records.filter((record) => (record.billMonth ?? '').trim() === monthKey)
-}
-
-function buildExpressBillCards(records: ExpressBillRecord[], month: string): PrepExpressBillCard[] {
-  const scopedRecords = filterExpressBillRecordsByMonth(records, month)
-  const grouped = new Map<string, ExpressBillRecord[]>()
-  for (const record of scopedRecords) {
-    const key = stationRecordKey(record)
-    const list = grouped.get(key) ?? []
-    list.push(record)
-    grouped.set(key, list)
-  }
-
-  const cards: PrepExpressBillCard[] = []
-  for (const stationRecords of grouped.values()) {
-    // API 已按导入时间倒序；优先展示最近一次有账单行数的文件导入，避免手动补录批次 (0/0) 占位
-    const primary =
-      stationRecords.find((r) => (r.totalRows ?? 0) > 0) ?? stationRecords[0]
-    const station = primary.expressStationId
-      ? expressStationMap.value.get(primary.expressStationId)
-      : undefined
-    const name = primary.expressStationName || station?.name || '—'
-    const iconMeta = resolveExpressIconMetaFromStation(
-      station ?? { name: primary.expressStationName ?? undefined },
-    )
-    const gapCount = stationRecords.reduce((max, r) => Math.max(max, r.gapOrderRows ?? 0), 0)
-    cards.push({
-      id: primary.id,
-      name,
-      iconSrc: iconMeta.src,
-      isCustomAvatar: iconMeta.isCustomAvatar,
-      matched: primary.matchedRows ?? 0,
-      total: primary.totalRows ?? 0,
-      gapCount: gapCount > 0 ? gapCount : undefined,
-    })
-  }
-  return cards
-}
-
 const statusOptions = computed(() => [
   { value: 'DRAFT', label: t('ecommerce.salesOrder.statusDraft') },
   { value: 'PAID', label: t('ecommerce.salesOrder.statusPaid') },
@@ -1077,7 +959,11 @@ const prepTasks = computed<PrepTask[]>(() => {
         expressHasUnmatched = true
       }
     }
-    expressBillCards.push(...buildExpressBillCards(monthRecords, settlementMonth.value))
+    expressBillCards.push(
+      ...buildExpressBillCards(monthRecords, settlementMonth.value, (stationId) =>
+        expressStationMap.value.get(stationId),
+      ),
+    )
     if (expressHasGap || expressHasUnmatched) {
       expressTone = 'warning'
       expressStatusTag = {
@@ -1216,35 +1102,11 @@ const prepTasks = computed<PrepTask[]>(() => {
   ]
 })
 
-function formatPrepLastTime(value?: string | Date | null) {
-  if (value == null || value === '') return undefined
-  const formatted = formatDateTime(value)
-  return formatted === '—' ? undefined : formatted
-}
-
-function pickLatestPrepTime(...candidates: (string | Date | null | undefined)[]) {
-  let latestTs: number | null = null
-  let latestRaw: string | Date | undefined
-  for (const candidate of candidates) {
-    if (candidate == null || candidate === '') continue
-    const date = candidate instanceof Date ? candidate : new Date(String(candidate).replace('T', ' '))
-    const ts = date.getTime()
-    if (Number.isNaN(ts)) continue
-    if (latestTs == null || ts > latestTs) {
-      latestTs = ts
-      latestRaw = candidate
-    }
-  }
-  return latestRaw != null ? formatPrepLastTime(latestRaw) : undefined
-}
-
 function touchBuyerExcludeOpTime() {
   lastBuyerExcludeOpAt.value = new Date().toISOString()
 }
 
-function statusLabel(s?: string) {
-  return statusOptions.value.find((o) => o.value === s)?.label ?? s ?? '—'
-}
+const statusLabel = (s?: string) => viewStatusLabel(s, statusOptions.value)
 
 function syncPendingDecisions(shops: MonthlySettlementShopSummary[]) {
   Object.keys(pendingDecisions).forEach((k) => delete pendingDecisions[Number(k)])
