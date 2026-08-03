@@ -797,13 +797,7 @@ import { usePagination } from '@/composables/usePagination'
 import { TABLE_ACTIONS_CELL_CLASS } from '@/constants/table'
 import { formatDate } from '@/utils/date'
 import { aliasTagStyle } from '@/utils/expressVisual'
-import {
-  computeCalcFreight,
-  computeVolumeWeight,
-  formatCalcPrice,
-  formatCalcWeight,
-  type CalcResult,
-} from './expressCalc'
+import { formatCalcPrice, formatCalcWeight } from './expressCalc'
 import { priceHeatStyle, type PriceFieldKey } from './expressPriceView'
 import {
   buildNoticeSavePayload,
@@ -816,8 +810,9 @@ import {
   pickPriceValues,
   resolveNoticeCount,
   resolveRegionCount,
-  syncRowCounts,
 } from './expressPanelView'
+import { useExpressCalcDialog } from './composables/useExpressCalcDialog'
+import { useExpressExpandDetail } from './composables/useExpressExpandDetail'
 
 const { t } = useI18n()
 
@@ -832,9 +827,6 @@ const regionFilter = ref<string[]>([])
 const regionOptions = ref<string[]>([])
 const tableRef = ref<TableInstance>()
 const noticeTableRef = ref<TableInstance>()
-const expandedRowKeys = ref<number[]>([])
-const expandDetails = ref(new Map<number, EcExpressStation>())
-const expandLoadingIds = ref(new Set<number>())
 
 const { page, pageSize, total, records, loading, load, onPageChange, onSizeChange } = usePagination(
   (p, ps) =>
@@ -843,6 +835,18 @@ const { page, pageSize, total, records, loading, load, onPageChange, onSizeChang
       regionNames: regionFilter.value.length ? regionFilter.value : undefined,
     }),
 )
+
+// 展开行详情（展开 key/详情缓存/加载中 + 加载/失效/行样式）
+const {
+  expandedRowKeys,
+  expandDetails,
+  getExpandDetail,
+  isExpandLoading,
+  invalidateExpandDetail,
+  rowClassName,
+  loadExpandDetail,
+  onExpandChange,
+} = useExpressExpandDetail({ records, fetchExpressStation })
 
 const dialogVisible = ref(false)
 const editingId = ref<number | null>(null)
@@ -947,125 +951,25 @@ const noticeForm = reactive({
 })
 
 // ===== 运费试算 =====
-const calcDialogVisible = ref(false)
-const calcStations = ref<EcExpressStation[]>([])
-const calcStationCache = ref<Map<number, EcExpressStation>>(new Map())
-const calcStationId = ref<number | null>(null)
-const calcProvince = ref('')
-const calcLength = ref<number | null>(null)
-const calcWidth = ref<number | null>(null)
-const calcHeight = ref<number | null>(null)
-const calcWeight = ref<number | null>(null)
-const calcLoading = ref(false)
-const calcResult = ref<CalcResult | null>(null)
-
-const calcStationDetail = computed<EcExpressStation | null>(() => {
-  if (calcStationId.value == null) return null
-  return calcStationCache.value.get(calcStationId.value) ?? null
+// 运费试算弹窗（状态机：站点/省份/尺寸/结果 + 打开预置/切换缓存/计费计算）
+const {
+  calcDialogVisible,
+  calcStations,
+  calcStationId,
+  calcProvince,
+  calcLength,
+  calcWidth,
+  calcHeight,
+  calcWeight,
+  calcLoading,
+  calcResult,
+  availableProvinces,
+  openCalcDialog,
+  handleCalculate,
+} = useExpressCalcDialog({
+  fetchExpressStations: () => fetchExpressStations(undefined, { page: 1, size: 100 }),
+  fetchExpressStation,
 })
-
-const availableProvinces = computed(() => {
-  if (!calcStationDetail.value?.prices?.length) return []
-  return calcStationDetail.value.prices.map((p) => p.provinceName).sort()
-})
-
-async function openCalcDialog() {
-  calcStationId.value = null
-  calcProvince.value = ''
-  calcLength.value = null
-  calcWidth.value = null
-  calcHeight.value = null
-  calcWeight.value = null
-  calcResult.value = null
-  calcLoading.value = false
-
-  try {
-    const page = await fetchExpressStations(undefined, { page: 1, size: 100 })
-    calcStations.value = page.records || []
-
-    // 默认选中默认快递公司
-    const defaultStation = calcStations.value.find((s) => s.isDefault)
-    if (defaultStation) {
-      // 预加载详情到缓存，避免 watch 重复请求
-      if (!calcStationCache.value.has(defaultStation.id)) {
-        const detail = await fetchExpressStation(defaultStation.id)
-        calcStationCache.value.set(defaultStation.id, detail)
-      }
-      calcStationId.value = defaultStation.id
-      // 等 watch 执行完后设置默认省份
-      await nextTick()
-      const detail = calcStationCache.value.get(defaultStation.id)
-      if (detail?.prices?.some((p) => p.provinceName === '广东')) {
-        calcProvince.value = '广东'
-      }
-    } else if (calcStations.value.length > 0) {
-      calcStationId.value = calcStations.value[0].id
-      await nextTick()
-      const detail = calcStationCache.value.get(calcStations.value[0].id)
-      if (detail?.prices?.some((p) => p.provinceName === '广东')) {
-        calcProvince.value = '广东'
-      }
-    }
-  } catch {
-    calcStations.value = []
-  }
-  calcDialogVisible.value = true
-}
-
-watch(calcStationId, async (newId, oldId) => {
-  if (newId == null || newId === oldId) return
-  calcResult.value = null
-  calcProvince.value = ''
-  if (calcStationCache.value.has(newId)) return
-  try {
-    const detail = await fetchExpressStation(newId)
-    calcStationCache.value.set(newId, detail)
-  } catch {
-    // ignore
-  }
-})
-
-async function handleCalculate() {
-  if (calcStationId.value == null || !calcProvince.value) return
-
-  const hasVolume = calcLength.value != null && calcWidth.value != null && calcHeight.value != null
-    && calcLength.value > 0 && calcWidth.value > 0 && calcHeight.value > 0
-  const hasWeight = calcWeight.value != null && calcWeight.value > 0
-  if (!hasVolume && !hasWeight) return
-
-  if (hasVolume && !hasWeight) {
-    calcWeight.value = computeVolumeWeight(calcLength.value!, calcWidth.value!, calcHeight.value!)
-  }
-
-  calcLoading.value = true
-  try {
-    const stationId = calcStationId.value
-    if (!calcStationCache.value.has(stationId)) {
-      const detail = await fetchExpressStation(stationId)
-      calcStationCache.value.set(stationId, detail)
-    }
-    const station = calcStationCache.value.get(stationId)
-    if (!station) {
-      calcResult.value = null
-      return
-    }
-    const price = station.prices?.find((p) => p.provinceName === calcProvince.value)
-    if (!price) {
-      calcResult.value = null
-      return
-    }
-    calcResult.value = computeCalcFreight(
-      calcLength.value ?? 0,
-      calcWidth.value ?? 0,
-      calcHeight.value ?? 0,
-      calcWeight.value!,
-      price,
-      station.labelPrice ?? 0,
-    )
-  } finally {
-    calcLoading.value = false
-  }
-}
 
 const noticePreviewText = computed(() => {
   const text = noticeForm.content.trim()
@@ -1075,14 +979,6 @@ const noticePreviewText = computed(() => {
 function formatPrice(value: number | null | undefined) {
   if (value == null) return '—'
   return formatCnyPlain(value, { symbol: false })
-}
-
-function rowClassName({ row }: { row: EcExpressStation }) {
-  return expandedRowKeys.value.includes(row.id) ? 'express-station-row is-expanded' : 'express-station-row'
-}
-
-function getExpandDetail(id: number) {
-  return expandDetails.value.get(id)
 }
 
 function filteredExpandPrices(detail?: EcExpressStation | null) {
@@ -1105,15 +1001,6 @@ function regionCount(row: EcExpressStation) {
 /** 须知 = 注意事项条数 */
 function noticeItemCount(row: EcExpressStation) {
   return resolveNoticeCount(row, getExpandDetail(row.id))
-}
-
-function isExpandLoading(id: number) {
-  return expandLoadingIds.value.has(id)
-}
-
-function invalidateExpandDetail(id: number) {
-  expandDetails.value.delete(id)
-  expandDetails.value = new Map(expandDetails.value)
 }
 
 function resetForm() {
@@ -1248,36 +1135,6 @@ async function loadStationChildren(stationId: number) {
   ])
   prices.value = priceList
   notices.value = noticeList
-}
-
-async function loadExpandDetail(id: number) {
-  if (expandDetails.value.has(id) || expandLoadingIds.value.has(id)) {
-    return
-  }
-  const nextLoading = new Set(expandLoadingIds.value)
-  nextLoading.add(id)
-  expandLoadingIds.value = nextLoading
-  try {
-    const detail = await fetchExpressStation(id)
-    const nextDetails = new Map(expandDetails.value)
-    nextDetails.set(id, detail)
-    expandDetails.value = nextDetails
-    const row = records.value.find((item) => item.id === id)
-    if (row) {
-      syncRowCounts(row, detail)
-    }
-  } finally {
-    const doneLoading = new Set(expandLoadingIds.value)
-    doneLoading.delete(id)
-    expandLoadingIds.value = doneLoading
-  }
-}
-
-async function onExpandChange(row: EcExpressStation, expandedRows: EcExpressStation[]) {
-  expandedRowKeys.value = expandedRows.map((item) => item.id)
-  if (expandedRows.some((item) => item.id === row.id)) {
-    await loadExpandDetail(row.id)
-  }
 }
 
 function onRowClick(row: EcExpressStation, column: TableColumnCtx<EcExpressStation>) {
