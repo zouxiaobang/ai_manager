@@ -786,8 +786,8 @@
  * 包含 AI 对话、RAG 知识库和设置三大功能
  */
 import { computed, nextTick, ref, watch } from 'vue'
-import { marked } from 'marked'
 import { useAiKnowledgePrint } from './composables/useAiKnowledgePrint'
+import { useAiKnowledgeChat } from './composables/useAiKnowledgeChat'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
@@ -802,8 +802,6 @@ import {
   rebuildRagIndex,
   uploadRagDocument,
   sendChatMessage,
-  sendChatMessageStream,
-  fetchAiProviders,
   fetchEmbeddingConfig,
   saveEmbeddingConfig,
   AI_PROVIDER_MAP,
@@ -822,11 +820,9 @@ import {
   updateChatConversation,
   deleteChatConversation,
   searchChatConversations,
-  fetchChatUsage,
   type ChatCategoryVO,
   type ChatConversationVO,
   type ChatSearchResult,
-  type ChatUsageVO,
 } from '@/api/aiKnowledge'
 import {
   fetchNotebookTree,
@@ -852,109 +848,12 @@ function onTabChange() {
 }
 
 // ========== 对话 ==========
-const question = ref('')
 const useRag = ref(false)
 
 /** AI provider 列表 */
 const providerList = ref<ProviderInfo[]>([])
-const providersLoading = ref(false)
 
-async function loadProviders() {
-  if (providersLoading.value) return
-  providersLoading.value = true
-  try {
-    const data = await fetchAiProviders()
-    providerList.value = data
-    // 获取 providerList 后，若当前 chatProvider 不在列表中则切换到第一个
-    if (data.length > 0 && !data.some(p => p.provider === chatProvider.value)) {
-      chatProvider.value = data[0].provider
-    }
-  } catch {
-    // 加载 providerList 失败，使用 fallback 数据
-  } finally {
-    providersLoading.value = false
-  }
-}
-
-const sending = ref(false)
 const messages = ref<(ChatMessage & { sources?: RagSource[]; collapsed?: boolean })[]>([])
-const chatMessagesRef = ref<HTMLElement | null>(null)
-
-/** 用户消息列表（用于右侧锚点导航） */
-const userAnchorMessages = computed(() => messages.value.filter(m => m.role === 'user'))
-const memoryLimit = computed(() => {
-  const info = providerList.value.find(p => p.provider === chatProvider.value)
-  return info?.maxContextMessages ?? 10
-})
-
-// ========== 调试面板 ==========
-const showDebugPanel = ref(false)
-const debugReqExpanded = ref(false)
-const chatUsage = ref<ChatUsageVO | null>(null)
-
-/** 当前会话累计消耗的 Token 数（从 API 返回的真实数据），用于计算上下文占用百分比 */
-const currentContextTokens = ref(0)
-
-
-/** 从已加载的消息中重新计算当前会话的 Token 消耗 */
-function recalcContextTokens() {
-  let total = 0
-  for (const m of messages.value) {
-    if (m.tokens) total += m.tokens
-  }
-  currentContextTokens.value = total
-}
-
-/** 当前提供商的大模型上下文窗口大小 */
-const maxContextWindow = computed(() => {
-  const info = providerList.value.find(p => p.provider === chatProvider.value)
-  return info?.maxContextTokens ?? 0
-})
-
-/** 上下文占用百分比 */
-const contextPercentage = computed(() => {
-  if (!maxContextWindow.value || !currentContextTokens.value) return 0
-  return Math.min(100, Math.round((currentContextTokens.value / maxContextWindow.value) * 100))
-})
-
-
-const requestPayload = computed(() => {
-  if (messages.value.length === 0) return null
-  const memLimit = memoryLimit.value
-  const history = messages.value.slice(-memLimit).map(m => ({
-    role: m.role,
-    content: m.content.length > 300 ? m.content.slice(0, 300) + '...' : m.content,
-  }))
-  return { history }
-})
-
-// const windowTokens = computed(() => {
-//   const payload = requestPayload.value
-//   if (!payload) return 0
-//   let total = estimateTokens('你是一个有用的AI助手，请用中文回答用户的问题。')
-//   for (const h of payload.history) {
-//     total += estimateTokens(h.content)
-//   }
-//   return total
-// })
-
-async function loadChatUsage() {
-  try {
-    chatUsage.value = await fetchChatUsage()
-  } catch { /* ignore */ }
-}
-
-/** 滚动到指定消息 */
-function scrollToMsg(msgId: string) {
-  const el = chatMessagesRef.value?.querySelector(`[data-msg-id="${msgId}"]`)
-  if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-}
-
-
-
-let msgCounter = 0
 
 // ========== 对话分类 & 列表 ==========
 
@@ -1328,144 +1227,7 @@ async function createDefaultData() {
   } catch { /* ignore */ }
 }
 
-// 页面加载时从后端恢复数据
-loadCategoriesFromServer()
-loadChatUsage()
 
-function genMsgId() {
-  return `msg_${Date.now()}_${++msgCounter}`
-}
-
-function renderMessage(msg: ChatMessage): string {
-  let html = marked.parse(msg.content) as string
-  // 正则匹配纯 emoji 开头的段落，添加特殊类名
-  html = html.replace(
-    /<p>([\u{1F300}-\u{1FAD6}\u{2600}-\u{27BF}\u{2700}-\u{27BF}]\s)/gu,
-    '<p class="ak-emoji-heading">$1',
-  )
-  return html
-}
-
-function scrollChatToBottom() {
-  void nextTick(() => {
-    const el = chatMessagesRef.value
-    if (el) el.scrollTop = el.scrollHeight
-  })
-}
-
-function sendMessage() {
-  const text = question.value.trim()
-  if (!text || sending.value) return
-
-  const userMsg: ChatMessage = {
-    id: genMsgId(),
-    role: 'user',
-    content: text,
-    timestamp: Date.now(),
-  }
-  messages.value.push(userMsg)
-  saveMessages()
-  question.value = ''
-  sending.value = true
-  scrollChatToBottom()
-
-  // 预创建助手消息占位
-  const assistantMsg: ChatMessage & { sources?: RagSource[] } = {
-    id: genMsgId(),
-    role: 'assistant',
-    content: '',
-    timestamp: Date.now(),
-  }
-  messages.value.push(assistantMsg)
-  scrollChatToBottom()
-
-  sendChatMessageStream(
-    {
-      question: text,
-      provider: chatProvider.value,
-      useRag: useRag.value,
-      history: messages.value.slice(-memoryLimit.value).map(m => ({ role: m.role, content: m.content })),
-    },
-    (fullText) => {
-      assistantMsg.content = fullText
-      messages.value = [...messages.value]
-      scrollChatToBottom()
-    },
-    () => {
-      sending.value = false
-      saveMessages()
-      scrollChatToBottom()
-      loadChatUsage()
-    },
-    (err) => {
-      if (!assistantMsg.content) {
-        assistantMsg.content = '\u9519\u8bef\uff1a' + err
-      }
-      sending.value = false
-      saveMessages()
-      scrollChatToBottom()
-      loadChatUsage()
-    },
-    (tokens) => {
-      assistantMsg.tokens = tokens
-      currentContextTokens.value += tokens
-      messages.value = [...messages.value]
-    },
-  )}
-
-/** 清空当前对话 */
-async function clearConversation() {
-  if (!activeConvId.value) return
-  try {
-    await ElMessageBox.confirm('确定要清空当前对话的所有消息吗？此操作不可撤销。', '清空对话', {
-      confirmButtonText: '清空',
-      cancelButtonText: '取消',
-      type: 'warning',
-    })
-    messages.value = []
-    currentContextTokens.value = 0
-    await saveMessages()
-  } catch {
-    // 用户取消不做任何事
-  }
-}
-
-/** 压缩对话 — 调用 LLM 对历史做摘要，保留最近一轮问答完整 */
-const compressing = ref(false)
-
-async function compressConversation() {
-  if (messages.value.length <= 2 || compressing.value) return
-  compressing.value = true
-  try {
-    const KEEP = 2
-    const toCompress = messages.value.slice(0, -KEEP)
-    const recent = messages.value.slice(-KEEP)
-
-    // 构造摘要提示
-    const historyText = toCompress
-      .map(m => (m.role === 'user' ? '用户' : m.role === 'assistant' ? 'AI' : '系统') + '：' + m.content)
-      .join('\n\n---\n\n')
-
-    const res = await sendChatMessage({
-      question: `请用中文简洁总结以下对话历史的核心内容、已解决的问题和待办事项，保留所有关键事实和决策信息，以便后续继续对话时不需要重复询问。\n\n${historyText}`,
-      provider: chatProvider.value,
-      useRag: false,
-    })
-
-    // 替换为一条 system 摘要 + 最近一轮问答
-    messages.value = [
-      { id: genMsgId(), role: 'system', content: '📋 对话摘要：\n' + res.answer, timestamp: Date.now() } as ChatMessage,
-      ...recent,
-    ]
-    // 用已有消息的 token 数重新计算（摘要消息无 tokens，仅计算保留的最近消息）
-    recalcContextTokens()
-    await saveMessages()
-  } catch (e) {
-    console.warn('对话压缩失败', e)
-  } finally {
-    compressing.value = false
-  }
-}
 
 
 // 打印能力（markdown → 可打印 HTML），逻辑已拆至 composables/useAiKnowledgePrint
@@ -1826,14 +1588,6 @@ watch(() => configDraft.value.provider, (val) => {
   chatProvider.value = val
 })
 
-// 调试面板打开时刷新用量统计
-watch(showDebugPanel, (val) => {
-  if (val) {
-    loadChatUsage()
-    recalcContextTokens()
-  }
-})
-
 /** API Key 缓存（切换 provider 时保留） */
 const apiKeyCache = ref<Record<string, string>>({})
 
@@ -1964,8 +1718,45 @@ function onProviderChange(provider: AiProvider) {
   lastProvider.value = provider
 }
 
+// 聊天能力（消息发送/流式/token 统计/清空与压缩），逻辑已拆至 composables/useAiKnowledgeChat
+const {
+  question,
+  sending,
+  chatMessagesRef,
+  showDebugPanel,
+  debugReqExpanded,
+  chatUsage,
+  currentContextTokens,
+  compressing,
+  userAnchorMessages,
+  memoryLimit,
+  maxContextWindow,
+  contextPercentage,
+  requestPayload,
+  loadProviders,
+  loadChatUsage,
+  recalcContextTokens,
+  scrollToMsg,
+  renderMessage,
+  sendMessage,
+  clearConversation,
+  compressConversation,
+} = useAiKnowledgeChat({ messages, providerList, chatProvider, useRag, activeConvId, saveMessages })
+
 // 初始化时加载 provider 列表
 loadProviders()
+
+// 调试面板打开时刷新用量统计（showDebugPanel 由聊天能力提供，需在其初始化后注册）
+watch(showDebugPanel, (val) => {
+  if (val) {
+    loadChatUsage()
+    recalcContextTokens()
+  }
+})
+
+// 页面加载时从后端恢复数据（聊天能力初始化完成后触发）
+loadCategoriesFromServer()
+void loadChatUsage()
 </script>
 
 <style scoped lang="scss">
