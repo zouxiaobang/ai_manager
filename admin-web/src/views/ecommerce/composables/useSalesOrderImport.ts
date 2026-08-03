@@ -11,7 +11,6 @@ import {
   type EcSalesOrderImportPreview,
   type EcSalesOrderImportRow,
   type ImportRowPatchItem,
-  type ShopImportStatus,
 } from '@/api/ecommerce/salesOrder'
 import type { EcShop } from '@/api/ecommerce/shop'
 import {
@@ -31,23 +30,10 @@ import { resolveShopIconMeta } from '@/utils/shopVisual'
 import { resolvePlatformIconMeta } from '@/utils/platformVisual'
 import { useEcSettingsStore } from '@/stores/ecSettings'
 
-/** 店铺导入卡片视图（与模板 shopImportCards 渲染契约） */
-export interface ShopImportCardView {
-  shopId: number
-  shopName: string
-  platformName?: string
-  platformCode?: number | null
-  shopAvatarUrl?: string | null
-  platformAvatarUrl?: string | null
-  status: ShopImportStatus
-  orderCount: number
-  statusText: string
-  dateLabel?: string
-  tone: 'green' | 'gray' | 'orange'
-  actionLabel?: string
-  actionType?: 'primary' | 'warning' | 'default'
-  pendingBatchId?: number | null
-}
+// 店铺导入卡片视图类型已迁移至 salesOrderPanelView 纯函数库，此处 re-export 保持组件导入不变
+import type { ShopImportCardView } from '../salesOrderPanelView'
+
+export type { ShopImportCardView }
 
 /** useSalesOrderImport 依赖注入：跨块共享的组件 ref / 回调 */
 export interface SalesOrderImportDeps {

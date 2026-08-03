@@ -682,7 +682,6 @@ import {
   fetchSalesOrders,
   type EcSalesOrder,
   type EcSalesOrderMonthlyOverview,
-  type EcSalesOrderShopImportStatus,
 } from '@/api/ecommerce/salesOrder'
 import SalesOrderFormDialog from './SalesOrderFormDialog.vue'
 import SalesOrderDetailDrawer from './SalesOrderDetailDrawer.vue'
@@ -699,8 +698,9 @@ import { useMobileEcDoodle } from '@/composables/useMobileEcDoodle'
 import { doodleSeedFromKey } from '@/mobile/utils/doodleSeed'
 import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
 import MobileDoodleChip from '@/mobile/components/MobileDoodleChip.vue'
-import { defaultOrderMonth, formatDateTime, formatMonthDay, monthDateRange } from '@/utils/date'
+import { defaultOrderMonth, formatDateTime, monthDateRange } from '@/utils/date'
 import { importLineStatusTagType, orderShopColor, orderStatColor, parseOrderMonthFromQuery, sanitizeManualCostInput, statusTagType } from '@/utils/salesOrderView'
+import { buildStatCards, toShopImportCardView } from './salesOrderPanelView'
 
 const { t } = useI18n() // 国际化函数
 const doodle = useMobileEcDoodle() // 涂鸦风格主题
@@ -876,90 +876,12 @@ function syncTimeRangeFromMonth() {
   orderTimeRange.value = monthDateRange(orderMonth.value)
 }
 
-const statCards = computed(() => {
-  const data = overview.value
-  return [
-    {
-      key: 'orders',
-      label: t('ecommerce.salesOrder.statImportedOrders'),
-      value: `${data?.totalOrderCount ?? 0}`,
-      hint: t('ecommerce.salesOrder.statImportedOrdersUnit'),
-      tone: 'blue',
-    },
-    {
-      key: 'shops',
-      label: t('ecommerce.salesOrder.statShopsDone'),
-      value: `${data?.importedShopCount ?? 0}/${data?.totalShopCount ?? 0}`,
-      hint: undefined,
-      tone: 'green',
-    },
-    {
-      key: 'pending',
-      label: t('ecommerce.salesOrder.statPendingReview'),
-      value: `${data?.pendingReviewCount ?? 0}`,
-      hint: t('ecommerce.salesOrder.statPendingReviewUnit'),
-      tone: 'orange',
-    },
-    {
-      key: 'lastImport',
-      label: t('ecommerce.salesOrder.statLastImport'),
-      value: data?.lastImportTime ? formatMonthDay(data.lastImportTime) : '—',
-      hint: data?.lastImportTime ? undefined : t('ecommerce.salesOrder.statLastImportEmpty'),
-      tone: 'gray',
-    },
-  ]
-})
+const statCards = computed(() => buildStatCards(overview.value, t))
 
 const shopImportCards = computed<ShopImportCardView[]>(() => {
   const shops = overview.value?.shops ?? []
-  return shops.map((shop) => toShopImportCard(shop))
+  return shops.map((shop) => toShopImportCardView(shop, t))
 })
-
-function toShopImportCard(shop: EcSalesOrderShopImportStatus): ShopImportCardView {
-  const base = {
-    shopId: shop.shopId,
-    shopName: shop.shopName || `#${shop.shopId}`,
-    platformName: shop.platformName,
-    platformCode: shop.platformCode,
-    shopAvatarUrl: shop.shopAvatarUrl,
-    platformAvatarUrl: shop.platformAvatarUrl,
-    status: shop.status,
-    orderCount: shop.orderCount,
-    pendingBatchId: shop.pendingBatchId,
-  }
-  if (shop.status === 'PENDING_REVIEW') {
-    return {
-      ...base,
-      tone: 'orange',
-      statusText: shop.orderCount > 0
-        ? t('ecommerce.salesOrder.shopStatusImportedWithPending', {
-            imported: shop.orderCount,
-            pending: shop.pendingReviewRows ?? 0,
-          })
-        : t('ecommerce.salesOrder.shopStatusPendingReview', { count: shop.pendingReviewRows ?? 0 }),
-      dateLabel: shop.lastImportTime ? formatMonthDay(shop.lastImportTime) : undefined,
-      actionLabel: t('ecommerce.salesOrder.shopContinueReview'),
-      actionType: 'warning',
-    }
-  }
-  if (shop.status === 'IMPORTED') {
-    return {
-      ...base,
-      tone: 'green',
-      statusText: t('ecommerce.salesOrder.shopStatusImported', { count: shop.orderCount }),
-      dateLabel: shop.lastImportTime ? formatMonthDay(shop.lastImportTime) : undefined,
-      actionLabel: t('ecommerce.salesOrder.shopViewOrders'),
-      actionType: 'default',
-    }
-  }
-  return {
-    ...base,
-    tone: 'gray',
-    statusText: t('ecommerce.salesOrder.shopStatusNotImported'),
-    actionLabel: t('ecommerce.salesOrder.shopGoImport'),
-    actionType: 'primary',
-  }
-}
 
 async function loadOverview() {
   const month = orderMonth.value
