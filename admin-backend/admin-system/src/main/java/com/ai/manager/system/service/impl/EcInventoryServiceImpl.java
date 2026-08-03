@@ -45,6 +45,7 @@ import com.ai.manager.system.service.EcInventoryService;
 import com.ai.manager.system.service.EcSystemSettingsService;
 import com.ai.manager.system.service.support.EcInventoryVoAssembler;
 import com.ai.manager.system.service.support.EcInventoryVoAssembler.SkuBrief;
+import com.ai.manager.system.service.support.EcInventoryContextLoader;
 import com.ai.manager.system.service.support.EcInventoryVoAssembler.SkuContext;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -80,7 +81,6 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
     private static final String CHANGE_INBOUND = "INBOUND";
     private static final String CHANGE_STOCKTAKE = "STOCKTAKE";
     private static final String REF_INBOUND_ORDER = "INBOUND_ORDER";
-    private static final String STATUS_DRAFT = "DRAFT";
     private static final int RECENT_LOG_LIMIT = 5;
 
     private final EcSystemSettingsService ecSystemSettingsService;
@@ -94,6 +94,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
     private final EcProductMapper ecProductMapper;
     private final EcFactoryMapper ecFactoryMapper;
     private final EcInventoryVoAssembler inventoryVoAssembler;
+    private final EcInventoryContextLoader inventoryContextLoader;
 
     @Override
     public PageResult<EcInventoryListItemVO> pageInventories(String keyword, Boolean alertOnly, Boolean inStockOnly,
@@ -121,9 +122,9 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
             return empty;
         }
 
-        Map<String, SkuBrief> skuBriefMap = loadSkuBriefMap(
+        Map<String, SkuBrief> skuBriefMap = inventoryContextLoader.loadSkuBriefMap(
                 entityPage.getRecords().stream().map(EcInventory::getSkuCode).toList());
-        Map<String, Integer> inTransitMap = loadInTransitMap(
+        Map<String, Integer> inTransitMap = inventoryContextLoader.loadInTransitMap(
                 entityPage.getRecords().stream().map(EcInventory::getSkuCode).toList());
         List<EcInventoryListItemVO> records = new ArrayList<>();
         for (EcInventory inventory : entityPage.getRecords()) {
@@ -150,7 +151,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
         List<String> allSkuCodes = all.stream()
                 .map(EcInventory::getSkuCode)
                 .collect(Collectors.toList());
-        Map<String, SkuBrief> skuBriefMap = loadSkuBriefMap(allSkuCodes);
+        Map<String, SkuBrief> skuBriefMap = inventoryContextLoader.loadSkuBriefMap(allSkuCodes);
 
         for (EcInventory inv : all) {
             int qty = inv.getQuantity() != null ? inv.getQuantity() : 0;
@@ -203,7 +204,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
             return emptySummary();
         }
 
-        Map<String, SkuBrief> skuBriefMap = loadSkuBriefMap(
+        Map<String, SkuBrief> skuBriefMap = inventoryContextLoader.loadSkuBriefMap(
                 all.stream().map(EcInventory::getSkuCode).distinct().toList());
 
         int skuCount = all.size();
@@ -283,7 +284,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
     public EcInventorySpuStatusVO getSpuStatusCounts() {
         List<EcInventory> all = list();
         List<String> allSkuCodes = all.stream().map(EcInventory::getSkuCode).distinct().toList();
-        Map<String, SkuBrief> skuBriefMap = loadSkuBriefMap(allSkuCodes);
+        Map<String, SkuBrief> skuBriefMap = inventoryContextLoader.loadSkuBriefMap(allSkuCodes);
 
         // 按 productId 分组
         Map<String, List<EcInventory>> spuGroups = new LinkedHashMap<>();
@@ -332,9 +333,9 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
 
         if (inventories.isEmpty()) return List.of();
 
-        Map<String, SkuBrief> skuBriefMap = loadSkuBriefMap(
+        Map<String, SkuBrief> skuBriefMap = inventoryContextLoader.loadSkuBriefMap(
                 inventories.stream().map(EcInventory::getSkuCode).toList());
-        Map<String, Integer> inTransitMap = loadInTransitMap(
+        Map<String, Integer> inTransitMap = inventoryContextLoader.loadInTransitMap(
                 inventories.stream().map(EcInventory::getSkuCode).toList());
 
         List<EcInventoryListItemVO> list = new ArrayList<>();
@@ -367,8 +368,8 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
 
         // 加载 SKU 信息（含 productId/productName）
         List<String> allSkuCodes = allInventories.stream().map(EcInventory::getSkuCode).distinct().toList();
-        Map<String, SkuBrief> skuBriefMap = loadSkuBriefMap(allSkuCodes);
-        Map<String, Integer> inTransitMap = loadInTransitMap(allSkuCodes);
+        Map<String, SkuBrief> skuBriefMap = inventoryContextLoader.loadSkuBriefMap(allSkuCodes);
+        Map<String, Integer> inTransitMap = inventoryContextLoader.loadInTransitMap(allSkuCodes);
 
         // 按 productId 分组（无 productId 的用 skuCode 作为独立组）
         Map<String, List<EcInventory>> spuGroups = new LinkedHashMap<>();
@@ -470,7 +471,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
             extra.put("totalStockValue", BigDecimal.ZERO);
             return extra;
         }
-        Map<String, SkuBrief> skuBriefMap = loadSkuBriefMap(
+        Map<String, SkuBrief> skuBriefMap = inventoryContextLoader.loadSkuBriefMap(
                 all.stream().map(EcInventory::getSkuCode).distinct().toList());
         long totalQuantity = 0;
         BigDecimal totalStockValue = BigDecimal.ZERO;
@@ -495,15 +496,15 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
         if (inventory == null) {
             throw new BusinessException(ResultCode.NOT_FOUND);
         }
-        SkuContext skuCtx = loadSkuContext(inventory.getSkuCode());
+        SkuContext skuCtx = inventoryContextLoader.loadSkuContext(inventory.getSkuCode());
         List<EcInventoryLogVO> recentLogs = listLogs(id);
         if (recentLogs.size() > RECENT_LOG_LIMIT) {
             recentLogs = recentLogs.subList(0, RECENT_LOG_LIMIT);
         }
         return inventoryVoAssembler.toDetailVO(inventory, skuCtx, recentLogs,
-                loadInTransitQty(inventory.getSkuCode()),
-                loadRelatedInboundOrders(inventory.getSkuCode()),
-                loadRelatedOutboundOrders(inventory.getSkuCode()));
+                inventoryContextLoader.loadInTransitQty(inventory.getSkuCode()),
+                inventoryContextLoader.loadRelatedInboundOrders(inventory.getSkuCode()),
+                inventoryContextLoader.loadRelatedOutboundOrders(inventory.getSkuCode()));
     }
 
     @Override
@@ -540,7 +541,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
         }
         applySaveFields(request, existing);
         updateById(existing);
-        return inventoryVoAssembler.toListItemVO(existing, loadSkuBriefMap(List.of(existing.getSkuCode())).get(existing.getSkuCode()), List.of());
+        return inventoryVoAssembler.toListItemVO(existing, inventoryContextLoader.loadSkuBriefMap(List.of(existing.getSkuCode())).get(existing.getSkuCode()), List.of());
     }
 
     private EcInventoryListItemVO getInventoryListItem(Long id) {
@@ -548,7 +549,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
         if (inventory == null) {
             throw new BusinessException(ResultCode.NOT_FOUND);
         }
-        Map<String, SkuBrief> skuBriefMap = loadSkuBriefMap(List.of(inventory.getSkuCode()));
+        Map<String, SkuBrief> skuBriefMap = inventoryContextLoader.loadSkuBriefMap(List.of(inventory.getSkuCode()));
         return inventoryVoAssembler.toListItemVO(inventory, skuBriefMap.get(inventory.getSkuCode()), List.of());
     }
 
@@ -802,7 +803,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
-        Map<String, SkuContext> skuContextMap = loadSkuContextMap(skuCodes);
+        Map<String, SkuContext> skuContextMap = inventoryContextLoader.loadSkuContextMap(skuCodes);
 
         List<EcInventoryGlobalLogVO> records = new ArrayList<>();
         for (EcInventoryLog log : entityPage.getRecords()) {
@@ -906,7 +907,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
                 .filter(StringUtils::hasText)
                 .map(String::trim)
                 .collect(Collectors.toSet());
-        Map<String, SkuBrief> skuBriefMap = loadSkuBriefMap(new ArrayList<>(skuCodes));
+        Map<String, SkuBrief> skuBriefMap = inventoryContextLoader.loadSkuBriefMap(new ArrayList<>(skuCodes));
 
         BigDecimal total = BigDecimal.ZERO;
         for (EcInboundOrderLine line : lines) {
@@ -947,7 +948,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
                 .filter(StringUtils::hasText)
                 .map(String::trim)
                 .collect(Collectors.toSet());
-        Map<String, SkuBrief> skuBriefMap = loadSkuBriefMap(new ArrayList<>(skuCodes));
+        Map<String, SkuBrief> skuBriefMap = inventoryContextLoader.loadSkuBriefMap(new ArrayList<>(skuCodes));
         Map<String, Long> skuFactoryMap = loadSkuFactoryMap(new ArrayList<>(skuCodes));
 
         BigDecimal total = BigDecimal.ZERO;
@@ -1008,7 +1009,7 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
         if (!StringUtils.hasText(skuCode)) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "SKU 货号不能为空");
         }
-        SkuContext ctx = loadSkuContext(skuCode.trim());
+        SkuContext ctx = inventoryContextLoader.loadSkuContext(skuCode.trim());
         if (ctx == null) {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "SKU 货号不存在");
         }
@@ -1130,31 +1131,6 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
         return matchedSkuCodes;
     }
 
-    private Map<String, SkuBrief> loadSkuBriefMap(List<String> skuCodes) {
-        if (skuCodes == null || skuCodes.isEmpty()) {
-            return Map.of();
-        }
-        List<EcSku> skus = ecSkuMapper.selectList(new LambdaQueryWrapper<EcSku>()
-                .in(EcSku::getSkuCode, skuCodes));
-        if (skus.isEmpty()) {
-            return Map.of();
-        }
-        Set<Long> productIds = skus.stream().map(EcSku::getProductId).collect(Collectors.toSet());
-        Map<Long, String> productNameMap = ecProductMapper.selectBatchIds(productIds).stream()
-                .collect(Collectors.toMap(EcProduct::getId, EcProduct::getName, (a, b) -> a));
-
-        Map<String, SkuBrief> result = new HashMap<>();
-        for (EcSku sku : skus) {
-            SkuBrief brief = new SkuBrief();
-            brief.specName = sku.getSpecName();
-            brief.productName = productNameMap.get(sku.getProductId());
-            brief.productId = sku.getProductId();
-            brief.imageName = sku.getImageName();
-            brief.salePrice = sku.getSalePrice();
-            result.put(sku.getSkuCode().trim(), brief);
-        }
-        return result;
-    }
 
     private EcInventory getOrCreateInventory(String skuCode, Integer alertThreshold, Boolean ignoreAlert) {
         EcInventory inventory = getOne(new LambdaQueryWrapper<EcInventory>()
@@ -1293,180 +1269,5 @@ public class EcInventoryServiceImpl extends ServiceImpl<EcInventoryMapper, EcInv
 
 
 
-    private int loadInTransitQty(String skuCode) {
-        return loadInTransitMap(List.of(skuCode)).getOrDefault(skuCode, 0);
-    }
-
-    private Map<String, Integer> loadInTransitMap(List<String> skuCodes) {
-        if (skuCodes == null || skuCodes.isEmpty()) {
-            return Map.of();
-        }
-        List<EcInboundOrder> draftOrders = ecInboundOrderMapper.selectList(
-                new LambdaQueryWrapper<EcInboundOrder>().eq(EcInboundOrder::getStatus, STATUS_DRAFT));
-        if (draftOrders.isEmpty()) {
-            return skuCodes.stream().collect(Collectors.toMap(code -> code, code -> 0, (a, b) -> a));
-        }
-        Set<Long> orderIds = draftOrders.stream().map(EcInboundOrder::getId).collect(Collectors.toSet());
-        List<EcInboundOrderLine> lines = ecInboundOrderLineMapper.selectList(
-                new LambdaQueryWrapper<EcInboundOrderLine>()
-                        .in(EcInboundOrderLine::getOrderId, orderIds)
-                        .in(EcInboundOrderLine::getSkuCode, skuCodes));
-        Map<String, Integer> result = new HashMap<>();
-        for (String skuCode : skuCodes) {
-            result.put(skuCode, 0);
-        }
-        for (EcInboundOrderLine line : lines) {
-            result.merge(line.getSkuCode(),
-                    line.getQuantity() != null ? line.getQuantity() : 0,
-                    Integer::sum);
-        }
-        return result;
-    }
-
-    private List<EcInventoryInboundBriefVO> loadRelatedInboundOrders(String skuCode) {
-        List<EcInboundOrderLine> lines = ecInboundOrderLineMapper.selectList(
-                new LambdaQueryWrapper<EcInboundOrderLine>()
-                        .eq(EcInboundOrderLine::getSkuCode, skuCode)
-                        .orderByDesc(EcInboundOrderLine::getId));
-        if (lines.isEmpty()) {
-            return List.of();
-        }
-        Set<Long> orderIds = lines.stream().map(EcInboundOrderLine::getOrderId).collect(Collectors.toSet());
-        Map<Long, EcInboundOrder> orderMap = ecInboundOrderMapper.selectBatchIds(orderIds).stream()
-                .collect(Collectors.toMap(EcInboundOrder::getId, o -> o, (a, b) -> a));
-
-        List<EcInventoryInboundBriefVO> result = new ArrayList<>();
-        Set<Long> seen = new HashSet<>();
-        for (EcInboundOrderLine line : lines) {
-            if (!seen.add(line.getOrderId())) {
-                continue;
-            }
-            EcInboundOrder order = orderMap.get(line.getOrderId());
-            if (order == null) {
-                continue;
-            }
-            EcInventoryInboundBriefVO brief = new EcInventoryInboundBriefVO();
-            brief.setId(order.getId());
-            brief.setOrderNo(order.getOrderNo());
-            brief.setStatus(order.getStatus());
-            brief.setQuantity(line.getQuantity());
-            brief.setReceivedQuantity(line.getReceivedQuantity());
-            brief.setOrderTime(order.getOrderTime());
-            brief.setExpectedDeliveryTime(order.getExpectedDeliveryTime());
-            brief.setActualReceiptTime(order.getActualReceiptTime());
-            result.add(brief);
-        }
-        result.sort(Comparator.comparing(EcInventoryInboundBriefVO::getId, Comparator.nullsLast(Comparator.reverseOrder())));
-        return result;
-    }
-
-    private List<EcInventoryOutboundBriefVO> loadRelatedOutboundOrders(String skuCode) {
-        List<EcOutboundOrderLine> lines = ecOutboundOrderLineMapper.selectList(
-                new LambdaQueryWrapper<EcOutboundOrderLine>()
-                        .eq(EcOutboundOrderLine::getSkuCode, skuCode)
-                        .orderByDesc(EcOutboundOrderLine::getId));
-        if (lines.isEmpty()) {
-            return List.of();
-        }
-        Set<Long> orderIds = lines.stream().map(EcOutboundOrderLine::getOrderId).collect(Collectors.toSet());
-        Map<Long, EcOutboundOrder> orderMap = ecOutboundOrderMapper.selectBatchIds(orderIds).stream()
-                .collect(Collectors.toMap(EcOutboundOrder::getId, o -> o, (a, b) -> a));
-
-        List<EcInventoryOutboundBriefVO> result = new ArrayList<>();
-        Set<Long> seen = new HashSet<>();
-        for (EcOutboundOrderLine line : lines) {
-            if (!seen.add(line.getOrderId())) {
-                continue;
-            }
-            EcOutboundOrder order = orderMap.get(line.getOrderId());
-            if (order == null) {
-                continue;
-            }
-            EcInventoryOutboundBriefVO brief = new EcInventoryOutboundBriefVO();
-            brief.setId(order.getId());
-            brief.setOrderNo(order.getOrderNo());
-            brief.setStatus(order.getStatus());
-            brief.setQuantity(line.getQuantity());
-            brief.setShippedQuantity(line.getShippedQuantity());
-            brief.setOrderTime(order.getOrderTime());
-            brief.setExpectedShipTime(order.getExpectedShipTime());
-            brief.setActualShipTime(order.getActualShipTime());
-            result.add(brief);
-        }
-        result.sort(Comparator.comparing(EcInventoryOutboundBriefVO::getId, Comparator.nullsLast(Comparator.reverseOrder())));
-        return result;
-    }
-
-    private SkuContext loadSkuContext(String skuCode) {
-        Map<String, SkuContext> map = loadSkuContextMap(List.of(skuCode));
-        return map.get(skuCode);
-    }
-
-    private Map<String, SkuContext> loadSkuContextMap(List<String> skuCodes) {
-        if (skuCodes == null || skuCodes.isEmpty()) {
-            return Map.of();
-        }
-        List<EcSku> skus = ecSkuMapper.selectList(new LambdaQueryWrapper<EcSku>()
-                .in(EcSku::getSkuCode, skuCodes));
-        if (skus.isEmpty()) {
-            return Map.of();
-        }
-        Set<Long> productIds = skus.stream().map(EcSku::getProductId).collect(Collectors.toSet());
-        Map<Long, EcProduct> productMap = ecProductMapper.selectBatchIds(productIds).stream()
-                .collect(Collectors.toMap(EcProduct::getId, p -> p, (a, b) -> a));
-        Set<Long> factoryIds = productMap.values().stream()
-                .map(EcProduct::getFactoryId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        Map<Long, String> factoryNameMap = factoryIds.isEmpty() ? Map.of()
-                : ecFactoryMapper.selectBatchIds(factoryIds).stream()
-                .collect(Collectors.toMap(EcFactory::getId, EcFactory::getName, (a, b) -> a));
-
-        Set<Long> cartonIds = skus.stream()
-                .map(EcSku::getCartonId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-        Map<Long, EcCarton> cartonMap = cartonIds.isEmpty() ? Map.of()
-                : ecCartonMapper.selectBatchIds(cartonIds).stream()
-                .collect(Collectors.toMap(EcCarton::getId, c -> c, (a, b) -> a));
-
-        Map<String, SkuContext> result = new HashMap<>();
-        for (EcSku sku : skus) {
-            SkuContext ctx = new SkuContext();
-            ctx.skuId = sku.getId();
-            ctx.productId = sku.getProductId();
-            ctx.specName = sku.getSpecName();
-            ctx.salePrice = sku.getSalePrice();
-            ctx.skuStatus = sku.getStatus();
-            if (StringUtils.hasText(sku.getImageName())) {
-                ctx.imageName = sku.getImageName().trim();
-            }
-            ctx.unitsPerCarton = sku.getUnitsPerCarton();
-            ctx.cartonId = sku.getCartonId();
-            EcProduct product = productMap.get(sku.getProductId());
-            if (product != null) {
-                ctx.productName = product.getName();
-                ctx.productStatus = product.getStatus();
-                ctx.factoryId = product.getFactoryId();
-                if (product.getFactoryId() != null) {
-                    ctx.factoryName = factoryNameMap.get(product.getFactoryId());
-                }
-                if (!StringUtils.hasText(ctx.imageName) && StringUtils.hasText(product.getImageName())) {
-                    ctx.imageName = product.getImageName().trim();
-                }
-            }
-            if (sku.getCartonId() != null) {
-                EcCarton carton = cartonMap.get(sku.getCartonId());
-                if (carton != null) {
-                    ctx.cartonName = carton.getName();
-                    ctx.cartonLengthCm = carton.getLengthCm();
-                    ctx.cartonWidthCm = carton.getWidthCm();
-                    ctx.cartonHeightCm = carton.getHeightCm();
-                }
-            }
-            result.put(sku.getSkuCode(), ctx);
-        }
-        return result;
-    }
 
 }
