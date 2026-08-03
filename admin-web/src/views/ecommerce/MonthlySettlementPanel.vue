@@ -606,7 +606,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
@@ -640,6 +640,7 @@ import {
 } from './monthlySettlementView'
 import type { PrepTask } from './monthlySettlementView'
 import { useMonthlySettlementBuyerExclude } from './composables/useMonthlySettlementBuyerExclude'
+import { useMonthlySettlementPendingDecisions } from './composables/useMonthlySettlementPendingDecisions'
 import { useMonthlySettlementPrepTasks } from './composables/useMonthlySettlementPrepTasks'
 
 const { t } = useI18n()
@@ -654,7 +655,6 @@ const calculated = ref(false)
 const savingDecisions = ref(false)
 const expressBillImported = ref(false)
 const result = ref<{ shops: MonthlySettlementShopSummary[]; expressBillImported?: boolean } | null>(null)
-const pendingDecisions = reactive<Record<number, boolean>>({})
 const selectedShopId = ref<number | null>(null)
 const maxProfitShowAll = ref(false)
 
@@ -901,15 +901,22 @@ const { prepTasks } = useMonthlySettlementPrepTasks({
 
 const statusLabel = (s?: string) => viewStatusLabel(s, statusOptions.value)
 
-function syncPendingDecisions(shops: MonthlySettlementShopSummary[]) {
-  Object.keys(pendingDecisions).forEach((k) => delete pendingDecisions[Number(k)])
-  for (const shop of shops) {
-    for (const row of shop.pendingOrders ?? []) {
-      if (row.orderId == null) continue
-      pendingDecisions[row.orderId] = row.included ?? true
-    }
-  }
-}
+const {
+  syncPendingDecisions,
+  onPendingDecisionChange,
+  resolvePendingDecision,
+  setAllPendingDecisions,
+  savePendingDecisions,
+} = useMonthlySettlementPendingDecisions({
+  t,
+  settlementMonth,
+  savingDecisions,
+  lastPendingDecisionAt,
+  applySettlementResult,
+  saveDecisions: saveSettlementOrderDecisions,
+  notifyWarning: (message) => ElMessage.warning(message),
+  notifySuccess: (message) => ElMessage.success(message),
+})
 
 function syncSelectedShop() {
   const shops = shopSummaries.value
@@ -1139,50 +1146,6 @@ async function loadPrepData(options?: { silent?: boolean }) {
     expressBillImported.value = false
   } finally {
     endPrepLoading(options?.silent)
-  }
-}
-
-function onPendingDecisionChange(orderId: number, included: boolean) {
-  pendingDecisions[orderId] = included
-}
-
-function resolvePendingDecision(row: { orderId?: number; included?: boolean | null }) {
-  const orderId = row.orderId
-  if (orderId == null) return true
-  if (pendingDecisions[orderId] === undefined) {
-    pendingDecisions[orderId] = row.included ?? true
-  }
-  return pendingDecisions[orderId]
-}
-
-function setAllPendingDecisions(shop: MonthlySettlementShopSummary | null, included: boolean) {
-  if (!shop) return
-  for (const row of shop.pendingOrders ?? []) {
-    if (row.orderId == null) continue
-    pendingDecisions[row.orderId] = included
-  }
-}
-
-async function savePendingDecisions(shop: MonthlySettlementShopSummary) {
-  if (!settlementMonth.value) return
-  const items = (shop.pendingOrders ?? [])
-    .filter((row) => row.orderId != null)
-    .map((row) => ({ orderId: row.orderId!, included: pendingDecisions[row.orderId!] ?? true }))
-  if (!items.length) {
-    ElMessage.warning(t('ecommerce.monthlySettlement.noDecisions'))
-    return
-  }
-  savingDecisions.value = true
-  try {
-    const data = await saveSettlementOrderDecisions({
-      settlementMonth: settlementMonth.value,
-      items,
-    })
-    applySettlementResult(data)
-    lastPendingDecisionAt.value = new Date().toISOString()
-    ElMessage.success(t('ecommerce.monthlySettlement.decisionsSaved'))
-  } finally {
-    savingDecisions.value = false
   }
 }
 
