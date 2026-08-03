@@ -33,6 +33,7 @@ import com.ai.manager.system.mapper.AiKnowledgeConfigMapper;
 import com.ai.manager.system.mapper.RagChunkMapper;
 import com.ai.manager.system.mapper.RagDocumentMapper;
 import com.ai.manager.system.service.AiKnowledgeService;
+import com.ai.manager.system.service.support.AiKnowledgeConfigStore;
 import com.ai.manager.system.service.support.llm.LlmChatResult;
 import com.ai.manager.system.service.support.llm.LlmProviderStrategy;
 import com.ai.manager.system.service.support.llm.LlmProviderStrategyFactory;
@@ -45,7 +46,6 @@ import com.ai.manager.system.service.support.rag.DocumentParser;
 import com.ai.manager.system.service.support.rag.EmbeddingService;
 import com.ai.manager.system.service.support.rag.PgVectorStore;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -78,11 +78,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AiKnowledgeServiceImpl implements AiKnowledgeService {
 
-    private static final String KEY_MODEL_CONFIG = "model_config";
     private static final String KEY_EMBEDDING_CONFIG = "embedding_config";
-
-    /** 默认提供商配置（用于新用户首次使用） */
-    private static final Map<String, AiKnowledgeConfigVO> DEFAULT_CONFIGS = buildDefaultConfigs();
 
     /** 各提供商/模型的上下文窗口大小（Token），用于计算当前会话上下文占用百分比 */
     private static final Map<String, Integer> MODEL_CONTEXT_MAP = Map.ofEntries(
@@ -117,6 +113,7 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
 
     private final AiKnowledgeConfigMapper configMapper;
     private final ObjectMapper objectMapper;
+    private final AiKnowledgeConfigStore configStore;
     private final AiChatCategoryMapper chatCategoryMapper;
     private final AiChatConversationMapper chatConversationMapper;
     private final AiChatMessageMapper chatMessageMapper;
@@ -135,13 +132,13 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
 
     @Override
     public AiKnowledgeConfigVO getConfig() {
-        Map<String, AiKnowledgeConfigVO> all = readAllConfigs();
+        Map<String, AiKnowledgeConfigVO> all = configStore.readAllConfigs();
 
         // 优先返回标记为默认的提供商
         for (Map.Entry<String, AiKnowledgeConfigVO> entry : all.entrySet()) {
             AiKnowledgeConfigVO c = entry.getValue();
             if (Boolean.TRUE.equals(c.getDefaultProvider())) {
-                return maskConfig(c);
+                return configStore.maskConfig(c);
             }
         }
 
@@ -149,17 +146,17 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
         for (Map.Entry<String, AiKnowledgeConfigVO> entry : all.entrySet()) {
             AiKnowledgeConfigVO c = entry.getValue();
             if (c.getApiKey() != null && !c.getApiKey().isBlank()) {
-                return maskConfig(c);
+                return configStore.maskConfig(c);
             }
         }
         // 都不算有 key，返回第一个
         AiKnowledgeConfigVO first = all.values().iterator().next();
-        return maskConfig(first);
+        return configStore.maskConfig(first);
     }
 
     @Override
     public List<AiKnowledgeProviderInfoVO> getProviders() {
-        Map<String, AiKnowledgeConfigVO> all = readAllConfigs();
+        Map<String, AiKnowledgeConfigVO> all = configStore.readAllConfigs();
         List<AiKnowledgeProviderInfoVO> list = new ArrayList<>();
         for (Map.Entry<String, AiKnowledgeConfigVO> entry : all.entrySet()) {
             AiKnowledgeConfigVO config = entry.getValue();
@@ -189,7 +186,7 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
         }
 
         // 读取现有所有配置
-        Map<String, AiKnowledgeConfigVO> all = readAllConfigs();
+        Map<String, AiKnowledgeConfigVO> all = configStore.readAllConfigs();
 
         // 构建完整配置
         AiKnowledgeConfigVO config = new AiKnowledgeConfigVO();
@@ -215,7 +212,7 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
         config.setMaxContextMessages(request.getMaxContextMessages());
 
         // 如果前端未传 apiBaseUrl 或 embeddingModel，用该提供商的默认值补齐
-        AiKnowledgeConfigVO defaults = DEFAULT_CONFIGS.get(provider);
+        AiKnowledgeConfigVO defaults = configStore.defaultConfig(provider);
         if (defaults != null) {
             if (config.getApiBaseUrl() == null || config.getApiBaseUrl().isBlank()) {
                 config.setApiBaseUrl(defaults.getApiBaseUrl());
@@ -237,11 +234,11 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
             }
         }
 
-        writeAllConfigs(all);
+        configStore.writeAllConfigs(all);
 
         log.info("AI 知识库配置已保存：provider={}, model={}, defaultProvider={}",
                 provider, request.getModel(), request.getDefaultProvider());
-        return maskConfig(config);
+        return configStore.maskConfig(config);
     }
 
     // ==================== Embedding 配置（独立于 Chat 配置） ====================
@@ -252,14 +249,14 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
         if (row != null && row.getConfigJson() != null && !row.getConfigJson().isBlank()) {
             try {
                 AiKnowledgeConfigVO config = objectMapper.readValue(row.getConfigJson(), AiKnowledgeConfigVO.class);
-                return maskConfig(config);
+                return configStore.maskConfig(config);
             } catch (JsonProcessingException e) {
                 log.error("解析 embedding 配置失败", e);
             }
         }
         // 无独立 embedding 配置时，返回当前默认 chat 配置（masked）
         AiKnowledgeConfigVO fallback = resolveDefaultConfig();
-        return fallback != null ? maskConfig(fallback) : null;
+        return fallback != null ? configStore.maskConfig(fallback) : null;
     }
 
     @Override
@@ -270,7 +267,7 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
         }
 
         // 读取所有提供商的完整配置，用于补充默认值
-        Map<String, AiKnowledgeConfigVO> all = readAllConfigs();
+        Map<String, AiKnowledgeConfigVO> all = configStore.readAllConfigs();
 
         AiKnowledgeConfigVO config = new AiKnowledgeConfigVO();
         config.setProvider(provider);
@@ -302,7 +299,7 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
         config.setEmbeddingModel(request.getEmbeddingModel());
 
         // 默认值补齐
-        AiKnowledgeConfigVO defaults = DEFAULT_CONFIGS.get(provider);
+        AiKnowledgeConfigVO defaults = configStore.defaultConfig(provider);
         if (defaults != null) {
             if (config.getApiBaseUrl() == null || config.getApiBaseUrl().isBlank()) {
                 config.setApiBaseUrl(defaults.getApiBaseUrl());
@@ -495,7 +492,7 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
     }
 
     private AiKnowledgeConfigVO resolveProviderConfig(String provider) {
-        Map<String, AiKnowledgeConfigVO> all = readAllConfigs();
+        Map<String, AiKnowledgeConfigVO> all = configStore.readAllConfigs();
         if (provider != null && !provider.isBlank()) {
             AiKnowledgeConfigVO c = all.get(provider);
             if (c != null) return c;
@@ -1131,154 +1128,6 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
         }
     }
 
-    // ==================== 配置读写（内部方法） ====================
-
-    /**
-     * 从数据库读取所有提供商的配置映射，并合并默认值
-     * 兼容旧格式（单个配置对象），自动迁移
-     */
-    private Map<String, AiKnowledgeConfigVO> readAllConfigs() {
-        Map<String, AiKnowledgeConfigVO> all = new HashMap<>();
-
-        // 1. 先读数据库中的配置
-        AiKnowledgeConfig row = configMapper.selectById(KEY_MODEL_CONFIG);
-        if (row != null && row.getConfigJson() != null && !row.getConfigJson().isBlank()) {
-            try {
-                all = objectMapper.readValue(row.getConfigJson(), new TypeReference<Map<String, AiKnowledgeConfigVO>>() {});
-            } catch (JsonProcessingException e) {
-                // 尝试解析为旧格式（单个 AiKnowledgeConfigVO）
-                try {
-                    AiKnowledgeConfigVO old = objectMapper.readValue(row.getConfigJson(), AiKnowledgeConfigVO.class);
-                    if (old != null && old.getProvider() != null) {
-                        all.put(old.getProvider(), old);
-                        log.info("已迁移旧格式配置：provider={}", old.getProvider());
-                    }
-                } catch (JsonProcessingException ex) {
-                    log.error("解析模型配置 JSON 失败，使用默认配置", ex);
-                }
-            }
-        }
-
-        // 2. 合并默认值：DB 中缺失的提供商用默认配置补上
-        boolean needSave = false;
-        for (Map.Entry<String, AiKnowledgeConfigVO> entry : DEFAULT_CONFIGS.entrySet()) {
-            String key = entry.getKey();
-            if (!all.containsKey(key)) {
-                all.put(key, entry.getValue());
-                needSave = true;
-            }
-        }
-
-        // 3. 如有新增的默认配置，写回 DB
-        if (needSave) {
-            try {
-                String json = objectMapper.writeValueAsString(all);
-                if (row == null) {
-                    row = new AiKnowledgeConfig();
-                    row.setConfigKey(KEY_MODEL_CONFIG);
-                    row.setConfigJson(json);
-                    configMapper.insert(row);
-                } else {
-                    row.setConfigJson(json);
-                    configMapper.updateById(row);
-                }
-                log.info("已补全所有提供商的默认配置");
-            } catch (JsonProcessingException e) {
-                log.error("写入默认配置失败", e);
-            }
-        }
-
-        return all;
-    }
-
-    /**
-     * 将所有提供商的配置写入数据库
-     */
-    private void writeAllConfigs(Map<String, AiKnowledgeConfigVO> configs) {
-        try {
-            String json = objectMapper.writeValueAsString(configs);
-            AiKnowledgeConfig row = configMapper.selectById(KEY_MODEL_CONFIG);
-            if (row == null) {
-                row = new AiKnowledgeConfig();
-                row.setConfigKey(KEY_MODEL_CONFIG);
-                row.setConfigJson(json);
-                configMapper.insert(row);
-            } else {
-                row.setConfigJson(json);
-                configMapper.updateById(row);
-            }
-        } catch (JsonProcessingException e) {
-            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "配置序列化失败");
-        }
-    }
-
-    /**
-     * 保存某个提供商的配置
-     */
-    private void saveProviderConfig(String provider, AiKnowledgeConfigVO config) {
-        Map<String, AiKnowledgeConfigVO> all = readAllConfigs();
-        all.put(provider, config);
-        writeAllConfigs(all);
-    }
-
-    /**
-     * 默认配置构建
-     */
-    private static Map<String, AiKnowledgeConfigVO> buildDefaultConfigs() {
-        Map<String, AiKnowledgeConfigVO> map = new HashMap<>();
-        map.put("openai", buildConfig("openai", "https://api.openai.com/v1", "gpt-4o", 0.7, 4096, "text-embedding-3-small", true, 10));
-        map.put("claude", buildConfig("claude", "https://api.anthropic.com", "claude-sonnet-4-20250514", 0.7, 8192, "text-embedding-3-small", false, 10));
-        map.put("deepseek", buildConfig("deepseek", "https://api.deepseek.com", "deepseek-chat", 0.7, 8192, "deepseek-embedding", false, 10));
-        map.put("qwen", buildConfig("qwen", "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-turbo", 0.7, 8192, "text-embedding-v2", false, 10));
-        map.put("custom", buildConfig("custom", "", "", 0.7, 4096, "text-embedding-3-small", false, 10));
-        return map;
-    }
-
-    private static AiKnowledgeConfigVO buildConfig(String provider, String apiBaseUrl, String model,
-                                                    double temperature, int maxTokens, String embeddingModel,
-                                                    boolean defaultProvider, int maxContextMessages) {
-        AiKnowledgeConfigVO vo = new AiKnowledgeConfigVO();
-        vo.setProvider(provider);
-        vo.setApiKey("");
-        vo.setApiBaseUrl(apiBaseUrl);
-        vo.setModel(model);
-        vo.setTemperature(temperature);
-        vo.setMaxTokens(maxTokens);
-        vo.setEmbeddingModel(embeddingModel);
-        vo.setDefaultProvider(defaultProvider);
-        vo.setMaxContextMessages(maxContextMessages);
-        return vo;
-    }
-
-    private AiKnowledgeConfigVO defaultForProvider(String provider) {
-        return DEFAULT_CONFIGS.getOrDefault(provider, DEFAULT_CONFIGS.get("openai"));
-    }
-
-    /**
-     * 脱敏 API Key
-     */
-    private AiKnowledgeConfigVO maskConfig(AiKnowledgeConfigVO config) {
-        if (config == null) return null;
-        AiKnowledgeConfigVO vo = new AiKnowledgeConfigVO();
-        vo.setProvider(config.getProvider());
-        vo.setApiKey(maskApiKey(config.getApiKey()));
-        vo.setApiBaseUrl(config.getApiBaseUrl());
-        vo.setModel(config.getModel());
-        vo.setTemperature(config.getTemperature());
-        vo.setMaxTokens(config.getMaxTokens());
-        vo.setEmbeddingModel(config.getEmbeddingModel());
-        vo.setDefaultProvider(config.getDefaultProvider());
-        vo.setMaxContextMessages(config.getMaxContextMessages());
-        return vo;
-    }
-
-    private String maskApiKey(String apiKey) {
-        if (apiKey == null || apiKey.length() <= 4) {
-            return "****";
-        }
-        return apiKey.substring(0, 2) + "****" + apiKey.substring(apiKey.length() - 4);
-    }
-
     // ==================== 用量统计 ====================
 
     @Override
@@ -1311,7 +1160,7 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
      * <p>避免默认提供商未配置 API Key 时返回空 key 的配置</p>
      */
     private AiKnowledgeConfigVO resolveDefaultConfig() {
-        Map<String, AiKnowledgeConfigVO> all = readAllConfigs();
+        Map<String, AiKnowledgeConfigVO> all = configStore.readAllConfigs();
         AiKnowledgeConfigVO defaultWithKey = null;
         AiKnowledgeConfigVO defaultNoKey = null;
 
