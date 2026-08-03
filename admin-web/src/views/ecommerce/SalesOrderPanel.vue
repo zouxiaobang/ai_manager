@@ -671,21 +671,16 @@
  * 管理电商销售订单，支持订单导入、订单列表查看和编辑
  * 提供月度统计、店铺导入状态、订单筛选等功能
  */
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { ElMessage } from 'element-plus'
 import { ArrowDown, CircleCheckFilled, InfoFilled, Loading, UploadFilled } from '@element-plus/icons-vue'
 import { fetchShopOptions, type EcShop } from '@/api/ecommerce/shop'
 import { fetchExpressStations, type EcExpressStation } from '@/api/ecommerce/express'
-import { fetchListingLink, fetchListingLinks } from '@/api/ecommerce/listingLink'
 import {
-  createSalesOrder,
   fetchSalesOrderMonthlyOverview,
   fetchSalesOrders,
-  updateSalesOrder,
   type EcSalesOrder,
-  type EcSalesOrderLineSaveItem,
   type EcSalesOrderMonthlyOverview,
   type EcSalesOrderShopImportStatus,
 } from '@/api/ecommerce/salesOrder'
@@ -698,13 +693,13 @@ import ImportStatusMappingEditor from '@/components/ImportStatusMappingEditor.vu
 import { resolveShopIconMeta } from '@/utils/shopVisual'
 import { usePagination } from '@/composables/usePagination'
 import { useSalesOrderImport, type ShopImportCardView } from './composables/useSalesOrderImport'
+import { useSalesOrderForm } from './composables/useSalesOrderForm'
 import { useSalesOrderDetail } from './composables/useSalesOrderDetail'
 import { useMobileEcDoodle } from '@/composables/useMobileEcDoodle'
 import { doodleSeedFromKey } from '@/mobile/utils/doodleSeed'
 import SchemeADoodleFrame from '@/mobile/views/home/themes/scheme-a/SchemeADoodleFrame.vue'
 import MobileDoodleChip from '@/mobile/components/MobileDoodleChip.vue'
-import { defaultOrderMonth, formatDateTime, formatMonthDay, monthDateRange, todayDateString } from '@/utils/date'
-import { parseProvinceFromAddress } from '@/utils/addressProvince'
+import { defaultOrderMonth, formatDateTime, formatMonthDay, monthDateRange } from '@/utils/date'
 import { importLineStatusTagType, orderShopColor, orderStatColor, parseOrderMonthFromQuery, sanitizeManualCostInput, statusTagType } from '@/utils/salesOrderView'
 
 const { t } = useI18n() // 国际化函数
@@ -725,10 +720,6 @@ const statusFilter = ref<string | undefined>()
 const shopFilter = ref<number | undefined>()
 const shopOptions = ref<EcShop[]>([])
 const expressOptions = ref<EcExpressStation[]>([])
-
-const dialogVisible = ref(false)
-const editingId = ref<number | null>(null)
-const saving = ref(false)
 
 const shopOptionMap = computed(() => {
   const map = new Map<number, EcShop>()
@@ -816,51 +807,6 @@ function getOrderShopIconMeta(order?: EcSalesOrder | null) {
   )
 }
 
-type LineFormRow = EcSalesOrderLineSaveItem & { _pickerKey?: string }
-
-const form = reactive<{
-  shopId: number | undefined
-  expressStationId: number | undefined
-  orderTime: string
-  payTime: string
-  platformStatus: string
-  platformOrderNo: string
-  receivedAmount: number | undefined
-  trackingNumber: string
-  receiveAddress: string
-  receiveProvince: string
-  buyerRemark: string
-  sellerRemark: string
-  lines: LineFormRow[]
-}>({
-  shopId: undefined,
-  expressStationId: undefined,
-  orderTime: '',
-  payTime: '',
-  platformStatus: '',
-  platformOrderNo: '',
-  receivedAmount: undefined,
-  trackingNumber: '',
-  receiveAddress: '',
-  receiveProvince: '',
-  buyerRemark: '',
-  sellerRemark: '',
-  lines: [],
-})
-
-const linkSkuOptions = ref<{ key: string; label: string; linkName: string; skuSpecName: string; listingLinkSkuId: number }[]>([])
-
-const statusOptions = computed(() => [
-  { value: 'DRAFT', label: t('ecommerce.salesOrder.statusDraft') },
-  { value: 'PAID', label: t('ecommerce.salesOrder.statusPaid') },
-  { value: 'PARTIAL_SHIPPED', label: t('ecommerce.salesOrder.statusPartialShipped') },
-  { value: 'SHIPPED', label: t('ecommerce.salesOrder.statusShipped') },
-  { value: 'PARTIAL_REFUND', label: t('ecommerce.salesOrder.statusPartialRefund') },
-  { value: 'COMPLETED', label: t('ecommerce.salesOrder.statusCompleted') },
-  { value: 'REFUNDED', label: t('ecommerce.salesOrder.statusRefunded') },
-  { value: 'CANCELLED', label: t('ecommerce.salesOrder.statusCancelled') },
-])
-
 const { page, pageSize, total, records, loading, load, onPageChange, onSizeChange } = usePagination(
   (p, ps) => {
     const { orderTimeFrom, orderTimeTo } = resolveOrderTimeQuery()
@@ -874,6 +820,24 @@ const { page, pageSize, total, records, loading, load, onPageChange, onSizeChang
     )
   },
 )
+
+// ========== 订单新增/编辑对话框（逻辑已拆至 composables/useSalesOrderForm） ==========
+const {
+  dialogVisible,
+  editingId,
+  saving,
+  form,
+  linkSkuOptions,
+  statusOptions,
+  statusLabel,
+  loadLinkSkuOptions,
+  onShopChange,
+  addLine,
+  removeLine,
+  openCreate,
+  onSave,
+  syncProvinceFromAddress,
+} = useSalesOrderForm({ shopOptions, load })
 
 // ========== 详情抽屉（逻辑已拆至 composables/useSalesOrderDetail） ==========
 const {
@@ -1042,80 +1006,6 @@ watch(keyword, () => {
   searchTimer = setTimeout(() => load(true), 300)
 })
 
-function statusLabel(s?: string) {
-  return statusOptions.value.find((o) => o.value === s)?.label ?? s ?? '—'
-}
-
-function emptyLine(): LineFormRow {
-  return { skuQuantity: 1, linkName: '', skuSpecName: '', lineReceivedAmount: undefined }
-}
-
-function syncProvinceFromAddress() {
-  form.receiveProvince = parseProvinceFromAddress(form.receiveAddress) ?? ''
-}
-
-function resetForm() {
-  form.shopId = shopOptions.value[0]?.id
-  form.expressStationId = undefined
-  form.orderTime = `${todayDateString()} 00:00:00`
-  form.payTime = form.orderTime
-  form.platformStatus = '已完成'
-  form.platformOrderNo = ''
-  form.receivedAmount = undefined
-  form.trackingNumber = ''
-  form.receiveAddress = ''
-  form.receiveProvince = ''
-  form.buyerRemark = ''
-  form.sellerRemark = ''
-  form.lines = [emptyLine()]
-  if (form.shopId) loadLinkSkuOptions(form.shopId)
-}
-
-async function loadLinkSkuOptions(shopId: number) {
-  linkSkuOptions.value = []
-  const pageResult = await fetchListingLinks(undefined, shopId, undefined, { page: 1, pageSize: 100 })
-  const opts: typeof linkSkuOptions.value = []
-  for (const link of pageResult.records ?? []) {
-    const d = await fetchListingLink(link.id)
-    for (const sku of d.skus ?? []) {
-      if (!sku.id) continue
-      const key = `${d.name}|||${sku.skuName}`
-      opts.push({
-        key,
-        label: `${d.name} · ${sku.skuName}`,
-        linkName: d.name,
-        skuSpecName: sku.skuName ?? '',
-        listingLinkSkuId: sku.id,
-      })
-    }
-  }
-  linkSkuOptions.value = opts
-}
-
-function onShopChange(shopId: number) {
-  if (shopId) void loadLinkSkuOptions(shopId)
-}
-
-watch(dialogVisible, (visible) => {
-  if (visible && form.shopId) {
-    void loadLinkSkuOptions(form.shopId)
-  }
-})
-
-function addLine() {
-  form.lines.push(emptyLine())
-}
-
-function removeLine(index: number) {
-  form.lines.splice(index, 1)
-}
-
-function openCreate() {
-  editingId.value = null
-  resetForm()
-  dialogVisible.value = true
-}
-
 function applyMonthFromRouteQuery() {
   const month = parseOrderMonthFromQuery(route.query.month)
   if (!month || month === orderMonth.value) return false
@@ -1123,59 +1013,6 @@ function applyMonthFromRouteQuery() {
   orderTimeRange.value = monthDateRange(month)
   return true
 }
-
-async function onSave() {
-  if (!form.shopId) {
-    ElMessage.warning(t('ecommerce.salesOrder.shopRequired'))
-    return
-  }
-  if (!form.orderTime) {
-    ElMessage.warning(t('ecommerce.salesOrder.orderTimeRequired'))
-    return
-  }
-  const lines = form.lines.filter((l) => l.linkName?.trim() && l.skuSpecName?.trim())
-  if (!lines.length) {
-    ElMessage.warning(t('ecommerce.salesOrder.linesRequired'))
-    return
-  }
-  saving.value = true
-  try {
-    const payload = {
-      shopId: form.shopId,
-      expressStationId: form.expressStationId ?? null,
-      orderTime: form.orderTime,
-      payTime: form.payTime || form.orderTime,
-      platformStatus: form.platformStatus || undefined,
-      platformOrderNo: form.platformOrderNo || undefined,
-      receivedAmount: form.receivedAmount ?? null,
-      trackingNumber: form.trackingNumber || undefined,
-      receiveAddress: form.receiveAddress || undefined,
-      receiveProvince: form.receiveProvince || undefined,
-      buyerRemark: form.buyerRemark || undefined,
-      sellerRemark: form.sellerRemark || undefined,
-      lines: lines.map((l, i) => ({
-        listingLinkSkuId: l.listingLinkSkuId ?? null,
-        linkName: l.linkName!.trim(),
-        skuSpecName: l.skuSpecName!.trim(),
-        skuQuantity: l.skuQuantity ?? 1,
-        lineReceivedAmount: l.lineReceivedAmount ?? null,
-        sortOrder: i,
-      })),
-    }
-    if (editingId.value) {
-      await updateSalesOrder(editingId.value, payload)
-    } else {
-      await createSalesOrder(payload)
-    }
-    ElMessage.success(t('ecommerce.common.saved'))
-    dialogVisible.value = false
-    editingId.value = null
-    await load()
-  } finally {
-    saving.value = false
-  }
-}
-
 
 onMounted(async () => {
   shopOptions.value = await fetchShopOptions()
