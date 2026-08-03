@@ -35,6 +35,7 @@ import com.ai.manager.system.mapper.NbNoteMapper;
 import com.ai.manager.system.mapper.SysImportBatchMapper;
 import com.ai.manager.system.service.BaiduPanAuthService;
 import com.ai.manager.system.service.StorageCenterService;
+import com.ai.manager.system.service.support.StorageConfigSupport;
 import com.ai.manager.system.service.support.StorageOverLimitStrategySupport;
 import com.ai.manager.system.service.support.StoragePathSupport;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -167,17 +168,17 @@ public class StorageCenterServiceImpl implements StorageCenterService {
         ));
 
         long totalUsed = zones.stream().mapToLong(StorageZoneVO::getUsedBytes).sum();
-        long totalQuota = mbToBytes(config.getLocalQuotaMb());
+        long totalQuota = StorageConfigSupport.mbToBytes(config.getLocalQuotaMb());
         long cacheUsed = measureCacheBytes();
-        long cacheMax = mbToBytes(resolveCacheMaxMb(config));
+        long cacheMax = StorageConfigSupport.mbToBytes(StorageConfigSupport.resolveCacheMaxMb(config, noteStorageProperties.getCacheMaxMb()));
 
         StorageCenterOverviewVO overview = new StorageCenterOverviewVO();
         overview.setTotalLocalUsedBytes(totalUsed);
         overview.setTotalLocalQuotaBytes(totalQuota);
-        overview.setTotalLocalUsagePercent(calcPercent(totalUsed, totalQuota));
+        overview.setTotalLocalUsagePercent(StorageConfigSupport.calcPercent(totalUsed, totalQuota));
         overview.setCacheUsedBytes(cacheUsed);
         overview.setCacheMaxBytes(cacheMax);
-        overview.setCacheTtlSeconds(resolveCacheTtl(config));
+        overview.setCacheTtlSeconds(StorageConfigSupport.resolveCacheTtl(config, noteStorageProperties.getCacheTtlSeconds()));
         overview.setBaiduPanAuthorized(cloudAvailable);
         overview.setBaiduPanAuthorizeUrl(panStatus.getAuthorizeUrl());
         overview.setBaiduPanCloudRoot(baiduPanProperties.rootPath());
@@ -188,7 +189,8 @@ public class StorageCenterServiceImpl implements StorageCenterService {
 
     @Override
     public StorageCenterConfigVO getConfig() {
-        StorageCenterConfigVO fallback = defaultConfig();
+        StorageCenterConfigVO fallback = StorageConfigSupport.defaultConfig(
+                noteStorageProperties.getCacheMaxMb(), noteStorageProperties.getCacheTtlSeconds());
         EcSystemConfig row = ecSystemConfigMapper.selectById(CONFIG_KEY);
         if (row == null || !StringUtils.hasText(row.getConfigJson())) {
             fallback.setUpdateTime(row != null ? row.getUpdateTime() : null);
@@ -197,7 +199,7 @@ public class StorageCenterServiceImpl implements StorageCenterService {
         try {
             StorageCenterConfigVO value = objectMapper.readValue(row.getConfigJson(), StorageCenterConfigVO.class);
             value.setUpdateTime(row.getUpdateTime());
-            return mergeDefaults(value, fallback);
+            return StorageConfigSupport.mergeDefaults(value, fallback);
         } catch (JsonProcessingException ex) {
             StorageCenterConfigVO value = fallback;
             value.setUpdateTime(row.getUpdateTime());
@@ -207,53 +209,9 @@ public class StorageCenterServiceImpl implements StorageCenterService {
 
     @Override
     public StorageCenterConfigVO saveConfig(StorageCenterConfigSaveRequest request) {
-        validateConfig(request);
+        StorageConfigSupport.validateConfig(request);
         StorageCenterConfigVO current = getConfig();
-        if (request.getLocalQuotaMb() != null) {
-            current.setLocalQuotaMb(request.getLocalQuotaMb());
-        }
-        if (request.getEcommerceImagesQuotaMb() != null) {
-            current.setEcommerceImagesQuotaMb(request.getEcommerceImagesQuotaMb());
-        }
-        if (request.getNotebookImagesQuotaMb() != null) {
-            current.setNotebookImagesQuotaMb(request.getNotebookImagesQuotaMb());
-        }
-        if (request.getNotebookContentQuotaMb() != null) {
-            current.setNotebookContentQuotaMb(request.getNotebookContentQuotaMb());
-        }
-        if (request.getImportFilesQuotaMb() != null) {
-            current.setImportFilesQuotaMb(request.getImportFilesQuotaMb());
-        }
-        if (request.getCacheMaxMb() != null) {
-            current.setCacheMaxMb(request.getCacheMaxMb());
-        }
-        if (request.getCacheTtlSeconds() != null) {
-            current.setCacheTtlSeconds(request.getCacheTtlSeconds());
-        }
-        if (StringUtils.hasText(request.getOverLimitStrategy())) {
-            current.setOverLimitStrategy(request.getOverLimitStrategy().trim().toUpperCase());
-        }
-        if (StringUtils.hasText(request.getLocalQuotaOverLimitStrategy())) {
-            current.setLocalQuotaOverLimitStrategy(request.getLocalQuotaOverLimitStrategy().trim().toUpperCase());
-        }
-        if (StringUtils.hasText(request.getEcommerceImagesOverLimitStrategy())) {
-            current.setEcommerceImagesOverLimitStrategy(request.getEcommerceImagesOverLimitStrategy().trim().toUpperCase());
-        }
-        if (StringUtils.hasText(request.getNotebookImagesOverLimitStrategy())) {
-            current.setNotebookImagesOverLimitStrategy(request.getNotebookImagesOverLimitStrategy().trim().toUpperCase());
-        }
-        if (StringUtils.hasText(request.getNotebookContentOverLimitStrategy())) {
-            current.setNotebookContentOverLimitStrategy(request.getNotebookContentOverLimitStrategy().trim().toUpperCase());
-        }
-        if (StringUtils.hasText(request.getImportFilesOverLimitStrategy())) {
-            current.setImportFilesOverLimitStrategy(request.getImportFilesOverLimitStrategy().trim().toUpperCase());
-        }
-        if (StringUtils.hasText(request.getCacheOverLimitStrategy())) {
-            current.setCacheOverLimitStrategy(request.getCacheOverLimitStrategy().trim().toUpperCase());
-        }
-        if (request.getDualStorageEnabled() != null) {
-            current.setDualStorageEnabled(request.getDualStorageEnabled());
-        }
+        StorageConfigSupport.applyRequestToConfig(current, request);
 
         EcSystemConfig row = ecSystemConfigMapper.selectById(CONFIG_KEY);
         if (row == null) {
@@ -427,7 +385,7 @@ public class StorageCenterServiceImpl implements StorageCenterService {
     @Override
     public StorageCleanupResultVO cleanupCache(boolean dryRun) {
         StorageCenterConfigVO config = getConfig();
-        long cacheMax = mbToBytes(resolveCacheMaxMb(config));
+        long cacheMax = StorageConfigSupport.mbToBytes(StorageConfigSupport.resolveCacheMaxMb(config, noteStorageProperties.getCacheMaxMb()));
         long cacheUsed = measureCacheBytes();
 
         StorageCleanupResultVO result = new StorageCleanupResultVO();
@@ -487,7 +445,7 @@ public class StorageCenterServiceImpl implements StorageCenterService {
     @Override
     public void enforceCacheLimit(long incomingBytes) {
         StorageCenterConfigVO config = getConfig();
-        long cacheMax = mbToBytes(resolveCacheMaxMb(config));
+        long cacheMax = StorageConfigSupport.mbToBytes(StorageConfigSupport.resolveCacheMaxMb(config, noteStorageProperties.getCacheMaxMb()));
         if (cacheMax <= 0) {
             return;
         }
@@ -511,8 +469,8 @@ public class StorageCenterServiceImpl implements StorageCenterService {
     @Override
     public void assertWritable(String zoneKey, long additionalBytes) {
         StorageCenterConfigVO config = getConfig();
-        long zoneQuota = mbToBytes(resolveZoneQuotaMb(config, zoneKey));
-        long totalQuota = mbToBytes(config.getLocalQuotaMb());
+        long zoneQuota = StorageConfigSupport.mbToBytes(resolveZoneQuotaMb(config, zoneKey));
+        long totalQuota = StorageConfigSupport.mbToBytes(config.getLocalQuotaMb());
         long zoneUsed = resolveZoneUsedBytes(zoneKey);
         long totalUsed = sumAllZoneUsedBytes();
 
@@ -762,7 +720,7 @@ public class StorageCenterServiceImpl implements StorageCenterService {
             log.warn("统计存储分区失败 {}: {}", key, ex.getMessage());
         }
 
-        long quotaBytes = mbToBytes(quotaMb);
+        long quotaBytes = StorageConfigSupport.mbToBytes(quotaMb);
         StorageZoneVO zone = new StorageZoneVO();
         zone.setKey(key);
         zone.setLabel(label);
@@ -771,7 +729,7 @@ public class StorageCenterServiceImpl implements StorageCenterService {
         zone.setUsedBytes(used);
         zone.setQuotaBytes(quotaBytes);
         zone.setFileCount(fileCount);
-        zone.setUsagePercent(calcPercent(used, quotaBytes));
+        zone.setUsagePercent(StorageConfigSupport.calcPercent(used, quotaBytes));
         zone.setDualStorageEnabled(Boolean.TRUE.equals(dualStorageEnabled));
         zone.setCloudAvailable(cloudAvailable);
         zone.setOverLimitStrategy(resolveOverLimitStrategy(config, key));
@@ -1060,7 +1018,7 @@ public class StorageCenterServiceImpl implements StorageCenterService {
 
     private long resolveZoneQuotaBytes(String zoneKey) {
         StorageCenterConfigVO config = getConfig();
-        return mbToBytes(resolveZoneQuotaMb(config, zoneKey));
+        return StorageConfigSupport.mbToBytes(resolveZoneQuotaMb(config, zoneKey));
     }
 
     private long measureCacheBytes() {
@@ -1088,133 +1046,6 @@ public class StorageCenterServiceImpl implements StorageCenterService {
         return entries;
     }
 
-    private StorageCenterConfigVO defaultConfig() {
-        StorageCenterConfigVO config = new StorageCenterConfigVO();
-        config.setLocalQuotaMb(10240L);
-        config.setEcommerceImagesQuotaMb(5120L);
-        config.setNotebookImagesQuotaMb(2048L);
-        config.setNotebookContentQuotaMb(1024L);
-        config.setImportFilesQuotaMb(2048L);
-        config.setCacheMaxMb(noteStorageProperties.getCacheMaxMb());
-        config.setCacheTtlSeconds(noteStorageProperties.getCacheTtlSeconds());
-        config.setOverLimitStrategy(StorageOverLimitStrategySupport.REJECT);
-        config.setLocalQuotaOverLimitStrategy(StorageOverLimitStrategySupport.CLEANUP_OLDEST);
-        config.setEcommerceImagesOverLimitStrategy(StorageOverLimitStrategySupport.CLEANUP_LARGEST);
-        config.setNotebookImagesOverLimitStrategy(StorageOverLimitStrategySupport.CLEANUP_OLDEST);
-        config.setNotebookContentOverLimitStrategy(StorageOverLimitStrategySupport.REJECT);
-        config.setImportFilesOverLimitStrategy(StorageOverLimitStrategySupport.CLEANUP_OLDEST);
-        config.setCacheOverLimitStrategy(StorageOverLimitStrategySupport.CLEANUP_LARGEST);
-        config.setDualStorageEnabled(true);
-        return config;
-    }
-
-    private StorageCenterConfigVO mergeDefaults(StorageCenterConfigVO value, StorageCenterConfigVO fallback) {
-        if (value.getLocalQuotaMb() == null) {
-            value.setLocalQuotaMb(fallback.getLocalQuotaMb());
-        }
-        if (value.getEcommerceImagesQuotaMb() == null) {
-            value.setEcommerceImagesQuotaMb(fallback.getEcommerceImagesQuotaMb());
-        }
-        if (value.getNotebookImagesQuotaMb() == null) {
-            value.setNotebookImagesQuotaMb(fallback.getNotebookImagesQuotaMb());
-        }
-        if (value.getNotebookContentQuotaMb() == null) {
-            value.setNotebookContentQuotaMb(fallback.getNotebookContentQuotaMb());
-        }
-        if (value.getImportFilesQuotaMb() == null) {
-            value.setImportFilesQuotaMb(fallback.getImportFilesQuotaMb());
-        }
-        if (value.getCacheMaxMb() == null) {
-            value.setCacheMaxMb(fallback.getCacheMaxMb());
-        }
-        if (value.getCacheTtlSeconds() == null) {
-            value.setCacheTtlSeconds(fallback.getCacheTtlSeconds());
-        }
-        if (!StringUtils.hasText(value.getOverLimitStrategy())) {
-            value.setOverLimitStrategy(fallback.getOverLimitStrategy());
-        }
-        if (!StringUtils.hasText(value.getLocalQuotaOverLimitStrategy())) {
-            value.setLocalQuotaOverLimitStrategy(fallback.getLocalQuotaOverLimitStrategy());
-        }
-        if (!StringUtils.hasText(value.getEcommerceImagesOverLimitStrategy())) {
-            value.setEcommerceImagesOverLimitStrategy(fallback.getEcommerceImagesOverLimitStrategy());
-        }
-        if (!StringUtils.hasText(value.getNotebookImagesOverLimitStrategy())) {
-            value.setNotebookImagesOverLimitStrategy(fallback.getNotebookImagesOverLimitStrategy());
-        }
-        if (!StringUtils.hasText(value.getNotebookContentOverLimitStrategy())) {
-            value.setNotebookContentOverLimitStrategy(fallback.getNotebookContentOverLimitStrategy());
-        }
-        if (!StringUtils.hasText(value.getImportFilesOverLimitStrategy())) {
-            value.setImportFilesOverLimitStrategy(fallback.getImportFilesOverLimitStrategy());
-        }
-        if (!StringUtils.hasText(value.getCacheOverLimitStrategy())) {
-            value.setCacheOverLimitStrategy(fallback.getCacheOverLimitStrategy());
-        }
-        if (value.getDualStorageEnabled() == null) {
-            value.setDualStorageEnabled(fallback.getDualStorageEnabled());
-        }
-        return value;
-    }
-
-    private void validateConfig(StorageCenterConfigSaveRequest request) {
-        validateStrategy(request.getOverLimitStrategy(), "全局默认超限策略");
-        validateStrategy(request.getLocalQuotaOverLimitStrategy(), "本地总配额超限策略");
-        validateStrategy(request.getEcommerceImagesOverLimitStrategy(), "电商图片超限策略");
-        validateStrategy(request.getNotebookImagesOverLimitStrategy(), "笔记图片超限策略");
-        validateStrategy(request.getNotebookContentOverLimitStrategy(), "笔记正文超限策略");
-        validateStrategy(request.getImportFilesOverLimitStrategy(), "导入文件超限策略");
-        validateStrategy(request.getCacheOverLimitStrategy(), "Redis 缓存超限策略");
-        validatePositive(request.getLocalQuotaMb(), "本地总配额");
-        validatePositive(request.getEcommerceImagesQuotaMb(), "电商图片配额");
-        validatePositive(request.getNotebookImagesQuotaMb(), "笔记图片配额");
-        validatePositive(request.getNotebookContentQuotaMb(), "笔记正文配额");
-        validatePositive(request.getImportFilesQuotaMb(), "导入文件配额");
-        validatePositive(request.getCacheMaxMb(), "缓存上限");
-        if (request.getCacheTtlSeconds() != null && request.getCacheTtlSeconds() < 60) {
-            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "缓存 TTL 不能小于 60 秒");
-        }
-    }
-
-    private void validatePositive(Long value, String label) {
-        if (value != null && value < 0) {
-            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), label + "不能为负数");
-        }
-    }
-
-    private void validateStrategy(String strategy, String label) {
-        if (strategy != null && !StorageOverLimitStrategySupport.isValid(strategy)) {
-            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), label + "无效");
-        }
-    }
-
-    private long resolveCacheMaxMb(StorageCenterConfigVO config) {
-        if (config.getCacheMaxMb() != null) {
-            return config.getCacheMaxMb();
-        }
-        return noteStorageProperties.getCacheMaxMb();
-    }
-
-    private long resolveCacheTtl(StorageCenterConfigVO config) {
-        if (config.getCacheTtlSeconds() != null) {
-            return config.getCacheTtlSeconds();
-        }
-        return noteStorageProperties.getCacheTtlSeconds();
-    }
-
-    private long mbToBytes(Long mb) {
-        if (mb == null || mb <= 0) {
-            return 0L;
-        }
-        return mb * 1024L * 1024L;
-    }
-
-    private int calcPercent(long used, long quota) {
-        if (quota <= 0) {
-            return 0;
-        }
-        return (int) Math.min(100, Math.round(used * 100.0 / quota));
-    }
 
     private record FileEntry(Path path, long modifiedAt, long size) {
     }
