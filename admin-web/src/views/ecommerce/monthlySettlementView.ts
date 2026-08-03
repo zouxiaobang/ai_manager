@@ -385,3 +385,44 @@ export function buildStatusOptions(t: (key: string) => string): StatusOption[] {
     { value: 'CANCELLED', label: t('ecommerce.salesOrder.statusCancelled') },
   ]
 }
+
+/**
+ * 选中店铺同步：店铺列表变化后，当前选中失效或为空时回退第一个店铺。
+ * 返回 null 表示列表为空应清空选中。
+ */
+export function resolveSyncedShopId(
+  shops: MonthlySettlementShopSummary[],
+  currentSelectedId: number | null,
+): number | null {
+  if (!shops.length) return null
+  if (currentSelectedId == null || !shops.some((s) => s.shopId === currentSelectedId)) {
+    return shops[0]?.shopId ?? null
+  }
+  return currentSelectedId
+}
+
+/**
+ * 待审跳转选中：优先选中第一个有待定订单的店铺；无待定且未选中时回退第一个店铺，
+ * 已选中则保持原状。返回要落盘的店铺 id。
+ */
+export function resolveReviewPendingShopId(
+  shops: MonthlySettlementShopSummary[],
+  currentSelectedId: number | null,
+): number | null {
+  const shopWithPending = shops.find((s) => (s.pendingOrderCount ?? 0) > 0)
+  if (shopWithPending?.shopId != null) return shopWithPending.shopId
+  if (currentSelectedId == null) return shops[0]?.shopId ?? null
+  return currentSelectedId
+}
+
+/** 店铺汇总行样式：选中高亮 + 未导入置灰，返回空格分隔的 class 串 */
+export function resolveShopRowClassName(
+  shopId: number,
+  selectedShopId: number | null,
+  isImported: boolean,
+): string {
+  const classes = []
+  if (shopId === selectedShopId) classes.push('is-selected')
+  if (!isImported) classes.push('is-not-imported')
+  return classes.join(' ')
+}

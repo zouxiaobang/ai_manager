@@ -22,7 +22,10 @@ import {
   resolveCalculateButton,
   resolveMaxProfitActualDisplay,
   resolveMaxProfitShopIcon,
+  resolveReviewPendingShopId,
   resolveShopDisplayIcon,
+  resolveShopRowClassName,
+  resolveSyncedShopId,
   stationRecordKey,
   statusLabel,
   sumShopMetric,
@@ -549,6 +552,70 @@ describe('monthlySettlementView 结算展示纯函数', () => {
       expect(options[0]).toEqual({ value: 'DRAFT', label: 'ecommerce.salesOrder.statusDraft' })
       expect(options[3]).toEqual({ value: 'SHIPPED', label: 'ecommerce.salesOrder.statusShipped' })
       expect(options[7]).toEqual({ value: 'CANCELLED', label: 'ecommerce.salesOrder.statusCancelled' })
+    })
+  })
+
+  describe('resolveSyncedShopId 选中店铺同步', () => {
+    const shops = [makeShop({ shopId: 1 }), makeShop({ shopId: 2 })]
+
+    it('空列表返回 null', () => {
+      expect(resolveSyncedShopId([], 1)).toBeNull()
+    })
+
+    it('未选中回退第一个', () => {
+      expect(resolveSyncedShopId(shops, null)).toBe(1)
+    })
+
+    it('选中已失效回退第一个', () => {
+      expect(resolveSyncedShopId(shops, 9)).toBe(1)
+    })
+
+    it('选中仍有效保持不变', () => {
+      expect(resolveSyncedShopId(shops, 2)).toBe(2)
+    })
+  })
+
+  describe('resolveReviewPendingShopId 待审跳转选中', () => {
+    const shops = [
+      makeShop({ shopId: 1 }),
+      makeShop({ shopId: 2, pendingOrderCount: 3 }),
+      makeShop({ shopId: 3, pendingOrderCount: 1 }),
+    ]
+
+    it('优先第一个有待定订单的店铺', () => {
+      expect(resolveReviewPendingShopId(shops, 1)).toBe(2)
+    })
+
+    it('无待定且未选中时回退第一个', () => {
+      const noPending = [makeShop({ shopId: 1 }), makeShop({ shopId: 2 })]
+      expect(resolveReviewPendingShopId(noPending, null)).toBe(1)
+    })
+
+    it('无待定且已选中保持不变', () => {
+      const noPending = [makeShop({ shopId: 1 }), makeShop({ shopId: 2 })]
+      expect(resolveReviewPendingShopId(noPending, 2)).toBe(2)
+    })
+
+    it('空列表返回 null', () => {
+      expect(resolveReviewPendingShopId([], null)).toBeNull()
+    })
+  })
+
+  describe('resolveShopRowClassName 店铺行样式', () => {
+    it('选中已导入高亮', () => {
+      expect(resolveShopRowClassName(1, 1, true)).toBe('is-selected')
+    })
+
+    it('未导入置灰', () => {
+      expect(resolveShopRowClassName(1, null, false)).toBe('is-not-imported')
+    })
+
+    it('两者叠加', () => {
+      expect(resolveShopRowClassName(1, 1, false)).toBe('is-selected is-not-imported')
+    })
+
+    it('无状态返回空串', () => {
+      expect(resolveShopRowClassName(1, null, true)).toBe('')
     })
   })
 })

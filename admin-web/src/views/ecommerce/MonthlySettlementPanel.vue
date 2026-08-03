@@ -643,7 +643,10 @@ import {
   resolveCalculateButton,
   resolveMaxProfitActualDisplay,
   resolveMaxProfitShopIcon,
+  resolveReviewPendingShopId,
   resolveShopDisplayIcon,
+  resolveShopRowClassName,
+  resolveSyncedShopId,
   statusLabel as viewStatusLabel,
 } from './monthlySettlementView'
 import type { PrepTask } from './monthlySettlementView'
@@ -827,14 +830,7 @@ const {
 })
 
 function syncSelectedShop() {
-  const shops = shopSummaries.value
-  if (!shops.length) {
-    selectedShopId.value = null
-    return
-  }
-  if (selectedShopId.value == null || !shops.some((s) => s.shopId === selectedShopId.value)) {
-    selectedShopId.value = shops[0]?.shopId ?? null
-  }
+  selectedShopId.value = resolveSyncedShopId(shopSummaries.value, selectedShopId.value)
 }
 
 const {
@@ -890,10 +886,7 @@ function onShopRowClick(row: MonthlySettlementShopSummary) {
 }
 
 function shopRowClassName({ row }: { row: MonthlySettlementShopSummary }) {
-  const classes = []
-  if (row.shopId === selectedShopId.value) classes.push('is-selected')
-  if (!isShopOrdersImported(row.shopId)) classes.push('is-not-imported')
-  return classes.join(' ')
+  return resolveShopRowClassName(row.shopId, selectedShopId.value, isShopOrdersImported(row.shopId))
 }
 
 function goImportOrders() {
@@ -917,14 +910,7 @@ function onPrepTaskClick(task: PrepTask) {
 }
 
 function goReviewPending() {
-  const shopWithPending = shopSummaries.value.find((s) => (s.pendingOrderCount ?? 0) > 0)
-  if (shopWithPending?.shopId != null) {
-    selectedShopId.value = shopWithPending.shopId
-    return
-  }
-  if (selectedShopId.value == null && shopSummaries.value[0]?.shopId != null) {
-    selectedShopId.value = shopSummaries.value[0].shopId
-  }
+  selectedShopId.value = resolveReviewPendingShopId(shopSummaries.value, selectedShopId.value)
 }
 
 async function init() {
