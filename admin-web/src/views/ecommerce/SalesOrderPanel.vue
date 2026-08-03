@@ -722,34 +722,14 @@ import MobileDoodleChip from '@/mobile/components/MobileDoodleChip.vue'
 import { defaultOrderMonth, formatDateTime, formatMonthDay, monthDateRange, todayDateString } from '@/utils/date'
 import { normalizeLineStatus, type ImportLineStatus } from '@/constants/importStatusMapping'
 import { parseProvinceFromAddress } from '@/utils/addressProvince'
+import { formatImportFileSize, importLineStatusTagType, orderShopColor, orderStatColor, parseManualCostNumber, parseOrderMonthFromQuery, sanitizeManualCostInput, statusTagType } from '@/utils/salesOrderView'
 
 const { t } = useI18n() // 国际化函数
 const doodle = useMobileEcDoodle() // 涂鸦风格主题
 
-function orderStatColor(tone: string) {
-  if (tone === 'green') return '#22c55e'
-  if (tone === 'orange') return '#f59e0b'
-  if (tone === 'purple') return '#8b5cf6'
-  if (tone === 'blue') return '#2563eb'
-  return '#cbd5e1'
-}
-
-function orderShopColor(tone: string, active: boolean) {
-  if (active) return '#2563eb'
-  if (tone === 'green') return '#22c55e'
-  if (tone === 'orange') return '#f59e0b'
-  if (tone === 'gray') return '#94a3b8'
-  return '#cbd5e1'
-}
 const ecSettings = useEcSettingsStore()
 const route = useRoute()
 const router = useRouter()
-
-function parseOrderMonthFromQuery(raw: unknown): string | null {
-  const value = typeof raw === 'string' ? raw.trim() : Array.isArray(raw) ? raw[0]?.trim() : ''
-  if (!value || !/^\d{4}-\d{2}$/.test(value)) return null
-  return value
-}
 
 const initialRouteMonth = parseOrderMonthFromQuery(route.query.month)
 
@@ -976,42 +956,6 @@ const importDetectedColumns = computed(() => {
   return importPreview.value?.detectedColumns ?? []
 })
 
-function formatImportFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) {
-    const kb = bytes / 1024
-    return kb < 10 ? `${kb.toFixed(1)} KB` : `${Math.round(kb)} KB`
-  }
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function sanitizeManualCostInput(raw: string): string {
-  if (!raw) return ''
-  let value = raw.trim()
-  let sign = ''
-  if (value.startsWith('-')) {
-    sign = '-'
-    value = value.slice(1)
-  }
-  value = value.replace(/[^\d.]/g, '')
-  const dotIndex = value.indexOf('.')
-  if (dotIndex >= 0) {
-    value = value.slice(0, dotIndex + 1) + value.slice(dotIndex + 1).replace(/\./g, '')
-  }
-  const [intPart = '', fracPart = ''] = value.split('.')
-  const normalized = fracPart.length > 0
-    ? `${intPart}.${fracPart.slice(0, 2)}`
-    : intPart
-  if (sign && !normalized && raw.includes('-')) return '-'
-  return `${sign}${normalized}`
-}
-
-function parseManualCostNumber(raw: string): number | undefined {
-  if (!raw || raw === '-' || raw === '.' || raw === '-.') return undefined
-  const num = Number(raw)
-  return Number.isFinite(num) ? num : undefined
-}
-
 function resolveRowManualCost(row: EcSalesOrderImportPreview['rows'][number]): number | undefined {
   if (row.id != null && manualCostDrafts.value[row.id] !== undefined) {
     const fromDraft = parseManualCostNumber(manualCostDrafts.value[row.id])
@@ -1090,21 +1034,6 @@ function importLineStatusLabel(status?: string | null) {
     PARTIAL_REFUND: t('ecommerce.salesOrder.importLineStatusPartialRefund'),
     REFUNDED: t('ecommerce.salesOrder.importLineStatusRefunded'),
     RETURNED: t('ecommerce.salesOrder.importLineStatusReturned'),
-  }
-  return map[key]
-}
-
-function importLineStatusTagType(status?: string | null) {
-  if (!status) return 'info'
-  const key = normalizeLineStatus(status)
-  const map: Record<ImportLineStatus, 'success' | 'warning' | 'info' | 'danger' | 'primary'> = {
-    PAID: 'warning',
-    SHIPPED: 'primary',
-    COMPLETED: 'success',
-    CANCELLED: 'info',
-    PARTIAL_REFUND: 'danger',
-    REFUNDED: 'danger',
-    RETURNED: 'info',
   }
   return map[key]
 }
@@ -1365,17 +1294,6 @@ watch(keyword, () => {
 
 function statusLabel(s?: string) {
   return statusOptions.value.find((o) => o.value === s)?.label ?? s ?? '—'
-}
-
-function statusTagType(s?: string) {
-  if (s === 'DRAFT') return 'info'
-  if (s === 'PAID') return 'primary'
-  if (s === 'PARTIAL_SHIPPED') return 'warning'
-  if (s === 'SHIPPED') return 'warning'
-  if (s === 'PARTIAL_REFUND') return 'danger'
-  if (s === 'REFUNDED' || s === 'CANCELLED') return 'danger'
-  if (s === 'COMPLETED') return 'success'
-  return undefined
 }
 
 function emptyLine(): LineFormRow {
