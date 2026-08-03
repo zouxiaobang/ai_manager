@@ -631,18 +631,16 @@ import {
 import { fetchExpressStations, type EcExpressStation } from '@/api/ecommerce/express'
 import { formatDateTime, defaultOrderMonth } from '@/utils/date'
 import {
-  buildExpressBillCards,
   buildMaxProfitDisplay,
   computeShopSpan,
-  filterExpressBillRecordsByMonth,
   formatExcludeTime,
   formatSettlementPeriodLabel,
-  pickLatestPrepTime,
   statusLabel as viewStatusLabel,
   sumShopMetric,
 } from './monthlySettlementView'
-import type { PrepExpressBillCard, PrepTask, PrepTone } from './monthlySettlementView'
+import type { PrepTask } from './monthlySettlementView'
 import { useMonthlySettlementBuyerExclude } from './composables/useMonthlySettlementBuyerExclude'
+import { useMonthlySettlementPrepTasks } from './composables/useMonthlySettlementPrepTasks'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -878,199 +876,27 @@ const statusOptions = computed(() => [
   { value: 'CANCELLED', label: t('ecommerce.salesOrder.statusCancelled') },
 ])
 
-const prepTasks = computed<PrepTask[]>(() => {
-  const overview = orderOverview.value
-  const orderCount = overview?.totalOrderCount ?? 0
-  const shopCount = overview?.importedShopCount ?? 0
-  const reviewCount = overview?.pendingReviewCount ?? 0
-
-  let orderTone: PrepTone = 'danger'
-  let orderStatusTag: PrepTask['statusTag'] = {
-    label: t('ecommerce.monthlySettlement.prepStatusNotImported'),
-    type: 'danger',
-  }
-  let orderDesc = ''
-  let orderDescHighlight = ''
-  if (reviewCount > 0) {
-    orderTone = 'warning'
-    orderStatusTag = {
-      label: t('ecommerce.monthlySettlement.prepStatusPendingReview'),
-      type: 'warning',
-    }
-    orderDesc = t('ecommerce.monthlySettlement.salesOrdersImportedPrefix')
-    orderDescHighlight = t('ecommerce.monthlySettlement.salesOrdersImportedCount', { shopCount, orderCount })
-  } else if (orderCount > 0) {
-    orderTone = 'success'
-    orderStatusTag = {
-      label: t('ecommerce.monthlySettlement.prepStatusCompleted'),
-      type: 'success',
-    }
-    orderDesc = t('ecommerce.monthlySettlement.salesOrdersImportedPrefix')
-    orderDescHighlight = t('ecommerce.monthlySettlement.salesOrdersImportedCount', { shopCount, orderCount })
-  } else {
-    orderDesc = t('ecommerce.monthlySettlement.salesOrdersNotImportedHint')
-  }
-
-  const expressBillCards: PrepExpressBillCard[] = []
-  let expressTone: PrepTone = expressBillImported.value ? 'success' : 'danger'
-  let expressStatusTag: PrepTask['statusTag'] = expressBillImported.value
-    ? { label: t('ecommerce.monthlySettlement.prepStatusCompleted'), type: 'success' }
-    : { label: t('ecommerce.monthlySettlement.prepStatusNotImported'), type: 'danger' }
-  let expressDesc = ''
-  let expressHasGap = false
-  let expressHasUnmatched = false
-
-  const monthRecords = filterExpressBillRecordsByMonth(expressBillRecords.value, settlementMonth.value)
-  if (monthRecords.length) {
-    for (const record of monthRecords) {
-      if ((record.gapOrderRows ?? 0) > 0) {
-        expressHasGap = true
-      }
-      if ((record.unmatchedRows ?? 0) > 0) {
-        expressHasUnmatched = true
-      }
-    }
-    expressBillCards.push(
-      ...buildExpressBillCards(monthRecords, settlementMonth.value, (stationId) =>
-        expressStationMap.value.get(stationId),
-      ),
-    )
-    if (expressHasGap || expressHasUnmatched) {
-      expressTone = 'warning'
-      expressStatusTag = {
-        label: t('ecommerce.monthlySettlement.prepStatusPendingFill'),
-        type: 'warning',
-      }
-    } else if (expressBillImported.value) {
-      expressTone = 'success'
-      expressStatusTag = {
-        label: t('ecommerce.monthlySettlement.prepStatusCompleted'),
-        type: 'success',
-      }
-    }
-    const totalMatched = expressBillCards.reduce((sum, card) => sum + card.matched, 0)
-    expressDesc = t('ecommerce.monthlySettlement.expressBillImportedSummary', { count: totalMatched })
-  } else if (!expressBillImported.value) {
-    expressDesc = t('ecommerce.monthlySettlement.expressBillImportPrompt')
-  }
-
-  const excludeTone: PrepTone = buyerExcludeCount.value > 0 ? 'success' : 'muted'
-  const excludeStatusTag: PrepTask['statusTag'] = buyerExcludeCount.value > 0
-    ? { label: t('ecommerce.monthlySettlement.prepStatusConfigured'), type: 'success' }
-    : { label: t('ecommerce.monthlySettlement.prepStatusNotConfigured'), type: 'info' }
-  const excludeDesc =
-    buyerExcludeCount.value > 0
-      ? t('ecommerce.monthlySettlement.buyerExcludePrefix')
-      : t('ecommerce.monthlySettlement.buyerExcludePurposeHint')
-  const excludeDescHighlight =
-    buyerExcludeCount.value > 0
-      ? t('ecommerce.monthlySettlement.buyerExcludeCountHighlight', { count: buyerExcludeCount.value })
-      : ''
-
-  const pendingCount = totalPendingOrders.value
-  const salesOrdersImported = orderCount > 0 || reviewCount > 0
-  let pendingTone: PrepTone = 'muted'
-  let pendingStatusTag: PrepTask['statusTag'] | undefined
-  let pendingDesc = ''
-  let pendingDescHighlight = ''
-  let pendingAction: (() => void) | undefined = goReviewPending
-  if (!salesOrdersImported) {
-    pendingTone = 'muted'
-    pendingStatusTag = {
-      label: t('ecommerce.monthlySettlement.prepStatusPendingImport'),
-      type: 'info',
-    }
-    pendingDesc = t('ecommerce.monthlySettlement.pendingOrdersImportFirstHint')
-    pendingAction = goImportOrders
-  } else if (!calculated.value) {
-    pendingTone = 'muted'
-    pendingStatusTag = {
-      label: t('ecommerce.monthlySettlement.prepStatusPendingCalculate'),
-      type: 'info',
-    }
-  } else if (pendingCount > 0) {
-    pendingTone = 'warning'
-    pendingStatusTag = {
-      label: t('ecommerce.monthlySettlement.prepStatusPendingDecision'),
-      type: 'warning',
-    }
-    pendingDesc = t('ecommerce.monthlySettlement.pendingOrdersPrefix')
-    pendingDescHighlight = t('ecommerce.monthlySettlement.pendingOrdersCountHighlight', { count: pendingCount })
-  } else if (shopSummaries.value.length > 0) {
-    pendingTone = 'success'
-    pendingStatusTag = {
-      label: t('ecommerce.monthlySettlement.prepStatusCompleted'),
-      type: 'success',
-    }
-  } else {
-    pendingStatusTag = {
-      label: t('ecommerce.monthlySettlement.prepStatusPendingCalculate'),
-      type: 'info',
-    }
-  }
-
-  const orderLastTime =
-    orderCount > 0 || reviewCount > 0
-      ? pickLatestPrepTime(
-          overview?.lastImportTime,
-          ...(overview?.shops?.map((s) => s.lastImportTime) ?? []),
-        )
-      : undefined
-  const expressLastTime = pickLatestPrepTime(...expressBillRecords.value.map((r) => r.createTime))
-  const excludeLastTime = pickLatestPrepTime(
-    ...buyerExcludesSnapshot.value.map((item) => item.createTime),
-    lastBuyerExcludeOpAt.value,
-  )
-  const pendingLastTime = pickLatestPrepTime(
-    lastPendingDecisionAt.value,
-    calculated.value ? lastCalculatedAt.value : null,
-  )
-
-  return [
-    {
-      key: 'orders',
-      title: t('ecommerce.monthlySettlement.prepSalesOrders'),
-      desc: orderDesc,
-      descHighlight: orderDescHighlight || undefined,
-      tone: orderTone,
-      statusTag: orderStatusTag,
-      lastOperationTime: orderLastTime,
-      lastTimeLabelKey: 'ecommerce.monthlySettlement.prepLastImport',
-      action: goImportOrders,
-    },
-    {
-      key: 'express',
-      title: t('ecommerce.monthlySettlement.prepExpressBill'),
-      desc: expressDesc,
-      tone: expressTone,
-      statusTag: expressStatusTag,
-      lastOperationTime: expressLastTime,
-      expressBillCards: expressBillCards.length ? expressBillCards : undefined,
-      action: openExpressBillDialog,
-    },
-    {
-      key: 'exclude',
-      title: t('ecommerce.monthlySettlement.prepBuyerExclude'),
-      desc: excludeDesc,
-      descHighlight: excludeDescHighlight || undefined,
-      tone: excludeTone,
-      statusTag: excludeStatusTag,
-      lastOperationTime: excludeLastTime,
-      action: () => {
-        buyerExcludeVisible.value = true
-      },
-    },
-    {
-      key: 'pending',
-      title: t('ecommerce.monthlySettlement.prepPendingOrders'),
-      desc: pendingDesc,
-      descHighlight: pendingDescHighlight || undefined,
-      tone: pendingTone,
-      statusTag: pendingStatusTag,
-      lastOperationTime: pendingLastTime,
-      action: pendingAction,
-    },
-  ]
+const { prepTasks } = useMonthlySettlementPrepTasks({
+  t,
+  orderOverview,
+  expressBillRecords,
+  expressStationMap,
+  settlementMonth,
+  expressBillImported,
+  buyerExcludeCount,
+  buyerExcludesSnapshot,
+  lastBuyerExcludeOpAt,
+  totalPendingOrders,
+  calculated,
+  shopSummaries,
+  lastPendingDecisionAt,
+  lastCalculatedAt,
+  openExpressBillDialog,
+  openBuyerExcludeDialog: () => {
+    buyerExcludeVisible.value = true
+  },
+  goReviewPending,
+  goImportOrders,
 })
 
 const statusLabel = (s?: string) => viewStatusLabel(s, statusOptions.value)
