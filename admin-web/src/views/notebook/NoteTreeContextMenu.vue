@@ -88,6 +88,10 @@
         <button type="button" class="note-tree-context-menu__item is-danger" @click="emitAction('delete')">
           <span>{{ t('notebook.deleteFolder') }}</span>
         </button>
+        <div class="note-tree-context-menu__divider" />
+        <button type="button" class="note-tree-context-menu__item" @click="emitAction('exportPdf')">
+          <span>{{ t('notebook.exportFolderPdf') }}</span>
+        </button>
       </template>
     </div>
   </Teleport>
@@ -107,6 +111,7 @@ export type TreeContextMenuAction =
   | 'paste'
   | 'delete'
   | 'exportWord'
+  | 'exportPdf'
 
 const props = defineProps<{
   visible: boolean

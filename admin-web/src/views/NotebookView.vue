@@ -827,7 +827,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch, w
 import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import WarRoomPage from '@/components/war-room/WarRoomPage.vue'
-import { ElMessage, ElMessageBox, type ElInput, type ElTree } from 'element-plus'
+import { ElMessage, ElMessageBox, type ElInput, type ElTree, type MessageHandler } from 'element-plus'
 import {
   ArrowDown,
   Check,
@@ -857,6 +857,7 @@ import NoteTocPanel from './notebook/NoteTocPanel.vue'
 import NoteFullscreenViewer from './notebook/NoteFullscreenViewer.vue'
 import NoteTreeContextMenu, { type TreeContextMenuAction } from './notebook/NoteTreeContextMenu.vue'
 import { exportNoteAsWord } from './notebook/exportNoteWord'
+import { exportFolderToPdf } from './notebook/exportFolderPdf'
 import { parseNoteToc } from './notebook/noteToc'
 import { formatNoteDisplayTime, getTagPillStyle } from './notebook/noteDisplay'
 import {
@@ -1500,6 +1501,9 @@ async function onFolderContextMenuAction(action: TreeContextMenuAction, node: Nb
     case 'delete':
       await deleteFolderFromMenu(node)
       break
+    case 'exportPdf':
+      await exportFolderToPdfFromMenu(node)
+      break
     default:
       break
   }
@@ -1728,6 +1732,44 @@ async function deleteNoteFromMenu(node: NbTreeNode) {
 async function exportNoteFromMenu(noteId: number) {
   const detail = await fetchNote(noteId)
   exportNoteAsWord(detail.title, detail.content ?? '')
+}
+
+/** 文件夹右键「导出 PDF」：收集直属笔记 → 排序 → 并发拉正文 → 打开打印窗口另存为 PDF */
+async function exportFolderToPdfFromMenu(node: NbTreeNode) {
+  if (!node.notebookId) return
+  // 进度消息实例：用对象属性承载，规避 TS 闭包捕获对 let 变量的收紧推断
+  const progress = { msg: null as MessageHandler | null }
+  try {
+    const result = await exportFolderToPdf(node, {
+      onProgress: (done, total) => {
+        // 进度用持久消息，更新时关闭旧实例，避免消息堆积
+        progress.msg?.close()
+        progress.msg = ElMessage({
+          message: t('notebook.exportFolderPdfProgress', { done, total }),
+          duration: 0,
+        })
+      },
+    })
+    progress.msg?.close()
+    if (result.exported === 0) {
+      // 空文件夹或全部失败时给出可理解的提示
+      ElMessage.warning(
+        result.failed.length
+          ? t('notebook.exportFolderPdfAllFailed')
+          : t('notebook.exportFolderPdfEmpty'),
+      )
+      return
+    }
+    ElMessage.success(t('notebook.exportFolderPdfSuccess', { count: result.exported }))
+    if (result.failed.length) {
+      ElMessage.warning(t('notebook.exportFolderPdfFailed', { count: result.failed.length }))
+    }
+  } catch (error) {
+    progress.msg?.close()
+    // 不吞异常：留日志并提示用户
+    console.error('[notebook] 文件夹导出 PDF 失败', error)
+    ElMessage.error(t('notebook.exportFolderPdfAllFailed'))
+  }
 }
 
 function beginOpenNote(noteId: number, stub: NbNoteDetail, nodeKey?: string) {
@@ -3642,26 +3684,29 @@ onBeforeUnmount(() => {
     background: var(--wr-border, #e8ecef);
   }
 
+  /* MD 模式切换：纵向堆叠整行展示，避免平板窄弹层内同一行溢出 */
   .notebook-editor-config__md {
     display: flex;
+    flex-direction: column;
     gap: 2px;
     padding: 2px;
   }
 
   .notebook-editor-config__md-item {
-    flex: 1;
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 4px;
-    padding: 6px 4px;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 10px;
     border: none;
     border-radius: 6px;
     background: transparent;
     color: var(--wr-text-secondary, #666666);
-    font-size: 12px;
+    font-size: 13px;
+    text-align: left;
     cursor: pointer;
 
+    &:hover,
     &.is-active {
       color: var(--el-color-primary);
       background: var(--wr-stat-blue-bg, #eff6ff);
