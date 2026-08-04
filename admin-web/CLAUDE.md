@@ -34,5 +34,5 @@ npm run build:pi     # 仅 vite build（Pi 部署，跳过类型检查）
 
 - 测试命令：`npm run test`（vitest run）/ `npm run test:watch` / `npm run test:coverage`（含覆盖率报告与门禁）
 - 测试目录：`src/**/__tests__/*.spec.ts`，与被测文件同目录放置
-- 覆盖率门禁：阈值见 `vitest.config.ts` 的 `coverage.thresholds`，先按「不回归」设当前水平，随测试补充逐步抬高至 80%
+- 覆盖率门禁：阈值见 `vitest.config.ts` 的 `coverage.thresholds`（现四维 80%）；include 收敛到已测纯函数/composable/store 文件集（阶段 1/5/6 拆分成果），新文件随补测达标后逐个纳入 include 逐步放开
 - vitest 使用独立 `vitest.config.ts`（仅 vue 插件 + `@` 别名），与 vite.config.ts 的 VitePWA/manualChunks 隔离，避免干扰测试

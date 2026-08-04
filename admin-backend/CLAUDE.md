@@ -34,7 +34,7 @@ worktree 内联调用 `.\dev.ps1 N backend` 换端口（808N，N 为任务编号
 - 模块级编译+单测：`mvn -pl admin-system -am test`
 - 只编译：`mvn compile` / `mvn -pl admin-system -am compile`
 - 覆盖率报告：`mvn -pl admin-common -am verify` 后看 `admin-common/target/site/jacoco/index.html`
-- 覆盖率门禁：admin-common 已开 JaCoCo `check`（LINE/BRANCH ≥ 80%）；admin-system 达标后按同法开启
+- 覆盖率门禁：admin-common、admin-framework 已开 BUNDLE `check`（LINE/BRANCH ≥ 80%）；admin-system 仅对已测达标的 `service.support` 纯逻辑类开 CLASS 级 80%（见 admin-system/pom.xml includes）；admin-server 仅启动类无业务代码不开
 
 ## 测试约定
 
