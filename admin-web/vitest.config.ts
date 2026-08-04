@@ -21,13 +21,19 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      // 覆盖率门禁分阶段放开：先聚焦已补测试的纯逻辑目录，逐步扩展
+      // 阶段 7：收敛到已测纯函数 / composable / store 文件（阶段 1/5/6 拆分并附测试的成果），
+      // 对其开 80% 阈值防回归；其余文件随补测达标后再逐个放宽纳入 include。
       include: [
-        'src/utils/**',
-        'src/composables/**',
-        'src/stores/**',
-        'src/api/**',
-        'src/constants/**',
+        'src/utils/{date,formatMoney,persistedRef,salesOrderView}.ts',
+        'src/composables/{usePagination,useCountingLoading}.ts',
+        'src/stores/{app,ecSettings}.ts',
+        'src/api/request.ts',
+        'src/constants/{importFieldKeys,importStatusMapping}.ts',
+        'src/views/ai-knowledge/composables/*.ts',
+        'src/views/ecommerce/composables/*.ts',
+        'src/views/ecommerce/{expressCalc,expressPanelView,expressPriceView,monthlySettlementView,listingLinkCardView,listingLinkDate,listingLinkSkuView,salesOrderPanelView}.ts',
+        'src/views/notebook/{noteDisplay,noteTreeUtils}.ts',
+        'src/views/notebook/composables/*.ts',
       ],
       exclude: [
         'src/main_*.ts',
@@ -37,12 +43,13 @@ export default defineConfig({
         'src/vite-env.d.ts',
         '**/__tests__/**',
       ],
-      // 初始门禁按「不回归」设当前覆盖水平以下，随测试补充逐步抬高至 80%
+      // 阶段 7：收敛集（阶段 1/5/6 拆分并已测的纯函数/composable/store）整体四维已达 80%+，
+      // 门禁直接抬到 80% 防回归；后续新文件随补测达标再逐个加入 include。
       thresholds: {
-        lines: 8,
-        functions: 30,
-        branches: 40,
-        statements: 8,
+        lines: 80,
+        functions: 80,
+        branches: 80,
+        statements: 80,
       },
     },
   },
