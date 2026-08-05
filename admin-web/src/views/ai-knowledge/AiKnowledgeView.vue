@@ -715,7 +715,7 @@
                   size="small"
                 >
                   <el-form-item label="提供商" prop="provider">
-                    <el-select v-model="embedConfigDraft.provider" style="width: 100%">
+                    <el-select v-model="embedConfigDraft.provider" style="width: 100%" @change="onEmbeddingProviderChange">
                       <el-option
                         v-for="(info, key) in AI_PROVIDER_MAP"
                         :key="key"
@@ -729,7 +729,7 @@
                       v-model="embedConfigDraft.apiKey"
                       type="password"
                       show-password
-                      :placeholder="`${providerInfo?.label || ''} API Key（用于生成嵌入向量）`"
+                      :placeholder="`${embedProviderInfo?.label || ''} API Key（用于生成嵌入向量）`"
                     />
                   </el-form-item>
                   <el-form-item label="API 地址" prop="apiBaseUrl">
@@ -910,9 +910,11 @@ const {
   embedConfigExpanded,
   embedConfigDraft,
   embedConfigFormRef,
+  embedProviderInfo,
   savingEmbedConfig,
   clearingEmbedConfig,
   embeddingConfigured,
+  onEmbeddingProviderChange,
   uploading,
   fileInputRef,
   statusTagType,

@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
@@ -14,7 +14,7 @@ import {
   saveEmbeddingConfig,
   AI_PROVIDER_MAP,
 } from '@/api/aiKnowledge'
-import type { AiModelConfig, RagDocument, RagSource, RagStats } from '@/api/aiKnowledge'
+import type { AiModelConfig, AiProvider, RagDocument, RagSource, RagStats } from '@/api/aiKnowledge'
 
 /**
  * AI 知识页 RAG 知识库与 Embedding 配置状态机
@@ -51,6 +51,25 @@ export function useAiKnowledgeRag() {
   const savingEmbedConfig = ref(false)
   const clearingEmbedConfig = ref(false)
   const embeddingConfigured = ref(false)
+  /** 各提供商 API Key 会话级缓存（切换提供商时记住/恢复，避免把 A 的 key 误存给 B） */
+  const embedApiKeyCache = ref<Record<string, string>>({})
+  /** 当前 Embedding 提供商元信息（API Key 占位符等） */
+  const embedProviderInfo = computed(() => AI_PROVIDER_MAP[embedConfigDraft.value.provider])
+
+  /** 切换 Embedding 提供商：地址/Embedding 模型跟随新提供商默认值，API Key 恢复该提供商缓存 */
+  function onEmbeddingProviderChange(provider: AiProvider) {
+    const info = AI_PROVIDER_MAP[provider]
+    if (!info) return
+    // 先记旧提供商的 key 入缓存（切回时可恢复），再切换 provider（v-model 已改，此处幂等自包含）
+    const prevProvider = embedConfigDraft.value.provider
+    embedApiKeyCache.value[prevProvider] = embedConfigDraft.value.apiKey
+    embedConfigDraft.value.provider = provider
+    embedConfigDraft.value.apiBaseUrl = info.apiBaseUrl
+    embedConfigDraft.value.model = info.model
+    embedConfigDraft.value.embeddingModel = info.embeddingModel
+    // 恢复该提供商已缓存 key（无则置空），避免跨提供商误用旧 key
+    embedConfigDraft.value.apiKey = embedApiKeyCache.value[provider] ?? ''
+  }
 
   function statusTagType(status: string): 'success' | 'warning' | 'danger' | 'info' {
     switch (status) {
@@ -103,6 +122,8 @@ export function useAiKnowledgeRag() {
         defaultProvider: config?.defaultProvider ?? false,
         maxContextMessages: config?.maxContextMessages ?? 10,
       }
+      // 记录当前提供商的 key 到会话缓存（切换提供商后切回时恢复）
+      embedApiKeyCache.value[config?.provider || 'openai'] = config?.apiKey || ''
       embeddingConfigured.value = !!config?.apiKey && !config.apiKey.includes('****')
     } catch {
       // 加载失败使用默认值
@@ -242,9 +263,11 @@ export function useAiKnowledgeRag() {
     embedConfigExpanded,
     embedConfigDraft,
     embedConfigFormRef,
+    embedProviderInfo,
     savingEmbedConfig,
     clearingEmbedConfig,
     embeddingConfigured,
+    onEmbeddingProviderChange,
     uploading,
     fileInputRef,
     statusTagType,

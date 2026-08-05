@@ -24,8 +24,11 @@ vi.mock('@/api/aiKnowledge', () => ({
   uploadRagDocument: vi.fn(),
   fetchEmbeddingConfig: vi.fn(),
   saveEmbeddingConfig: vi.fn(),
-  // loadEmbeddingConfig 在配置缺失部分字段时回退读取 AI_PROVIDER_MAP，测试提供空映射即可
-  AI_PROVIDER_MAP: {},
+  // loadEmbeddingConfig 在配置缺失部分字段时回退读取 AI_PROVIDER_MAP；切换提供商测试需要 openai/deepseek 默认值
+  AI_PROVIDER_MAP: {
+    openai: { label: 'OpenAI', apiBaseUrl: 'https://api.openai.com/v1', model: 'gpt-4o', embeddingModel: 'text-embedding-3-small', temperature: 0.7, maxTokens: 4096, apiKeyHint: '' },
+    deepseek: { label: 'DeepSeek', apiBaseUrl: 'https://api.deepseek.com', model: 'deepseek-chat', embeddingModel: 'deepseek-embedding', temperature: 0.7, maxTokens: 8192, apiKeyHint: '' },
+  },
 }))
 
 vi.mock('element-plus', () => ({
@@ -127,6 +130,41 @@ describe('useAiKnowledgeRag', () => {
 
     expect(api.embeddingConfigured.value).toBe(false)
     expect(api.embedConfigDraft.value.provider).toBe('openai')
+  })
+
+  it('onEmbeddingProviderChange 地址与模型跟随提供商且 key 不跨提供商误用', () => {
+    const api = useAiKnowledgeRag()
+    api.embedConfigDraft.value.apiKey = 'sk-openai'
+
+    api.onEmbeddingProviderChange('deepseek')
+
+    // 地址/Embedding 模型/chat 模型跟随 deepseek 默认值
+    expect(api.embedConfigDraft.value.provider).toBe('deepseek')
+    expect(api.embedConfigDraft.value.apiBaseUrl).toBe('https://api.deepseek.com')
+    expect(api.embedConfigDraft.value.embeddingModel).toBe('deepseek-embedding')
+    expect(api.embedConfigDraft.value.model).toBe('deepseek-chat')
+    // 无 deepseek 缓存 → key 置空，避免把 openai 的 key 误存给 deepseek
+    expect(api.embedConfigDraft.value.apiKey).toBe('')
+
+    // 切回 openai：key 从缓存恢复，地址/模型同步还原
+    api.onEmbeddingProviderChange('openai')
+    expect(api.embedConfigDraft.value.apiKey).toBe('sk-openai')
+    expect(api.embedConfigDraft.value.apiBaseUrl).toBe('https://api.openai.com/v1')
+    expect(api.embedConfigDraft.value.embeddingModel).toBe('text-embedding-3-small')
+  })
+
+  it('loadEmbeddingConfig 后切换提供商可恢复已加载的 key', async () => {
+    const api = useAiKnowledgeRag()
+    fetchEmbedMock.mockResolvedValue({ provider: 'openai', apiKey: 'sk-real' } as never)
+
+    await api.loadEmbeddingConfig()
+
+    api.onEmbeddingProviderChange('deepseek')
+    expect(api.embedConfigDraft.value.apiKey).toBe('')
+
+    api.onEmbeddingProviderChange('openai')
+    expect(api.embedConfigDraft.value.apiKey).toBe('sk-real')
+    expect(api.embedProviderInfo.value?.label).toBe('OpenAI')
   })
 
   it('saveEmbedConfig 保存成功并刷新', async () => {
