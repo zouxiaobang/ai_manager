@@ -49,7 +49,7 @@ public class RagProperties {
     public static class SearchConfig {
         /** 默认返回 topK 条结果 */
         private int topK = 5;
-        /** 相似度阈值（联调实测自然问句约 0.55~0.69，0.72 偏高会漏召回，取 0.65） */
-        private double similarityThreshold = 0.65;
+        /** 相似度阈值（联调实测 qwen 中文问句约 0.55~0.70，取 0.55 保证召回） */
+        private double similarityThreshold = 0.55;
     }
 }

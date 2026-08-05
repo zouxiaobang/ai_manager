@@ -93,8 +93,9 @@ ai-manager:
       strategy: recursive
     search:
       top-k: 5
-      # 联调实测自然问句余弦相似度约 0.55~0.69，0.72 会误滤掉命中片段，放宽到 0.65
-      similarity-threshold: 0.65
+      # 联调实测 qwen 中文自然问句余弦相似度约 0.55~0.70，0.72/0.65 都会滤掉相关片段；
+      # 取 0.55 保证召回（RAG 宁可多召回再由 LLM 判断，也不能搜不到）
+      similarity-threshold: 0.55
   ai-knowledge:
     # P1-3：保存模型/Embedding 配置时校验 apiBaseUrl（SSRF 防护，拒绝内网/环回/元数据地址）；false 关闭
     validate-api-base-url: true

@@ -34,8 +34,8 @@ ai-manager:
       strategy: recursive
     search:
       top-k: 5
-      # 与 dev 保持一致：0.72 过高会误滤自然问句命中
-      similarity-threshold: 0.65
+      # 与 dev 保持一致：qwen 中文问句相似度约 0.55~0.70，取 0.55 保证召回
+      similarity-threshold: 0.55
   note-storage:
     # 树莓派上未配置网盘时可保持 LOCAL；已绑定网盘改为 BAIDU_PAN
     type: ${NOTE_STORAGE_TYPE:LOCAL}
