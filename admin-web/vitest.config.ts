@@ -18,6 +18,9 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
     include: ['src/**/*.{test,spec}.ts'],
+    // 仅处理 note-content.scss 的 ?inline 导入，让打印窗口内联的 CSS 在单测中真实可用；
+    // 其余 CSS 仍按默认 stub，避免拖慢整体测试。
+    css: { include: [/note-content\.scss\?inline/] },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
@@ -32,7 +35,7 @@ export default defineConfig({
         'src/views/ai-knowledge/composables/*.ts',
         'src/views/ecommerce/composables/*.ts',
         'src/views/ecommerce/{expressCalc,expressPanelView,expressPriceView,monthlySettlementView,listingLinkCardView,listingLinkDate,listingLinkSkuView,salesOrderPanelView}.ts',
-        'src/views/notebook/{noteDisplay,noteTreeUtils}.ts',
+        'src/views/notebook/{noteDisplay,noteTreeUtils,exportFolderPdf}.ts',
         'src/views/notebook/composables/*.ts',
       ],
       exclude: [
