@@ -34,7 +34,8 @@ ai-manager:
       strategy: recursive
     search:
       top-k: 5
-      similarity-threshold: 0.72
+      # 与 dev 保持一致：0.72 过高会误滤自然问句命中
+      similarity-threshold: 0.65
   note-storage:
     # 树莓派上未配置网盘时可保持 LOCAL；已绑定网盘改为 BAIDU_PAN
     type: ${NOTE_STORAGE_TYPE:LOCAL}

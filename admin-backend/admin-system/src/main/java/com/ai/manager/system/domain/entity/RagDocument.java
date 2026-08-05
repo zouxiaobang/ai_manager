@@ -37,6 +37,9 @@ public class RagDocument {
     /** 错误信息 */
     private String errorMessage;
 
+    /** 处理失败重试次数（达到上限后启动不再自动重投，防止死循环） */
+    private Integer retryCount;
+
     /** 索引完成时间 */
     private LocalDateTime indexedAt;
 

@@ -75,21 +75,29 @@ ai-manager:
         password: ${DEPLOY_SQL_NODE118_PASSWORD:123456}
     log-file: ${DEPLOY_LOG_FILE:}
   baidu-pan:
-    app-key: ${BAIDU_APP_KEY:0FzEpqFsRX50bkxhGls0WUZfXvnDLL59}
-    secret-key: ${BAIDU_SECRET_KEY:mgOo20RU4AzgH8VBzKYV3aIH3CjVtxco}
+    # P1-3：真实密钥已外置到环境变量（本地值见根目录 .env），不再提交 git
+    app-key: ${BAIDU_APP_KEY:}
+    secret-key: ${BAIDU_SECRET_KEY:}
     app-folder-name: ai_blog
     # 环境子目录：dev 写入 /apps/ai_blog/dev/...；生产留空沿用 /apps/ai_blog/...
     environment-folder: ${BAIDU_PAN_ENV_FOLDER:}
     default-user-id: 1
   rag:
     upload-path: ${RAG_UPLOAD_PATH:uploads/rag-docs}
+    max-retry: 3
+    # 启动期校验 PG 数据源：绑定确为 PostgreSQL 且 rag_vectors 表存在，错绑/失联启动即失败；false 可跳过
+    datasource-probe-enabled: ${RAG_DATASOURCE_PROBE_ENABLED:true}
     chunk:
       max-size: 500
       overlap: 50
       strategy: recursive
     search:
       top-k: 5
-      similarity-threshold: 0.72
+      # 联调实测自然问句余弦相似度约 0.55~0.69，0.72 会误滤掉命中片段，放宽到 0.65
+      similarity-threshold: 0.65
+  ai-knowledge:
+    # P1-3：保存模型/Embedding 配置时校验 apiBaseUrl（SSRF 防护，拒绝内网/环回/元数据地址）；false 关闭
+    validate-api-base-url: true
   note-storage:
     local-root: uploads/notebook-content
     cache-ttl-seconds: 3600

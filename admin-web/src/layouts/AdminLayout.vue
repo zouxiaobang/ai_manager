@@ -58,6 +58,7 @@ const railItems = computed(() => [
   { path: '/ecommerce', iconKey: 'ecommerce' as WarRoomNavIconName, label: t('portal.menu.ecommerce') },
   { path: '/pomodoro', iconKey: 'pomodoro' as WarRoomNavIconName, label: t('portal.menu.pomodoro') },
   { path: '/pixel-dog', iconKey: 'pixel-dog' as WarRoomNavIconName, label: t('portal.menu.pixelDog') },
+  { path: '/ai-knowledge', iconKey: 'ai-knowledge' as WarRoomNavIconName, label: t('portal.menu.aiSkylight') },
   { path: '/notebook', iconKey: 'notebook' as WarRoomNavIconName, label: t('portal.menu.notebook') },
   { path: '/library', iconKey: 'library' as WarRoomNavIconName, label: t('portal.menu.library') },
   { path: '/24hour', iconKey: '24hour' as WarRoomNavIconName, label: t('portal.menu.24hour') },

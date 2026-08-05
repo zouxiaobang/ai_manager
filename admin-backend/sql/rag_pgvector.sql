@@ -15,10 +15,11 @@ CREATE TABLE IF NOT EXISTS rag_vectors (
     content     TEXT         NOT NULL
 );
 
--- IVFFlat 索引（加速余弦相似度搜索）
--- lists = 100 适合约 1 万条数据，数据量大时增大
-CREATE INDEX IF NOT EXISTS idx_rag_vectors_embedding
-    ON rag_vectors USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+-- HNSW 索引（加速余弦相似度搜索；无需训练、无空表限制，小数据集构建与召回优于 IVFFlat）
+-- 存量库升级：已存在旧 IVFFlat 索引时，下方 DROP + CREATE 会先删旧索引再建 HNSW（幂等，可重复执行）
+DROP INDEX IF EXISTS idx_rag_vectors_embedding;
+CREATE INDEX idx_rag_vectors_embedding
+    ON rag_vectors USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 
 -- 常规索引
 CREATE INDEX IF NOT EXISTS idx_vectors_chunk_id ON rag_vectors (chunk_id);

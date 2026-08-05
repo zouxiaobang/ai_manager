@@ -15,6 +15,8 @@ CREATE TABLE IF NOT EXISTS rag_document (
     status        VARCHAR(20)   NOT NULL DEFAULT 'pending'
                   COMMENT '状态: pending / processing / ready / failed',
     error_message TEXT          COMMENT '错误信息',
+    retry_count   INT           NOT NULL DEFAULT 0
+                  COMMENT '处理重试次数（达上限后启动不再自动重投，防止死循环）',
     indexed_at    DATETIME      COMMENT '索引完成时间',
     created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

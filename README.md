@@ -12,7 +12,7 @@
 
 ## 管理后台快速开始
 
-1. MySQL 执行 `admin-backend/sql/deploy-all.sql`（全量建表+演示数据，推荐新环境）
+1. MySQL 执行 `admin-backend/sql/deploy-all.sql`（全量建表+演示数据，推荐新环境；RAG 表另执行 `ai_knowledge_config.sql`+`rag_knowledge_base.sql`，PG 库另执行 `rag_pgvector.sql`）
 2. 启动 Redis
 3. 后端：`cd admin-backend && mvn -pl admin-server -am spring-boot:run`
 4. 前端：`cd admin-web && npm install && npm run dev`

@@ -1,4 +1,5 @@
 import { getData, postData, putData, deleteData } from './request'
+import type { ApiResult } from './types'
 
 // ==================== AI 模型配置 ====================
 
@@ -96,6 +97,8 @@ export interface ChatMessage {
   timestamp: number
   /** 本次请求消耗的 Token 总数（仅 assistant 消息有） */
   tokens?: number
+  /** 回复该条消息的大模型 provider（仅 assistant 消息有，用于展示对应图标） */
+  provider?: AiProvider
 }
 
 export interface ChatRequest {
@@ -310,14 +313,28 @@ export function rebuildRagIndex() {
   return postData<void>('/api/ai-knowledge/rag/rebuild')
 }
 
-export function uploadRagDocument(file: File) {
+/** RAG 文档上传结果（对应后端 AiKnowledgeRagUploadResultVO） */
+export interface RagUploadResult {
+  documentId: number
+  fileName: string
+  status: string
+  message: string
+}
+
+export async function uploadRagDocument(file: File): Promise<RagUploadResult> {
   const formData = new FormData()
   formData.append('file', file)
   const base = import.meta.env.VITE_API_BASE || ''
-  return fetch(`${base}/api/ai-knowledge/rag/upload`, {
+  const resp = await fetch(`${base}/api/ai-knowledge/rag/upload`, {
     method: 'POST',
     body: formData,
-  }).then(r => r.json())
+  })
+  // 后端统一返回 ApiResult 包装，解包 data 部分并透出业务错误，与 postData 约定一致
+  const json = (await resp.json()) as ApiResult<RagUploadResult>
+  if (json && typeof json.code === 'number' && json.code !== 0) {
+    throw new Error(json.message || '文档上传失败')
+  }
+  return json.data
 }
 
 // ==================== 对话分类 & 对话列表 ==================

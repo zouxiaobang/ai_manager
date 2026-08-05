@@ -33,6 +33,7 @@ public class AiKnowledgeConfigStore {
 
     private final AiKnowledgeConfigMapper configMapper;
     private final ObjectMapper objectMapper;
+    private final ConfigCryptoService configCrypto;
 
     /** 某提供商的内置默认配置（未传 apiBaseUrl/embeddingModel 时的补齐来源），无则返回 null */
     public AiKnowledgeConfigVO defaultConfig(String provider) {
@@ -52,13 +53,18 @@ public class AiKnowledgeConfigStore {
 
         // 1. 先读数据库中的配置
         AiKnowledgeConfig row = configMapper.selectById(KEY_MODEL_CONFIG);
+        // P1-3：已加密值先解密再解析；读到历史明文则标记 legacyPlaintext，下方自动回写加密迁移
+        boolean legacyPlaintext = false;
         if (row != null && row.getConfigJson() != null && !row.getConfigJson().isBlank()) {
+            String storedJson = row.getConfigJson();
+            legacyPlaintext = !configCrypto.isEncrypted(storedJson);
+            String json = configCrypto.decryptIfEncrypted(storedJson);
             try {
-                all = objectMapper.readValue(row.getConfigJson(), new TypeReference<Map<String, AiKnowledgeConfigVO>>() {});
+                all = objectMapper.readValue(json, new TypeReference<Map<String, AiKnowledgeConfigVO>>() {});
             } catch (JsonProcessingException e) {
                 // 尝试解析为旧格式（单个 AiKnowledgeConfigVO）
                 try {
-                    AiKnowledgeConfigVO old = objectMapper.readValue(row.getConfigJson(), AiKnowledgeConfigVO.class);
+                    AiKnowledgeConfigVO old = objectMapper.readValue(json, AiKnowledgeConfigVO.class);
                     if (old != null && old.getProvider() != null) {
                         all.put(old.getProvider(), old);
                         log.info("已迁移旧格式配置：provider={}", old.getProvider());
@@ -79,10 +85,10 @@ public class AiKnowledgeConfigStore {
             }
         }
 
-        // 3. 如有新增的默认配置，写回 DB
-        if (needSave) {
+        // 3. 如有新增的默认配置、或读到历史明文（需迁移加密），写回 DB
+        if (needSave || legacyPlaintext) {
             try {
-                String json = objectMapper.writeValueAsString(all);
+                String json = configCrypto.encrypt(objectMapper.writeValueAsString(all));
                 if (row == null) {
                     row = new AiKnowledgeConfig();
                     row.setConfigKey(KEY_MODEL_CONFIG);
@@ -92,7 +98,7 @@ public class AiKnowledgeConfigStore {
                     row.setConfigJson(json);
                     configMapper.updateById(row);
                 }
-                log.info("已补全所有提供商的默认配置");
+                log.info("已补全所有提供商的默认配置" + (legacyPlaintext ? "，并完成明文迁移加密" : ""));
             } catch (JsonProcessingException e) {
                 log.error("写入默认配置失败", e);
             }
@@ -104,7 +110,7 @@ public class AiKnowledgeConfigStore {
     /** 将所有提供商的配置写入数据库 */
     public void writeAllConfigs(Map<String, AiKnowledgeConfigVO> configs) {
         try {
-            String json = objectMapper.writeValueAsString(configs);
+            String json = configCrypto.encrypt(objectMapper.writeValueAsString(configs));
             AiKnowledgeConfig row = configMapper.selectById(KEY_MODEL_CONFIG);
             if (row == null) {
                 row = new AiKnowledgeConfig();

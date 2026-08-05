@@ -18,6 +18,7 @@ export type WarRoomNavIconName =
   | 'ecommerce'
   | 'pixel-dog'
   | 'functions'
+  | 'ai-knowledge'
   | 'notebook'
   | 'library'
   | 'todos'

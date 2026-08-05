@@ -15,7 +15,8 @@ ai-manager:
     pi:
       user: ${PI_USER:kyle}
       host: ${PI_HOST:192.168.0.114}
-      password: ${PI_PASSWORD:Asd123456}
+      # P1-3：真实凭据外置到环境变量 PI_PASSWORD（本地值见根目录 .env），不再提交 git
+      password: ${PI_PASSWORD:}
     # 远程部署到 Pi 的目标目录（本地日志路径见上方 logging.file.name）
     backend-dir: ${DEPLOY_BACKEND_DIR:/opt/ai-manager/backend}
     web-root: ${DEPLOY_WEB_ROOT:/var/www/ai-manager}

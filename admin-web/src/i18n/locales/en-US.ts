@@ -27,6 +27,7 @@ export default {
       ecommerce: 'E-commerce',
       pixelDog: 'Pixel Dog',
       functions: 'Features',
+      aiSkylight: 'AI Skylight',
       notebook: 'Notebook',
       library: 'Library',
       todos: 'Todos',
@@ -627,7 +628,7 @@ export default {
         desc: 'Kanban tasks with due reminders, repeats and pinned highlights',
       },
       aiKnowledge: {
-        name: 'AI knowledge base',
+        name: 'AI Skylight',
         desc: 'Team knowledge with search and AI Q&A',
       },
       library: {
@@ -3041,7 +3042,7 @@ export default {
     cancel: 'Cancel',
   },
   aiKnowledge: {
-    title: 'AI Knowledge Base',
+    title: 'AI Skylight',
     tabs: {
       chat: 'Smart Q&A',
       rag: 'RAG Knowledge Base',
@@ -3073,12 +3074,11 @@ export default {
       apiBaseUrlPlaceholder: 'Enter API base URL',
       model: 'Model Name',
       modelPlaceholder: 'Enter model name',
+      embeddingConfig: 'Embedding Model Config',
       temperature: 'Temperature',
       temperatureHint: 'Higher values make output more random, lower values more focused',
       maxTokens: 'Max Tokens',
       maxTokensHint: 'Maximum tokens per response',
-      embeddingModel: 'Embedding Model',
-      embeddingModelPlaceholder: 'Used for knowledge base vectorization',
       setAsDefault: 'Set as default model',
       defaultModel: 'Default model',
       maxContextMessages: 'Context Messages (Memory)',

@@ -34,6 +34,9 @@ import com.ai.manager.system.mapper.RagChunkMapper;
 import com.ai.manager.system.mapper.RagDocumentMapper;
 import com.ai.manager.system.service.AiKnowledgeService;
 import com.ai.manager.system.service.support.AiKnowledgeConfigStore;
+import com.ai.manager.system.service.support.ApiBaseUrlValidator;
+import com.ai.manager.system.service.support.ConfigCryptoService;
+import com.ai.manager.system.service.support.StoragePathSupport;
 import com.ai.manager.system.service.support.llm.LlmChatResult;
 import com.ai.manager.system.service.support.llm.LlmProviderStrategy;
 import com.ai.manager.system.service.support.llm.LlmProviderStrategyFactory;
@@ -47,8 +50,12 @@ import com.ai.manager.system.service.support.rag.EmbeddingService;
 import com.ai.manager.system.service.support.rag.PgVectorStore;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -56,14 +63,18 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -114,6 +125,10 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
     private final AiKnowledgeConfigMapper configMapper;
     private final ObjectMapper objectMapper;
     private final AiKnowledgeConfigStore configStore;
+    /** P1-3：配置落库加密 / 解密（apiKey 明文不落库） */
+    private final ConfigCryptoService configCrypto;
+    /** P1-3：apiBaseUrl 校验（SSRF 防护，拒绝内网/环回/元数据地址） */
+    private final ApiBaseUrlValidator apiBaseUrlValidator;
     private final AiChatCategoryMapper chatCategoryMapper;
     private final AiChatConversationMapper chatConversationMapper;
     private final AiChatMessageMapper chatMessageMapper;
@@ -126,7 +141,22 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
     private final ChunkingService chunkingService;
     private final EmbeddingService embeddingService;
     private final PgVectorStore pgVectorStore;
+    /** RAG 文档异步处理线程池（解析/分块/嵌入/存向量在独立线程执行，不占用 HTTP 线程与长事务） */
+    @Qualifier("ragProcessExecutor")
+    private final java.util.concurrent.Executor ragProcessExecutor;
     private final RagProperties ragProperties;
+
+    /** 正在处理中的文档 ID（内存防重复提交，进程内生效；重启后为空，可重新入队） */
+    private final Set<Long> inFlightDocuments = ConcurrentHashMap.newKeySet();
+
+    /** RAG 文档上传根目录（启动时解析并创建，上传时防御性重建） */
+    private Path ragUploadDir;
+
+    @PostConstruct
+    void initRagUploadDir() throws IOException {
+        ragUploadDir = StoragePathSupport.resolveUploadBasePath(ragProperties.getUploadPath());
+        Files.createDirectories(ragUploadDir);
+    }
 
     // ==================== 模型配置 ====================
 
@@ -234,6 +264,9 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
             }
         }
 
+        // P1-3：SSRF 防护——校验 apiBaseUrl 不指向内网/环回/元数据地址
+        apiBaseUrlValidator.validate(config.getApiBaseUrl());
+
         configStore.writeAllConfigs(all);
 
         log.info("AI 知识库配置已保存：provider={}, model={}, defaultProvider={}",
@@ -248,7 +281,8 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
         AiKnowledgeConfig row = configMapper.selectById(KEY_EMBEDDING_CONFIG);
         if (row != null && row.getConfigJson() != null && !row.getConfigJson().isBlank()) {
             try {
-                AiKnowledgeConfigVO config = objectMapper.readValue(row.getConfigJson(), AiKnowledgeConfigVO.class);
+                AiKnowledgeConfigVO config = objectMapper.readValue(
+                        configCrypto.decryptIfEncrypted(row.getConfigJson()), AiKnowledgeConfigVO.class);
                 return configStore.maskConfig(config);
             } catch (JsonProcessingException e) {
                 log.error("解析 embedding 配置失败", e);
@@ -277,7 +311,8 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
             AiKnowledgeConfig existingRow = configMapper.selectById(KEY_EMBEDDING_CONFIG);
             if (existingRow != null && existingRow.getConfigJson() != null) {
                 try {
-                    AiKnowledgeConfigVO existing = objectMapper.readValue(existingRow.getConfigJson(), AiKnowledgeConfigVO.class);
+                    AiKnowledgeConfigVO existing = objectMapper.readValue(
+                            configCrypto.decryptIfEncrypted(existingRow.getConfigJson()), AiKnowledgeConfigVO.class);
                     if (existing.getApiKey() != null && !existing.getApiKey().isBlank()
                             && !existing.getApiKey().contains("****")) {
                         config.setApiKey(existing.getApiKey());
@@ -312,9 +347,12 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
             }
         }
 
-        // 保存到 DB
+        // P1-3：SSRF 防护——校验 apiBaseUrl 不指向内网/环回/元数据地址
+        apiBaseUrlValidator.validate(config.getApiBaseUrl());
+
+        // 保存到 DB（apiKey 落库加密，库中不存明文密钥）
         try {
-            String json = objectMapper.writeValueAsString(config);
+            String json = configCrypto.encrypt(objectMapper.writeValueAsString(config));
             AiKnowledgeConfig row = configMapper.selectById(KEY_EMBEDDING_CONFIG);
             if (row == null) {
                 row = new AiKnowledgeConfig();
@@ -339,7 +377,8 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
         AiKnowledgeConfig row = configMapper.selectById(KEY_EMBEDDING_CONFIG);
         if (row != null && row.getConfigJson() != null && !row.getConfigJson().isBlank()) {
             try {
-                return objectMapper.readValue(row.getConfigJson(), AiKnowledgeConfigVO.class);
+                return objectMapper.readValue(
+                        configCrypto.decryptIfEncrypted(row.getConfigJson()), AiKnowledgeConfigVO.class);
             } catch (JsonProcessingException e) {
                 log.error("解析 embedding 配置失败，使用默认配置", e);
             }
@@ -547,7 +586,6 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
     }
 
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public AiKnowledgeRagUploadResultVO uploadRagDocument(MultipartFile file) {
         String originalName = file.getOriginalFilename();
         if (originalName == null || originalName.isBlank()) {
@@ -567,43 +605,32 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
                     "不支持的文件类型: " + ext + "，支持: " + String.join(", ", supportedTypes));
         }
 
+        Path targetFile = null;
         try {
-            // 1. 存储文件到磁盘
-            String uploadDir = ragProperties.getUploadPath();
-            File dir = new File(uploadDir);
-            if (!dir.exists()) dir.mkdirs();
-
+            // 1. 存储文件到磁盘（目录启动时已解析并创建，此处防御性重建防止运行时被清理）
+            Files.createDirectories(ragUploadDir);
             String storageName = System.currentTimeMillis() + "_" + originalName;
-            File targetFile = new File(dir, storageName);
+            targetFile = ragUploadDir.resolve(storageName).normalize();
+            if (!targetFile.startsWith(ragUploadDir)) {
+                throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "非法文件名");
+            }
             file.transferTo(targetFile);
 
-            // 2. 创建文档记录
+            // 2. 创建文档记录：直接置 processing，落库后 HTTP 请求即可返回（单条 insert 自动提交，短事务）
             RagDocument doc = new RagDocument();
             doc.setFileName(originalName);
             doc.setFileType(ext);
             doc.setFileSize(file.getSize());
-            doc.setFilePath(targetFile.getAbsolutePath());
-            doc.setStatus("pending");
+            // P1-4：落库存相对路径（相对上传根目录），避免暴露服务器绝对路径；读取经 resolveDocFile 还原
+            doc.setFilePath(ragUploadDir.relativize(targetFile).toString());
+            doc.setStatus("processing");
             doc.setChunkCount(0);
+            doc.setRetryCount(0);
             ragDocumentMapper.insert(doc);
 
-            // 3. 异步处理文档（解析 → 分块 → 嵌入 → 存储）
+            // 3. 提交异步处理（解析 → 分块 → 嵌入 → 存向量），不占用本请求线程与事务
             final Long docId = doc.getId();
-            com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<RagDocument> uw =
-                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<>();
-            uw.eq(RagDocument::getId, docId).set(RagDocument::getStatus, "processing");
-            ragDocumentMapper.update(null, uw);
-
-            try {
-                processDocument(docId, targetFile, ext);
-            } catch (Exception e) {
-                log.error("文档处理失败：docId={}, fileName={}", docId, originalName, e);
-                ragDocumentMapper.update(null,
-                        new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<RagDocument>()
-                                .eq(RagDocument::getId, docId)
-                                .set(RagDocument::getStatus, "failed")
-                                .set(RagDocument::getErrorMessage, e.getMessage()));
-            }
+            submitDocumentProcessing(docId, targetFile.toFile(), ext);
 
             return AiKnowledgeRagUploadResultVO.builder()
                     .documentId(docId)
@@ -613,15 +640,74 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
                     .build();
 
         } catch (Exception e) {
+            // 落盘/入库任一步失败：清理已落盘文件，避免孤儿文件残留磁盘
+            if (targetFile != null) {
+                try {
+                    Files.deleteIfExists(targetFile);
+                } catch (IOException ex) {
+                    log.warn("清理上传失败遗留文件失败：path={}", targetFile, ex);
+                }
+            }
             log.error("文档上传失败：{}", originalName, e);
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "文档上传失败: " + e.getMessage());
         }
     }
 
     /**
-     * 处理文档：解析 → 分块 → 嵌入 → 存储向量
+     * 解析文档物理文件路径。
+     *
+     * <p>P1-4 起 filePath 落库为相对上传根目录的路径；历史数据为绝对路径。
+     * 此处兼容两者：绝对路径直接使用，相对路径基于上传根目录解析。</p>
      */
-    private void processDocument(Long docId, File file, String ext) {
+    private File resolveDocFile(String storedPath) {
+        if (storedPath == null || storedPath.isBlank()) {
+            return null;
+        }
+        Path p = Path.of(storedPath);
+        return (p.isAbsolute() ? p : ragUploadDir.resolve(p).normalize()).toFile();
+    }
+
+    /**
+     * 提交文档异步处理任务（解析 → 分块 → 嵌入 → 存向量）。
+     *
+     * <p>任务在线程池 ragProcessExecutor 中执行；失败时置 failed 并清理该文档残留的孤儿分块/向量，
+     * 避免重试时旧数据叠加。</p>
+     */
+    private void submitDocumentProcessing(Long docId, File file, String ext) {
+        // 内存 in-flight 防重：同一文档已有任务在处理时不再重复提交（重启后集合为空，可正常恢复）
+        if (!inFlightDocuments.add(docId)) {
+            log.info("文档已在处理中，跳过重复提交：docId={}", docId);
+            return;
+        }
+        ragProcessExecutor.execute(() -> {
+            try {
+                doProcessDocument(docId, file, ext);
+            } catch (Exception e) {
+                log.error("文档异步处理失败：docId={}, fileName={}", docId, file.getName(), e);
+                // 先清理残留分块/向量（cleanupOrphanChunks 自身不抛异常），再置 failed 并累计重试次数
+                cleanupOrphanChunks(docId);
+                ragDocumentMapper.update(null,
+                        new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<RagDocument>()
+                                .eq(RagDocument::getId, docId)
+                                .set(RagDocument::getStatus, "failed")
+                                .set(RagDocument::getErrorMessage, e.getMessage())
+                                .setSql("retry_count = retry_count + 1"));
+            } finally {
+                inFlightDocuments.remove(docId);
+            }
+        });
+    }
+
+    /**
+     * 实际处理文档：解析 → 分块 → 嵌入 → 保存分块与向量 → 置 ready
+     *
+     * <p>在独立线程池中执行，不占用 HTTP 请求线程；成功/失败的状态兜底由 submitDocumentProcessing 负责。
+     * 异步后 chunk 插入不再有外层事务包裹，失败时靠 cleanupOrphanChunks 清理已插入的残留分块。</p>
+     */
+    private void doProcessDocument(Long docId, File file, String ext) {
+        // 0. 先清理该文档历史分块/向量（重试/重建/启动恢复场景），失败不阻断本次处理
+        cleanupOrphanChunks(docId);
+
         // 1. 解析文档为纯文本
         String text;
         try (InputStream is = new FileInputStream(file)) {
@@ -689,55 +775,64 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
             pgVectorStore.storeBatch(vectorRecords);
         }
 
-        // 7. 更新文档状态
+        // 7. 更新文档状态（成功后重置重试次数）
         ragDocumentMapper.update(null,
                 new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<RagDocument>()
                         .eq(RagDocument::getId, docId)
                         .set(RagDocument::getStatus, "ready")
                         .set(RagDocument::getChunkCount, chunks.size())
-                        .set(RagDocument::getIndexedAt, java.time.LocalDateTime.now()));
+                        .set(RagDocument::getIndexedAt, java.time.LocalDateTime.now())
+                        .set(RagDocument::getRetryCount, 0));
 
         log.info("文档处理完成：docId={}, chunks={}, tokens={}", docId, chunks.size(), tokenCount);
     }
 
+    /**
+     * 清理文档残留的孤儿分块与向量（异步处理失败/重试/启动恢复时调用）。
+     * 向量清理失败不阻断分块删除，仅记录告警。
+     */
+    private void cleanupOrphanChunks(Long docId) {
+        try {
+            List<RagChunk> chunks = ragChunkMapper.selectList(
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<RagChunk>()
+                            .eq(RagChunk::getDocumentId, docId));
+            if (chunks.isEmpty()) {
+                return;
+            }
+            List<Long> chunkIds = chunks.stream().map(RagChunk::getId).collect(java.util.stream.Collectors.toList());
+            try {
+                pgVectorStore.deleteByChunkIds(chunkIds);
+            } catch (Exception e) {
+                log.warn("清理孤儿向量失败：docId={}", docId, e);
+            }
+            ragChunkMapper.delete(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<RagChunk>()
+                    .eq(RagChunk::getDocumentId, docId));
+        } catch (Exception e) {
+            // 清理自身失败仅记录，不阻断置 failed/继续处理
+            log.warn("清理孤儿分块失败：docId={}", docId, e);
+        }
+    }
+
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public void retryRagDocument(Long id) {
         RagDocument doc = ragDocumentMapper.selectById(id);
         if (doc == null) {
             throw new BusinessException(ResultCode.NOT_FOUND.getCode(), "文档不存在");
         }
 
-        // 清除旧的分块和向量
-        List<RagChunk> oldChunks = ragChunkMapper.selectList(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<RagChunk>()
-                        .eq(RagChunk::getDocumentId, id));
-        if (!oldChunks.isEmpty()) {
-            List<Long> chunkIds = oldChunks.stream().map(RagChunk::getId).collect(java.util.stream.Collectors.toList());
-            pgVectorStore.deleteByChunkIds(chunkIds);
-            ragChunkMapper.delete(
-                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<RagChunk>()
-                            .eq(RagChunk::getDocumentId, id));
-        }
+        // 置 processing 后提交异步处理，接口立即返回；旧分块/向量清理与重新处理都在异步任务内完成（见 doProcessDocument）
+        ragDocumentMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<RagDocument>()
+                        .eq(RagDocument::getId, id)
+                        .set(RagDocument::getStatus, "processing")
+                        .set(RagDocument::getErrorMessage, null));
 
-        // 重新处理
-        try {
-            ragDocumentMapper.update(null,
-                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<RagDocument>()
-                            .eq(RagDocument::getId, id)
-                            .set(RagDocument::getStatus, "processing")
-                            .set(RagDocument::getErrorMessage, null));
-            File file = new File(doc.getFilePath());
-            processDocument(id, file, doc.getFileType());
-        } catch (Exception e) {
-            log.error("重试文档失败：id={}", id, e);
-            ragDocumentMapper.update(null,
-                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<RagDocument>()
-                            .eq(RagDocument::getId, id)
-                            .set(RagDocument::getStatus, "failed")
-                            .set(RagDocument::getErrorMessage, e.getMessage()));
-            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "重试失败: " + e.getMessage());
+        File file = resolveDocFile(doc.getFilePath());
+        if (file == null || !file.exists()) {
+            throw new BusinessException(ResultCode.NOT_FOUND.getCode(), "文档文件不存在，无法重试");
         }
+        submitDocumentProcessing(id, file, doc.getFileType());
+        log.info("重试文档已提交：id={}", id);
     }
 
     @Override
@@ -752,9 +847,9 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
         // 删除文档记录
         RagDocument doc = ragDocumentMapper.selectById(id);
         if (doc != null) {
-            // 删除物理文件
-            File file = new File(doc.getFilePath());
-            if (file.exists()) file.delete();
+            // 删除物理文件（相对路径经 resolveDocFile 还原到上传根目录）
+            File file = resolveDocFile(doc.getFilePath());
+            if (file != null && file.exists()) file.delete();
         }
         ragDocumentMapper.deleteById(id);
         log.info("移除文档：id={}", id);
@@ -808,7 +903,10 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
             result.setSources(sources);
             log.info("RAG 搜索完成：query={}, topK={}, 结果数={}", query, topK, sources.size());
         } catch (Exception e) {
+            // P1-1：不吞异常，抛业务异常让调用方可见（否则用户拿到空上下文却以为是检索正常）
             log.error("RAG 搜索失败：query={}", query, e);
+            throw new BusinessException(ResultCode.INTERNAL_ERROR.getCode(),
+                    "RAG 检索失败，请稍后重试或检查知识库/嵌入配置");
         }
 
         return result;
@@ -832,27 +930,59 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
         pgVectorStore.truncateAll();
 
         for (RagDocument doc : docs) {
-            try {
-                // 删除旧分块
-                ragChunkMapper.delete(
-                        new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<RagChunk>()
-                                .eq(RagChunk::getDocumentId, doc.getId()));
-                // 重新处理
-                File file = new File(doc.getFilePath());
-                if (file.exists()) {
-                    processDocument(doc.getId(), file, doc.getFileType());
-                }
-            } catch (Exception e) {
-                log.error("重建索引失败：docId={}, fileName={}", doc.getId(), doc.getFileName(), e);
+            File file = resolveDocFile(doc.getFilePath());
+            if (file != null && file.exists()) {
                 ragDocumentMapper.update(null,
                         new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<RagDocument>()
                                 .eq(RagDocument::getId, doc.getId())
-                                .set(RagDocument::getStatus, "failed")
-                                .set(RagDocument::getErrorMessage, e.getMessage()));
+                                .set(RagDocument::getStatus, "processing")
+                                .set(RagDocument::getErrorMessage, null));
+                submitDocumentProcessing(doc.getId(), file, doc.getFileType());
             }
         }
 
-        log.info("重建索引完成：{} 个文档", docs.size());
+        log.info("重建索引提交完成：{} 个文档", docs.size());
+    }
+
+    /**
+     * 应用启动就绪后，重新投递上次中断/失败/待处理的文档，防止重启丢任务。
+     *
+     * <p>处理过程是异步的，进程异常退出时 processing/pending 状态的任务实际丢失，
+     * failed 文档在配置补齐后也应自动重试，故启动时统一恢复并重新提交异步处理。</p>
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void resumePendingRagDocuments() {
+        List<RagDocument> pending = ragDocumentMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<RagDocument>()
+                        .in(RagDocument::getStatus, "pending", "processing", "failed"));
+        if (pending.isEmpty()) {
+            return;
+        }
+
+        int maxRetry = ragProperties.getMaxRetry();
+        int recovered = 0;
+        for (RagDocument doc : pending) {
+            // 已达重试上限的文档不再自动重投，防止死循环
+            int retryCount = doc.getRetryCount() != null ? doc.getRetryCount() : 0;
+            if (retryCount >= maxRetry) {
+                log.warn("文档重试次数已达上限，跳过启动恢复：id={}, retryCount={}", doc.getId(), retryCount);
+                continue;
+            }
+            File file = resolveDocFile(doc.getFilePath());
+            if (file == null || !file.exists()) {
+                log.warn("文档文件不存在，跳过恢复：id={}, path={}", doc.getId(), doc.getFilePath());
+                continue;
+            }
+            // 置 processing 后重新提交；旧分块/向量清理与重新处理都在异步任务内完成（见 doProcessDocument）
+            ragDocumentMapper.update(null,
+                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<RagDocument>()
+                            .eq(RagDocument::getId, doc.getId())
+                            .set(RagDocument::getStatus, "processing")
+                            .set(RagDocument::getErrorMessage, null));
+            submitDocumentProcessing(doc.getId(), file, doc.getFileType());
+            recovered++;
+        }
+        log.info("启动恢复 RAG 待处理文档：共 {} 个，重新入队 {} 个", pending.size(), recovered);
     }
 
     // ==================== 对话管理 ====================

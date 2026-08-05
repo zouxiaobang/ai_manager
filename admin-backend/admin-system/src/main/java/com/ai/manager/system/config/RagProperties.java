@@ -15,6 +15,12 @@ public class RagProperties {
     /** 文档上传存储路径 */
     private String uploadPath = "uploads/rag-docs";
 
+    /** 处理失败最大重试次数（达到上限后启动不再自动重投，防止死循环） */
+    private int maxRetry = 3;
+
+    /** 启动期 PG 数据源探针开关（无 PG 环境可设 false 关闭，默认开启） */
+    private boolean datasourceProbeEnabled = true;
+
     /** 分块配置 */
     private ChunkConfig chunk = new ChunkConfig();
 
@@ -35,7 +41,7 @@ public class RagProperties {
     public static class SearchConfig {
         /** 默认返回 topK 条结果 */
         private int topK = 5;
-        /** 相似度阈值 */
-        private double similarityThreshold = 0.72;
+        /** 相似度阈值（联调实测自然问句约 0.55~0.69，0.72 偏高会漏召回，取 0.65） */
+        private double similarityThreshold = 0.65;
     }
 }

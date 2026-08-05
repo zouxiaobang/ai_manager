@@ -173,12 +173,13 @@ export function useAiKnowledgeChat(deps: AiKnowledgeChatDeps) {
     sending.value = true
     scrollChatToBottom()
 
-    // 预创建助手消息占位
+    // 预创建助手消息占位（记录回复它的 provider，用于展示该条消息的大模型图标）
     const assistantMsg: ChatMessage & { sources?: RagSource[] } = {
       id: genMsgId(),
       role: 'assistant',
       content: '',
       timestamp: Date.now(),
+      provider: chatProvider.value,
     }
     messages.value.push(assistantMsg)
     scrollChatToBottom()

@@ -72,6 +72,17 @@ describe('useAiKnowledgeChat', () => {
       expect(saveMessages).toHaveBeenCalled()
     })
 
+    it('助手消息记录发送时的 provider，供每条回答按回复它的模型展示图标', () => {
+      const { api, messages, chatProvider } = setup()
+      chatProvider.value = 'deepseek'
+      api.question.value = '你好'
+
+      api.sendMessage()
+
+      expect(messages.value[1].role).toBe('assistant')
+      expect(messages.value[1].provider).toBe('deepseek')
+    })
+
     it('空文本或发送中不重复发送', () => {
       const { api, messages } = setup()
       api.sendMessage()

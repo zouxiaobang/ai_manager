@@ -29,12 +29,13 @@ class AiKnowledgeConfigStoreTest {
 
     @Mock private AiKnowledgeConfigMapper configMapper;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ConfigCryptoService crypto = new ConfigCryptoService("test-master-key");
     private AiKnowledgeConfigStore store;
 
     @BeforeEach
     void setUp() {
-        // ObjectMapper 非 mock，手动构造（@RequiredArgsConstructor 注入 mapper + objectMapper）
-        store = new AiKnowledgeConfigStore(configMapper, objectMapper);
+        // ObjectMapper 与加密服务均非 mock，手动构造（@RequiredArgsConstructor 注入 mapper + objectMapper + configCrypto）
+        store = new AiKnowledgeConfigStore(configMapper, objectMapper, crypto);
     }
 
     private AiKnowledgeConfigVO config(String provider, String apiKey) {
@@ -53,12 +54,13 @@ class AiKnowledgeConfigStoreTest {
 
         Map<String, AiKnowledgeConfigVO> all = store.readAllConfigs();
 
-        // 无任何存量时用内置默认补全五个提供商并写回
+        // 无任何存量时用内置默认补全五个提供商并写回（P1-3：写回为加密值）
         assertThat(all).containsKeys("openai", "claude", "deepseek", "qwen", "custom");
         ArgumentCaptor<AiKnowledgeConfig> captor = ArgumentCaptor.forClass(AiKnowledgeConfig.class);
         verify(configMapper).insert(captor.capture());
         assertThat(captor.getValue().getConfigKey()).isEqualTo("model_config");
-        assertThat(captor.getValue().getConfigJson()).contains("\"openai\"");
+        assertThat(captor.getValue().getConfigJson()).startsWith(ConfigCryptoService.ENC_PREFIX);
+        assertThat(crypto.decrypt(captor.getValue().getConfigJson())).contains("\"openai\"");
     }
 
     @Test
@@ -100,7 +102,8 @@ class AiKnowledgeConfigStoreTest {
                 "qwen", config("qwen", "sk-4"),
                 "custom", config("custom", "sk-5"));
         AiKnowledgeConfig row = new AiKnowledgeConfig();
-        row.setConfigJson(objectMapper.writeValueAsString(complete));
+        // 已迁移为加密值（非历史明文），无需迁移加密写回
+        row.setConfigJson(crypto.encrypt(objectMapper.writeValueAsString(complete)));
         when(configMapper.selectById("model_config")).thenReturn(row);
 
         Map<String, AiKnowledgeConfigVO> all = store.readAllConfigs();
@@ -108,6 +111,23 @@ class AiKnowledgeConfigStoreTest {
         assertThat(all).hasSize(5);
         verify(configMapper, never()).insert(any(AiKnowledgeConfig.class));
         verify(configMapper, never()).updateById(any(AiKnowledgeConfig.class));
+    }
+
+    @Test
+    void readAllConfigs_历史明文_回写为加密值() {
+        AiKnowledgeConfig row = new AiKnowledgeConfig();
+        row.setConfigKey("model_config");
+        row.setConfigJson("{\"openai\":{\"provider\":\"openai\",\"apiKey\":\"sk-123\",\"model\":\"gpt-4o\"}}");
+        when(configMapper.selectById("model_config")).thenReturn(row);
+
+        store.readAllConfigs();
+
+        ArgumentCaptor<AiKnowledgeConfig> captor = ArgumentCaptor.forClass(AiKnowledgeConfig.class);
+        verify(configMapper).updateById(captor.capture());
+        String written = captor.getValue().getConfigJson();
+        // 历史明文读取后自动加密回写
+        assertThat(written).startsWith(ConfigCryptoService.ENC_PREFIX);
+        assertThat(crypto.decrypt(written)).contains("\"sk-123\"");
     }
 
     // ==================== writeAllConfigs ====================

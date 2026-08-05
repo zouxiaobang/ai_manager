@@ -1,5 +1,5 @@
 <template>
-  <!-- AI 知识库对话 / RAG 知识库 / 知识库设置 -->
+  <!-- AI 天窗对话 / RAG 知识库 / 知识库设置 -->
   <div class="ai-knowledge-page war-room-page war-room-page--fill">
     <!-- 页面头部标题 -->
     <header class="ai-knowledge__header">
@@ -138,7 +138,7 @@
 
               <div v-for="msg in messages" :key="msg.id" class="ak-chat__msg-row" :class="`is-${msg.role}`" :data-msg-id="msg.id">
                 <div v-if="msg.role === 'assistant'" class="ak-chat__avatar ak-chat__avatar--ai">
-                  <img :src="providerAvatarUrl" class="ak-chat__avatar-img" alt="AI" @error="onAvatarError">
+                  <img :src="messageAvatarUrl(msg)" class="ak-chat__avatar-img" alt="AI" @error="onAvatarError">
                 </div>
                 <div v-else class="ak-chat__avatar ak-chat__avatar--user">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -566,76 +566,6 @@
                 <p>{{ t('aiKnowledge.rag.empty') }}</p>
               </div>
             </section>
-
-            <!-- Embedding 配置（独立于 Chat 配置） -->
-            <section class="ak-rag__embed-config war-room-panel" style="margin-top: 16px;">
-              <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;" @click="embedConfigExpanded = !embedConfigExpanded">
-                <h3 class="ak-rag__section-title" style="margin: 0;">
-                  {{ t('aiKnowledge.settings.embeddingConfig') || 'Embedding 配置' }}
-                </h3>
-                <el-tag v-if="embeddingConfigured" type="success" size="small" effect="plain">已配置</el-tag>
-                <el-tag v-else type="warning" size="small" effect="plain">未配置</el-tag>
-              </div>
-              <el-collapse-transition>
-                <div v-show="embedConfigExpanded" style="padding-top: 12px;">
-                  <el-form
-                    ref="embedConfigFormRef"
-                    :model="embedConfigDraft"
-                    label-width="120px"
-                    size="small"
-                  >
-                    <el-form-item label="提供商" prop="provider">
-                      <el-select v-model="embedConfigDraft.provider" style="width: 100%">
-                        <el-option
-                          v-for="(info, key) in AI_PROVIDER_MAP"
-                          :key="key"
-                          :label="info.label"
-                          :value="key"
-                        />
-                      </el-select>
-                    </el-form-item>
-                    <el-form-item label="API Key" prop="apiKey">
-                      <el-input
-                        v-model="embedConfigDraft.apiKey"
-                        type="password"
-                        show-password
-                        :placeholder="`${providerInfo?.label || ''} API Key（用于生成嵌入向量）`"
-                      />
-                    </el-form-item>
-                    <el-form-item label="API 地址" prop="apiBaseUrl">
-                      <el-input
-                        v-model="embedConfigDraft.apiBaseUrl"
-                        :placeholder="AI_PROVIDER_MAP[embedConfigDraft.provider]?.apiBaseUrl || 'https://api.openai.com/v1'"
-                      />
-                    </el-form-item>
-                    <el-form-item label="Embedding 模型" prop="embeddingModel">
-                      <el-input
-                        v-model="embedConfigDraft.embeddingModel"
-                        :placeholder="AI_PROVIDER_MAP[embedConfigDraft.provider]?.embeddingModel || 'text-embedding-3-small'"
-                      />
-                    </el-form-item>
-                    <el-form-item>
-                      <el-button
-                        type="primary"
-                        :loading="savingEmbedConfig"
-                        @click="saveEmbedConfig"
-                      >
-                        保存 Embedding 配置
-                      </el-button>
-                      <el-button
-                        v-if="embeddingConfigured"
-                        type="danger"
-                        plain
-                        :loading="clearingEmbedConfig"
-                        @click="clearEmbedConfig"
-                      >
-                        清除配置
-                      </el-button>
-                    </el-form-item>
-                  </el-form>
-                </div>
-              </el-collapse-transition>
-            </section>
           </div>
         </div>
       </el-tab-pane>
@@ -723,14 +653,6 @@
                 <div class="ak-settings__hint">{{ t('aiKnowledge.settings.maxTokensHint') }}（推荐：{{ providerInfo?.maxTokens || '4096' }}）</div>
               </el-form-item>
 
-              <!-- Embedding 模型 -->
-              <el-form-item :label="t('aiKnowledge.settings.embeddingModel')" prop="embeddingModel">
-                <el-input
-                  v-model="configDraft.embeddingModel"
-                  :placeholder="providerInfo?.embeddingModel || t('aiKnowledge.settings.embeddingModelPlaceholder')"
-                />
-              </el-form-item>
-
               <!-- 上下文消息数量设置 -->
               <el-form-item :label="t('aiKnowledge.settings.maxContextMessages')" prop="maxContextMessages">
                 <div class="ak-settings__slider-row">
@@ -774,6 +696,76 @@
               </el-form-item>
             </el-form>
           </div>
+
+          <!-- Embedding 模型配置（独立于 LLM 模型配置，另起一张卡片） -->
+          <div class="ak-settings war-room-panel" style="max-width: 600px; margin-top: 16px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;" @click="embedConfigExpanded = !embedConfigExpanded">
+              <h3 class="ak-rag__section-title" style="margin: 0;">
+                {{ t('aiKnowledge.settings.embeddingConfig') }}
+              </h3>
+              <el-tag v-if="embeddingConfigured" type="success" size="small" effect="plain">已配置</el-tag>
+              <el-tag v-else type="warning" size="small" effect="plain">未配置</el-tag>
+            </div>
+            <el-collapse-transition>
+              <div v-show="embedConfigExpanded" style="padding-top: 12px;">
+                <el-form
+                  ref="embedConfigFormRef"
+                  :model="embedConfigDraft"
+                  label-width="120px"
+                  size="small"
+                >
+                  <el-form-item label="提供商" prop="provider">
+                    <el-select v-model="embedConfigDraft.provider" style="width: 100%">
+                      <el-option
+                        v-for="(info, key) in AI_PROVIDER_MAP"
+                        :key="key"
+                        :label="info.label"
+                        :value="key"
+                      />
+                    </el-select>
+                  </el-form-item>
+                  <el-form-item label="API Key" prop="apiKey">
+                    <el-input
+                      v-model="embedConfigDraft.apiKey"
+                      type="password"
+                      show-password
+                      :placeholder="`${providerInfo?.label || ''} API Key（用于生成嵌入向量）`"
+                    />
+                  </el-form-item>
+                  <el-form-item label="API 地址" prop="apiBaseUrl">
+                    <el-input
+                      v-model="embedConfigDraft.apiBaseUrl"
+                      :placeholder="AI_PROVIDER_MAP[embedConfigDraft.provider]?.apiBaseUrl || 'https://api.openai.com/v1'"
+                    />
+                  </el-form-item>
+                  <el-form-item label="Embedding 模型" prop="embeddingModel">
+                    <el-input
+                      v-model="embedConfigDraft.embeddingModel"
+                      :placeholder="AI_PROVIDER_MAP[embedConfigDraft.provider]?.embeddingModel || 'text-embedding-3-small'"
+                    />
+                  </el-form-item>
+                  <el-form-item>
+                    <el-button
+                      type="primary"
+                      :loading="savingEmbedConfig"
+                      @click="saveEmbedConfig"
+                    >
+                      保存 Embedding 配置
+                    </el-button>
+                    <el-button
+                      v-if="embeddingConfigured"
+                      type="danger"
+                      plain
+                      :loading="clearingEmbedConfig"
+                      @click="clearEmbedConfig"
+                    >
+                      清除配置
+                    </el-button>
+                  </el-form-item>
+                </el-form>
+              </div>
+            </el-collapse-transition>
+          </div>
         </div>
       </el-tab-pane>
     </el-tabs>
@@ -782,7 +774,7 @@
 
 <script setup lang="ts">
 /**
- * AI 知识库视图
+ * AI 天窗视图
  * 包含 AI 对话、RAG 知识库和设置三大功能
  */
 import { ref, watch } from 'vue'
@@ -792,6 +784,7 @@ import { useAiKnowledgeCategories } from './composables/useAiKnowledgeCategories
 import { useAiKnowledgeRag } from './composables/useAiKnowledgeRag'
 import { useAiKnowledgeSettings } from './composables/useAiKnowledgeSettings'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
   AI_PROVIDER_MAP,
@@ -811,18 +804,48 @@ import { buildImportNoteMarkdown, deriveToolbarTitle, findTreeNode } from './com
 const { t } = useI18n()
 
 // ========== 标签页状态 ==========
-const activeTab = ref('chat')
+const route = useRoute()
+const router = useRouter()
+
+const AI_KNOWLEDGE_TABS = ['chat', 'rag', 'settings'] as const
+type AiKnowledgeTab = (typeof AI_KNOWLEDGE_TABS)[number]
+
+/** 校验并读取 URL query 中的标签，非法值回落为默认「智能问答」 */
+function tabFromQuery(): AiKnowledgeTab {
+  const tab = route.query.tab
+  return typeof tab === 'string' && (AI_KNOWLEDGE_TABS as readonly string[]).includes(tab)
+    ? (tab as AiKnowledgeTab)
+    : 'chat'
+}
+
+// 标签页状态：初值取自 URL query（?tab=rag），刷新后仍停留在当前标签而非回到「智能问答」
+const activeTab = ref<AiKnowledgeTab>(tabFromQuery())
 
 function onTabChange() {
+  // 将当前标签同步到 URL query，保证刷新/分享/前进后退时标签不丢失
+  if (route.query.tab !== activeTab.value) {
+    router.replace({ query: { ...route.query, tab: activeTab.value } })
+  }
   if (activeTab.value === 'chat') {
     loadProviders()
   } else if (activeTab.value === 'rag') {
     loadRagData()
-    loadEmbeddingConfig()
   } else if (activeTab.value === 'settings') {
     loadConfig()
+    loadEmbeddingConfig()
   }
 }
+
+// 浏览器前进/后退导致 query.tab 变化时同步标签页
+watch(
+  () => route.query.tab,
+  (tab) => {
+    if (typeof tab === 'string' && (AI_KNOWLEDGE_TABS as readonly string[]).includes(tab) && activeTab.value !== tab) {
+      activeTab.value = tab as AiKnowledgeTab
+      onTabChange()
+    }
+  },
+)
 
 // ========== 对话 ==========
 const useRag = ref(false)
@@ -835,11 +858,42 @@ const messages = ref<(ChatMessage & { sources?: RagSource[]; collapsed?: boolean
 /** 当前激活会话 id（分类/聊天状态机共享，切换会话时由分类状态机更新） */
 const activeConvId = ref<string | null>(null)
 
+/** 聊天模型选择的 localStorage 持久化 key（刷新后保留上次使用的大模型） */
+const CHAT_PROVIDER_STORAGE_KEY = 'ai-knowledge.chatProvider'
+
+/** 从 localStorage 恢复上次使用的大模型，非法值回落默认 openai */
+function readChatProviderFromStorage(): AiProvider {
+  try {
+    const raw = localStorage.getItem(CHAT_PROVIDER_STORAGE_KEY)
+    if (raw && Object.keys(AI_PROVIDER_MAP).includes(raw)) {
+      return raw as AiProvider
+    }
+  } catch {
+    // localStorage 不可用（如隐私模式）时忽略，回落默认
+  }
+  return 'openai'
+}
+
 /**
  * 当前对话使用的 AI provider（settings 状态机维护，chat 状态机读取）
- * 初值取默认 provider openai，配置加载后由 loadConfig 同步更新
+ * 初值从 localStorage 恢复上次选择的大模型，刷新后不重置回默认 gpt-4o；
+ * 配置加载后由 loadConfig 同步更新
  */
-const chatProvider = ref<AiProvider>('openai')
+const chatProvider = ref<AiProvider>(readChatProviderFromStorage())
+
+// 变更时持久化，供下次进入/刷新恢复
+watch(chatProvider, (val) => {
+  try {
+    localStorage.setItem(CHAT_PROVIDER_STORAGE_KEY, val)
+  } catch {
+    // 存储不可用时忽略，仅影响刷新后的模型记忆
+  }
+})
+
+/** 回复消息对应的大模型图标：每条 assistant 消息记录其 provider，旧消息无 provider 时回落当前选中 */
+function messageAvatarUrl(msg: ChatMessage): string {
+  return `/icons/providers/${msg.provider ?? chatProvider.value}.svg`
+}
 
 // 打印能力（markdown → 可打印 HTML），逻辑已拆至 composables/useAiKnowledgePrint
 const { buildPrintableHtml } = useAiKnowledgePrint()
@@ -984,7 +1038,6 @@ const {
   configDraft,
   providerInfo,
   modelOptions,
-  providerAvatarUrl,
   configRules,
   onChatModelChange,
   onPlusClick,
@@ -1040,6 +1093,11 @@ watch(showDebugPanel, (val) => {
 // 页面加载时从后端恢复数据（聊天能力初始化完成后触发）
 loadCategoriesFromServer()
 void loadChatUsage()
+
+// 初始进入：若从 URL 恢复的标签不是 chat，加载对应标签数据（chat 数据已在 setup 顶部加载）
+if (activeTab.value !== 'chat') {
+  onTabChange()
+}
 </script>
 
 <style scoped lang="scss">

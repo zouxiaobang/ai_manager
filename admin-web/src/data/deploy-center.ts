@@ -430,7 +430,7 @@ export const deployStepsChecklist: DeployStepsChecklistItem[] = [
       '确认 pgvector 扩展可用：psql -c "SELECT * FROM pg_available_extensions WHERE name = \'vector\';"',
       '确认向量表存在：psql -c "\d+ rag_vectors"',
       '测试写入一条向量并查询',
-      '确认 ivfflat 索引已创建',
+      '确认 hnsw 索引已创建',
     ],
     commands: [
       'psql -h 192.168.0.118 -U ai_manager -d ai_manager_rag -c "SELECT extname, extversion FROM pg_extension;"',
@@ -583,7 +583,8 @@ export const deployStepSections: DeployStepSection[] = [
           '  id BIGSERIAL PRIMARY KEY, chunk_id BIGINT NOT NULL, doc_id BIGINT NOT NULL,',
           '  embedding VECTOR(1536) NOT NULL, content TEXT NOT NULL',
           ');',
-          'CREATE INDEX idx_rag_vectors_embedding ON rag_vectors USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);',
+          'DROP INDEX IF EXISTS idx_rag_vectors_embedding;',
+          'CREATE INDEX idx_rag_vectors_embedding ON rag_vectors USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);',
           'SQL',
           '# 开放远程连接',
           'echo "host    ai_manager_rag    ai_manager    192.168.0.0/24    md5" | sudo tee -a /etc/postgresql/*/main/pg_hba.conf',

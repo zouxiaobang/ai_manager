@@ -11,7 +11,7 @@
 | `claude-relay/` | Claude 中继服务，端口 **3001** |
 | `deploy/` | 部署配置（docker / nginx / systemd），目标 Pi 192.168.0.114 |
 | `firmware/` | ESP32-S3 子屏固件 |
-| `admin-backend/sql/` | 数据库脚本（约 70+ 文件；新库执行 `sql/deploy-all.sql`） |
+| `admin-backend/sql/` | 数据库脚本（约 70+ 文件；新库执行 `sql/deploy-all.sql`。RAG 表未含在 deploy-all：另执行 `ai_knowledge_config.sql`+`rag_knowledge_base.sql`，PG 库执行 `rag_pgvector.sql`） |
 
 ## 后端 admin-backend
 

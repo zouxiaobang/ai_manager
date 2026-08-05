@@ -612,7 +612,7 @@ sudo docker exec -i ai-manager-mysql mysql -uroot -p123456 ai_manager_admin < ad
 bash deploy/scripts/import-sql-to-docker-mysql.sh admin-backend/sql/你的增量脚本.sql
 ```
 
-> 全量重建（**会清空数据**）才用 `deploy-all.sql`。
+> 全量重建（**会清空数据**）才用 `deploy-all.sql`。⚠️ RAG 表未含在内：MySQL 另执行 `ai_knowledge_config.sql` + `rag_knowledge_base.sql`，PG 库另执行 `rag_pgvector.sql`。
 
 ### 5.6 更新 Nginx / systemd 配置
 

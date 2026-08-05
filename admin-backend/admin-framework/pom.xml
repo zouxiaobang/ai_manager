@@ -46,6 +46,12 @@
             <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
         </dependency>
+        <!-- PgVectorDataSourceConfigTest 需加载 org.postgresql.Driver 验证 PG 数据源绑定（生产走 admin-system 的 runtime 依赖） -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

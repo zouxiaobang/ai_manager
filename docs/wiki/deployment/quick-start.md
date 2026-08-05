@@ -40,6 +40,8 @@ mysql -u root -p < admin-backend/sql/deploy-all.sql
 ```
 
 > `deploy-all.sql` 包含全量建表 + 演示数据，推荐新环境使用。
+>
+> ⚠️ RAG 表未含在 `deploy-all.sql`：新库另执行 MySQL 的 `ai_knowledge_config.sql` + `rag_knowledge_base.sql`，以及 PG 库（pgvector）的 `rag_pgvector.sql`（建 `rag_vectors` 表 + vector 扩展 + 索引）。
 
 ### 3. 启动后端
 

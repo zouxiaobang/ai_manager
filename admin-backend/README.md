@@ -15,8 +15,18 @@ Spring Boot 3 + MyBatis-Plus + Redis，Maven 多模块。
 
 - JDK 17+
 - Maven 3.9+
-- MySQL 8（全新库执行 `sql/deploy-all.sql` 一次即可；或按模块分别执行 `schema.sql`、`pomodoro.sql`、`notebook.sql` 等）
+- MySQL 8（全新库执行 `sql/deploy-all.sql` 一次即可；或按模块分别执行 `schema.sql`、`pomodoro.sql`、`notebook.sql` 等。RAG 表未含在 `deploy-all.sql`：另执行 `ai_knowledge_config.sql` + `rag_knowledge_base.sql`；PG 库（pgvector）另执行 `rag_pgvector.sql`）
 - Redis 6+
+
+## 环境变量（P1-3 安全加固后）
+
+真实凭据已从 `application*.yml` 外置到环境变量，本地值放在仓库根目录 `.env`（gitignored，由 `.worktreeinclude` 带入 worktree）。**启动后端时需保证以下变量在进程环境中**（`export` / IDE 运行配置 / 部署脚本）；缺失时对应功能不可用并在日志 / 接口给出明确错误：
+
+| 变量 | 用途 |
+|---|---|
+| `BAIDU_APP_KEY` / `BAIDU_SECRET_KEY` | 百度网盘开放平台（缺失时网盘存储报「未配置 AppKey/SecretKey」） |
+| `PI_PASSWORD` | Pi 远程部署 SSH 密码（`application-dev.yml`） |
+| `AI_MANAGER_CONFIG_MASTER_KEY` | AI 知识库配置落库加密主密钥（AES-GCM）。**生产必须设置且各实例一致**，否则已存配置无法解密；本地未设置时回退内置开发密钥（仅限开发，日志会告警） |
 
 ## Maven
 

@@ -27,6 +27,7 @@ export default {
       ecommerce: '电商平台',
       pixelDog: '像素狗',
       functions: '功能列表',
+      aiSkylight: 'AI天窗',
       notebook: '笔记本',
       library: '资料库',
       todos: '待办',
@@ -626,7 +627,7 @@ export default {
         desc: '看板管理任务，支持截止提醒、重复与特别提醒',
       },
       aiKnowledge: {
-        name: 'AI 知识库',
+        name: 'AI 天窗',
         desc: '沉淀团队知识，支持检索与 AI 问答',
       },
       library: {
@@ -3028,7 +3029,7 @@ export default {
     cancel: '取消',
   },
   aiKnowledge: {
-    title: 'AI 知识库',
+    title: 'AI 天窗',
     tabs: {
       chat: '智能问答',
       rag: 'RAG 知识库',
@@ -3060,12 +3061,11 @@ export default {
       apiBaseUrlPlaceholder: '请输入 API 地址',
       model: '模型名称',
       modelPlaceholder: '请输入模型名称',
+      embeddingConfig: 'Embedding 模型配置',
       temperature: '温度',
       temperatureHint: '较高的值会让输出更随机，较低的值更聚焦',
       maxTokens: '最大 Token 数',
       maxTokensHint: '每次回复的最大 Token 数',
-      embeddingModel: 'Embedding 模型',
-      embeddingModelPlaceholder: '用于知识库向量化',
       setAsDefault: '设为默认模型',
       defaultModel: '默认模型',
       maxContextMessages: '上下文消息数',
