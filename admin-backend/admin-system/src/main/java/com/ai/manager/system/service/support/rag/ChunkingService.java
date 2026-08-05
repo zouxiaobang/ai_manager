@@ -208,26 +208,41 @@ public class ChunkingService {
     }
 
     /**
-     * 将文本切分为句子
+     * 将文本切分为句子（线性扫描）
+     *
+     * <p>原实现用正则 {@code ([^。！？\n.!?]+[。！？\n.!?])} 切分，遇到大段无句末标点的文本
+     * （代码块、无标点长句等）会灾难性回溯（O(n²)），长文档直接把异步线程池卡死。
+     * 改为逐字符扫描、遇终止符即切分，O(n)。孤立/连续的终止符按旧语义丢弃。</p>
      */
     private List<String> splitSentences(String text) {
         List<String> sentences = new ArrayList<>();
-        // 按中文/英文句号、感叹号、问号、换行切分
-        Pattern pattern = Pattern.compile("([^。！？\n.!?]+[。！？\n.!?])");
-        Matcher matcher = pattern.matcher(text);
-        int lastEnd = 0;
-
-        while (matcher.find()) {
-            sentences.add(matcher.group().trim());
-            lastEnd = matcher.end();
-        }
-        if (lastEnd < text.length()) {
-            String remaining = text.substring(lastEnd).trim();
-            if (!remaining.isEmpty()) {
-                sentences.add(remaining);
+        StringBuilder current = new StringBuilder();
+        boolean hasContent = false; // 自上次切分后是否出现过非终止符
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            current.append(c);
+            if (isSentenceTerminator(c)) {
+                if (hasContent) {
+                    sentences.add(current.toString().trim());
+                    current.setLength(0);
+                    hasContent = false;
+                } else {
+                    // 孤立/连续终止符（如 "。。" 第二个）不属于任何句子，丢弃
+                    current.setLength(0);
+                }
+            } else {
+                hasContent = true;
             }
         }
+        String remaining = current.toString().trim();
+        if (!remaining.isEmpty() && hasContent) {
+            sentences.add(remaining);
+        }
         return sentences;
+    }
+
+    private static boolean isSentenceTerminator(char c) {
+        return c == '。' || c == '！' || c == '？' || c == '\n' || c == '.' || c == '!' || c == '?';
     }
 
     /**

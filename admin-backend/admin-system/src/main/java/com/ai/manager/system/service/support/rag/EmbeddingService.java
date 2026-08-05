@@ -1,6 +1,8 @@
 package com.ai.manager.system.service.support.rag;
 
+import com.ai.manager.system.config.RagProperties;
 import com.ai.manager.system.domain.vo.AiKnowledgeConfigVO;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
@@ -31,8 +33,11 @@ public class EmbeddingService {
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
+    private final RagProperties ragProperties;
 
-    private static final int BATCH_SIZE = 20;   // 每批最大文本数
+    // 每批最大文本数：qwen(dashscope text-embedding-v3) 单次请求上限为 10，超批会返回
+    // "batch size is invalid, it should not be larger than 10"；OpenAI 上限远高于此，取 10 两者兼容
+    private static final int BATCH_SIZE = 10;
 
     /**
      * 批量生成文本的嵌入向量
@@ -91,6 +96,9 @@ public class EmbeddingService {
             EmbeddingRequest requestBody = new EmbeddingRequest();
             requestBody.setModel(model);
             requestBody.setInput(texts);
+            // 显式指定输出维度（与 rag_vectors.embedding 列一致）：qwen text-embedding-v3 原生 1024、
+            // OpenAI text-embedding-3-small 默认 1536，都通过 dimensions 参数对齐
+            requestBody.setDimensions(ragProperties.getEmbeddingDimensions());
 
             String json = objectMapper.writeValueAsString(requestBody);
             HttpEntity<String> request = new HttpEntity<>(json, headers);
@@ -131,8 +139,10 @@ public class EmbeddingService {
     }
 
     @Data
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private static class EmbeddingRequest {
         private String model;
         private List<String> input;
+        private Integer dimensions;
     }
 }

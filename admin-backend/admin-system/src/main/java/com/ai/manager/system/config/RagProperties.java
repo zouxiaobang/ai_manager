@@ -27,6 +27,14 @@ public class RagProperties {
     /** 搜索配置 */
     private SearchConfig search = new SearchConfig();
 
+    /**
+     * 嵌入向量维度（必须与 rag_vectors.embedding 列维度一致，默认 1024）。
+     *
+     * <p>qwen text-embedding-v3 原生 1024 维；OpenAI text-embedding-3-small 默认 1536，
+     * 通过请求中的 dimensions 参数对齐到本值。改此值需同步迁移表结构。</p>
+     */
+    private int embeddingDimensions = 1024;
+
     @Data
     public static class ChunkConfig {
         /** 目标 chunk 大小（字符数） */
