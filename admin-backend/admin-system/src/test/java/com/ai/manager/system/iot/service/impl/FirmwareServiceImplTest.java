@@ -1,16 +1,22 @@
 package com.ai.manager.system.iot.service.impl;
 
 import com.ai.manager.common.exception.BusinessException;
+import com.ai.manager.common.result.PageResult;
+
+import java.io.Serializable;
 import com.ai.manager.system.iot.config.IotProperties;
 import com.ai.manager.system.iot.domain.dto.FirmwareDownloadInfo;
+import com.ai.manager.system.iot.domain.entity.IotDevice;
 import com.ai.manager.system.iot.domain.entity.IotFirmware;
 import com.ai.manager.system.iot.domain.entity.IotOtaRecord;
 import com.ai.manager.system.iot.domain.vo.FirmwareVO;
 import com.ai.manager.system.iot.domain.vo.OtaRecordVO;
+import com.ai.manager.system.iot.mapper.IotDeviceMapper;
 import com.ai.manager.system.iot.mapper.IotFirmwareMapper;
 import com.ai.manager.system.iot.mapper.IotOtaRecordMapper;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,6 +46,9 @@ class FirmwareServiceImplTest {
     @Mock
     private IotOtaRecordMapper iotOtaRecordMapper;
 
+    @Mock
+    private IotDeviceMapper iotDeviceMapper;
+
     @TempDir
     Path tempDir;
 
@@ -55,7 +64,7 @@ class FirmwareServiceImplTest {
     void setUp() {
         IotProperties props = new IotProperties();
         props.setOtaDir(tempDir.toString());
-        service = new FirmwareServiceImpl(iotFirmwareMapper, iotOtaRecordMapper, props);
+        service = new FirmwareServiceImpl(iotFirmwareMapper, iotOtaRecordMapper, iotDeviceMapper, props);
     }
 
     private IotFirmware entity(Long id, String version, String status) {
@@ -118,13 +127,60 @@ class FirmwareServiceImplTest {
     }
 
     @Test
-    void listFirmwares_shouldMapVO() {
-        when(iotFirmwareMapper.selectList(any())).thenReturn(List.of(entity(1L, "2.2.1", "PUBLISHED")));
+    void forceUpgrade_shouldSetForceAndPublish() {
+        when(iotFirmwareMapper.selectById(1L)).thenReturn(entity(1L, "2.2.1", "DRAFT"));
 
-        List<FirmwareVO> result = service.listFirmwares();
+        FirmwareVO vo = service.forceUpgrade(1L);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getVersion()).isEqualTo("2.2.1");
+        assertThat(vo.getStatus()).isEqualTo("PUBLISHED");
+        assertThat(vo.getForce()).isEqualTo(1);
+        verify(iotFirmwareMapper).updateById(any(IotFirmware.class));
+    }
+
+    @Test
+    void forceUpgrade_whenMissing_shouldThrow() {
+        when(iotFirmwareMapper.selectById(99L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.forceUpgrade(99L))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void delete_whenDraft_shouldSoftDeleteAndRemoveFile() throws Exception {
+        Path fwFile = tempDir.resolve("delete.bin");
+        Files.write(fwFile, new byte[]{1, 2});
+        IotFirmware draft = entity(1L, "2.2.1", "DRAFT");
+        draft.setFilePath(fwFile.toString());
+        when(iotFirmwareMapper.selectById(1L)).thenReturn(draft);
+
+        service.delete(1L);
+
+        verify(iotFirmwareMapper).deleteById(1L);
+        assertThat(Files.exists(fwFile)).isFalse();
+    }
+
+    @Test
+    void delete_whenPublished_shouldThrow() {
+        when(iotFirmwareMapper.selectById(1L)).thenReturn(entity(1L, "2.2.1", "PUBLISHED"));
+
+        assertThatThrownBy(() -> service.delete(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("已发布固件不可删除");
+        verify(iotFirmwareMapper, never()).deleteById(any(Serializable.class));
+    }
+
+    @Test
+    void listFirmwares_shouldPageAndMapVO() {
+        Page<IotFirmware> dbPage = new Page<>(1, 20);
+        dbPage.setRecords(List.of(entity(1L, "2.2.1", "PUBLISHED")));
+        dbPage.setTotal(1);
+        when(iotFirmwareMapper.selectPage(any(), any())).thenReturn(dbPage);
+
+        PageResult<FirmwareVO> result = service.listFirmwares(1L, 20L, null);
+
+        assertThat(result.getRecords()).hasSize(1);
+        assertThat(result.getRecords().get(0).getVersion()).isEqualTo("2.2.1");
+        assertThat(result.getTotal()).isEqualTo(1);
     }
 
     @Test
@@ -158,7 +214,7 @@ class FirmwareServiceImplTest {
     }
 
     @Test
-    void listOtaRecords_shouldMapVO() {
+    void listOtaRecords_shouldPageAndEnrich() {
         IotOtaRecord r = new IotOtaRecord();
         r.setId(1L);
         r.setDeviceId(10L);
@@ -166,13 +222,23 @@ class FirmwareServiceImplTest {
         r.setState("UPGRADING");
         r.setProgress(30);
         r.setDeleted(0);
-        when(iotOtaRecordMapper.selectList(any())).thenReturn(List.of(r));
+        Page<IotOtaRecord> dbPage = new Page<>(1, 20);
+        dbPage.setRecords(List.of(r));
+        dbPage.setTotal(1);
+        when(iotOtaRecordMapper.selectPage(any(), any())).thenReturn(dbPage);
+        IotDevice device = new IotDevice();
+        device.setId(10L);
+        device.setMac("aabbccdd");
+        when(iotDeviceMapper.selectById(10L)).thenReturn(device);
+        when(iotFirmwareMapper.selectById(20L)).thenReturn(entity(1L, "2.2.1", "PUBLISHED"));
 
-        List<OtaRecordVO> result = service.listOtaRecords();
+        PageResult<OtaRecordVO> result = service.listOtaRecords(1L, 20L);
 
-        assertThat(result).hasSize(1);
-        assertThat(result.get(0).getState()).isEqualTo("UPGRADING");
-        assertThat(result.get(0).getProgress()).isEqualTo(30);
-        verify(iotFirmwareMapper, never()).selectById(any());
+        assertThat(result.getRecords()).hasSize(1);
+        OtaRecordVO vo = result.getRecords().get(0);
+        assertThat(vo.getState()).isEqualTo("UPGRADING");
+        assertThat(vo.getProgress()).isEqualTo(30);
+        assertThat(vo.getDeviceName()).isEqualTo("aabbccdd");
+        assertThat(vo.getFirmwareVersion()).isEqualTo("2.2.1");
     }
 }

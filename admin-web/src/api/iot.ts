@@ -45,7 +45,7 @@ export interface IotFirmware {
   size?: number
   force?: boolean
   releaseNote?: string
-  createdAt?: string
+  createTime?: string
 }
 
 export interface IotFirmwareQuery extends PageQuery {
@@ -134,7 +134,7 @@ export async function uploadIotFirmware(payload: IotFirmwareUploadPayload): Prom
   formData.append('version', payload.version.trim())
   if (payload.force) formData.append('force', 'true')
   if (payload.releaseNote?.trim()) formData.append('releaseNote', payload.releaseNote.trim())
-  const response = await request.post<ApiResult<IotFirmware>>('/api/iot/firmware', formData, {
+  const response = await request.post<ApiResult<IotFirmware>>('/api/iot/firmware/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 60000,
   })
@@ -146,9 +146,9 @@ export function publishIotFirmware(id: number, force = false) {
   return postData<void>(`/api/iot/firmware/${id}/publish`, { force })
 }
 
-/** 强制升级：向在线设备批量下发升级指令 */
+/** 强制升级：置 force=1 并发布，下次 OTA check 对设备强制下发 */
 export function forceUpgradeIotFirmware(firmwareId: number) {
-  return postData<void>('/api/iot/ota/force', { firmwareId })
+  return postData<void>(`/api/iot/firmware/${firmwareId}/force`)
 }
 
 export function deleteIotFirmware(id: number) {
@@ -158,7 +158,7 @@ export function deleteIotFirmware(id: number) {
 // ========== OTA 记录 ==========
 
 export function fetchIotOtaRecords(query?: IotOtaRecordQuery) {
-  return getData<PageResult<IotOtaRecord>>('/api/iot/ota/records', { ...query })
+  return getData<PageResult<IotOtaRecord>>('/api/iot/firmware/ota-records', { ...query })
 }
 
 // ========== 在线会话 ==========

@@ -1,14 +1,16 @@
 package com.ai.manager.system.iot.service;
 
+import com.ai.manager.common.result.PageResult;
 import com.ai.manager.system.iot.domain.dto.DeviceBindRequest;
+import com.ai.manager.system.iot.domain.dto.DeviceUpdateRequest;
 import com.ai.manager.system.iot.domain.entity.IotDevice;
+import com.ai.manager.system.iot.domain.vo.DeviceOnlineStatusVO;
 import com.ai.manager.system.iot.domain.vo.DeviceVO;
-
-import java.util.List;
 
 public interface DeviceService {
 
-    List<DeviceVO> listDevices();
+    /** 分页查询设备列表，keyword 匹配 mac/uuid/model，status 精确过滤。 */
+    PageResult<DeviceVO> listDevices(Long page, Long pageSize, String keyword, String status);
 
     DeviceVO getDevice(Long id);
 
@@ -17,6 +19,12 @@ public interface DeviceService {
 
     /** 更新设备在线状态。 */
     DeviceVO updateStatus(Long id, String status);
+
+    /** 更新设备信息（model/chip/firmwareVersion，非空才更新）。 */
+    DeviceVO update(Long id, DeviceUpdateRequest request);
+
+    /** 探测设备在线状态（WS 会话注册表实时判断）。 */
+    DeviceOnlineStatusVO probeOnline(Long id);
 
     /** 远程 reboot（在线设备下发 system 命令）。 */
     DeviceVO reboot(Long id);

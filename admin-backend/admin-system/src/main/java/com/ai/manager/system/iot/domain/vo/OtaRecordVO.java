@@ -16,7 +16,13 @@ public class OtaRecordVO {
 
     private Long deviceId;
 
+    /** 设备展示名（取 MAC 兜底），后台列表展示用 */
+    private String deviceName;
+
     private Long firmwareId;
+
+    /** 固件版本号，后台列表展示用 */
+    private String firmwareVersion;
 
     private String state;
 

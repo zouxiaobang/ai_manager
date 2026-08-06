@@ -1,17 +1,22 @@
 package com.ai.manager.system.iot.service.impl;
 
 import com.ai.manager.common.exception.BusinessException;
+import com.ai.manager.common.result.PageResult;
+import com.ai.manager.common.result.PageUtils;
 import com.ai.manager.common.result.ResultCode;
 import com.ai.manager.system.iot.config.IotProperties;
 import com.ai.manager.system.iot.domain.dto.FirmwareDownloadInfo;
+import com.ai.manager.system.iot.domain.entity.IotDevice;
 import com.ai.manager.system.iot.domain.entity.IotFirmware;
 import com.ai.manager.system.iot.domain.entity.IotOtaRecord;
 import com.ai.manager.system.iot.domain.vo.FirmwareVO;
 import com.ai.manager.system.iot.domain.vo.OtaRecordVO;
+import com.ai.manager.system.iot.mapper.IotDeviceMapper;
 import com.ai.manager.system.iot.mapper.IotFirmwareMapper;
 import com.ai.manager.system.iot.mapper.IotOtaRecordMapper;
 import com.ai.manager.system.iot.service.FirmwareService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -41,6 +46,8 @@ public class FirmwareServiceImpl implements FirmwareService {
     private final IotFirmwareMapper iotFirmwareMapper;
 
     private final IotOtaRecordMapper iotOtaRecordMapper;
+
+    private final IotDeviceMapper iotDeviceMapper;
 
     private final IotProperties iotProperties;
 
@@ -88,11 +95,46 @@ public class FirmwareServiceImpl implements FirmwareService {
     }
 
     @Override
-    public List<FirmwareVO> listFirmwares() {
-        List<IotFirmware> list = iotFirmwareMapper.selectList(new LambdaQueryWrapper<IotFirmware>()
-                .eq(IotFirmware::getDeleted, 0)
-                .orderByDesc(IotFirmware::getId));
-        return list.stream().map(this::toVO).collect(Collectors.toList());
+    @Transactional
+    public FirmwareVO forceUpgrade(Long id) {
+        IotFirmware firmware = requireFirmware(id);
+        // force=1 使 OtaServiceImpl.check 对同版本设备也强制下发
+        firmware.setForceUpgrade(1);
+        firmware.setStatus(PUBLISHED);
+        iotFirmwareMapper.updateById(firmware);
+        return toVO(firmware);
+    }
+
+    @Override
+    @Transactional
+    public void delete(Long id) {
+        IotFirmware firmware = requireFirmware(id);
+        if (PUBLISHED.equals(firmware.getStatus())) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "已发布固件不可删除，请先取消发布");
+        }
+        // 清理文件尽力而为，失败仅告警不阻塞（记录仍可查）
+        if (StringUtils.hasText(firmware.getFilePath())) {
+            try {
+                Files.deleteIfExists(Paths.get(firmware.getFilePath()));
+            } catch (IOException e) {
+                log.warn("删除固件文件失败 firmwareId={}, path={}", id, firmware.getFilePath(), e);
+            }
+        }
+        iotFirmwareMapper.deleteById(id);
+    }
+
+    @Override
+    public PageResult<FirmwareVO> listFirmwares(Long page, Long pageSize, String keyword) {
+        long p = PageUtils.normalizePage(page);
+        long ps = PageUtils.normalizePageSize(pageSize);
+        Page<IotFirmware> entityPage = iotFirmwareMapper.selectPage(new Page<>(p, ps),
+                new LambdaQueryWrapper<IotFirmware>()
+                        .eq(IotFirmware::getDeleted, 0)
+                        .and(StringUtils.hasText(keyword), w -> w.like(IotFirmware::getVersion, keyword)
+                                .or().like(IotFirmware::getReleaseNote, keyword))
+                        .orderByDesc(IotFirmware::getId));
+        List<FirmwareVO> vos = entityPage.getRecords().stream().map(this::toVO).collect(Collectors.toList());
+        return PageUtils.of(vos, entityPage.getTotal(), p, ps);
     }
 
     @Override
@@ -123,11 +165,14 @@ public class FirmwareServiceImpl implements FirmwareService {
     }
 
     @Override
-    public List<OtaRecordVO> listOtaRecords() {
-        List<IotOtaRecord> list = iotOtaRecordMapper.selectList(new LambdaQueryWrapper<IotOtaRecord>()
-                .eq(IotOtaRecord::getDeleted, 0)
-                .orderByDesc(IotOtaRecord::getId));
-        return list.stream().map(r -> {
+    public PageResult<OtaRecordVO> listOtaRecords(Long page, Long pageSize) {
+        long p = PageUtils.normalizePage(page);
+        long ps = PageUtils.normalizePageSize(pageSize);
+        Page<IotOtaRecord> entityPage = iotOtaRecordMapper.selectPage(new Page<>(p, ps),
+                new LambdaQueryWrapper<IotOtaRecord>()
+                        .eq(IotOtaRecord::getDeleted, 0)
+                        .orderByDesc(IotOtaRecord::getId));
+        List<OtaRecordVO> vos = entityPage.getRecords().stream().map(r -> {
             OtaRecordVO vo = new OtaRecordVO();
             vo.setId(r.getId());
             vo.setDeviceId(r.getDeviceId());
@@ -137,8 +182,21 @@ public class FirmwareServiceImpl implements FirmwareService {
             vo.setStartedAt(r.getStartedAt());
             vo.setFinishedAt(r.getFinishedAt());
             vo.setCreateTime(r.getCreateTime());
+            if (r.getDeviceId() != null) {
+                IotDevice device = iotDeviceMapper.selectById(r.getDeviceId());
+                if (device != null) {
+                    vo.setDeviceName(device.getMac());
+                }
+            }
+            if (r.getFirmwareId() != null) {
+                IotFirmware fw = iotFirmwareMapper.selectById(r.getFirmwareId());
+                if (fw != null) {
+                    vo.setFirmwareVersion(fw.getVersion());
+                }
+            }
             return vo;
         }).collect(Collectors.toList());
+        return PageUtils.of(vos, entityPage.getTotal(), p, ps);
     }
 
     private IotFirmware requireFirmware(Long id) {

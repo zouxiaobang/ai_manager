@@ -1,7 +1,10 @@
 package com.ai.manager.system.iot.controller;
 
+import com.ai.manager.common.result.PageUtils;
 import com.ai.manager.framework.web.GlobalExceptionHandler;
 import com.ai.manager.system.iot.domain.dto.DeviceBindRequest;
+import com.ai.manager.system.iot.domain.dto.DeviceUpdateRequest;
+import com.ai.manager.system.iot.domain.vo.DeviceOnlineStatusVO;
 import com.ai.manager.system.iot.domain.vo.DeviceVO;
 import com.ai.manager.system.iot.service.DeviceService;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +17,7 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -51,13 +55,15 @@ class DeviceControllerTest {
     }
 
     @Test
-    void list_shouldReturnDevices() throws Exception {
-        when(deviceService.listDevices()).thenReturn(List.of(vo(1L, "aabbccdd")));
+    void list_shouldReturnPagedDevices() throws Exception {
+        when(deviceService.listDevices(1L, 20L, null, null))
+                .thenReturn(PageUtils.of(List.of(vo(1L, "aabbccdd")), 1, 1, 20));
 
         mockMvc.perform(get("/api/iot/device"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
-                .andExpect(jsonPath("$.data[0].mac").value("aabbccdd"));
+                .andExpect(jsonPath("$.data.records[0].mac").value("aabbccdd"))
+                .andExpect(jsonPath("$.data.total").value(1));
     }
 
     @Test
@@ -92,6 +98,31 @@ class DeviceControllerTest {
                         .content("{}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(400));
+    }
+
+    @Test
+    void online_shouldReturnStatus() throws Exception {
+        DeviceOnlineStatusVO status = new DeviceOnlineStatusVO();
+        status.setOnline(true);
+        when(deviceService.probeOnline(1L)).thenReturn(status);
+
+        mockMvc.perform(get("/api/iot/device/1/online"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.online").value(true));
+        verify(deviceService).probeOnline(1L);
+    }
+
+    @Test
+    void update_shouldPersist() throws Exception {
+        when(deviceService.update(eq(1L), any(DeviceUpdateRequest.class))).thenReturn(vo(1L, "aabbccdd"));
+
+        mockMvc.perform(put("/api/iot/device/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"model": "kyle-s3-lcd"}"""))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0));
+        verify(deviceService).update(eq(1L), any(DeviceUpdateRequest.class));
     }
 
     @Test
