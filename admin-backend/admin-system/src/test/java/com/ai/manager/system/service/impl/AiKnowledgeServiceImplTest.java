@@ -692,6 +692,31 @@ class AiKnowledgeServiceImplTest {
         verify(emitter, atLeastOnce()).send(any(SseEmitter.SseEventBuilder.class));
     }
 
+    @Test
+    void rag_雪花ID序列化为字符串避免前端精度丢失() throws Exception {
+        // 真实 19 位雪花 ID（如 2085269452813733889）超出 JS Number.MAX_SAFE_INTEGER（≈9.0e15），
+        // 若以 number 下发，前端解析会丢失精度、把删除/重试 id 传错（曾表现为"移除成功但文档仍在"）。
+        long snowflakeId = 2085269452813733889L;
+        ObjectMapper mapper = new ObjectMapper();
+
+        AiKnowledgeRagUploadResultVO upload = AiKnowledgeRagUploadResultVO.builder()
+                .documentId(snowflakeId)
+                .fileName("a.md")
+                .status("processing")
+                .build();
+        assertThat(mapper.writeValueAsString(upload))
+                .contains("\"documentId\":\"2085269452813733889\"");
+
+        RagDocument doc = docRecord(snowflakeId);
+        assertThat(mapper.writeValueAsString(doc))
+                .contains("\"id\":\"2085269452813733889\"");
+
+        AiKnowledgeChatResponse.RagSourceItem source = new AiKnowledgeChatResponse.RagSourceItem();
+        source.setDocumentId(snowflakeId);
+        assertThat(mapper.writeValueAsString(source))
+                .contains("\"documentId\":\"2085269452813733889\"");
+    }
+
     /** 构造最小存在的文档记录（4.5 守卫复核用） */
     private RagDocument docRecord(Long id) {
         RagDocument doc = new RagDocument();
