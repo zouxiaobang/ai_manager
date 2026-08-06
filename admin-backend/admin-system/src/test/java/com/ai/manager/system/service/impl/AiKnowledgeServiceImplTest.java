@@ -11,6 +11,7 @@ import com.ai.manager.system.domain.entity.RagChunk;
 import com.ai.manager.system.domain.entity.RagDocument;
 import com.ai.manager.system.domain.vo.AiKnowledgeChatResponse;
 import com.ai.manager.system.domain.vo.AiKnowledgeConfigVO;
+import com.ai.manager.system.domain.vo.AiKnowledgeRagDocumentVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagSearchResultVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagUploadResultVO;
 import com.ai.manager.system.mapper.AiChatCategoryMapper;
@@ -707,8 +708,10 @@ class AiKnowledgeServiceImplTest {
         assertThat(mapper.writeValueAsString(upload))
                 .contains("\"documentId\":\"2085269452813733889\"");
 
-        RagDocument doc = docRecord(snowflakeId);
-        assertThat(mapper.writeValueAsString(doc))
+        AiKnowledgeRagDocumentVO vo = new AiKnowledgeRagDocumentVO();
+        vo.setId(snowflakeId);
+        vo.setFileName("a.md");
+        assertThat(mapper.writeValueAsString(vo))
                 .contains("\"id\":\"2085269452813733889\"");
 
         AiKnowledgeChatResponse.RagSourceItem source = new AiKnowledgeChatResponse.RagSourceItem();

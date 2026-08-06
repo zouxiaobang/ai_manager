@@ -2,8 +2,6 @@ package com.ai.manager.system.domain.entity;
 
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -15,9 +13,7 @@ import java.time.LocalDateTime;
 @TableName("rag_document")
 public class RagDocument {
 
-    /** 雪花 ID 超出 JS Number 安全整数范围，必须序列化为字符串，否则前端会丢失精度把删除/重试 id 传错 */
     @TableId
-    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     /** 原始文件名 */
