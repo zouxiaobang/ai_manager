@@ -3,11 +3,13 @@ package com.ai.manager.system.service.impl;
 import com.ai.manager.common.exception.BusinessException;
 import com.ai.manager.common.result.ResultCode;
 import com.ai.manager.system.config.RagProperties;
+import com.ai.manager.system.domain.dto.AiKnowledgeChatRequest;
 import com.ai.manager.system.domain.dto.AiKnowledgeConfigSaveRequest;
 import com.ai.manager.system.domain.dto.AiKnowledgeRagSearchRequest;
 import com.ai.manager.system.domain.entity.AiKnowledgeConfig;
 import com.ai.manager.system.domain.entity.RagChunk;
 import com.ai.manager.system.domain.entity.RagDocument;
+import com.ai.manager.system.domain.vo.AiKnowledgeChatResponse;
 import com.ai.manager.system.domain.vo.AiKnowledgeConfigVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagSearchResultVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagUploadResultVO;
@@ -25,6 +27,7 @@ import com.ai.manager.system.mapper.RagDocumentMapper;
 import com.ai.manager.system.service.support.AiKnowledgeConfigStore;
 import com.ai.manager.system.service.support.ApiBaseUrlValidator;
 import com.ai.manager.system.service.support.ConfigCryptoService;
+import com.ai.manager.system.service.support.llm.LlmProviderStrategy;
 import com.ai.manager.system.service.support.llm.LlmProviderStrategyFactory;
 import com.ai.manager.system.service.support.llm.PromptBuilder;
 import com.ai.manager.system.service.support.llm.UsageTracker;
@@ -45,6 +48,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.publisher.Flux;
 
 import java.io.File;
 import java.io.InputStream;
@@ -63,13 +68,18 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -517,7 +527,7 @@ class AiKnowledgeServiceImplTest {
         when(objectMapper.readValue(anyString(), eq(AiKnowledgeConfigVO.class))).thenReturn(embedCfg);
         when(embeddingService.embedQuery(eq("什么是番茄钟"), eq(embedCfg)))
                 .thenReturn(new float[]{0.1f, 0.2f});
-        when(pgVectorStore.similaritySearch(any(float[].class), eq(5), eq(0.65)))
+        when(pgVectorStore.similaritySearch(any(float[].class), eq(5), eq(0.55)))
                 .thenReturn(List.of(PgVectorStore.SearchResult.builder()
                         .chunkId(10L).docId(6L).content("番茄钟是一种时间管理法").score(0.68).build()));
         RagDocument doc = new RagDocument();
@@ -558,5 +568,41 @@ class AiKnowledgeServiceImplTest {
         assertThatThrownBy(() -> service.searchRag(req))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("RAG 检索失败");
+    }
+
+    @Test
+    void chatStream_useRag时检索知识库并注入上下文() throws Exception {
+        // spy 拦截同实例的 searchRag（同一实例方法无法用 @Mock 注入）
+        AiKnowledgeServiceImpl spied = spy(service);
+        AiKnowledgeChatResponse.RagSourceItem src = new AiKnowledgeChatResponse.RagSourceItem();
+        src.setDocumentId(6L);
+        src.setFileName("电商平台第一期优化.md");
+        src.setScore(0.6);
+        src.setContent("电商平台第一期优化方案主要从业务功能、代码组织、性能、安全性、可维护性五个维度优化。");
+        AiKnowledgeRagSearchResultVO ragResult = new AiKnowledgeRagSearchResultVO();
+        ragResult.setSources(List.of(src));
+        doReturn(ragResult).when(spied).searchRag(any());
+
+        // chat 配置（deepseek）
+        AiKnowledgeConfigVO cfg = new AiKnowledgeConfigVO();
+        cfg.setProvider("deepseek");
+        cfg.setApiKey("sk-test");
+        when(configStore.readAllConfigs()).thenReturn(Map.of("deepseek", cfg));
+
+        LlmProviderStrategy strategy = mock(LlmProviderStrategy.class);
+        when(strategyFactory.getStrategy("deepseek")).thenReturn(strategy);
+        when(strategy.chatStream(any(), anyList(), any())).thenReturn(Flux.just("基于知识库的答案"));
+
+        AiKnowledgeChatRequest req = new AiKnowledgeChatRequest();
+        req.setQuestion("电商平台第一期优化了哪些方面");
+        req.setProvider("deepseek");
+        req.setUseRag(true);
+        SseEmitter emitter = mock(SseEmitter.class);
+
+        spied.chatStream(req, emitter);
+
+        // 修复点：流式聊天必须走 RAG 消息构建并注入知识库上下文（旧实现直接 buildMessages，忽略 useRag）
+        verify(promptBuilder).buildRagMessages(eq(req), contains("电商平台第一期优化方案"));
+        verify(emitter, atLeastOnce()).send(any(SseEmitter.SseEventBuilder.class));
     }
 }

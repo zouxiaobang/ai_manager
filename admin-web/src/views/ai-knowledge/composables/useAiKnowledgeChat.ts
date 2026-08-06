@@ -216,6 +216,11 @@ export function useAiKnowledgeChat(deps: AiKnowledgeChatDeps) {
         currentContextTokens.value += tokens
         messages.value = [...messages.value]
       },
+      (sources) => {
+        assistantMsg.sources = sources
+        messages.value = [...messages.value]
+        scrollChatToBottom()
+      },
     )
   }
 

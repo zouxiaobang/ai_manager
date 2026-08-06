@@ -129,6 +129,7 @@ export function sendChatMessageStream(
   onDone?: () => void,
   onError?: (err: string) => void,
   onTokens?: (tokens: number) => void,
+  onSources?: (sources: RagSource[]) => void,
 ): AbortController {
   const controller = new AbortController()
 
@@ -174,6 +175,12 @@ export function sendChatMessageStream(
           if (!isNaN(tokens)) onTokens?.(tokens)
           continue
         }
+        if (trimmedPart.startsWith('[SOURCES]')) {
+          try {
+            onSources?.(JSON.parse(trimmedPart.slice(9).trim()) as RagSource[])
+          } catch { /* 解析失败忽略，不影响回答 */ }
+          continue
+        }
 
         // 收集事件内所有 data: 行
         const lines = part.split(/\r?\n/)
@@ -200,6 +207,12 @@ export function sendChatMessageStream(
         if (eventData.startsWith('[TOKENS]')) {
           const tokens = parseInt(eventData.slice(8).trim(), 10)
           if (!isNaN(tokens)) onTokens?.(tokens)
+          continue
+        }
+        if (eventData.startsWith('[SOURCES]')) {
+          try {
+            onSources?.(JSON.parse(eventData.slice(9).trim()) as RagSource[])
+          } catch { /* 解析失败忽略 */ }
           continue
         }
 

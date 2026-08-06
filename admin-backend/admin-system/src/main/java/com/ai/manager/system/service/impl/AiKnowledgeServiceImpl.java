@@ -482,7 +482,34 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
         }
 
         LlmProviderStrategy strategy = strategyFactory.getStrategy(config.getProvider());
-        var messages = promptBuilder.buildMessages(request);
+
+        // RAG 模式：检索知识库并注入上下文（此前流式聊天忽略了 useRag，回答从不基于知识库）
+        List<org.springframework.ai.chat.messages.Message> messages;
+        if (Boolean.TRUE.equals(request.getUseRag())) {
+            AiKnowledgeRagSearchRequest ragReq = new AiKnowledgeRagSearchRequest();
+            ragReq.setQuery(question);
+            ragReq.setTopK(ragProperties.getSearch().getTopK());
+            List<AiKnowledgeChatResponse.RagSourceItem> sources = searchRag(ragReq).getSources();
+            // 流式场景把检索来源（轻量字段）发给前端展示（UI 仅用文件名/相关度）
+            if (!sources.isEmpty()) {
+                try {
+                    List<Map<String, Object>> slim = new ArrayList<>();
+                    for (AiKnowledgeChatResponse.RagSourceItem s : sources) {
+                        Map<String, Object> m = new HashMap<>();
+                        m.put("documentId", s.getDocumentId());
+                        m.put("fileName", s.getFileName());
+                        m.put("score", s.getScore());
+                        slim.add(m);
+                    }
+                    emitter.send(SseEmitter.event().data("[SOURCES] " + objectMapper.writeValueAsString(slim)));
+                } catch (Exception e) {
+                    log.warn("SSE 发送检索来源事件失败", e);
+                }
+            }
+            messages = promptBuilder.buildRagMessages(request, buildRagContext(sources));
+        } else {
+            messages = promptBuilder.buildMessages(request);
+        }
 
         StringBuilder fullResponse = new StringBuilder();
         // 记录 API 返回的精确 Token 数（可能为 0）
