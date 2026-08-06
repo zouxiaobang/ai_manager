@@ -1,4 +1,4 @@
-# Build admin-web on Windows and deploy dist to Pi 114
+﻿# Build admin-web on Windows and deploy dist to Pi 114
 # Web one-click deploy uses Java password SSH; for manual runs set PI_PASSWORD or configure SSH keys.
 # Usage: $env:PI_PASSWORD='...'; powershell -ExecutionPolicy Bypass -File deploy/scripts/deploy-frontend.ps1
 
@@ -75,9 +75,11 @@ Test-RemoteSsh
 
 Write-Host "==> Building frontend..." -ForegroundColor Cyan
 Set-Location "$Root\admin-web"
-& npm install
+# 用 npm.cmd 而非 npm：npm.ps1 包装器在脚本内 `& npm install` 时会把首参解析成 "pm"（Unknown command），
+# 直接走 cmd 批次避免该 PowerShell shim bug
+& npm.cmd install
 if ($LASTEXITCODE -ne 0) { throw "npm install failed" }
-& npm run build
+& npm.cmd run build
 if ($LASTEXITCODE -ne 0) { throw "npm run build failed" }
 
 $DistDir = "$Root\admin-web\dist"
