@@ -1,0 +1,39 @@
+# 项目配置：只保留 OTA_URL / BOARD 二选一 choice / 语言 / 唤醒词
+
+menu "Xiaozhi Firmware"
+
+config OTA_URL
+    string "Default OTA URL"
+    default "https://api.tenclass.net/xiaozhi/ota/"
+    help
+        首次激活的默认 OTA 基地址；NVS wifi/ota_url 可覆盖。
+
+choice BOARD
+    prompt "Board selection"
+    default BOARD_SUPERMINI_C3
+    help
+        构建时二选一，只编译选中的一块板。
+
+config BOARD_SUPERMINI_C3
+    bool "supermini-c3 (ESP32-C3, SSD1306 OLED, 4MB)"
+    depends on IDF_TARGET_ESP32C3
+
+config BOARD_KYLE_S3_LCD
+    bool "kyle-s3-lcd (ESP32-S3, ST7789 + touch, 16MB/PSRAM)"
+    depends on IDF_TARGET_ESP32S3
+
+endchoice
+
+config LANGUAGE
+    string "Language code"
+    default "zh-CN"
+    help
+        用于系统信息上报与显示语言（如 zh-CN / en-US）。
+
+config WAKE_WORD
+    string "Wake word text"
+    default "铃铛象"
+    help
+        唤醒词文本；supermini-c3 用 Wakenet、kyle-s3-lcd 用 Multinet。
+
+endmenu

@@ -63,6 +63,19 @@
             <artifactId>jsoup</artifactId>
             <version>1.18.1</version>
         </dependency>
+
+        <!-- IoT 设备 WebSocket 通道（ESP32 协议强制，后台 UI 推送仍用 SSE） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
+        <!-- 纯 Java Opus 编解码（免 JNI），用于设备语音帧 -->
+        <dependency>
+            <groupId>org.concentus</groupId>
+            <artifactId>Concentus</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
     </dependencies>
 
     <build>

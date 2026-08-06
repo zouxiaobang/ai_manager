@@ -17,6 +17,7 @@ export type WarRoomNavIconName =
   | 'pomodoro'
   | 'ecommerce'
   | 'pixel-dog'
+  | 'iot'
   | 'functions'
   | 'ai-knowledge'
   | 'notebook'

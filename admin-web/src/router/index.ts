@@ -221,6 +221,18 @@ const router = createRouter({
 
         {
 
+          path: 'iot',
+
+          name: 'iot',
+
+          component: () => import('@/views/iot/IotView.vue'),
+
+          meta: { titleKey: 'iot.title' },
+
+        },
+
+        {
+
           path: 'notebook',
 
           name: 'notebook',
