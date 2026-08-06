@@ -14,6 +14,9 @@ public class OnlineSessionVO {
 
     private Long deviceId;
 
+    /** 设备展示名（暂无独立名称列，取 MAC 兜底） */
+    private String deviceName;
+
     private String deviceMac;
 
     private String deviceModel;
@@ -22,5 +25,11 @@ public class OnlineSessionVO {
 
     private LocalDateTime startedAt;
 
+    /** 会话结束时间（null 表示仍在线） */
+    private LocalDateTime endedAt;
+
     private Integer turnCount;
+
+    /** 是否在线（endedAt 为空即在线） */
+    private Boolean online;
 }

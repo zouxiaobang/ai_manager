@@ -1,5 +1,6 @@
 package com.ai.manager.system.iot.service.impl;
 
+import com.ai.manager.common.result.PageResult;
 import com.ai.manager.system.iot.domain.entity.IotDevice;
 import com.ai.manager.system.iot.domain.entity.IotSession;
 import com.ai.manager.system.iot.domain.vo.OnlineSessionVO;
@@ -9,6 +10,7 @@ import com.ai.manager.system.iot.websocket.DeviceSessionInfo;
 import com.ai.manager.system.iot.websocket.WsSessionRegistry;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -77,6 +79,42 @@ class SessionServiceImplTest {
         assertThat(vo.getDeviceId()).isEqualTo(42L);
         assertThat(vo.getDeviceMac()).isEqualTo("aabbccdd");
         assertThat(vo.getSessionId()).isEqualTo("s1");
+    }
+
+    @Test
+    void pageSessions_shouldPageAndEnrichOnline() {
+        Page<IotSession> dbPage = new Page<>(1, 20);
+        dbPage.setRecords(List.of(session(1L, "s1", 2)));
+        dbPage.setTotal(1);
+        when(iotSessionMapper.selectPage(any(), any())).thenReturn(dbPage);
+        IotDevice device = new IotDevice();
+        device.setId(1L);
+        device.setMac("aabbccdd");
+        when(iotDeviceMapper.selectById(1L)).thenReturn(device);
+
+        PageResult<OnlineSessionVO> result = service.pageSessions(1L, 20L, null);
+
+        assertThat(result.getRecords()).hasSize(1);
+        OnlineSessionVO vo = result.getRecords().get(0);
+        assertThat(vo.getOnline()).isTrue();
+        assertThat(vo.getDeviceName()).isEqualTo("aabbccdd");
+        assertThat(vo.getTurnCount()).isEqualTo(2);
+        assertThat(result.getTotal()).isEqualTo(1);
+    }
+
+    @Test
+    void pageSessions_whenEnded_shouldMarkOffline() {
+        IotSession ended = session(1L, "s1", 3);
+        ended.setEndedAt(LocalDateTime.now());
+        Page<IotSession> dbPage = new Page<>(1, 20);
+        dbPage.setRecords(List.of(ended));
+        dbPage.setTotal(1);
+        when(iotSessionMapper.selectPage(any(), any())).thenReturn(dbPage);
+
+        PageResult<OnlineSessionVO> result = service.pageSessions(1L, 20L, false);
+
+        assertThat(result.getRecords().get(0).getOnline()).isFalse();
+        assertThat(result.getRecords().get(0).getEndedAt()).isNotNull();
     }
 
     @Test

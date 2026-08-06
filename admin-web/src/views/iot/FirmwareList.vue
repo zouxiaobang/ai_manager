@@ -29,7 +29,7 @@
       </el-table-column>
       <el-table-column prop="releaseNote" :label="t('iot.firmware.releaseNote')" min-width="200" show-overflow-tooltip />
       <el-table-column :label="t('iot.firmware.createdAt')" width="170">
-        <template #default="{ row }">{{ formatIotTime(row.createdAt) }}</template>
+        <template #default="{ row }">{{ formatIotTime(row.createTime) }}</template>
       </el-table-column>
       <el-table-column
         :label="t('iot.firmware.actions')"

@@ -1,15 +1,20 @@
 package com.ai.manager.system.iot.service.impl;
 
 import com.ai.manager.common.exception.BusinessException;
+import com.ai.manager.common.result.PageResult;
+import com.ai.manager.common.result.PageUtils;
 import com.ai.manager.common.result.ResultCode;
 import com.ai.manager.system.iot.domain.dto.DeviceBindRequest;
+import com.ai.manager.system.iot.domain.dto.DeviceUpdateRequest;
 import com.ai.manager.system.iot.domain.entity.IotDevice;
+import com.ai.manager.system.iot.domain.vo.DeviceOnlineStatusVO;
 import com.ai.manager.system.iot.domain.vo.DeviceVO;
 import com.ai.manager.system.iot.mapper.IotDeviceMapper;
 import com.ai.manager.system.iot.service.DeviceService;
 import com.ai.manager.system.iot.websocket.DeviceWsHandler;
 import com.ai.manager.system.iot.websocket.WsSessionRegistry;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -34,11 +39,19 @@ public class DeviceServiceImpl implements DeviceService {
     private final DeviceWsHandler deviceWsHandler;
 
     @Override
-    public List<DeviceVO> listDevices() {
-        List<IotDevice> list = iotDeviceMapper.selectList(new LambdaQueryWrapper<IotDevice>()
-                .eq(IotDevice::getDeleted, 0)
-                .orderByDesc(IotDevice::getId));
-        return list.stream().map(this::toVO).collect(Collectors.toList());
+    public PageResult<DeviceVO> listDevices(Long page, Long pageSize, String keyword, String status) {
+        long p = PageUtils.normalizePage(page);
+        long ps = PageUtils.normalizePageSize(pageSize);
+        Page<IotDevice> entityPage = iotDeviceMapper.selectPage(new Page<>(p, ps),
+                new LambdaQueryWrapper<IotDevice>()
+                        .eq(IotDevice::getDeleted, 0)
+                        .eq(StringUtils.hasText(status), IotDevice::getStatus, status)
+                        .and(StringUtils.hasText(keyword), w -> w.like(IotDevice::getMac, keyword)
+                                .or().like(IotDevice::getUuid, keyword)
+                                .or().like(IotDevice::getModel, keyword))
+                        .orderByDesc(IotDevice::getId));
+        List<DeviceVO> vos = entityPage.getRecords().stream().map(this::toVO).collect(Collectors.toList());
+        return PageUtils.of(vos, entityPage.getTotal(), p, ps);
     }
 
     @Override
@@ -91,6 +104,35 @@ public class DeviceServiceImpl implements DeviceService {
         device.setStatus(status);
         iotDeviceMapper.updateById(device);
         return toVO(device);
+    }
+
+    @Override
+    @Transactional
+    public DeviceVO update(Long id, DeviceUpdateRequest request) {
+        if (request == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "请求体不能为空");
+        }
+        IotDevice device = requireDevice(id);
+        if (StringUtils.hasText(request.getModel())) {
+            device.setModel(request.getModel());
+        }
+        if (StringUtils.hasText(request.getChip())) {
+            device.setChip(request.getChip());
+        }
+        if (StringUtils.hasText(request.getFirmwareVersion())) {
+            device.setFirmwareVersion(request.getFirmwareVersion());
+        }
+        iotDeviceMapper.updateById(device);
+        return toVO(device);
+    }
+
+    @Override
+    public DeviceOnlineStatusVO probeOnline(Long id) {
+        IotDevice device = requireDevice(id);
+        DeviceOnlineStatusVO vo = new DeviceOnlineStatusVO();
+        vo.setOnline(wsSessionRegistry.isOnline(device.getMac()));
+        vo.setLastSeenAt(device.getLastSeenAt());
+        return vo;
     }
 
     @Override

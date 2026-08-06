@@ -1,5 +1,6 @@
 package com.ai.manager.system.iot.service;
 
+import com.ai.manager.common.result.PageResult;
 import com.ai.manager.system.iot.domain.entity.IotSession;
 import com.ai.manager.system.iot.domain.vo.OnlineSessionVO;
 
@@ -9,6 +10,9 @@ public interface SessionService {
 
     /** 在线会话列表（由 WsSessionRegistry 实时数据 + 设备信息组装）。 */
     List<OnlineSessionVO> listOnlineSessions();
+
+    /** 分页查询会话（iot_session 表），online=true 仅在线、false 仅已结束、null 全部。 */
+    PageResult<OnlineSessionVO> pageSessions(Long page, Long pageSize, Boolean online);
 
     /** 开启一次会话（WS 连接建立时）。 */
     IotSession startSession(Long deviceId, String sessionId);

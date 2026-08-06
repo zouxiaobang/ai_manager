@@ -91,7 +91,7 @@ describe('iot api 层', () => {
 
       expect(requestMock.post).toHaveBeenCalledTimes(1)
       const [url, body, options] = requestMock.post.mock.calls[0]
-      expect(url).toBe('/api/iot/firmware')
+      expect(url).toBe('/api/iot/firmware/upload')
       expect(body).toBeInstanceOf(FormData)
       expect((body as FormData).get('version')).toBe('2.2.1')
       expect((body as FormData).get('force')).toBe('true')
@@ -122,9 +122,9 @@ describe('iot api 层', () => {
       expect(postData).toHaveBeenCalledWith('/api/iot/firmware/3/publish', { force: true })
     })
 
-    it('forceUpgradeIotFirmware 走 OTA 强制升级接口', () => {
+    it('forceUpgradeIotFirmware 走固件强制升级接口', () => {
       forceUpgradeIotFirmware(3)
-      expect(postData).toHaveBeenCalledWith('/api/iot/ota/force', { firmwareId: 3 })
+      expect(postData).toHaveBeenCalledWith('/api/iot/firmware/3/force')
     })
 
     it('deleteIotFirmware 删除固件', () => {
@@ -136,7 +136,7 @@ describe('iot api 层', () => {
   describe('OTA 记录与在线会话', () => {
     it('fetchIotOtaRecords 拼接 OTA 记录路径', () => {
       fetchIotOtaRecords({ page: 1, pageSize: 20, state: 'SUCCESS' })
-      expect(getData).toHaveBeenCalledWith('/api/iot/ota/records', {
+      expect(getData).toHaveBeenCalledWith('/api/iot/firmware/ota-records', {
         page: 1,
         pageSize: 20,
         state: 'SUCCESS',

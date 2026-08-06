@@ -1,14 +1,18 @@
 package com.ai.manager.system.iot.service.impl;
 
 import com.ai.manager.common.exception.BusinessException;
+import com.ai.manager.common.result.PageResult;
 import com.ai.manager.system.iot.domain.dto.DeviceBindRequest;
+import com.ai.manager.system.iot.domain.dto.DeviceUpdateRequest;
 import com.ai.manager.system.iot.domain.entity.IotDevice;
+import com.ai.manager.system.iot.domain.vo.DeviceOnlineStatusVO;
 import com.ai.manager.system.iot.domain.vo.DeviceVO;
 import com.ai.manager.system.iot.mapper.IotDeviceMapper;
 import com.ai.manager.system.iot.websocket.DeviceWsHandler;
 import com.ai.manager.system.iot.websocket.WsSessionRegistry;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,17 +66,21 @@ class DeviceServiceImplTest {
     }
 
     @Test
-    void listDevices_shouldMapToVOWithOnlineFlag() {
-        when(iotDeviceMapper.selectList(any())).thenReturn(List.of(entity(1L, "aabbccdd", "ONLINE")));
+    void listDevices_shouldPageAndMapToVOWithOnlineFlag() {
+        Page<IotDevice> dbPage = new Page<>(1, 20);
+        dbPage.setRecords(List.of(entity(1L, "aabbccdd", "ONLINE")));
+        dbPage.setTotal(1);
+        when(iotDeviceMapper.selectPage(any(), any())).thenReturn(dbPage);
         when(wsSessionRegistry.isOnline("aabbccdd")).thenReturn(true);
 
-        List<DeviceVO> result = service.listDevices();
+        PageResult<DeviceVO> result = service.listDevices(1L, 20L, null, null);
 
-        assertThat(result).hasSize(1);
-        DeviceVO vo = result.get(0);
+        assertThat(result.getRecords()).hasSize(1);
+        DeviceVO vo = result.getRecords().get(0);
         assertThat(vo.getMac()).isEqualTo("aabbccdd");
         assertThat(vo.getOnline()).isTrue();
         assertThat(vo.getOtaState()).isEqualTo("IDLE");
+        assertThat(result.getTotal()).isEqualTo(1);
     }
 
     @Test
@@ -121,6 +129,44 @@ class DeviceServiceImplTest {
         assertThat(vo.getChip()).isEqualTo("esp32c3");
         verify(iotDeviceMapper).updateById(any(IotDevice.class));
         verify(iotDeviceMapper, never()).insert(any(IotDevice.class));
+    }
+
+    @Test
+    void update_shouldPersistProvidedFields() {
+        when(iotDeviceMapper.selectById(1L)).thenReturn(entity(1L, "aabbccdd", "BOUND"));
+        DeviceUpdateRequest req = new DeviceUpdateRequest();
+        req.setModel("kyle-s3-lcd");
+
+        DeviceVO vo = service.update(1L, req);
+
+        assertThat(vo.getModel()).isEqualTo("kyle-s3-lcd");
+        verify(iotDeviceMapper).updateById(any(IotDevice.class));
+    }
+
+    @Test
+    void update_whenMissing_shouldThrow() {
+        when(iotDeviceMapper.selectById(99L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.update(99L, new DeviceUpdateRequest()))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void probeOnline_whenOnline_shouldReturnTrue() {
+        when(iotDeviceMapper.selectById(1L)).thenReturn(entity(1L, "aabbccdd", "ONLINE"));
+        when(wsSessionRegistry.isOnline("aabbccdd")).thenReturn(true);
+
+        DeviceOnlineStatusVO vo = service.probeOnline(1L);
+
+        assertThat(vo.getOnline()).isTrue();
+    }
+
+    @Test
+    void probeOnline_whenMissing_shouldThrow() {
+        when(iotDeviceMapper.selectById(99L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.probeOnline(99L))
+                .isInstanceOf(BusinessException.class);
     }
 
     @Test

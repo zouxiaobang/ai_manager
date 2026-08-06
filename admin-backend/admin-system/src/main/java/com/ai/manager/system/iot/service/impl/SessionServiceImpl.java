@@ -1,5 +1,7 @@
 package com.ai.manager.system.iot.service.impl;
 
+import com.ai.manager.common.result.PageResult;
+import com.ai.manager.common.result.PageUtils;
 import com.ai.manager.system.iot.domain.entity.IotDevice;
 import com.ai.manager.system.iot.domain.entity.IotSession;
 import com.ai.manager.system.iot.domain.vo.OnlineSessionVO;
@@ -9,6 +11,7 @@ import com.ai.manager.system.iot.service.SessionService;
 import com.ai.manager.system.iot.websocket.DeviceSessionInfo;
 import com.ai.manager.system.iot.websocket.WsSessionRegistry;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,42 @@ public class SessionServiceImpl implements SessionService {
         return wsSessionRegistry.all().stream()
                 .map(this::toOnlineVO)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public PageResult<OnlineSessionVO> pageSessions(Long page, Long pageSize, Boolean online) {
+        long p = PageUtils.normalizePage(page);
+        long ps = PageUtils.normalizePageSize(pageSize);
+        Page<IotSession> entityPage = iotSessionMapper.selectPage(new Page<>(p, ps),
+                new LambdaQueryWrapper<IotSession>()
+                        .eq(IotSession::getDeleted, 0)
+                        .isNull(Boolean.TRUE.equals(online), IotSession::getEndedAt)
+                        .isNotNull(Boolean.FALSE.equals(online), IotSession::getEndedAt)
+                        .orderByDesc(IotSession::getId));
+        List<OnlineSessionVO> vos = entityPage.getRecords().stream()
+                .map(this::toPageVO)
+                .collect(Collectors.toList());
+        return PageUtils.of(vos, entityPage.getTotal(), p, ps);
+    }
+
+    private OnlineSessionVO toPageVO(IotSession s) {
+        OnlineSessionVO vo = new OnlineSessionVO();
+        vo.setId(s.getId());
+        vo.setDeviceId(s.getDeviceId());
+        vo.setSessionId(s.getSessionId());
+        vo.setStartedAt(s.getStartedAt());
+        vo.setEndedAt(s.getEndedAt());
+        vo.setTurnCount(s.getTurnCount());
+        vo.setOnline(s.getEndedAt() == null);
+        if (s.getDeviceId() != null) {
+            IotDevice device = iotDeviceMapper.selectById(s.getDeviceId());
+            if (device != null) {
+                vo.setDeviceName(device.getMac());
+                vo.setDeviceMac(device.getMac());
+                vo.setDeviceModel(device.getModel());
+            }
+        }
+        return vo;
     }
 
     @Override
