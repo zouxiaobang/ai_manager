@@ -51,24 +51,75 @@ export function useAiKnowledgeRag() {
   const savingEmbedConfig = ref(false)
   const clearingEmbedConfig = ref(false)
   const embeddingConfigured = ref(false)
-  /** 各提供商 API Key 会话级缓存（切换提供商时记住/恢复，避免把 A 的 key 误存给 B） */
+  /** 各提供商 API Key 会话级缓存（切换提供商时记住/恢复真实 key，避免把 A 的 key 误存给 B） */
   const embedApiKeyCache = ref<Record<string, string>>({})
+  /** 上一次（切换前）的 Embedding 提供商：@change 触发时 v-model 已更新 provider，需单独跟踪旧值 */
+  const lastEmbedProvider = ref(embedConfigDraft.value.provider)
+  /** 切换加载序号：丢弃被更快切换覆盖的异步响应 */
+  let embedLoadSeq = 0
   /** 当前 Embedding 提供商元信息（API Key 占位符等） */
   const embedProviderInfo = computed(() => AI_PROVIDER_MAP[embedConfigDraft.value.provider])
 
-  /** 切换 Embedding 提供商：地址/Embedding 模型跟随新提供商默认值，API Key 恢复该提供商缓存 */
-  function onEmbeddingProviderChange(provider: AiProvider) {
+  /** 把表单切到某提供商的默认值（key 单独指定），用于切换/清除/未保存场景 */
+  function applyEmbeddingProviderDefaults(provider: AiProvider, apiKey: string) {
     const info = AI_PROVIDER_MAP[provider]
     if (!info) return
-    // 先记旧提供商的 key 入缓存（切回时可恢复），再切换 provider（v-model 已改，此处幂等自包含）
-    const prevProvider = embedConfigDraft.value.provider
-    embedApiKeyCache.value[prevProvider] = embedConfigDraft.value.apiKey
-    embedConfigDraft.value.provider = provider
-    embedConfigDraft.value.apiBaseUrl = info.apiBaseUrl
-    embedConfigDraft.value.model = info.model
-    embedConfigDraft.value.embeddingModel = info.embeddingModel
-    // 恢复该提供商已缓存 key（无则置空），避免跨提供商误用旧 key
-    embedConfigDraft.value.apiKey = embedApiKeyCache.value[provider] ?? ''
+    embedConfigDraft.value = {
+      provider,
+      apiKey,
+      apiBaseUrl: info.apiBaseUrl,
+      model: info.model,
+      embeddingModel: info.embeddingModel,
+      temperature: info.temperature,
+      maxTokens: info.maxTokens,
+      defaultProvider: false,
+      maxContextMessages: 10,
+    }
+  }
+
+  /** 切换 Embedding 提供商：地址/Embedding 模型跟随新提供商默认值；key 优先本会话缓存，其次后端已存配置 */
+  async function onEmbeddingProviderChange(provider: AiProvider) {
+    const info = AI_PROVIDER_MAP[provider]
+    if (!info) return
+    // 先把上一个提供商当前输入的 key 记入缓存（@change 前 v-model 已改 provider，旧值需用 lastEmbedProvider 取）
+    const old = lastEmbedProvider.value
+    if (old && old !== provider) {
+      embedApiKeyCache.value[old] = embedConfigDraft.value.apiKey
+    }
+    lastEmbedProvider.value = provider
+    const seq = ++embedLoadSeq
+
+    // 本会话缓存到该提供商的真实 key → 直接恢复（不再向后端请求，避免被脱敏值覆盖）
+    const cachedKey = embedApiKeyCache.value[provider]
+    if (cachedKey && cachedKey !== '****') {
+      applyEmbeddingProviderDefaults(provider, cachedKey)
+      embeddingConfigured.value = true
+      return
+    }
+
+    // 先按默认值填充（清空旧提供商字段），再从后端读取该提供商已保存配置
+    applyEmbeddingProviderDefaults(provider, '')
+    embeddingConfigured.value = false
+    try {
+      const saved = await fetchEmbeddingConfig(provider)
+      if (seq !== embedLoadSeq) return // 已被更快的切换覆盖
+      if (saved?.apiKey) {
+        embedConfigDraft.value = {
+          provider,
+          apiKey: saved.apiKey,
+          apiBaseUrl: saved.apiBaseUrl || info.apiBaseUrl,
+          model: saved.model || info.model,
+          embeddingModel: saved.embeddingModel || info.embeddingModel,
+          temperature: saved.temperature ?? info.temperature,
+          maxTokens: saved.maxTokens ?? info.maxTokens,
+          defaultProvider: saved.defaultProvider ?? false,
+          maxContextMessages: saved.maxContextMessages ?? 10,
+        }
+        embeddingConfigured.value = saved.apiKey !== '****'
+      }
+    } catch {
+      // 读取失败保持默认值（未配置）
+    }
   }
 
   function statusTagType(status: string): 'success' | 'warning' | 'danger' | 'info' {
@@ -111,22 +162,31 @@ export function useAiKnowledgeRag() {
   async function loadEmbeddingConfig() {
     try {
       const config = await fetchEmbeddingConfig()
-      embedConfigDraft.value = {
-        provider: config?.provider || 'openai',
-        apiKey: config?.apiKey || '',
-        apiBaseUrl: config?.apiBaseUrl || AI_PROVIDER_MAP[config?.provider || 'openai']?.apiBaseUrl || 'https://api.openai.com/v1',
-        model: config?.model || 'gpt-4o',
-        embeddingModel: config?.embeddingModel || AI_PROVIDER_MAP[config?.provider || 'openai']?.embeddingModel || 'text-embedding-3-small',
-        temperature: config?.temperature ?? 0.7,
-        maxTokens: config?.maxTokens ?? 4096,
-        defaultProvider: config?.defaultProvider ?? false,
-        maxContextMessages: config?.maxContextMessages ?? 10,
+      if (config?.provider) {
+        const info = AI_PROVIDER_MAP[config.provider]
+        embedConfigDraft.value = {
+          provider: config.provider,
+          apiKey: config.apiKey || '',
+          apiBaseUrl: config.apiBaseUrl || info?.apiBaseUrl || 'https://api.openai.com/v1',
+          model: config.model || info?.model || 'gpt-4o',
+          embeddingModel: config.embeddingModel || info?.embeddingModel || 'text-embedding-3-small',
+          temperature: config.temperature ?? info?.temperature ?? 0.7,
+          maxTokens: config.maxTokens ?? info?.maxTokens ?? 4096,
+          defaultProvider: config.defaultProvider ?? false,
+          maxContextMessages: config.maxContextMessages ?? 10,
+        }
+        lastEmbedProvider.value = config.provider
+        // 后端 apiKey 已脱敏（真实 key 形如 sk-****abcd，空值占位 ****），据此判断是否已配置
+        embeddingConfigured.value = !!config.apiKey && config.apiKey !== '****'
+      } else {
+        // 无任何已保存配置 → 默认提供商未配置
+        applyEmbeddingProviderDefaults('openai', '')
+        lastEmbedProvider.value = 'openai'
+        embeddingConfigured.value = false
       }
-      // 记录当前提供商的 key 到会话缓存（切换提供商后切回时恢复）
-      embedApiKeyCache.value[config?.provider || 'openai'] = config?.apiKey || ''
-      embeddingConfigured.value = !!config?.apiKey && !config.apiKey.includes('****')
     } catch {
-      // 加载失败使用默认值
+      applyEmbeddingProviderDefaults('openai', '')
+      lastEmbedProvider.value = 'openai'
       embeddingConfigured.value = false
     }
   }
@@ -134,9 +194,11 @@ export function useAiKnowledgeRag() {
   async function saveEmbedConfig() {
     savingEmbedConfig.value = true
     try {
+      // 先缓存当前真实 key，防止 loadEmbeddingConfig 用脱敏值覆盖后切换丢失
+      embedApiKeyCache.value[embedConfigDraft.value.provider] = embedConfigDraft.value.apiKey
       await saveEmbeddingConfig(embedConfigDraft.value)
       ElMessage.success('Embedding 配置已保存')
-      embeddingConfigured.value = true
+      embeddingConfigured.value = !!embedConfigDraft.value.apiKey && embedConfigDraft.value.apiKey !== '****'
       // 刷新 embedding 配置状态
       await loadEmbeddingConfig()
     } catch {
@@ -161,8 +223,10 @@ export function useAiKnowledgeRag() {
         maxContextMessages: 10,
       })
       ElMessage.success('Embedding 配置已清除，将使用 Chat 配置')
+      // 清除该提供商缓存，本地重置为未配置（保留 provider 选择，避免误跳其他提供商）
+      embedApiKeyCache.value[embedConfigDraft.value.provider] = ''
+      applyEmbeddingProviderDefaults(embedConfigDraft.value.provider, '')
       embeddingConfigured.value = false
-      await loadEmbeddingConfig()
     } catch {
       ElMessage.error('清除 Embedding 配置失败')
     } finally {

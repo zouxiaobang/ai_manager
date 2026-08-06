@@ -62,9 +62,11 @@ public interface AiKnowledgeService {
     // ==================== RAG 知识库 ====================
 
     /**
-     * 获取 Embedding 模型配置（用于 RAG 向量嵌入，与 chat 配置独立）
+     * 获取 Embedding 模型配置（用于 RAG 向量嵌入，与 chat 配置独立）。
+     *
+     * @param provider 目标提供商；为空时返回当前活动提供商的配置（无已保存配置时返回 null）
      */
-    AiKnowledgeConfigVO getEmbeddingConfig();
+    AiKnowledgeConfigVO getEmbeddingConfig(String provider);
 
     /**
      * 保存 Embedding 模型配置

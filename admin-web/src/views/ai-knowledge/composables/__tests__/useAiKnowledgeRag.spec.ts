@@ -113,13 +113,22 @@ describe('useAiKnowledgeRag', () => {
     expect(api.embeddingConfigured.value).toBe(true)
   })
 
-  it('loadEmbeddingConfig 中脱敏 apiKey 视为未配置', async () => {
+  it('loadEmbeddingConfig 中空 key 占位 **** 视为未配置', async () => {
     const api = useAiKnowledgeRag()
-    fetchEmbedMock.mockResolvedValue({ apiKey: 'sk-****' } as never)
+    fetchEmbedMock.mockResolvedValue({ provider: 'openai', apiKey: '****' } as never)
 
     await api.loadEmbeddingConfig()
 
     expect(api.embeddingConfigured.value).toBe(false)
+  })
+
+  it('loadEmbeddingConfig 中脱敏真实 key 视为已配置（不再把 **** 当未配置）', async () => {
+    const api = useAiKnowledgeRag()
+    fetchEmbedMock.mockResolvedValue({ provider: 'openai', apiKey: 'sk-****abcd' } as never)
+
+    await api.loadEmbeddingConfig()
+
+    expect(api.embeddingConfigured.value).toBe(true)
   })
 
   it('loadEmbeddingConfig 失败时使用默认值并标记未配置', async () => {
@@ -132,25 +141,51 @@ describe('useAiKnowledgeRag', () => {
     expect(api.embedConfigDraft.value.provider).toBe('openai')
   })
 
-  it('onEmbeddingProviderChange 地址与模型跟随提供商且 key 不跨提供商误用', () => {
+  it('onEmbeddingProviderChange 地址与模型跟随提供商且 key 不跨提供商误用', async () => {
     const api = useAiKnowledgeRag()
+    fetchEmbedMock.mockResolvedValue(undefined as never)
     api.embedConfigDraft.value.apiKey = 'sk-openai'
 
-    api.onEmbeddingProviderChange('deepseek')
+    await api.onEmbeddingProviderChange('deepseek')
 
     // 地址/Embedding 模型/chat 模型跟随 deepseek 默认值
     expect(api.embedConfigDraft.value.provider).toBe('deepseek')
     expect(api.embedConfigDraft.value.apiBaseUrl).toBe('https://api.deepseek.com')
     expect(api.embedConfigDraft.value.embeddingModel).toBe('deepseek-embedding')
     expect(api.embedConfigDraft.value.model).toBe('deepseek-chat')
-    // 无 deepseek 缓存 → key 置空，避免把 openai 的 key 误存给 deepseek
+    // 无 deepseek 已存配置 → key 置空，避免把 openai 的 key 误存给 deepseek
     expect(api.embedConfigDraft.value.apiKey).toBe('')
+    expect(fetchEmbedMock).toHaveBeenCalledWith('deepseek')
 
     // 切回 openai：key 从缓存恢复，地址/模型同步还原
-    api.onEmbeddingProviderChange('openai')
+    await api.onEmbeddingProviderChange('openai')
     expect(api.embedConfigDraft.value.apiKey).toBe('sk-openai')
     expect(api.embedConfigDraft.value.apiBaseUrl).toBe('https://api.openai.com/v1')
     expect(api.embedConfigDraft.value.embeddingModel).toBe('text-embedding-3-small')
+  })
+
+  it('onEmbeddingProviderChange 从后端恢复该提供商已保存配置', async () => {
+    const api = useAiKnowledgeRag()
+    fetchEmbedMock.mockResolvedValue({
+      provider: 'deepseek', apiKey: 'sk-****wxyz', apiBaseUrl: 'https://api.deepseek.com',
+      model: 'deepseek-chat', embeddingModel: 'deepseek-embedding',
+    } as never)
+
+    await api.onEmbeddingProviderChange('deepseek')
+
+    expect(fetchEmbedMock).toHaveBeenCalledWith('deepseek')
+    expect(api.embedConfigDraft.value.provider).toBe('deepseek')
+    expect(api.embedConfigDraft.value.apiKey).toBe('sk-****wxyz')
+    expect(api.embeddingConfigured.value).toBe(true)
+  })
+
+  it('onEmbeddingProviderChange 已保存提供商 key 为空占位 **** 标记未配置', async () => {
+    const api = useAiKnowledgeRag()
+    fetchEmbedMock.mockResolvedValue({ provider: 'deepseek', apiKey: '****' } as never)
+
+    await api.onEmbeddingProviderChange('deepseek')
+
+    expect(api.embeddingConfigured.value).toBe(false)
   })
 
   it('loadEmbeddingConfig 后切换提供商可恢复已加载的 key', async () => {
@@ -159,17 +194,22 @@ describe('useAiKnowledgeRag', () => {
 
     await api.loadEmbeddingConfig()
 
-    api.onEmbeddingProviderChange('deepseek')
+    fetchEmbedMock.mockImplementation((provider?: string) => {
+      if (provider === 'deepseek') return Promise.resolve(undefined as never)
+      return Promise.resolve({ provider: 'openai', apiKey: 'sk-real' } as never)
+    })
+    await api.onEmbeddingProviderChange('deepseek')
     expect(api.embedConfigDraft.value.apiKey).toBe('')
 
-    api.onEmbeddingProviderChange('openai')
+    await api.onEmbeddingProviderChange('openai')
     expect(api.embedConfigDraft.value.apiKey).toBe('sk-real')
     expect(api.embedProviderInfo.value?.label).toBe('OpenAI')
   })
 
   it('saveEmbedConfig 保存成功并刷新', async () => {
     const api = useAiKnowledgeRag()
-    fetchEmbedMock.mockResolvedValue({ apiKey: 'sk-new' } as never)
+    api.embedConfigDraft.value.apiKey = 'sk-new'
+    fetchEmbedMock.mockResolvedValue({ provider: 'openai', apiKey: 'sk-****abcd' } as never)
 
     await api.saveEmbedConfig()
 
@@ -188,15 +228,16 @@ describe('useAiKnowledgeRag', () => {
     expect(errorMock).toHaveBeenCalledWith('保存 Embedding 配置失败')
   })
 
-  it('clearEmbedConfig 清空 apiKey 并刷新', async () => {
+  it('clearEmbedConfig 清空 apiKey 并本地重置为未配置', async () => {
     const api = useAiKnowledgeRag()
-    fetchEmbedMock.mockResolvedValue({ apiKey: '' } as never)
+    api.embedConfigDraft.value.apiKey = 'sk-****abcd'
 
     await api.clearEmbedConfig()
 
     expect(saveEmbedMock).toHaveBeenCalledWith(expect.objectContaining({ apiKey: '', embeddingModel: '' }))
     expect(successMock).toHaveBeenCalled()
     expect(api.embeddingConfigured.value).toBe(false)
+    expect(api.embedConfigDraft.value.apiKey).toBe('')
   })
 
   it('retryDoc 重试指定文档并刷新列表', async () => {

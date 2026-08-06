@@ -89,8 +89,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class AiKnowledgeServiceImpl implements AiKnowledgeService {
 
-    private static final String KEY_EMBEDDING_CONFIG = "embedding_config";
-
     /** 各提供商/模型的上下文窗口大小（Token），用于计算当前会话上下文占用百分比 */
     private static final Map<String, Integer> MODEL_CONTEXT_MAP = Map.ofEntries(
             // OpenAI
@@ -277,20 +275,14 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
     // ==================== Embedding 配置（独立于 Chat 配置） ====================
 
     @Override
-    public AiKnowledgeConfigVO getEmbeddingConfig() {
-        AiKnowledgeConfig row = configMapper.selectById(KEY_EMBEDDING_CONFIG);
-        if (row != null && row.getConfigJson() != null && !row.getConfigJson().isBlank()) {
-            try {
-                AiKnowledgeConfigVO config = objectMapper.readValue(
-                        configCrypto.decryptIfEncrypted(row.getConfigJson()), AiKnowledgeConfigVO.class);
-                return configStore.maskConfig(config);
-            } catch (JsonProcessingException e) {
-                log.error("解析 embedding 配置失败", e);
-            }
+    public AiKnowledgeConfigVO getEmbeddingConfig(String provider) {
+        Map<String, AiKnowledgeConfigVO> all = configStore.readEmbeddingConfigs();
+        if (provider != null && !provider.isBlank()) {
+            AiKnowledgeConfigVO config = all.get(provider);
+            return config != null ? configStore.maskConfig(config) : null;
         }
-        // 无独立 embedding 配置时，返回当前默认 chat 配置（masked）
-        AiKnowledgeConfigVO fallback = resolveDefaultConfig();
-        return fallback != null ? configStore.maskConfig(fallback) : null;
+        AiKnowledgeConfigVO active = pickActiveEmbedding(all);
+        return active != null ? configStore.maskConfig(active) : null;
     }
 
     @Override
@@ -300,28 +292,30 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
             throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "提供商不能为空");
         }
 
-        // 读取所有提供商的完整配置，用于补充默认值
-        Map<String, AiKnowledgeConfigVO> all = configStore.readAllConfigs();
+        // 读取所有提供商的已存 Embedding 配置（per-provider 映射，未保存过的提供商不存在）
+        Map<String, AiKnowledgeConfigVO> all = configStore.readEmbeddingConfigs();
+
+        // 清除场景：key/地址/模型全空 → 删除该提供商记录（运行期回退 Chat 默认配置）
+        boolean clearRequested = isBlank(request.getApiKey())
+                && isBlank(request.getApiBaseUrl())
+                && isBlank(request.getModel())
+                && isBlank(request.getEmbeddingModel());
+        if (clearRequested) {
+            all.remove(provider);
+            configStore.writeEmbeddingConfigs(all);
+            log.info("Embedding 配置已清除：provider={}", provider);
+            return;
+        }
 
         AiKnowledgeConfigVO config = new AiKnowledgeConfigVO();
         config.setProvider(provider);
 
-        // API Key 脱敏处理
+        // API Key 脱敏处理：请求为掩码时保留该提供商已存明文
         if (request.getApiKey() != null && request.getApiKey().contains("****")) {
-            AiKnowledgeConfig existingRow = configMapper.selectById(KEY_EMBEDDING_CONFIG);
-            if (existingRow != null && existingRow.getConfigJson() != null) {
-                try {
-                    AiKnowledgeConfigVO existing = objectMapper.readValue(
-                            configCrypto.decryptIfEncrypted(existingRow.getConfigJson()), AiKnowledgeConfigVO.class);
-                    if (existing.getApiKey() != null && !existing.getApiKey().isBlank()
-                            && !existing.getApiKey().contains("****")) {
-                        config.setApiKey(existing.getApiKey());
-                    } else {
-                        config.setApiKey(request.getApiKey());
-                    }
-                } catch (JsonProcessingException e) {
-                    config.setApiKey(request.getApiKey());
-                }
+            AiKnowledgeConfigVO existing = all.get(provider);
+            if (existing != null && existing.getApiKey() != null && !existing.getApiKey().isBlank()
+                    && !existing.getApiKey().contains("****")) {
+                config.setApiKey(existing.getApiKey());
             } else {
                 config.setApiKey(request.getApiKey());
             }
@@ -350,40 +344,61 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
         // P1-3：SSRF 防护——校验 apiBaseUrl 不指向内网/环回/元数据地址
         apiBaseUrlValidator.validate(config.getApiBaseUrl());
 
-        // 保存到 DB（apiKey 落库加密，库中不存明文密钥）
-        try {
-            String json = configCrypto.encrypt(objectMapper.writeValueAsString(config));
-            AiKnowledgeConfig row = configMapper.selectById(KEY_EMBEDDING_CONFIG);
-            if (row == null) {
-                row = new AiKnowledgeConfig();
-                row.setConfigKey(KEY_EMBEDDING_CONFIG);
-                row.setConfigJson(json);
-                configMapper.insert(row);
-            } else {
-                row.setConfigJson(json);
-                configMapper.updateById(row);
-            }
-            log.info("Embedding 配置已保存：provider={}, embeddingModel={}", provider, config.getEmbeddingModel());
-        } catch (JsonProcessingException e) {
-            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "Embedding 配置序列化失败");
+        // 当前保存的提供商即活动提供商：取消其余提供商的 defaultProvider 标记
+        for (Map.Entry<String, AiKnowledgeConfigVO> e : all.entrySet()) {
+            e.getValue().setDefaultProvider(false);
         }
+        config.setDefaultProvider(true);
+        all.put(provider, config);
+
+        // 保存到 DB（apiKey 落库加密，库中不存明文密钥）
+        configStore.writeEmbeddingConfigs(all);
+        log.info("Embedding 配置已保存：provider={}, embeddingModel={}", provider, config.getEmbeddingModel());
     }
 
     /**
-     * 获取实际使用的 Embedding 配置（内部使用，不脱敏）
-     * 优先使用独立配置的 embedding 提供商，fallback 到默认 chat 配置
+     * 获取实际使用的 Embedding 配置（内部使用，不脱敏）。
+     *
+     * <p>从 per-provider 映射中优先选 defaultProvider 标记的活动提供商（需有 key），
+     * 其次任意有 key 的提供商；均无则回退默认 chat 配置。</p>
      */
     private AiKnowledgeConfigVO resolveEmbeddingConfig() {
-        AiKnowledgeConfig row = configMapper.selectById(KEY_EMBEDDING_CONFIG);
-        if (row != null && row.getConfigJson() != null && !row.getConfigJson().isBlank()) {
-            try {
-                return objectMapper.readValue(
-                        configCrypto.decryptIfEncrypted(row.getConfigJson()), AiKnowledgeConfigVO.class);
-            } catch (JsonProcessingException e) {
-                log.error("解析 embedding 配置失败，使用默认配置", e);
+        Map<String, AiKnowledgeConfigVO> all = configStore.readEmbeddingConfigs();
+        if (!all.isEmpty()) {
+            for (AiKnowledgeConfigVO c : all.values()) {
+                if (Boolean.TRUE.equals(c.getDefaultProvider()) && c.getApiKey() != null && !c.getApiKey().isBlank()) {
+                    return c;
+                }
+            }
+            for (AiKnowledgeConfigVO c : all.values()) {
+                if (c.getApiKey() != null && !c.getApiKey().isBlank()) {
+                    return c;
+                }
             }
         }
         return resolveDefaultConfig();
+    }
+
+    /** 选出活动 Embedding 提供商：defaultProvider 标记优先，其次有 key 的，最后任意 */
+    private AiKnowledgeConfigVO pickActiveEmbedding(Map<String, AiKnowledgeConfigVO> all) {
+        if (all == null || all.isEmpty()) {
+            return null;
+        }
+        for (AiKnowledgeConfigVO c : all.values()) {
+            if (Boolean.TRUE.equals(c.getDefaultProvider())) {
+                return c;
+            }
+        }
+        for (AiKnowledgeConfigVO c : all.values()) {
+            if (c.getApiKey() != null && !c.getApiKey().isBlank()) {
+                return c;
+            }
+        }
+        return all.values().iterator().next();
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.isBlank();
     }
 
     // ==================== 智能问答 ====================

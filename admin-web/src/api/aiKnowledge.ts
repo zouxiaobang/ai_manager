@@ -310,8 +310,8 @@ export interface RagUploadResult {
 
 // ==================== Embedding 配置（独立于 Chat 配置） ====================
 
-export function fetchEmbeddingConfig() {
-  return getData<AiModelConfig>('/api/ai-knowledge/rag/embedding-config')
+export function fetchEmbeddingConfig(provider?: AiProvider) {
+  return getData<AiModelConfig>('/api/ai-knowledge/rag/embedding-config', provider ? { provider } : undefined)
 }
 
 export function saveEmbeddingConfig(config: AiModelConfig) {

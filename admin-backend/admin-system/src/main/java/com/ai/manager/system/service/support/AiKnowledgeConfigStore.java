@@ -29,6 +29,9 @@ public class AiKnowledgeConfigStore {
 
     private static final String KEY_MODEL_CONFIG = "model_config";
 
+    /** Embedding 配置槽位：{@code Map<provider, AiKnowledgeConfigVO>}，与 model_config 同为 per-provider 映射 */
+    private static final String KEY_EMBEDDING_CONFIG = "embedding_config";
+
     private static final Map<String, AiKnowledgeConfigVO> DEFAULT_CONFIGS = buildDefaultConfigs();
 
     private final AiKnowledgeConfigMapper configMapper;
@@ -131,6 +134,60 @@ public class AiKnowledgeConfigStore {
         Map<String, AiKnowledgeConfigVO> all = readAllConfigs();
         all.put(provider, config);
         writeAllConfigs(all);
+    }
+
+    // ==================== Embedding 配置（独立于 Chat 配置） ====================
+
+    /**
+     * 读取所有提供商的 Embedding 配置。
+     *
+     * <p>不补默认值（未保存过的提供商不出现），兼容历史单对象格式迁移为
+     * {@code Map<provider, config>}。切换提供商时前端据此按提供商恢复已存配置。</p>
+     */
+    public Map<String, AiKnowledgeConfigVO> readEmbeddingConfigs() {
+        AiKnowledgeConfig row = configMapper.selectById(KEY_EMBEDDING_CONFIG);
+        if (row == null || row.getConfigJson() == null || row.getConfigJson().isBlank()) {
+            return new HashMap<>();
+        }
+        String json = configCrypto.decryptIfEncrypted(row.getConfigJson());
+        try {
+            Map<String, AiKnowledgeConfigVO> all = objectMapper.readValue(json,
+                    new TypeReference<Map<String, AiKnowledgeConfigVO>>() {});
+            return all != null ? all : new HashMap<>();
+        } catch (JsonProcessingException e) {
+            // 历史格式：单个 AiKnowledgeConfigVO，迁移为 {provider: config}
+            try {
+                AiKnowledgeConfigVO old = objectMapper.readValue(json, AiKnowledgeConfigVO.class);
+                if (old != null && old.getProvider() != null) {
+                    Map<String, AiKnowledgeConfigVO> all = new HashMap<>();
+                    all.put(old.getProvider(), old);
+                    log.info("已迁移旧格式 Embedding 配置：provider={}", old.getProvider());
+                    return all;
+                }
+            } catch (JsonProcessingException ex) {
+                log.error("解析 Embedding 配置 JSON 失败，按空配置处理", ex);
+            }
+            return new HashMap<>();
+        }
+    }
+
+    /** 写入所有提供商的 Embedding 配置（apiKey 落库加密） */
+    public void writeEmbeddingConfigs(Map<String, AiKnowledgeConfigVO> configs) {
+        try {
+            String json = configCrypto.encrypt(objectMapper.writeValueAsString(configs));
+            AiKnowledgeConfig row = configMapper.selectById(KEY_EMBEDDING_CONFIG);
+            if (row == null) {
+                row = new AiKnowledgeConfig();
+                row.setConfigKey(KEY_EMBEDDING_CONFIG);
+                row.setConfigJson(json);
+                configMapper.insert(row);
+            } else {
+                row.setConfigJson(json);
+                configMapper.updateById(row);
+            }
+        } catch (JsonProcessingException e) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "Embedding 配置序列化失败");
+        }
     }
 
     /** 脱敏 API Key（保留头尾，中间掩码），空值返回占位 */

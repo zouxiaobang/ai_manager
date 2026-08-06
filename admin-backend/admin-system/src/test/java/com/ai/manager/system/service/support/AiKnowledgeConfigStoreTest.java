@@ -165,6 +165,68 @@ class AiKnowledgeConfigStoreTest {
         verify(configMapper, atLeastOnce()).insert(any(AiKnowledgeConfig.class));
     }
 
+    // ==================== readEmbeddingConfigs / writeEmbeddingConfigs ====================
+
+    @Test
+    void readEmbeddingConfigs_无记录返回空映射() {
+        when(configMapper.selectById("embedding_config")).thenReturn(null);
+
+        Map<String, AiKnowledgeConfigVO> all = store.readEmbeddingConfigs();
+
+        assertThat(all).isEmpty();
+    }
+
+    @Test
+    void readEmbeddingConfigs_解析perProvider映射且不补默认() throws Exception {
+        AiKnowledgeConfig row = new AiKnowledgeConfig();
+        row.setConfigKey("embedding_config");
+        row.setConfigJson(crypto.encrypt(objectMapper.writeValueAsString(Map.of(
+                "openai", config("openai", "sk-1"),
+                "qwen", config("qwen", "sk-2")))));
+        when(configMapper.selectById("embedding_config")).thenReturn(row);
+
+        Map<String, AiKnowledgeConfigVO> all = store.readEmbeddingConfigs();
+
+        // 仅返回实际保存过的提供商，不补默认（与 model_config 语义不同）
+        assertThat(all).containsOnlyKeys("openai", "qwen");
+        assertThat(all.get("qwen").getApiKey()).isEqualTo("sk-2");
+    }
+
+    @Test
+    void readEmbeddingConfigs_旧单对象格式迁移为映射() {
+        AiKnowledgeConfig row = new AiKnowledgeConfig();
+        row.setConfigKey("embedding_config");
+        row.setConfigJson("{\"provider\":\"qwen\",\"apiKey\":\"sk-qwen\"}");
+        when(configMapper.selectById("embedding_config")).thenReturn(row);
+
+        Map<String, AiKnowledgeConfigVO> all = store.readEmbeddingConfigs();
+
+        assertThat(all).containsOnlyKeys("qwen");
+        assertThat(all.get("qwen").getApiKey()).isEqualTo("sk-qwen");
+    }
+
+    @Test
+    void writeEmbeddingConfigs_无记录时insert加密值() {
+        when(configMapper.selectById("embedding_config")).thenReturn(null);
+
+        store.writeEmbeddingConfigs(Map.of("openai", config("openai", "sk-1")));
+
+        ArgumentCaptor<AiKnowledgeConfig> captor = ArgumentCaptor.forClass(AiKnowledgeConfig.class);
+        verify(configMapper).insert(captor.capture());
+        assertThat(captor.getValue().getConfigKey()).isEqualTo("embedding_config");
+        assertThat(captor.getValue().getConfigJson()).startsWith(ConfigCryptoService.ENC_PREFIX);
+    }
+
+    @Test
+    void writeEmbeddingConfigs_有记录时update() {
+        when(configMapper.selectById("embedding_config")).thenReturn(new AiKnowledgeConfig());
+
+        store.writeEmbeddingConfigs(Map.of("openai", config("openai", "sk-1")));
+
+        verify(configMapper).updateById(any(AiKnowledgeConfig.class));
+        verify(configMapper, never()).insert(any(AiKnowledgeConfig.class));
+    }
+
     // ==================== maskConfig ====================
 
     @Test

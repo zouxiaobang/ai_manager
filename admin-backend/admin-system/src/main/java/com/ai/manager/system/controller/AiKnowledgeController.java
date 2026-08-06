@@ -116,10 +116,12 @@ public class AiKnowledgeController {
      *
      * <p>HTTP方法：GET</p>
      * <p>路径：/api/ai-knowledge/rag/embedding-config</p>
+     * <p>参数：provider（可选）——指定提供商时返回该提供商已存配置，否则返回当前活动提供商配置</p>
      */
     @GetMapping("/rag/embedding-config")
-    public ApiResult<AiKnowledgeConfigVO> getEmbeddingConfig() {
-        return ApiResult.ok(aiKnowledgeService.getEmbeddingConfig());
+    public ApiResult<AiKnowledgeConfigVO> getEmbeddingConfig(
+            @RequestParam(value = "provider", required = false) String provider) {
+        return ApiResult.ok(aiKnowledgeService.getEmbeddingConfig(provider));
     }
 
     /**

@@ -441,23 +441,60 @@ class AiKnowledgeServiceImplTest {
     // ==================== P1-3 安全加固接线 ====================
 
     @Test
-    void saveEmbeddingConfig_写入加密JSON() throws Exception {
+    void saveEmbeddingConfig_写入perProvider映射并置活动标记() {
         AiKnowledgeConfigSaveRequest request = new AiKnowledgeConfigSaveRequest();
         request.setProvider("openai");
         request.setApiKey("sk-real");
         request.setApiBaseUrl("https://api.openai.com/v1");
-        when(configMapper.selectById("embedding_config")).thenReturn(null);
-        when(objectMapper.writeValueAsString(any())).thenReturn("{\"provider\":\"openai\"}");
-        when(configCrypto.encrypt(anyString())).thenReturn("enc:v1:cipher");
+        when(configStore.readEmbeddingConfigs()).thenReturn(new HashMap<>());
+        when(configStore.defaultConfig("openai")).thenReturn(null);
 
         service.saveEmbeddingConfig(request);
 
-        ArgumentCaptor<AiKnowledgeConfig> captor = ArgumentCaptor.forClass(AiKnowledgeConfig.class);
-        verify(configMapper).insert(captor.capture());
-        // 落库的是加密后的值，不是明文
-        assertThat(captor.getValue().getConfigJson()).isEqualTo("enc:v1:cipher");
         // 合法公网 apiBaseUrl 会经过校验器
         verify(apiBaseUrlValidator).validate("https://api.openai.com/v1");
+        // 写入 per-provider 映射：保存真实 key 且标记为活动提供商
+        ArgumentCaptor<Map<String, AiKnowledgeConfigVO>> captor = ArgumentCaptor.forClass(Map.class);
+        verify(configStore).writeEmbeddingConfigs(captor.capture());
+        AiKnowledgeConfigVO saved = captor.getValue().get("openai");
+        assertThat(saved.getApiKey()).isEqualTo("sk-real");
+        assertThat(saved.getDefaultProvider()).isTrue();
+    }
+
+    @Test
+    void saveEmbeddingConfig_掩码key保留已存明文() {
+        AiKnowledgeConfigSaveRequest request = new AiKnowledgeConfigSaveRequest();
+        request.setProvider("openai");
+        request.setApiKey("sk-****abcd");
+        request.setApiBaseUrl("https://api.openai.com/v1");
+        AiKnowledgeConfigVO existing = new AiKnowledgeConfigVO();
+        existing.setApiKey("sk-REAL-SECRET");
+        when(configStore.readEmbeddingConfigs()).thenReturn(new HashMap<>(Map.of("openai", existing)));
+
+        service.saveEmbeddingConfig(request);
+
+        ArgumentCaptor<Map<String, AiKnowledgeConfigVO>> captor = ArgumentCaptor.forClass(Map.class);
+        verify(configStore).writeEmbeddingConfigs(captor.capture());
+        assertThat(captor.getValue().get("openai").getApiKey()).isEqualTo("sk-REAL-SECRET");
+    }
+
+    @Test
+    void saveEmbeddingConfig_清除场景删除该提供商记录() {
+        AiKnowledgeConfigSaveRequest request = new AiKnowledgeConfigSaveRequest();
+        request.setProvider("openai");
+        request.setApiKey("");
+        request.setApiBaseUrl("");
+        request.setModel("");
+        request.setEmbeddingModel("");
+        when(configStore.readEmbeddingConfigs()).thenReturn(new HashMap<>(Map.of("openai", new AiKnowledgeConfigVO())));
+
+        service.saveEmbeddingConfig(request);
+
+        ArgumentCaptor<Map<String, AiKnowledgeConfigVO>> captor = ArgumentCaptor.forClass(Map.class);
+        verify(configStore).writeEmbeddingConfigs(captor.capture());
+        assertThat(captor.getValue()).doesNotContainKey("openai");
+        // 清除场景不触发 SSRF 校验（空地址直接放行）
+        verify(apiBaseUrlValidator, never()).validate(anyString());
     }
 
     @Test
@@ -466,6 +503,7 @@ class AiKnowledgeServiceImplTest {
         request.setProvider("openai");
         request.setApiKey("sk-real");
         request.setApiBaseUrl("http://192.168.1.100/v1");
+        when(configStore.readEmbeddingConfigs()).thenReturn(new HashMap<>());
         doThrow(new BusinessException(ResultCode.BAD_REQUEST.getCode(), "apiBaseUrl 禁止指向内网"))
                 .when(apiBaseUrlValidator).validate("http://192.168.1.100/v1");
 
@@ -473,8 +511,7 @@ class AiKnowledgeServiceImplTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("内网");
 
-        verify(configMapper, never()).insert(any(AiKnowledgeConfig.class));
-        verify(configMapper, never()).updateById(any(AiKnowledgeConfig.class));
+        verify(configStore, never()).writeEmbeddingConfigs(any());
     }
 
     @Test
@@ -493,38 +530,54 @@ class AiKnowledgeServiceImplTest {
     }
 
     @Test
-    void getEmbeddingConfig_读取加密配置先解密() throws Exception {
-        AiKnowledgeConfig row = new AiKnowledgeConfig();
-        row.setConfigKey("embedding_config");
-        row.setConfigJson("enc:v1:cipher");
-        when(configMapper.selectById("embedding_config")).thenReturn(row);
-        when(configCrypto.decryptIfEncrypted("enc:v1:cipher"))
-                .thenReturn("{\"provider\":\"openai\",\"apiKey\":\"sk-x\"}");
-        AiKnowledgeConfigVO parsed = new AiKnowledgeConfigVO();
-        parsed.setProvider("openai");
-        when(objectMapper.readValue(eq("{\"provider\":\"openai\",\"apiKey\":\"sk-x\"}"),
-                eq(AiKnowledgeConfigVO.class))).thenReturn(parsed);
-        when(configStore.maskConfig(parsed)).thenReturn(parsed);
+    void getEmbeddingConfig_未指定提供商返回活动配置() {
+        AiKnowledgeConfigVO active = new AiKnowledgeConfigVO();
+        active.setProvider("qwen");
+        active.setDefaultProvider(true);
+        active.setApiKey("sk-qwen");
+        AiKnowledgeConfigVO openai = new AiKnowledgeConfigVO();
+        openai.setProvider("openai");
+        openai.setApiKey("sk-openai");
+        when(configStore.readEmbeddingConfigs()).thenReturn(new HashMap<>(Map.of("qwen", active, "openai", openai)));
+        when(configStore.maskConfig(active)).thenReturn(active);
 
-        AiKnowledgeConfigVO result = service.getEmbeddingConfig();
+        AiKnowledgeConfigVO result = service.getEmbeddingConfig(null);
 
-        assertThat(result.getProvider()).isEqualTo("openai");
-        verify(configCrypto).decryptIfEncrypted("enc:v1:cipher");
+        assertThat(result.getProvider()).isEqualTo("qwen");
+    }
+
+    @Test
+    void getEmbeddingConfig_按提供商返回对应配置() {
+        AiKnowledgeConfigVO openai = new AiKnowledgeConfigVO();
+        openai.setProvider("openai");
+        openai.setApiKey("sk-openai");
+        AiKnowledgeConfigVO deepseek = new AiKnowledgeConfigVO();
+        deepseek.setProvider("deepseek");
+        deepseek.setApiKey("sk-deepseek");
+        when(configStore.readEmbeddingConfigs()).thenReturn(new HashMap<>(Map.of("openai", openai, "deepseek", deepseek)));
+        when(configStore.maskConfig(deepseek)).thenReturn(deepseek);
+
+        AiKnowledgeConfigVO result = service.getEmbeddingConfig("deepseek");
+
+        assertThat(result.getProvider()).isEqualTo("deepseek");
+    }
+
+    @Test
+    void getEmbeddingConfig_无已保存配置返回null() {
+        when(configStore.readEmbeddingConfigs()).thenReturn(new HashMap<>());
+
+        assertThat(service.getEmbeddingConfig(null)).isNull();
+        assertThat(service.getEmbeddingConfig("openai")).isNull();
     }
 
     // ==================== searchRag ====================
 
     @Test
     void searchRag_正常返回相关文档片段() throws Exception {
-        AiKnowledgeConfig row = new AiKnowledgeConfig();
-        row.setConfigKey("embedding_config");
-        row.setConfigJson("enc:v1:cipher");
-        when(configMapper.selectById("embedding_config")).thenReturn(row);
-        when(configCrypto.decryptIfEncrypted("enc:v1:cipher"))
-                .thenReturn("{\"provider\":\"openai\",\"apiKey\":\"sk-x\"}");
         AiKnowledgeConfigVO embedCfg = new AiKnowledgeConfigVO();
+        embedCfg.setProvider("openai");
         embedCfg.setApiKey("sk-x");
-        when(objectMapper.readValue(anyString(), eq(AiKnowledgeConfigVO.class))).thenReturn(embedCfg);
+        when(configStore.readEmbeddingConfigs()).thenReturn(new HashMap<>(Map.of("openai", embedCfg)));
         when(embeddingService.embedQuery(eq("什么是番茄钟"), eq(embedCfg)))
                 .thenReturn(new float[]{0.1f, 0.2f});
         when(pgVectorStore.similaritySearch(any(float[].class), eq(5), eq(0.55)))
@@ -549,15 +602,10 @@ class AiKnowledgeServiceImplTest {
 
     @Test
     void searchRag_嵌入失败抛业务异常() throws Exception {
-        AiKnowledgeConfig row = new AiKnowledgeConfig();
-        row.setConfigKey("embedding_config");
-        row.setConfigJson("enc:v1:cipher");
-        when(configMapper.selectById("embedding_config")).thenReturn(row);
-        when(configCrypto.decryptIfEncrypted("enc:v1:cipher"))
-                .thenReturn("{\"provider\":\"openai\",\"apiKey\":\"sk-x\"}");
         AiKnowledgeConfigVO embedCfg = new AiKnowledgeConfigVO();
+        embedCfg.setProvider("openai");
         embedCfg.setApiKey("sk-x");
-        when(objectMapper.readValue(anyString(), eq(AiKnowledgeConfigVO.class))).thenReturn(embedCfg);
+        when(configStore.readEmbeddingConfigs()).thenReturn(new HashMap<>(Map.of("openai", embedCfg)));
         when(embeddingService.embedQuery(eq("什么是番茄钟"), eq(embedCfg)))
                 .thenThrow(new RuntimeException("embedding 服务不可用"));
 
