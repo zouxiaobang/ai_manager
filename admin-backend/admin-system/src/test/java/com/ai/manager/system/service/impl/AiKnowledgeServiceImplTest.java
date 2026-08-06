@@ -11,6 +11,7 @@ import com.ai.manager.system.domain.entity.RagChunk;
 import com.ai.manager.system.domain.entity.RagDocument;
 import com.ai.manager.system.domain.vo.AiKnowledgeChatResponse;
 import com.ai.manager.system.domain.vo.AiKnowledgeConfigVO;
+import com.ai.manager.system.domain.vo.AiKnowledgeRagDocumentContentVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagDocumentVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagSearchResultVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagUploadResultVO;
@@ -718,6 +719,72 @@ class AiKnowledgeServiceImplTest {
         source.setDocumentId(snowflakeId);
         assertThat(mapper.writeValueAsString(source))
                 .contains("\"documentId\":\"2085269452813733889\"");
+
+        AiKnowledgeRagDocumentContentVO content = AiKnowledgeRagDocumentContentVO.builder()
+                .id(snowflakeId)
+                .fileName("a.md")
+                .content("x")
+                .build();
+        assertThat(mapper.writeValueAsString(content))
+                .contains("\"id\":\"2085269452813733889\"");
+    }
+
+    @Test
+    void getRagDocumentContent_md返回原始Markdown原文() throws Exception {
+        // md 前端用 marked 渲染，必须保留原始 Markdown 语法（不能经 documentParser 抽取成纯文本）
+        String raw = "# 标题\n\n- 列表项 **加粗**";
+        Files.writeString(uploadDir.resolve("a.md"), raw, StandardCharsets.UTF_8);
+        RagDocument doc = new RagDocument();
+        doc.setId(1L);
+        doc.setFileName("a.md");
+        doc.setFileType("md");
+        doc.setFilePath("a.md");
+        when(ragDocumentMapper.selectById(1L)).thenReturn(doc);
+
+        AiKnowledgeRagDocumentContentVO result = service.getRagDocumentContent(1L);
+
+        assertThat(result.getContent()).isEqualTo(raw);
+        verify(documentParser, never()).parse(any(InputStream.class), anyString());
+    }
+
+    @Test
+    void getRagDocumentContent_pdf复用解析器抽取纯文本() throws Exception {
+        Files.writeString(uploadDir.resolve("a.pdf"), "binary", StandardCharsets.UTF_8);
+        RagDocument doc = new RagDocument();
+        doc.setId(1L);
+        doc.setFileName("a.pdf");
+        doc.setFileType("pdf");
+        doc.setFilePath("a.pdf");
+        when(ragDocumentMapper.selectById(1L)).thenReturn(doc);
+        when(documentParser.parse(any(InputStream.class), eq("pdf"))).thenReturn("PDF 抽取的正文");
+
+        AiKnowledgeRagDocumentContentVO result = service.getRagDocumentContent(1L);
+
+        assertThat(result.getContent()).isEqualTo("PDF 抽取的正文");
+        assertThat(result.getFileType()).isEqualTo("pdf");
+    }
+
+    @Test
+    void getRagDocumentContent_文档不存在抛业务异常() {
+        when(ragDocumentMapper.selectById(9L)).thenReturn(null);
+
+        assertThatThrownBy(() -> service.getRagDocumentContent(9L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("文档不存在");
+    }
+
+    @Test
+    void getRagDocumentContent_物理文件缺失抛业务异常() {
+        RagDocument doc = new RagDocument();
+        doc.setId(1L);
+        doc.setFileName("gone.md");
+        doc.setFileType("md");
+        doc.setFilePath("gone.md");
+        when(ragDocumentMapper.selectById(1L)).thenReturn(doc);
+
+        assertThatThrownBy(() -> service.getRagDocumentContent(1L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("文档文件不存在");
     }
 
     /** 构造最小存在的文档记录（4.5 守卫复核用） */

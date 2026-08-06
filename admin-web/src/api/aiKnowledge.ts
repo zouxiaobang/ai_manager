@@ -303,6 +303,19 @@ export function removeRagDocument(id: string) {
   return deleteData(`/api/ai-knowledge/rag/documents/${id}`)
 }
 
+export interface RagDocumentContent {
+  /** 雪花 ID 以字符串下发（后端 ToStringSerializer），避免 JS Number 精度丢失 */
+  id: string
+  fileName: string
+  fileType: string
+  /** md/txt 为原始文本（md 由前端 marked 渲染），pdf/docx/html 为后端解析后的纯文本 */
+  content: string
+}
+
+export function fetchRagDocumentContent(id: string) {
+  return getData<RagDocumentContent>(`/api/ai-knowledge/rag/documents/${id}/content`)
+}
+
 export interface RagUploadResult {
   /** 雪花 ID 以字符串下发（后端 ToStringSerializer），避免 JS Number 精度丢失 */
   documentId: string

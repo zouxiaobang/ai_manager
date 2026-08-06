@@ -7,6 +7,7 @@ import com.ai.manager.system.domain.dto.AiKnowledgeRagSearchRequest;
 import com.ai.manager.system.domain.vo.AiKnowledgeChatResponse;
 import com.ai.manager.system.domain.vo.AiKnowledgeConfigVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeProviderInfoVO;
+import com.ai.manager.system.domain.vo.AiKnowledgeRagDocumentContentVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagDocumentVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagSearchResultVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagUploadResultVO;
@@ -156,6 +157,17 @@ public class AiKnowledgeController {
     @GetMapping("/rag/documents")
     public ApiResult<List<AiKnowledgeRagDocumentVO>> listRagDocuments() {
         return ApiResult.ok(aiKnowledgeService.listRagDocuments());
+    }
+
+    /**
+     * 获取文档预览内容（md/txt 原文，pdf/docx/html 解析后的纯文本）
+     *
+     * <p>HTTP方法：GET</p>
+     * <p>路径：/api/ai-knowledge/rag/documents/{id}/content</p>
+     */
+    @GetMapping("/rag/documents/{id}/content")
+    public ApiResult<AiKnowledgeRagDocumentContentVO> getRagDocumentContent(@PathVariable Long id) {
+        return ApiResult.ok(aiKnowledgeService.getRagDocumentContent(id));
     }
 
     /**

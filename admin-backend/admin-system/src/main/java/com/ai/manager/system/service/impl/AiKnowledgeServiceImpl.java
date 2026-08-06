@@ -22,6 +22,7 @@ import com.ai.manager.system.domain.vo.AiChatUsageVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeChatResponse;
 import com.ai.manager.system.domain.vo.AiKnowledgeConfigVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeProviderInfoVO;
+import com.ai.manager.system.domain.vo.AiKnowledgeRagDocumentContentVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagDocumentVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagSearchResultVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagStatsVO;
@@ -66,6 +67,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -625,6 +627,40 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
             result.add(vo);
         }
         return result;
+    }
+
+    @Override
+    public AiKnowledgeRagDocumentContentVO getRagDocumentContent(Long id) {
+        RagDocument doc = ragDocumentMapper.selectById(id);
+        if (doc == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND.getCode(), "文档不存在");
+        }
+        File file = resolveDocFile(doc.getFilePath());
+        if (file == null || !file.isFile()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "文档文件不存在，可能已被清理");
+        }
+        String ext = (doc.getFileType() == null ? "" : doc.getFileType()).toLowerCase();
+        String content;
+        try {
+            if ("md".equals(ext) || "txt".equals(ext)) {
+                // md/txt 保留原始文本：md 供前端 marked 渲染，txt 保持原始换行排版
+                content = Files.readString(file.toPath(), StandardCharsets.UTF_8);
+            } else {
+                // pdf/docx/html 复用文档解析器抽取纯文本（html 抽文本而非原样回传，规避 XSS 注入）
+                try (InputStream is = new FileInputStream(file)) {
+                    content = documentParser.parse(is, ext);
+                }
+            }
+        } catch (Exception e) {
+            log.error("读取 RAG 文档内容失败：docId={}, path={}", id, doc.getFilePath(), e);
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "读取文档内容失败");
+        }
+        return AiKnowledgeRagDocumentContentVO.builder()
+                .id(doc.getId())
+                .fileName(doc.getFileName())
+                .fileType(doc.getFileType())
+                .content(content)
+                .build();
     }
 
     @Override

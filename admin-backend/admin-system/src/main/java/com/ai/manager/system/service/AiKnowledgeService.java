@@ -5,6 +5,7 @@ import com.ai.manager.system.domain.dto.AiKnowledgeRagSearchRequest;
 import com.ai.manager.system.domain.vo.AiKnowledgeChatResponse;
 import com.ai.manager.system.domain.vo.AiKnowledgeConfigVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeProviderInfoVO;
+import com.ai.manager.system.domain.vo.AiKnowledgeRagDocumentContentVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagDocumentVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagSearchResultVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagStatsVO;
@@ -82,6 +83,11 @@ public interface AiKnowledgeService {
      * 获取知识库文档列表
      */
     List<AiKnowledgeRagDocumentVO> listRagDocuments();
+
+    /**
+     * 获取文档预览内容：md/txt 返回原文，pdf/docx/html 返回解析后的纯文本
+     */
+    AiKnowledgeRagDocumentContentVO getRagDocumentContent(Long id);
 
     /**
      * 上传并处理文档

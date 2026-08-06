@@ -1,10 +1,11 @@
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import {
   fetchRagStats,
   fetchRagDocuments,
+  fetchRagDocumentContent,
   retryRagDocument,
   removeRagDocument,
   searchRag,
@@ -33,6 +34,11 @@ export function useAiKnowledgeRag() {
   const rebuilding = ref(false)
   const ragSearchQuery = ref('')
   const ragSearchResults = ref<RagSource[]>([])
+  // ========== 文档预览（点击文件名打开全屏预览） ==========
+  const previewVisible = ref(false)
+  const previewLoading = ref(false)
+  const previewDoc = ref<RagDocument | null>(null)
+  const previewContent = ref('')
 
   // ========== Embedding 配置（独立于 Chat 配置） ==========
   const embedConfigExpanded = ref(false)
@@ -260,6 +266,30 @@ export function useAiKnowledgeRag() {
     }
   }
 
+  /** 打开文档全屏预览：先渲染空态与 loading，再异步拉取内容（md 走 marked，其余走纯文本） */
+  async function openDocPreview(doc: RagDocument) {
+    previewDoc.value = doc
+    previewContent.value = ''
+    previewVisible.value = true
+    previewLoading.value = true
+    try {
+      const data = await fetchRagDocumentContent(doc.id)
+      previewContent.value = data.content
+    } catch {
+      ElMessage.error(t('aiKnowledge.rag.previewLoadError'))
+    } finally {
+      previewLoading.value = false
+    }
+  }
+
+  // 关闭预览（v-model 置 false）时清理状态，避免下次打开残留旧文档内容
+  watch(previewVisible, (open) => {
+    if (!open) {
+      previewDoc.value = null
+      previewContent.value = ''
+    }
+  })
+
   async function rebuildIndex() {
     try {
       await ElMessageBox.confirm(
@@ -327,6 +357,11 @@ export function useAiKnowledgeRag() {
     rebuilding,
     ragSearchQuery,
     ragSearchResults,
+    previewVisible,
+    previewLoading,
+    previewDoc,
+    previewContent,
+    openDocPreview,
     embedConfigExpanded,
     embedConfigDraft,
     embedConfigFormRef,

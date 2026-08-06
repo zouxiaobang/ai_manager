@@ -3226,6 +3226,10 @@ export default {
       upload: 'Upload Document',
       removeSuccess: 'Document removed',
       retrySubmitted: 'Retry submitted',
+      previewHint: 'Esc to close',
+      previewClose: 'Close preview',
+      previewEmpty: 'No document content',
+      previewLoadError: 'Failed to load document content',
     },
     status: {
       error: 'Operation failed',

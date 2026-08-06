@@ -3213,6 +3213,10 @@ export default {
       upload: '上传文档',
       removeSuccess: '移除成功',
       retrySubmitted: '已重新提交处理',
+      previewHint: 'Esc 关闭',
+      previewClose: '关闭预览',
+      previewEmpty: '文档内容为空',
+      previewLoadError: '加载文档内容失败',
     },
     status: {
       error: '操作失败',

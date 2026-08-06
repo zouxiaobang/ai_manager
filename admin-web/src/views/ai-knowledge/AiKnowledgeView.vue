@@ -518,7 +518,13 @@
                 style="width: 100%"
                 empty-text=""
               >
-                <el-table-column :label="t('aiKnowledge.rag.fileName')" prop="fileName" min-width="200" show-overflow-tooltip />
+                <el-table-column :label="t('aiKnowledge.rag.fileName')" min-width="200">
+                  <template #default="{ row }">
+                    <a class="ak-rag__doc-name" title="点击预览" @click="openDocPreview(row)">
+                      {{ row.fileName }}
+                    </a>
+                  </template>
+                </el-table-column>
                 <el-table-column :label="t('aiKnowledge.rag.fileType')" prop="fileType" width="100" />
                 <el-table-column :label="t('aiKnowledge.rag.chunkCount')" prop="chunkCount" width="100" align="center" />
                 <el-table-column :label="t('aiKnowledge.rag.status')" width="130" align="center">
@@ -769,6 +775,15 @@
         </div>
       </el-tab-pane>
     </el-tabs>
+
+    <!-- 文档全屏预览：点击 RAG 文档文件名打开，样式参考笔记本全屏阅读器 -->
+    <RagDocumentPreview
+      v-model:visible="previewVisible"
+      :title="previewDoc?.fileName ?? ''"
+      :file-type="previewDoc?.fileType ?? ''"
+      :content="previewContent"
+      :loading="previewLoading"
+    />
   </div>
 </template>
 
@@ -783,6 +798,7 @@ import { useAiKnowledgeChat } from './composables/useAiKnowledgeChat'
 import { useAiKnowledgeCategories } from './composables/useAiKnowledgeCategories'
 import { useAiKnowledgeRag } from './composables/useAiKnowledgeRag'
 import { useAiKnowledgeSettings } from './composables/useAiKnowledgeSettings'
+import RagDocumentPreview from './RagDocumentPreview.vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -907,6 +923,11 @@ const {
   rebuilding,
   ragSearchQuery,
   ragSearchResults,
+  previewVisible,
+  previewLoading,
+  previewDoc,
+  previewContent,
+  openDocPreview,
   embedConfigExpanded,
   embedConfigDraft,
   embedConfigFormRef,
@@ -2397,6 +2418,25 @@ if (activeTab.value !== 'chat') {
   font-size: 13px;
   font-weight: 600;
   color: #374151;
+}
+
+/* RAG 文档名：可点击打开全屏预览；超长文件名省略号截断（替代原 show-overflow-tooltip） */
+.ak-rag__doc-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #2563eb;
+  text-decoration: none;
+  cursor: pointer;
+  font-weight: 500;
+  border-bottom: 1px solid transparent;
+  transition: color 0.15s, border-bottom-color 0.15s;
+
+  &:hover {
+    color: #1d4ed8;
+    border-bottom-color: #2563eb;
+  }
 }
 
 .ak-rag__search-result-content {

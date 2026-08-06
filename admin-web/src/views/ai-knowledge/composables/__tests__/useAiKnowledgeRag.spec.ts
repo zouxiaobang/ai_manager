@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import { useAiKnowledgeRag } from '../useAiKnowledgeRag'
 import {
   fetchRagStats,
   fetchRagDocuments,
+  fetchRagDocumentContent,
   retryRagDocument,
   removeRagDocument,
   searchRag,
@@ -17,6 +19,7 @@ import type { RagDocument, RagSource, RagStats } from '@/api/aiKnowledge'
 vi.mock('@/api/aiKnowledge', () => ({
   fetchRagStats: vi.fn(),
   fetchRagDocuments: vi.fn(),
+  fetchRagDocumentContent: vi.fn(),
   retryRagDocument: vi.fn(),
   removeRagDocument: vi.fn(),
   searchRag: vi.fn(),
@@ -42,6 +45,7 @@ vi.mock('vue-i18n', () => ({
 
 const statsMock = vi.mocked(fetchRagStats)
 const docsMock = vi.mocked(fetchRagDocuments)
+const contentMock = vi.mocked(fetchRagDocumentContent)
 const retryMock = vi.mocked(retryRagDocument)
 const removeMock = vi.mocked(removeRagDocument)
 const searchMock = vi.mocked(searchRag)
@@ -70,6 +74,7 @@ beforeEach(() => {
   retryMock.mockResolvedValue(undefined as never)
   removeMock.mockResolvedValue(undefined as never)
   searchMock.mockResolvedValue({ sources: [makeSource('1')] } as never)
+  contentMock.mockResolvedValue({ id: '1', fileName: 'f1.pdf', fileType: 'pdf', content: 'PDF 正文' } as never)
   rebuildMock.mockResolvedValue(undefined as never)
   saveEmbedMock.mockResolvedValue(undefined as never)
 })
@@ -273,6 +278,43 @@ describe('useAiKnowledgeRag', () => {
     expect(removeMock).toHaveBeenCalledWith('7')
     expect(successMock).toHaveBeenCalledWith('aiKnowledge.rag.removeSuccess')
     expect(docsMock).toHaveBeenCalled()
+  })
+
+  it('openDocPreview 打开预览并拉取文档内容', async () => {
+    const api = useAiKnowledgeRag()
+    const doc = makeDoc('1')
+    contentMock.mockResolvedValue({ id: '1', fileName: 'f1.pdf', fileType: 'pdf', content: 'PDF 抽取正文' } as never)
+
+    await api.openDocPreview(doc)
+
+    expect(contentMock).toHaveBeenCalledWith('1')
+    expect(api.previewVisible.value).toBe(true)
+    expect(api.previewDoc.value).toEqual(doc)
+    expect(api.previewContent.value).toBe('PDF 抽取正文')
+    expect(api.previewLoading.value).toBe(false)
+  })
+
+  it('openDocPreview 拉取失败提示错误并保持面板', async () => {
+    const api = useAiKnowledgeRag()
+    contentMock.mockRejectedValue(new Error('boom') as never)
+
+    await api.openDocPreview(makeDoc('2'))
+
+    expect(errorMock).toHaveBeenCalledWith('aiKnowledge.rag.previewLoadError')
+    expect(api.previewVisible.value).toBe(true)
+    expect(api.previewContent.value).toBe('')
+    expect(api.previewLoading.value).toBe(false)
+  })
+
+  it('openDocPreview 关闭后清理预览状态', async () => {
+    const api = useAiKnowledgeRag()
+    await api.openDocPreview(makeDoc('1'))
+
+    api.previewVisible.value = false
+    await nextTick()
+
+    expect(api.previewDoc.value).toBeNull()
+    expect(api.previewContent.value).toBe('')
   })
 
   it('rebuildIndex 确认后重建索引并刷新', async () => {
