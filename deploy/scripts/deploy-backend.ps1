@@ -1,4 +1,4 @@
-# 在 Windows 开发机构建后端并部署到应用节点 114
+﻿# 在 Windows 开发机构建后端并部署到应用节点 114
 # 一键部署（Web 弹窗）由后端 Java 使用密码登录完成，无需 SSH 免密。
 # 手动执行本脚本时：设置环境变量 PI_PASSWORD，或配置 SSH 公钥。
 # 用法：powershell -ExecutionPolicy Bypass -File deploy/scripts/deploy-backend.ps1

@@ -1,4 +1,4 @@
-# 快速检查应用节点服务是否正常
+﻿# 快速检查应用节点服务是否正常
 # 用法：powershell -ExecutionPolicy Bypass -File deploy/scripts/health-check.ps1
 
 $PiHost = if ($env:PI_HOST) { $env:PI_HOST } else { "192.168.0.114" }

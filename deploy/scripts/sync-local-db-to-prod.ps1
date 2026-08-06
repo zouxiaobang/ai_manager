@@ -1,4 +1,4 @@
-# 将本地 ai_manager_admin 全库同步到线上数据节点 MySQL（192.168.0.118）
+﻿# 将本地 ai_manager_admin 全库同步到线上数据节点 MySQL（192.168.0.118）
 # 用法：powershell -ExecutionPolicy Bypass -File deploy/scripts/sync-local-db-to-prod.ps1
 # 可选环境变量：PROD_MYSQL_HOST / PROD_MYSQL_USER / PROD_MYSQL_PASSWORD / LOCAL_MYSQL_USER / LOCAL_MYSQL_PASSWORD
 

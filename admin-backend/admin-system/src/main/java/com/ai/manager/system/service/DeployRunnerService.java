@@ -804,10 +804,12 @@ public class DeployRunnerService {
         return System.getProperty("os.name", "").toLowerCase().contains("win");
     }
 
-    private Charset resolveConsoleCharset() {
-        if (isWindows()) {
-            return Charset.forName("GBK");
-        }
+    /**
+     * 部署脚本（deploy-frontend.ps1 / deploy-backend.ps1）均设置 [Console]::OutputEncoding = UTF8，
+     * Maven/npm 与远端 ssh 输出亦为 UTF-8。统一按 UTF-8 读进程输出，
+     * 避免按 Windows 系统 GBK 解码把中文日志读成乱码。
+     */
+    static Charset resolveConsoleCharset() {
         return StandardCharsets.UTF_8;
     }
 }
