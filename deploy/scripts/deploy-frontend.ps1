@@ -88,7 +88,9 @@ if (-not (Test-Path $DistDir)) { throw "dist directory not found" }
 $TarPath = Join-Path $env:TEMP "ai-manager-dist.tar.gz"
 if (Test-Path $TarPath) { Remove-Item $TarPath -Force }
 Write-Host "==> Packaging dist ($(Get-ChildItem $DistDir -Recurse -File | Measure-Object | Select-Object -ExpandProperty Count) files)..." -ForegroundColor Cyan
-& tar -czf $TarPath -C "$Root\admin-web" dist
+# 裸 `tar` 在 PowerShell 里可能解析到 Git 自带的 MSYS tar，会把 `C:\...` 输出路径误判为远程主机（host:file）
+# 报 "Cannot connect to C:"；显式用 Windows 自带 bsdtar（System32\tar.exe），原生支持 Windows 路径
+& "$env:SystemRoot\System32\tar.exe" -czf $TarPath -C "$Root\admin-web" dist
 if ($LASTEXITCODE -ne 0) { throw "tar packaging failed" }
 
 $TarSizeMb = [math]::Round((Get-Item $TarPath).Length / 1MB, 2)
