@@ -94,6 +94,41 @@ ai-manager:
     local-root: uploads/notebook-content
     cache-ttl-seconds: 3600
     cache-max-mb: 512
+  iot:
+    # 设备 WebSocket 地址（ESP 侧 wss 反代到 /ws/device）
+    ws-url: ${IOT_WS_URL:ws://127.0.0.1:8080/ws/device}
+    # 设备 WebSocket token 有效期（秒）
+    token-ttl-seconds: 86400
+    # 固件存储目录
+    ota-dir: uploads/iot/firmware
+    # OTA 固件下载 base url
+    ota-base-url: ${IOT_OTA_BASE_URL:http://127.0.0.1:8080/api/iot/ota/download}
+    # ASR / TTS provider（走 HTTP，不引重型 SDK；换厂商只改 type / base-url / api-key）
+    asr:
+      type: ${IOT_ASR_TYPE:openai-compatible}
+      # base url 不含 /v1，如 https://api.openai.com（留空则请求不可用）
+      base-url: ${IOT_ASR_BASE_URL:}
+      api-key: ${IOT_ASR_API_KEY:}
+      model: ${IOT_ASR_MODEL:whisper-1}
+      language: ${IOT_ASR_LANGUAGE:}
+    tts:
+      type: ${IOT_TTS_TYPE:openai-compatible}
+      base-url: ${IOT_TTS_BASE_URL:}
+      api-key: ${IOT_TTS_API_KEY:}
+      model: ${IOT_TTS_MODEL:tts-1}
+      voice: ${IOT_TTS_VOICE:alloy}
+      response-format: ${IOT_TTS_RESPONSE_FORMAT:wav}
+    # 激活挑战应答 HMAC-SHA256 密钥
+    activation-secret: ${IOT_ACTIVATION_SECRET:ai-manager-iot-activation-secret}
+    # WebSocket 握手协议版本（默认 v3）
+    protocol-version: 3
+    # MQTT 通道（未启用留空）
+    mqtt-endpoint: ${IOT_MQTT_ENDPOINT:}
+    mqtt-client-id-prefix: iot-
+    mqtt-username: ${IOT_MQTT_USERNAME:}
+    mqtt-password: ${IOT_MQTT_PASSWORD:}
+    # 设备时区偏移（分钟），默认东八区
+    timezone-offset-minutes: 480
 
 logging:
   level:

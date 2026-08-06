@@ -1,0 +1,2 @@
+# 基础默认配置：板型选择在 .esp32c3 / .esp32s3 覆盖段中给出
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y

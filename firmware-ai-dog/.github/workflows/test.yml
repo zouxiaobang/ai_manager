@@ -1,0 +1,56 @@
+name: firmware-ai-dog tests
+
+on:
+  push:
+    paths: ['firmware-ai-dog/**']
+  pull_request:
+
+jobs:
+  # host 单元测试：core/ 纯逻辑零 ESP-IDF 依赖，最快反馈，无需安装 IDF
+  unit-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: firmware-ai-dog
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S test -B build
+      - name: Build
+        run: cmake --build build
+      - name: Run unit tests
+        run: ./build/unit_tests
+
+  # 两块板交叉编译冒烟（需要 ESP-IDF）
+  firmware-builds:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - board: supermini-c3
+            target: esp32c3
+          - board: kyle-s3-lcd
+            target: esp32s3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: v5.5.2
+          target: ${{ matrix.target }}
+          path: firmware-ai-dog
+          command: idf.py set-target ${{ matrix.target }} && idf.py build
+
+  # 引脚冲突校验（可并入 unit-tests，这里单独列出供矩阵输出）
+  board-config-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: firmware-ai-dog
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S test -B build
+      - name: Build
+        run: cmake --build build
+      - name: Run board pin conflict tests
+        run: ./build/unit_tests --group board

@@ -1,0 +1,16 @@
+# ESP-IDF 构建产物
+build/
+sdkconfig
+sdkconfig.old
+sdkconfig.bak
+managed_components/
+dependencies.lock
+.esp-ide
+
+# host 测试构建产物
+build_host/
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
