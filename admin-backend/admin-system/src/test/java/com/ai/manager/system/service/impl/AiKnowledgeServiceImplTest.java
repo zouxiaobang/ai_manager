@@ -265,6 +265,8 @@ class AiKnowledgeServiceImplTest {
             ReflectionTestUtils.setField(c, "id", 10L);
             return 1;
         }).when(ragChunkMapper).insert(any(RagChunk.class));
+        // 文档记录仍存在（插入分块/向量前的 4.5 复核守卫）
+        when(ragDocumentMapper.selectById(1L)).thenReturn(docRecord(1L));
 
         MultipartFile file = new MockMultipartFile("file", "note.txt", "text/plain",
                 "hello".getBytes(StandardCharsets.UTF_8));
@@ -277,6 +279,42 @@ class AiKnowledgeServiceImplTest {
         assertThat(wrapper.getParamNameValuePairs()).containsValue("ready");
         // 成功后重置重试次数：参数值为 0（其余参数为 chunk_count=1 / indexed_at，故 0 即 retry_count）
         assertThat(wrapper.getParamNameValuePairs().values()).contains(0);
+    }
+
+    @Test
+    void 异步处理期间文档被删除则中止不产生孤儿向量() throws Exception {
+        // 上传时同步执行提交的任务
+        doAnswer(inv -> {
+            Runnable r = inv.getArgument(0);
+            r.run();
+            return null;
+        }).when(ragProcessExecutor).execute(any(Runnable.class));
+        doAnswer(inv -> {
+            RagDocument doc = inv.getArgument(0);
+            ReflectionTestUtils.setField(doc, "id", 1L);
+            return 1;
+        }).when(ragDocumentMapper).insert(any(RagDocument.class));
+        when(ragChunkMapper.selectList(any())).thenReturn(List.of());
+        when(documentParser.parse(any(InputStream.class), anyString())).thenReturn("hello world");
+        ChunkingService.Chunk chunk = ChunkingService.Chunk.builder()
+                .chunkIndex(0).content("hello world").tokenCount(8).build();
+        when(chunkingService.chunk(anyString(), any(ChunkingConfig.class))).thenReturn(List.of(chunk));
+        AiKnowledgeConfigVO cfg = new AiKnowledgeConfigVO();
+        cfg.setApiKey("sk-test");
+        when(configStore.readAllConfigs()).thenReturn(Map.of("openai", cfg));
+        when(embeddingService.embed(anyList(), any(AiKnowledgeConfigVO.class)))
+                .thenReturn(List.of(new float[]{0.1f, 0.2f}));
+        // 守卫点：异步处理期间文档被删除 → selectById 返回 null
+        when(ragDocumentMapper.selectById(1L)).thenReturn(null);
+
+        MultipartFile file = new MockMultipartFile("file", "note.txt", "text/plain",
+                "hello".getBytes(StandardCharsets.UTF_8));
+        service.uploadRagDocument(file);
+
+        // 中止：不插 chunk、不存向量、不改状态，避免 deleteByDocId 之后向量被插回成孤儿
+        verify(ragChunkMapper, never()).insert(any(RagChunk.class));
+        verify(pgVectorStore, never()).storeBatch(anyList());
+        verify(ragDocumentMapper, never()).update(isNull(), any(Wrapper.class));
     }
 
     @Test
@@ -652,5 +690,12 @@ class AiKnowledgeServiceImplTest {
         // 修复点：流式聊天必须走 RAG 消息构建并注入知识库上下文（旧实现直接 buildMessages，忽略 useRag）
         verify(promptBuilder).buildRagMessages(eq(req), contains("电商平台第一期优化方案"));
         verify(emitter, atLeastOnce()).send(any(SseEmitter.SseEventBuilder.class));
+    }
+
+    /** 构造最小存在的文档记录（4.5 守卫复核用） */
+    private RagDocument docRecord(Long id) {
+        RagDocument doc = new RagDocument();
+        ReflectionTestUtils.setField(doc, "id", id);
+        return doc;
     }
 }

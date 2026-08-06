@@ -785,6 +785,13 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
 
         List<float[]> embeddings = embeddingService.embed(chunkTexts, embedConfig);
 
+        // 4.5 文档可能在异步处理期间被删除：插入前复核记录仍在，不存在则中止，
+        //     避免 deleteByDocId（removeRagDocument 先删向量）之后本任务又把向量插回成孤儿
+        if (ragDocumentMapper.selectById(docId) == null) {
+            log.info("文档已删除，中止异步处理：docId={}", docId);
+            return;
+        }
+
         // 5. 保存分块记录和向量
         List<PgVectorStore.VectorRecord> vectorRecords = new ArrayList<>();
         int tokenCount = 0;

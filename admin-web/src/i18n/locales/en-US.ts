@@ -3224,6 +3224,8 @@ export default {
       statusFailed: 'Failed',
       rebuildConfirm: 'Are you sure you want to rebuild the index? This may take a while.',
       upload: 'Upload Document',
+      removeSuccess: 'Document removed',
+      retrySubmitted: 'Retry submitted',
     },
     status: {
       error: 'Operation failed',
