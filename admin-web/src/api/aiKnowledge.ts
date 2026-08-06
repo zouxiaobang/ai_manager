@@ -250,7 +250,8 @@ export function fetchAiProviders() {
 // ==================== RAG 知识库 ====================
 
 export interface RagDocument {
-  id: number
+  /** 雪花 ID 以字符串下发（后端 ToStringSerializer），避免 JS Number 精度丢失 */
+  id: string
   fileName: string
   fileType: string
   fileSize: number
@@ -269,7 +270,8 @@ export interface RagStats {
 }
 
 export interface RagSource {
-  documentId: number
+  /** 雪花 ID 以字符串下发（后端 ToStringSerializer），避免 JS Number 精度丢失 */
+  documentId: string
   fileName: string
   chunkIndex: number
   content: string
@@ -293,16 +295,17 @@ export function fetchRagDocuments() {
   return getData<RagDocument[]>('/api/ai-knowledge/rag/documents')
 }
 
-export function retryRagDocument(id: number) {
+export function retryRagDocument(id: string) {
   return postData<void>(`/api/ai-knowledge/rag/documents/${id}/retry`)
 }
 
-export function removeRagDocument(id: number) {
+export function removeRagDocument(id: string) {
   return deleteData(`/api/ai-knowledge/rag/documents/${id}`)
 }
 
 export interface RagUploadResult {
-  documentId: number
+  /** 雪花 ID 以字符串下发（后端 ToStringSerializer），避免 JS Number 精度丢失 */
+  documentId: string
   fileName: string
   status: string
   message: string
@@ -328,7 +331,8 @@ export function rebuildRagIndex() {
 
 /** RAG 文档上传结果（对应后端 AiKnowledgeRagUploadResultVO） */
 export interface RagUploadResult {
-  documentId: number
+  /** 雪花 ID 以字符串下发（后端 ToStringSerializer），避免 JS Number 精度丢失 */
+  documentId: string
   fileName: string
   status: string
   message: string

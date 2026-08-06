@@ -29,7 +29,7 @@ export function useAiKnowledgeRag() {
   const ragStats = ref<RagStats | null>(null)
   const ragDocuments = ref<RagDocument[]>([])
   const docsLoading = ref(false)
-  const retryingId = ref<number | null>(null)
+  const retryingId = ref<string | null>(null)
   const rebuilding = ref(false)
   const ragSearchQuery = ref('')
   const ragSearchResults = ref<RagSource[]>([])
@@ -237,7 +237,7 @@ export function useAiKnowledgeRag() {
     }
   }
 
-  async function retryDoc(id: number) {
+  async function retryDoc(id: string) {
     retryingId.value = id
     try {
       await retryRagDocument(id)
@@ -250,7 +250,7 @@ export function useAiKnowledgeRag() {
     }
   }
 
-  async function removeDoc(id: number) {
+  async function removeDoc(id: string) {
     try {
       await removeRagDocument(id)
       ElMessage.success(t('aiKnowledge.rag.removeSuccess'))

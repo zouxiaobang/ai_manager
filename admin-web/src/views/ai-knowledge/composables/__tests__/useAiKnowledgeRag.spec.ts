@@ -53,23 +53,23 @@ const successMock = vi.mocked(ElMessage.success)
 const errorMock = vi.mocked(ElMessage.error)
 const confirmMock = vi.mocked(ElMessageBox.confirm)
 
-function makeDoc(id: number, status: RagDocument['status'] = 'ready'): RagDocument {
+function makeDoc(id: string, status: RagDocument['status'] = 'ready'): RagDocument {
   return { id, fileName: `f${id}.pdf`, fileType: 'pdf', fileSize: 100, chunkCount: 1, status, indexedAt: null, errorMessage: null }
 }
 function makeStats(overrides: Partial<RagStats> = {}): RagStats {
   return { totalDocs: 1, readyCount: 1, processingCount: 0, failedCount: 0, totalChunks: 2, ...overrides }
 }
-function makeSource(id: number): RagSource {
+function makeSource(id: string): RagSource {
   return { documentId: id, fileName: `f${id}.pdf`, chunkIndex: 0, content: '内容', score: 0.9 }
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
   statsMock.mockResolvedValue(makeStats() as never)
-  docsMock.mockResolvedValue([makeDoc(1)] as never)
+  docsMock.mockResolvedValue([makeDoc('1')] as never)
   retryMock.mockResolvedValue(undefined as never)
   removeMock.mockResolvedValue(undefined as never)
-  searchMock.mockResolvedValue({ sources: [makeSource(1)] } as never)
+  searchMock.mockResolvedValue({ sources: [makeSource('1')] } as never)
   rebuildMock.mockResolvedValue(undefined as never)
   saveEmbedMock.mockResolvedValue(undefined as never)
 })
@@ -77,7 +77,7 @@ beforeEach(() => {
 describe('useAiKnowledgeRag', () => {
   it('loadRagData 拉取统计与文档列表', async () => {
     const api = useAiKnowledgeRag()
-    docsMock.mockResolvedValue([makeDoc(1), makeDoc(2)] as never)
+    docsMock.mockResolvedValue([makeDoc('1'), makeDoc('2')] as never)
 
     await api.loadRagData()
 
@@ -91,12 +91,12 @@ describe('useAiKnowledgeRag', () => {
   it('loadRagData 统计失败时文档列表仍刷新且不报错', async () => {
     const api = useAiKnowledgeRag()
     statsMock.mockRejectedValue(new Error('boom') as never)
-    docsMock.mockResolvedValue([makeDoc(2)] as never)
+    docsMock.mockResolvedValue([makeDoc('2')] as never)
 
     await api.loadRagData()
 
     // 文档列表必须刷新（删除/重试后不残留旧列表），统计失败仅静默跳过
-    expect(api.ragDocuments.value).toEqual([makeDoc(2)])
+    expect(api.ragDocuments.value).toEqual([makeDoc('2')])
     expect(api.ragStats.value).toBeNull()
     expect(errorMock).not.toHaveBeenCalled()
     expect(api.docsLoading.value).toBe(false)
@@ -257,9 +257,9 @@ describe('useAiKnowledgeRag', () => {
   it('retryDoc 重试指定文档并刷新列表', async () => {
     const api = useAiKnowledgeRag()
 
-    await api.retryDoc(7)
+    await api.retryDoc('7')
 
-    expect(retryMock).toHaveBeenCalledWith(7)
+    expect(retryMock).toHaveBeenCalledWith('7')
     expect(successMock).toHaveBeenCalledWith('aiKnowledge.rag.retrySubmitted')
     expect(docsMock).toHaveBeenCalled()
     expect(api.retryingId.value).toBeNull()
@@ -268,9 +268,9 @@ describe('useAiKnowledgeRag', () => {
   it('removeDoc 删除文档并刷新列表', async () => {
     const api = useAiKnowledgeRag()
 
-    await api.removeDoc(7)
+    await api.removeDoc('7')
 
-    expect(removeMock).toHaveBeenCalledWith(7)
+    expect(removeMock).toHaveBeenCalledWith('7')
     expect(successMock).toHaveBeenCalledWith('aiKnowledge.rag.removeSuccess')
     expect(docsMock).toHaveBeenCalled()
   })
@@ -339,7 +339,7 @@ describe('useAiKnowledgeRag', () => {
 
   it('handleFileSelected 上传成功并刷新列表', async () => {
     const api = useAiKnowledgeRag()
-    uploadMock.mockResolvedValue({ documentId: 1, fileName: 'a.pdf' } as never)
+    uploadMock.mockResolvedValue({ documentId: '1', fileName: 'a.pdf' } as never)
     const input = { files: [{ name: 'a.pdf' }], value: 'x' } as unknown as HTMLInputElement
     const event = { target: input } as unknown as Event
 
