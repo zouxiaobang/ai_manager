@@ -3113,6 +3113,8 @@ export default {
       statusFailed: '处理失败',
       rebuildConfirm: '确定重建索引？这可能需要较长时间。',
       upload: '上传文档',
+      removeSuccess: '移除成功',
+      retrySubmitted: '已重新提交处理',
     },
     status: {
       error: '操作失败',

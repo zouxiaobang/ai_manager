@@ -88,9 +88,23 @@ describe('useAiKnowledgeRag', () => {
     expect(api.docsLoading.value).toBe(false)
   })
 
-  it('loadRagData 失败时提示错误', async () => {
+  it('loadRagData 统计失败时文档列表仍刷新且不报错', async () => {
     const api = useAiKnowledgeRag()
     statsMock.mockRejectedValue(new Error('boom') as never)
+    docsMock.mockResolvedValue([makeDoc(2)] as never)
+
+    await api.loadRagData()
+
+    // 文档列表必须刷新（删除/重试后不残留旧列表），统计失败仅静默跳过
+    expect(api.ragDocuments.value).toEqual([makeDoc(2)])
+    expect(api.ragStats.value).toBeNull()
+    expect(errorMock).not.toHaveBeenCalled()
+    expect(api.docsLoading.value).toBe(false)
+  })
+
+  it('loadRagData 文档列表失败时提示错误且不更新列表', async () => {
+    const api = useAiKnowledgeRag()
+    docsMock.mockRejectedValue(new Error('boom') as never)
 
     await api.loadRagData()
 
@@ -246,6 +260,7 @@ describe('useAiKnowledgeRag', () => {
     await api.retryDoc(7)
 
     expect(retryMock).toHaveBeenCalledWith(7)
+    expect(successMock).toHaveBeenCalledWith('aiKnowledge.rag.retrySubmitted')
     expect(docsMock).toHaveBeenCalled()
     expect(api.retryingId.value).toBeNull()
   })
@@ -256,6 +271,7 @@ describe('useAiKnowledgeRag', () => {
     await api.removeDoc(7)
 
     expect(removeMock).toHaveBeenCalledWith(7)
+    expect(successMock).toHaveBeenCalledWith('aiKnowledge.rag.removeSuccess')
     expect(docsMock).toHaveBeenCalled()
   })
 

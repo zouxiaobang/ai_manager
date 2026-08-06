@@ -144,14 +144,17 @@ export function useAiKnowledgeRag() {
   async function loadRagData() {
     docsLoading.value = true
     try {
-      const [stats, docs] = await Promise.all([
-        fetchRagStats(),
-        fetchRagDocuments(),
-      ])
-      ragStats.value = stats
-      ragDocuments.value = docs
-    } catch {
-      ElMessage.error(t('aiKnowledge.status.error'))
+      // 分开拉取统计与文档列表：删除/重试后文档列表必须刷新，
+      // 不能因统计接口瞬时失败被 Promise.all 带崩，导致界面残留已删文档（移除失效假象）
+      const [statsResult, docsResult] = await Promise.allSettled([fetchRagStats(), fetchRagDocuments()])
+      if (statsResult.status === 'fulfilled') {
+        ragStats.value = statsResult.value
+      }
+      if (docsResult.status === 'fulfilled') {
+        ragDocuments.value = docsResult.value
+      } else {
+        ElMessage.error(t('aiKnowledge.status.error'))
+      }
     } finally {
       docsLoading.value = false
     }
@@ -238,7 +241,7 @@ export function useAiKnowledgeRag() {
     retryingId.value = id
     try {
       await retryRagDocument(id)
-      ElMessage.success(t('aiKnowledge.status.loading'))
+      ElMessage.success(t('aiKnowledge.rag.retrySubmitted'))
       await loadRagData()
     } catch {
       // error handled globally
@@ -250,7 +253,7 @@ export function useAiKnowledgeRag() {
   async function removeDoc(id: number) {
     try {
       await removeRagDocument(id)
-      ElMessage.success(t('common.save'))
+      ElMessage.success(t('aiKnowledge.rag.removeSuccess'))
       await loadRagData()
     } catch {
       // error handled globally
