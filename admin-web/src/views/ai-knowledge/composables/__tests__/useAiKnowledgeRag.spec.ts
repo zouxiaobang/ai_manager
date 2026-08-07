@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAiKnowledgeRag } from '../useAiKnowledgeRag'
 import {
   fetchRagStats,
@@ -372,5 +372,80 @@ describe('useAiKnowledgeRag', () => {
     api.triggerUpload()
 
     expect(click).toHaveBeenCalled()
+  })
+})
+
+describe('RAG 处理中文档自动轮询', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('存在处理中文档时自动轮询刷新列表', async () => {
+    const api = useAiKnowledgeRag()
+    docsMock.mockResolvedValue([makeDoc(1, 'processing')] as never)
+
+    await api.loadRagData()
+    expect(api.ragDocuments.value[0].status).toBe('processing')
+    expect(docsMock).toHaveBeenCalledTimes(1)
+
+    // 推进一个轮询周期：后台静默拉取，处理中标签自动变为已就绪
+    docsMock.mockResolvedValue([makeDoc(1, 'ready')] as never)
+    await vi.advanceTimersByTimeAsync(5000)
+
+    expect(docsMock).toHaveBeenCalledTimes(2)
+    expect(api.ragDocuments.value[0].status).toBe('ready')
+  })
+
+  it('全部文档进入终态后自动停止轮询', async () => {
+    const api = useAiKnowledgeRag()
+    docsMock.mockResolvedValue([makeDoc(1, 'processing')] as never)
+    await api.loadRagData()
+
+    docsMock.mockResolvedValue([makeDoc(1, 'ready')] as never)
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(api.ragDocuments.value[0].status).toBe('ready')
+    expect(docsMock).toHaveBeenCalledTimes(2)
+
+    // 已进入终态：继续推进时间不再发起请求
+    await vi.advanceTimersByTimeAsync(30000)
+    expect(docsMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('无处理中文档时不启动轮询', async () => {
+    const api = useAiKnowledgeRag()
+    docsMock.mockResolvedValue([makeDoc(1), makeDoc(2, 'failed')] as never)
+
+    await api.loadRagData()
+
+    await vi.advanceTimersByTimeAsync(30000)
+    expect(docsMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('loadRagData 静默刷新不置 loading 不弹错误', async () => {
+    const api = useAiKnowledgeRag()
+    docsMock.mockResolvedValue([makeDoc(1, 'processing')] as never)
+
+    await api.loadRagData(true)
+
+    expect(api.docsLoading.value).toBe(false)
+    expect(errorMock).not.toHaveBeenCalled()
+  })
+
+  it('轮询期间文档接口失败静默跳过且继续轮询', async () => {
+    const api = useAiKnowledgeRag()
+    docsMock.mockResolvedValue([makeDoc(1, 'processing')] as never)
+    await api.loadRagData()
+
+    docsMock.mockRejectedValueOnce(new Error('boom') as never)
+    await vi.advanceTimersByTimeAsync(5000)
+
+    // 静默失败：不弹错，列表保持旧值（仍处理中），轮询继续重试
+    expect(errorMock).not.toHaveBeenCalled()
+    expect(api.ragDocuments.value[0].status).toBe('processing')
+    await vi.advanceTimersByTimeAsync(5000)
+    expect(docsMock).toHaveBeenCalledTimes(3)
   })
 })
