@@ -43,6 +43,9 @@
           <span>{{ t('notebook.deleteNote') }}</span>
         </button>
         <div class="note-tree-context-menu__divider" />
+        <button type="button" class="note-tree-context-menu__item" @click="emitAction('importRag')">
+          <span>{{ t('notebook.importRag') }}</span>
+        </button>
         <button type="button" class="note-tree-context-menu__item" @click="emitAction('exportWord')">
           <span>{{ t('notebook.exportWord') }}</span>
         </button>
@@ -89,6 +92,9 @@
           <span>{{ t('notebook.deleteFolder') }}</span>
         </button>
         <div class="note-tree-context-menu__divider" />
+        <button type="button" class="note-tree-context-menu__item" @click="emitAction('importRag')">
+          <span>{{ t('notebook.importRag') }}</span>
+        </button>
         <button type="button" class="note-tree-context-menu__item" @click="emitAction('exportPdf')">
           <span>{{ t('notebook.exportFolderPdf') }}</span>
         </button>
@@ -112,6 +118,7 @@ export type TreeContextMenuAction =
   | 'delete'
   | 'exportWord'
   | 'exportPdf'
+  | 'importRag'
 
 const props = defineProps<{
   visible: boolean

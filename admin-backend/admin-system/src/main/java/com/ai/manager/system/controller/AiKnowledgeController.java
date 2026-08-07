@@ -3,10 +3,12 @@ package com.ai.manager.system.controller;
 import com.ai.manager.common.result.ApiResult;
 import com.ai.manager.system.domain.dto.AiKnowledgeChatRequest;
 import com.ai.manager.system.domain.dto.AiKnowledgeConfigSaveRequest;
+import com.ai.manager.system.domain.dto.AiKnowledgeRagBatchImportRequest;
 import com.ai.manager.system.domain.dto.AiKnowledgeRagSearchRequest;
 import com.ai.manager.system.domain.vo.AiKnowledgeChatResponse;
 import com.ai.manager.system.domain.vo.AiKnowledgeConfigVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeProviderInfoVO;
+import com.ai.manager.system.domain.vo.AiKnowledgeRagBatchImportResultVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagDocumentContentVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagDocumentVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagSearchResultVO;
@@ -215,6 +217,30 @@ public class AiKnowledgeController {
     public ApiResult<AiKnowledgeRagUploadResultVO> uploadRagDocument(@RequestParam("file") MultipartFile file) {
         AiKnowledgeRagUploadResultVO result = aiKnowledgeService.uploadRagDocument(file);
         return ApiResult.ok(result);
+    }
+
+    /**
+     * 按笔记 ID 导入笔记正文到知识库
+     *
+     * <p>HTTP方法：POST</p>
+     * <p>路径：/api/ai-knowledge/rag/import-note/{noteId}</p>
+     */
+    @PostMapping("/rag/import-note/{noteId}")
+    public ApiResult<AiKnowledgeRagUploadResultVO> importNoteToRag(@PathVariable Long noteId) {
+        return ApiResult.ok(aiKnowledgeService.importNoteToRag(noteId));
+    }
+
+    /**
+     * 批量导入笔记到知识库（单篇失败不中断整体，失败明细在返回体中逐条给出）
+     *
+     * <p>HTTP方法：POST</p>
+     * <p>路径：/api/ai-knowledge/rag/import-notes</p>
+     * <p>body：{@code { "noteIds": [1, 2, 3] }}</p>
+     */
+    @PostMapping("/rag/import-notes")
+    public ApiResult<AiKnowledgeRagBatchImportResultVO> importNotesToRag(
+            @jakarta.validation.Valid @RequestBody AiKnowledgeRagBatchImportRequest request) {
+        return ApiResult.ok(aiKnowledgeService.importNotesToRag(request.getNoteIds()));
     }
 
     /**

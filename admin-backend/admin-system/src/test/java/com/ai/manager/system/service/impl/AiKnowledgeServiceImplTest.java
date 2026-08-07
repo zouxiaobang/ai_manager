@@ -11,10 +11,12 @@ import com.ai.manager.system.domain.entity.RagChunk;
 import com.ai.manager.system.domain.entity.RagDocument;
 import com.ai.manager.system.domain.vo.AiKnowledgeChatResponse;
 import com.ai.manager.system.domain.vo.AiKnowledgeConfigVO;
+import com.ai.manager.system.domain.vo.AiKnowledgeRagBatchImportResultVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagDocumentContentVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagDocumentVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagSearchResultVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagUploadResultVO;
+import com.ai.manager.system.domain.vo.NbNoteDetailVO;
 import com.ai.manager.system.mapper.AiChatCategoryMapper;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
@@ -26,6 +28,7 @@ import com.ai.manager.system.mapper.AiChatMessageMapper;
 import com.ai.manager.system.mapper.AiKnowledgeConfigMapper;
 import com.ai.manager.system.mapper.RagChunkMapper;
 import com.ai.manager.system.mapper.RagDocumentMapper;
+import com.ai.manager.system.service.NbNoteService;
 import com.ai.manager.system.service.support.AiKnowledgeConfigStore;
 import com.ai.manager.system.service.support.ApiBaseUrlValidator;
 import com.ai.manager.system.service.support.ConfigCryptoService;
@@ -131,6 +134,8 @@ class AiKnowledgeServiceImplTest {
     private ConfigCryptoService configCrypto;
     @Mock
     private ApiBaseUrlValidator apiBaseUrlValidator;
+    @Mock
+    private NbNoteService nbNoteService;
 
     private RagProperties ragProperties;
     private AiKnowledgeServiceImpl service;
@@ -150,7 +155,7 @@ class AiKnowledgeServiceImplTest {
         ragProperties.setUploadPath(uploadDir.toString());
 
         service = new AiKnowledgeServiceImpl(
-                configMapper, objectMapper, configStore, configCrypto, apiBaseUrlValidator,
+                configMapper, objectMapper, configStore, configCrypto, apiBaseUrlValidator, nbNoteService,
                 chatCategoryMapper, chatConversationMapper, chatMessageMapper, ragDocumentMapper,
                 ragChunkMapper, strategyFactory, promptBuilder, usageTracker, documentParser,
                 chunkingService, embeddingService, pgVectorStore, ragProcessExecutor, ragProperties);
@@ -468,7 +473,7 @@ class AiKnowledgeServiceImplTest {
 
         assertThatThrownBy(() -> service.uploadRagDocument(file))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("文档上传失败");
+                .hasMessageContaining("文档入库失败");
 
         try (Stream<Path> stream = Files.list(uploadDir)) {
             assertThat(stream.filter(Files::isRegularFile)).isEmpty();
@@ -476,6 +481,112 @@ class AiKnowledgeServiceImplTest {
             throw new RuntimeException(e);
         }
         verify(ragProcessExecutor, never()).execute(any(Runnable.class));
+    }
+
+    // ==================== 按笔记 ID 导入 RAG ====================
+
+    @Test
+    void importNoteToRag_成功落盘入库并提交异步() throws Exception {
+        NbNoteDetailVO note = new NbNoteDetailVO();
+        note.setId(100L);
+        note.setTitle("导入测试笔记.md");
+        note.setContent("# 标题\n正文内容");
+        when(nbNoteService.getNoteDetail(100L)).thenReturn(note);
+        doAnswer(inv -> {
+            RagDocument doc = inv.getArgument(0);
+            ReflectionTestUtils.setField(doc, "id", 55L);
+            return 1;
+        }).when(ragDocumentMapper).insert(any(RagDocument.class));
+
+        AiKnowledgeRagUploadResultVO result = service.importNoteToRag(100L);
+
+        assertThat(result.getDocumentId()).isEqualTo(55L);
+        assertThat(result.getFileName()).isEqualTo("导入测试笔记.md");
+        assertThat(result.getStatus()).isEqualTo("processing");
+        verify(ragProcessExecutor).execute(any(Runnable.class));
+
+        // 记录的文件路径为相对上传根目录，且正文确实落盘
+        ArgumentCaptor<RagDocument> captor = ArgumentCaptor.forClass(RagDocument.class);
+        verify(ragDocumentMapper).insert(captor.capture());
+        RagDocument doc = captor.getValue();
+        assertThat(doc.getFileType()).isEqualTo("md");
+        assertThat(doc.getFileSize()).isEqualTo("# 标题\n正文内容".getBytes(StandardCharsets.UTF_8).length);
+        Path resolved = uploadDir.resolve(doc.getFilePath());
+        assertThat(resolved).isRegularFile();
+        assertThat(Files.readString(resolved)).isEqualTo("# 标题\n正文内容");
+    }
+
+    @Test
+    void importNoteToRag_内容为空抛业务异常() {
+        NbNoteDetailVO note = new NbNoteDetailVO();
+        note.setId(100L);
+        note.setTitle("空笔记.md");
+        note.setContent("   ");
+        when(nbNoteService.getNoteDetail(100L)).thenReturn(note);
+
+        assertThatThrownBy(() -> service.importNoteToRag(100L))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("笔记内容为空");
+
+        verifyNoInteractions(ragDocumentMapper);
+    }
+
+    @Test
+    void importNoteToRag_非md标题按html导入() throws Exception {
+        NbNoteDetailVO note = new NbNoteDetailVO();
+        note.setId(200L);
+        note.setTitle("普通笔记");
+        note.setContent("<p>hello</p>");
+        when(nbNoteService.getNoteDetail(200L)).thenReturn(note);
+        doAnswer(inv -> {
+            RagDocument doc = inv.getArgument(0);
+            ReflectionTestUtils.setField(doc, "id", 56L);
+            return 1;
+        }).when(ragDocumentMapper).insert(any(RagDocument.class));
+
+        service.importNoteToRag(200L);
+
+        ArgumentCaptor<RagDocument> captor = ArgumentCaptor.forClass(RagDocument.class);
+        verify(ragDocumentMapper).insert(captor.capture());
+        assertThat(captor.getValue().getFileType()).isEqualTo("html");
+        assertThat(captor.getValue().getFileName()).isEqualTo("普通笔记");
+    }
+
+    @Test
+    void importNotesToRag_部分失败返回imported与failed() {
+        // 第一篇成功
+        NbNoteDetailVO okNote = new NbNoteDetailVO();
+        okNote.setId(1L);
+        okNote.setTitle("成功笔记.md");
+        okNote.setContent("ok content");
+        when(nbNoteService.getNoteDetail(1L)).thenReturn(okNote);
+        // 第二篇内容为空 → 单篇失败，不中断整体
+        NbNoteDetailVO emptyNote = new NbNoteDetailVO();
+        emptyNote.setId(2L);
+        emptyNote.setTitle("空笔记.md");
+        emptyNote.setContent("");
+        when(nbNoteService.getNoteDetail(2L)).thenReturn(emptyNote);
+        doAnswer(inv -> {
+            RagDocument doc = inv.getArgument(0);
+            ReflectionTestUtils.setField(doc, "id", 77L);
+            return 1;
+        }).when(ragDocumentMapper).insert(any(RagDocument.class));
+
+        AiKnowledgeRagBatchImportResultVO result = service.importNotesToRag(List.of(1L, 2L));
+
+        assertThat(result.getImported()).isEqualTo(1);
+        assertThat(result.getFailed()).hasSize(1);
+        assertThat(result.getFailed().get(0).getNoteId()).isEqualTo(2L);
+        assertThat(result.getFailed().get(0).getMessage()).contains("笔记内容为空");
+        verify(ragProcessExecutor).execute(any(Runnable.class));
+    }
+
+    @Test
+    void importNotesToRag_空列表返回全0() {
+        AiKnowledgeRagBatchImportResultVO empty = service.importNotesToRag(List.of());
+        assertThat(empty.getImported()).isEqualTo(0);
+        assertThat(empty.getFailed()).isEmpty();
+        verifyNoInteractions(nbNoteService, ragDocumentMapper);
     }
 
     // ==================== P1-3 安全加固接线 ====================

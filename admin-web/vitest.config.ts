@@ -35,7 +35,7 @@ export default defineConfig({
         'src/views/ai-knowledge/composables/*.ts',
         'src/views/ecommerce/composables/*.ts',
         'src/views/ecommerce/{expressCalc,expressPanelView,expressPriceView,monthlySettlementView,listingLinkCardView,listingLinkDate,listingLinkSkuView,salesOrderPanelView}.ts',
-        'src/views/notebook/{noteDisplay,noteTreeUtils,exportFolderPdf}.ts',
+        'src/views/notebook/{noteDisplay,noteTreeUtils,exportFolderPdf,importRagNote}.ts',
         'src/views/notebook/composables/*.ts',
       ],
       exclude: [

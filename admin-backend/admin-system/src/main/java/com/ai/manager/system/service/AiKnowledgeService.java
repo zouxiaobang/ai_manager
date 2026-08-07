@@ -5,6 +5,7 @@ import com.ai.manager.system.domain.dto.AiKnowledgeRagSearchRequest;
 import com.ai.manager.system.domain.vo.AiKnowledgeChatResponse;
 import com.ai.manager.system.domain.vo.AiKnowledgeConfigVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeProviderInfoVO;
+import com.ai.manager.system.domain.vo.AiKnowledgeRagBatchImportResultVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagDocumentContentVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagDocumentVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagSearchResultVO;
@@ -93,6 +94,16 @@ public interface AiKnowledgeService {
      * 上传并处理文档
      */
     AiKnowledgeRagUploadResultVO uploadRagDocument(MultipartFile file);
+
+    /**
+     * 按笔记 ID 导入笔记正文到 RAG 知识库（笔记不存在 / 内容为空抛业务异常）
+     */
+    AiKnowledgeRagUploadResultVO importNoteToRag(Long noteId);
+
+    /**
+     * 批量导入笔记到 RAG 知识库（单篇失败不中断整体，失败明细收进 failed）
+     */
+    AiKnowledgeRagBatchImportResultVO importNotesToRag(List<Long> noteIds);
 
     /**
      * 重试处理文档

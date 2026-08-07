@@ -1,4 +1,4 @@
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onUnmounted, getCurrentInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
@@ -147,8 +147,9 @@ export function useAiKnowledgeRag() {
     }
   }
 
-  async function loadRagData() {
-    docsLoading.value = true
+  async function loadRagData(silent = false) {
+    // silent=true 用于处理中自动轮询：不置 loading（避免列表每轮闪烁加载态）、失败不弹错（下轮重试即可）
+    if (!silent) docsLoading.value = true
     try {
       // 分开拉取统计与文档列表：删除/重试后文档列表必须刷新，
       // 不能因统计接口瞬时失败被 Promise.all 带崩，导致界面残留已删文档（移除失效假象）
@@ -158,12 +159,51 @@ export function useAiKnowledgeRag() {
       }
       if (docsResult.status === 'fulfilled') {
         ragDocuments.value = docsResult.value
-      } else {
+      } else if (!silent) {
         ElMessage.error(t('aiKnowledge.status.error'))
       }
     } finally {
-      docsLoading.value = false
+      if (!silent) docsLoading.value = false
     }
+  }
+
+  // ========== 处理中文档自动轮询 ==========
+  /** 轮询间隔 ms：异步处理（解析→分块→嵌入→存向量）通常数十秒，5s 轮询兼顾及时性与请求量 */
+  const AUTO_REFRESH_INTERVAL = 5000
+  let pollTimer: ReturnType<typeof setInterval> | null = null
+
+  /** 是否有文档仍在异步处理中（processing/pending），驱动列表自动轮询 */
+  const hasInFlightDocs = computed(() =>
+    ragDocuments.value.some((d) => d.status === 'processing' || d.status === 'pending'),
+  )
+
+  function stopAutoRefresh() {
+    if (pollTimer) {
+      clearInterval(pollTimer)
+      pollTimer = null
+    }
+  }
+
+  function startAutoRefresh() {
+    if (pollTimer) return
+    // 静默刷新：处理完成后列表自动置 ready，无需用户手动刷新
+    pollTimer = setInterval(() => {
+      void loadRagData(true)
+    }, AUTO_REFRESH_INTERVAL)
+  }
+
+  // 有处理中文档则轮询，全部进入终态（ready/failed）即停；immediate 覆盖页面加载时已在处理的文档
+  watch(
+    hasInFlightDocs,
+    (inFlight) => {
+      if (inFlight) startAutoRefresh()
+      else stopAutoRefresh()
+    },
+    { immediate: true },
+  )
+  // 无组件实例（单测环境）时 onUnmounted 无对应实例会告警，故仅在实际挂载时注册清理，避免定时器泄漏
+  if (getCurrentInstance()) {
+    onUnmounted(stopAutoRefresh)
   }
 
   // ========== Embedding 配置 ==========

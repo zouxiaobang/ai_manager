@@ -22,11 +22,13 @@ import com.ai.manager.system.domain.vo.AiChatUsageVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeChatResponse;
 import com.ai.manager.system.domain.vo.AiKnowledgeConfigVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeProviderInfoVO;
+import com.ai.manager.system.domain.vo.AiKnowledgeRagBatchImportResultVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagDocumentContentVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagDocumentVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagSearchResultVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagStatsVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagUploadResultVO;
+import com.ai.manager.system.domain.vo.NbNoteDetailVO;
 import com.ai.manager.system.mapper.AiChatCategoryMapper;
 import com.ai.manager.system.mapper.AiChatConversationMapper;
 import com.ai.manager.system.mapper.AiChatMessageMapper;
@@ -34,6 +36,7 @@ import com.ai.manager.system.mapper.AiKnowledgeConfigMapper;
 import com.ai.manager.system.mapper.RagChunkMapper;
 import com.ai.manager.system.mapper.RagDocumentMapper;
 import com.ai.manager.system.service.AiKnowledgeService;
+import com.ai.manager.system.service.NbNoteService;
 import com.ai.manager.system.service.support.AiKnowledgeConfigStore;
 import com.ai.manager.system.service.support.ApiBaseUrlValidator;
 import com.ai.manager.system.service.support.ConfigCryptoService;
@@ -129,6 +132,8 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
     private final ConfigCryptoService configCrypto;
     /** P1-3：apiBaseUrl 校验（SSRF 防护，拒绝内网/环回/元数据地址） */
     private final ApiBaseUrlValidator apiBaseUrlValidator;
+    /** 笔记服务：RAG 按笔记 ID 导入时经 getNoteDetail 取完整正文 */
+    private final NbNoteService nbNoteService;
     private final AiChatCategoryMapper chatCategoryMapper;
     private final AiChatConversationMapper chatConversationMapper;
     private final AiChatMessageMapper chatMessageMapper;
@@ -683,22 +688,39 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
                     "不支持的文件类型: " + ext + "，支持: " + String.join(", ", supportedTypes));
         }
 
+        // 落盘/入库/提交异步统一走 persistRagDocument，与「按笔记 ID 导入」共用一套逻辑，避免两套漂移
+        try {
+            return persistRagDocument(originalName, file.getBytes(), ext);
+        } catch (IOException e) {
+            log.error("读取上传文件失败：{}", originalName, e);
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "文档入库失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 将文档字节落盘并入库为 processing 状态，随后提交异步处理。
+     *
+     * <p>上传与按笔记 ID 导入共用：文件名/扩展名/内容已由调用方按各自场景解析，
+     * 此处只负责 存储文件 → 插记录 → 提交异步；任一步失败清理已落盘文件，避免孤儿文件残留。</p>
+     */
+    private AiKnowledgeRagUploadResultVO persistRagDocument(String fileName, byte[] content, String ext) {
         Path targetFile = null;
         try {
             // 1. 存储文件到磁盘（目录启动时已解析并创建，此处防御性重建防止运行时被清理）
             Files.createDirectories(ragUploadDir);
-            String storageName = System.currentTimeMillis() + "_" + originalName;
+            String storageName = System.currentTimeMillis() + "_" + fileName;
             targetFile = ragUploadDir.resolve(storageName).normalize();
             if (!targetFile.startsWith(ragUploadDir)) {
                 throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "非法文件名");
             }
-            file.transferTo(targetFile);
+            Files.write(targetFile, content);
 
             // 2. 创建文档记录：直接置 processing，落库后 HTTP 请求即可返回（单条 insert 自动提交，短事务）
             RagDocument doc = new RagDocument();
-            doc.setFileName(originalName);
+            doc.setFileName(fileName);
             doc.setFileType(ext);
-            doc.setFileSize(file.getSize());
+            // content.length 是 int，需先拓宽为 long 再装箱为 Long（Java 不合并这两步转换）
+            doc.setFileSize((long) content.length);
             // P1-4：落库存相对路径（相对上传根目录），避免暴露服务器绝对路径；读取经 resolveDocFile 还原
             doc.setFilePath(ragUploadDir.relativize(targetFile).toString());
             doc.setStatus("processing");
@@ -712,7 +734,7 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
 
             return AiKnowledgeRagUploadResultVO.builder()
                     .documentId(docId)
-                    .fileName(originalName)
+                    .fileName(fileName)
                     .status("processing")
                     .message("文档已上传，后台处理中")
                     .build();
@@ -726,9 +748,53 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
                     log.warn("清理上传失败遗留文件失败：path={}", targetFile, ex);
                 }
             }
-            log.error("文档上传失败：{}", originalName, e);
-            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "文档上传失败: " + e.getMessage());
+            log.error("RAG 文档入库失败：fileName={}", fileName, e);
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "文档入库失败: " + e.getMessage());
         }
+    }
+
+    @Override
+    public AiKnowledgeRagUploadResultVO importNoteToRag(Long noteId) {
+        if (noteId == null) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "笔记 ID 不能为空");
+        }
+        // getNoteDetail 内部走 toDetailVO(loadFullContent=true)，content 已加载完整正文，非懒加载
+        NbNoteDetailVO note = nbNoteService.getNoteDetail(noteId);
+        String content = note.getContent();
+        if (content == null || content.isBlank()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "笔记内容为空，无法导入");
+        }
+        // 按标题后缀判定类型：仅 .md 记为 Markdown，其余（含 .htm/.html）按 HTML 解析，解析器不区分 htm/html
+        String ext = note.getTitle() != null && note.getTitle().endsWith(".md") ? "md" : "html";
+        // 笔记标题会拼进存储文件名：替换文件系统非法字符，避免 Windows/部分文件系统下落盘直接抛异常
+        String fileName = note.getTitle() == null || note.getTitle().isBlank()
+                ? "note-" + noteId
+                : note.getTitle().replaceAll("[\\\\/:*?\"<>|\\r\\n\\t]", "_");
+        return persistRagDocument(fileName, content.getBytes(StandardCharsets.UTF_8), ext);
+    }
+
+    @Override
+    public AiKnowledgeRagBatchImportResultVO importNotesToRag(List<Long> noteIds) {
+        AiKnowledgeRagBatchImportResultVO result = new AiKnowledgeRagBatchImportResultVO();
+        result.setImported(0);
+        result.setFailed(new ArrayList<>());
+        if (noteIds == null || noteIds.isEmpty()) {
+            return result;
+        }
+        for (Long noteId : noteIds) {
+            try {
+                importNoteToRag(noteId);
+                result.setImported(result.getImported() + 1);
+            } catch (Exception e) {
+                // 单篇失败不中断整体批量导入，收进 failed 供前端逐条定位
+                log.warn("笔记导入 RAG 失败：noteId={}", noteId, e);
+                result.getFailed().add(AiKnowledgeRagBatchImportResultVO.FailedItem.builder()
+                        .noteId(noteId)
+                        .message(e.getMessage())
+                        .build());
+            }
+        }
+        return result;
     }
 
     /**

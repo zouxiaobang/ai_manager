@@ -858,6 +858,7 @@ import NoteFullscreenViewer from './notebook/NoteFullscreenViewer.vue'
 import NoteTreeContextMenu, { type TreeContextMenuAction } from './notebook/NoteTreeContextMenu.vue'
 import { exportNoteAsWord } from './notebook/exportNoteWord'
 import { exportFolderToPdf } from './notebook/exportFolderPdf'
+import { collectDirectNoteIds, importFolderNotesToRag, importSingleNoteToRag } from './notebook/importRagNote'
 import { parseNoteToc } from './notebook/noteToc'
 import { formatNoteDisplayTime, getTagPillStyle } from './notebook/noteDisplay'
 import {
@@ -1476,6 +1477,9 @@ async function onContextMenuAction(action: TreeContextMenuAction) {
     case 'exportWord':
       await exportNoteFromMenu(node.noteId)
       break
+    case 'importRag':
+      await importNoteToRagFromMenu(node)
+      break
   }
 }
 
@@ -1503,6 +1507,9 @@ async function onFolderContextMenuAction(action: TreeContextMenuAction, node: Nb
       break
     case 'exportPdf':
       await exportFolderToPdfFromMenu(node)
+      break
+    case 'importRag':
+      await importFolderToRagFromMenu(node)
       break
     default:
       break
@@ -1769,6 +1776,60 @@ async function exportFolderToPdfFromMenu(node: NbTreeNode) {
     // 不吞异常：留日志并提示用户
     console.error('[notebook] 文件夹导出 PDF 失败', error)
     ElMessage.error(t('notebook.exportFolderPdfAllFailed'))
+  }
+}
+
+/** 单篇右键「导入到RAG」：确认后提交，异步任务由后台处理 */
+async function importNoteToRagFromMenu(node: NbTreeNode) {
+  if (!node.noteId) return
+  try {
+    await ElMessageBox.confirm(t('notebook.importRagConfirmNote', { title: node.name }), { type: 'warning' })
+  } catch {
+    // 用户取消确认框，静默退出，不产生任何提示
+    return
+  }
+  try {
+    await importSingleNoteToRag(node)
+    ElMessage.success(t('notebook.importRagSubmitted'))
+  } catch (error) {
+    // 不吞异常：接口为 silent，错误统一在这里提示并留日志
+    console.error('[notebook] 单篇导入 RAG 失败', error)
+    ElMessage.error(t('notebook.importRagAllFailed'))
+  }
+}
+
+/** 文件夹右键「导入到RAG」：收集直属笔记 → 确认 → 批量提交，失败明细逐条展开 */
+async function importFolderToRagFromMenu(node: NbTreeNode) {
+  if (!node.notebookId) return
+  // 先收集直属笔记 id，用于空文件夹提示与确认框数量
+  const noteIds = collectDirectNoteIds(node)
+  if (!noteIds.length) {
+    ElMessage.warning(t('notebook.importRagEmpty'))
+    return
+  }
+  try {
+    await ElMessageBox.confirm(t('notebook.importRagConfirmFolder', { count: noteIds.length }), { type: 'warning' })
+  } catch {
+    // 用户取消确认框，静默退出
+    return
+  }
+  const progress = { msg: null as MessageHandler | null }
+  try {
+    // 持久进度消息，导入完成后关闭，避免与结果提示叠加
+    progress.msg = ElMessage({ message: t('notebook.importRagInProgress'), duration: 0 })
+    const result = await importFolderNotesToRag(node)
+    progress.msg?.close()
+    ElMessage.success(t('notebook.importRagResult', { imported: result.imported, failed: result.failed.length }))
+    if (result.failed.length) {
+      // 失败明细逐条展开，便于用户定位是哪几篇失败及原因
+      const detail = result.failed.map((f) => `#${f.noteId} ${f.message}`).join('；')
+      ElMessage.error(t('notebook.importRagResultDetail', { detail }))
+    }
+  } catch (error) {
+    progress.msg?.close()
+    // 不吞异常：留日志并提示用户
+    console.error('[notebook] 文件夹导入 RAG 失败', error)
+    ElMessage.error(t('notebook.importRagAllFailed'))
   }
 }
 

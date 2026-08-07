@@ -367,6 +367,25 @@ export async function uploadRagDocument(file: File): Promise<RagUploadResult> {
   return json.data
 }
 
+/** RAG 批量导入笔记结果（对应后端 AiKnowledgeRagBatchImportResultVO，failed 为单篇失败明细） */
+export interface RagBatchImportResult {
+  imported: number
+  failed: Array<{ noteId: number; message: string }>
+}
+
+/**
+ * 单篇导入笔记正文到 RAG 知识库（后台异步处理，立即返回提交结果）。
+ * silent：错误提示由右键菜单处理器负责，避免与全局拦截器的自动 toast 重复。
+ */
+export function importNoteToRag(noteId: number) {
+  return postData<RagUploadResult>(`/api/ai-knowledge/rag/import-note/${noteId}`, undefined, { silent: true })
+}
+
+/** 批量导入笔记到 RAG：单篇失败不中断整体，失败明细在返回体中逐条给出 */
+export function importNotesToRag(noteIds: number[]) {
+  return postData<RagBatchImportResult>('/api/ai-knowledge/rag/import-notes', { noteIds }, { silent: true })
+}
+
 // ==================== 对话分类 & 对话列表 ==================
 
 export interface ChatCategoryVO {
