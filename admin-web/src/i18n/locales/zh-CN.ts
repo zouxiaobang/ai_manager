@@ -3226,6 +3226,8 @@ export default {
       previewClose: '关闭预览',
       previewEmpty: '文档内容为空',
       previewLoadError: '加载文档内容失败',
+      expandMarkdown: '展开查看 Markdown',
+      collapseMarkdown: '收起',
     },
     status: {
       error: '操作失败',

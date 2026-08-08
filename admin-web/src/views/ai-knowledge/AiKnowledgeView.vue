@@ -475,7 +475,20 @@
                       {{ (src.score * 100).toFixed(1) }}%
                     </el-tag>
                   </div>
-                  <p class="ak-rag__search-result-content">{{ src.content }}</p>
+                  <p v-if="!expandedRagChunks[i]" class="ak-rag__search-result-content">{{ ragChunkSnippet(src.content) }}</p>
+                  <div
+                    v-else
+                    class="ak-rag__search-result-md ak-chat__content markdown-body"
+                    v-html="renderRagChunkMarkdown(src.content)"
+                  />
+                  <button
+                    v-if="hasMarkdownSyntax(src.content)"
+                    type="button"
+                    class="ak-rag__search-result-toggle"
+                    @click="toggleRagChunk(i)"
+                  >
+                    {{ expandedRagChunks[i] ? t('aiKnowledge.rag.collapseMarkdown') : t('aiKnowledge.rag.expandMarkdown') }}
+                  </button>
                 </div>
               </div>
             </section>
@@ -793,6 +806,8 @@
  * 包含 AI 对话、RAG 知识库和设置三大功能
  */
 import { ref, watch } from 'vue'
+import { marked } from 'marked'
+import { hasMarkdownSyntax, markdownToTextSnippet } from '@/utils/markdownToText'
 import { useAiKnowledgePrint } from './composables/useAiKnowledgePrint'
 import { useAiKnowledgeChat } from './composables/useAiKnowledgeChat'
 import { useAiKnowledgeCategories } from './composables/useAiKnowledgeCategories'
@@ -951,6 +966,31 @@ const {
   triggerUpload,
   handleFileSelected,
 } = useAiKnowledgeRag()
+
+// ========== RAG 检索结果片段展示 ==========
+/** 纯文本片段字符预算（约 3 行），过长时按行截断 + 省略号 */
+const RAG_SNIPPET_MAX_CHARS = 240
+/** 各检索结果是否已展开 Markdown 渲染（按下标记录，避免切换结果时错位） */
+const expandedRagChunks = ref<Record<number, boolean>>({})
+
+/** 检索结果片段：Markdown → 可读纯文本 → 截断 */
+function ragChunkSnippet(content: string): string {
+  return markdownToTextSnippet(content, RAG_SNIPPET_MAX_CHARS)
+}
+
+/** 检索结果展开后：复用聊天消息的 marked 渲染 */
+function renderRagChunkMarkdown(content: string): string {
+  return marked.parse(content) as string
+}
+
+function toggleRagChunk(index: number) {
+  expandedRagChunks.value[index] = !expandedRagChunks.value[index]
+}
+
+// 新一次检索结果替换时清空展开态，避免旧结果的展开状态串到新结果上
+watch(ragSearchResults, () => {
+  expandedRagChunks.value = {}
+})
 
 /** 工具栏命令处理函数 */
 async function handleToolbarCommand(cmd: string, msg: ChatMessage & { collapsed?: boolean }) {
@@ -2444,10 +2484,42 @@ if (activeTab.value !== 'chat') {
   font-size: 13px;
   color: #6b7280;
   line-height: 1.5;
+  /* 保留纯文本片段中的换行（表格逐行、段落换行），同时用 line-clamp 兜底限高 */
+  white-space: pre-wrap;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.ak-rag__search-result-md {
+  margin-top: 8px;
+  padding: 10px 14px;
+  border: 1px solid #f3f4f6;
+  border-radius: 8px;
+  background: #fafaf9;
+  font-size: 13px;
+  line-height: 1.7;
+  color: #374151;
+  /* 展开后内容可能较长，限制高度滚动，避免结果列表被撑爆 */
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.ak-rag__search-result-toggle {
+  margin-top: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 12px;
+  color: #2563eb;
+  cursor: pointer;
+  user-select: none;
+
+  &:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+  }
 }
 
 .ak-rag__docs {

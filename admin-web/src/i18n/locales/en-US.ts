@@ -3239,6 +3239,8 @@ export default {
       previewClose: 'Close preview',
       previewEmpty: 'No document content',
       previewLoadError: 'Failed to load document content',
+      expandMarkdown: 'Expand Markdown',
+      collapseMarkdown: 'Collapse',
     },
     status: {
       error: 'Operation failed',

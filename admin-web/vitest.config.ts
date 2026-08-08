@@ -27,7 +27,7 @@ export default defineConfig({
       // 阶段 7：收敛到已测纯函数 / composable / store 文件（阶段 1/5/6 拆分并附测试的成果），
       // 对其开 80% 阈值防回归；其余文件随补测达标后再逐个放宽纳入 include。
       include: [
-        'src/utils/{date,formatMoney,persistedRef,salesOrderView}.ts',
+        'src/utils/{date,formatMoney,persistedRef,salesOrderView,markdownToText}.ts',
         'src/composables/{usePagination,useCountingLoading}.ts',
         'src/stores/{app,ecSettings}.ts',
         'src/api/request.ts',
