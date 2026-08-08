@@ -15,7 +15,7 @@ Spring Boot 3 + MyBatis-Plus + Redis，Maven 多模块。
 
 - JDK 17+
 - Maven 3.9+
-- MySQL 8（全新库执行 `sql/deploy-all.sql` 一次即可；或按模块分别执行 `schema.sql`、`pomodoro.sql`、`notebook.sql` 等。RAG 表未含在 `deploy-all.sql`：另执行 `ai_knowledge_config.sql` + `rag_knowledge_base.sql`；PG 库（pgvector）另执行 `rag_pgvector.sql`）
+- MySQL 8（全新库执行 `sql/deploy-all.sql` 一次即可；或按模块分别执行 `schema.sql`、`pomodoro.sql`、`notebook.sql` 等。RAG 表未含在 `deploy-all.sql`：另执行 `ai_knowledge_config.sql` + `rag_knowledge_base.sql`；PG 库（pgvector）另执行 `rag_pgvector.sql`。本地 dev 的 PG 向量库与生产隔离：本地用 `ai_manager_rag_dev`（建库脚本 `sql/rag_pgvector_dev.sql`，需 PG 超级用户执行），生产用 `ai_manager_rag`）
 - Redis 6+
 
 ## 环境变量（P1-3 安全加固后）

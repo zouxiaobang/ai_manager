@@ -11,7 +11,7 @@
 | `claude-relay/` | Claude 中继服务，端口 **3001** |
 | `deploy/` | 部署配置（docker / nginx / systemd），目标 Pi 192.168.0.114 |
 | `firmware/` | ESP32-S3 子屏固件 |
-| `admin-backend/sql/` | 数据库脚本（约 70+ 文件；新库执行 `sql/deploy-all.sql`。RAG 表未含在 deploy-all：另执行 `ai_knowledge_config.sql`+`rag_knowledge_base.sql`，PG 库执行 `rag_pgvector.sql`） |
+| `admin-backend/sql/` | 数据库脚本（约 70+ 文件；新库执行 `sql/deploy-all.sql`。RAG 表未含在 deploy-all：另执行 `ai_knowledge_config.sql`+`rag_knowledge_base.sql`，PG 库执行 `rag_pgvector.sql`；本地 dev 独立向量库建库见 `rag_pgvector_dev.sql`） |
 
 ## 后端 admin-backend
 
@@ -27,7 +27,7 @@
   ⚠️ 不要执行 `mvn -pl admin-server -am spring-boot:run`（单条）——`-am` 会把 spring-boot:run 绑到父 POM，无 main 类而失败。
 - 一键脚本：`admin-backend/run.ps1`（内部即上面的两步）；杀端口：`admin-backend/kill-port.ps1 -Port 8080`
 - 健康检查：`GET http://localhost:8080/api/health`
-- 依赖：MySQL 8（127.0.0.1:3306，库 `ai_manager_admin`）、Redis 6+（127.0.0.1:6379）、pgvector（192.168.0.118:5432，RAG）
+- 依赖：MySQL 8（127.0.0.1:3306，库 `ai_manager_admin`）、Redis 6+（127.0.0.1:6379）、pgvector（192.168.0.118:5432，RAG。**本地 dev 用独立向量库 `ai_manager_rag_dev`，生产用 `ai_manager_rag`**，见 application-dev.yml，避免本地重建索引/上传测试文档污染生产检索）
 - 详细模块说明见 `admin-backend/README.md`
 
 ## 前端 admin-web

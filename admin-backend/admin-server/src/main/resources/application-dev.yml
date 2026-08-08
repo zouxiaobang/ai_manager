@@ -9,6 +9,13 @@ logging:
     # 默认相对当前工作目录；从 admin-backend 启动时用 .deploy，从仓库根目录启动时设 DEPLOY_BACKEND_DIR=admin-backend/.deploy
     name: ${DEPLOY_BACKEND_DIR:.deploy}/logs/spring.log
 
+spring:
+  # 本地 dev 用独立向量库 ai_manager_rag_dev，与生产 ai_manager_rag 隔离：
+  # 避免本地重建索引 TRUNCATE 生产向量、本地上传测试文档污染生产检索。
+  # 生产（prod profile）不加载本文件，仍用 application.yml 默认 ai_manager_rag。
+  datasource-pg:
+    url: jdbc:postgresql://${PGVECTOR_HOST:192.168.0.118}:${PGVECTOR_PORT:5432}/${PGVECTOR_DATABASE:ai_manager_rag_dev}
+
 ai-manager:
   deploy:
     marker-path: admin-server/target/.last-deploy-at

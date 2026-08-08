@@ -47,10 +47,10 @@ worktree 内联调用 `.\dev.ps1 N backend` 换端口（808N，N 为任务编号
 
 - MySQL 8：127.0.0.1:3306，库 `ai_manager_admin`（新库执行 `sql/deploy-all.sql`）
 - Redis 6+：127.0.0.1:6379
-- PostgreSQL（pgvector）：192.168.0.118:5432，用于 RAG
+- PostgreSQL（pgvector）：192.168.0.118:5432，用于 RAG；**本地 dev 用独立向量库 `ai_manager_rag_dev`，生产用 `ai_manager_rag`**（application-dev.yml 覆盖），避免本地重建索引/上传测试文档污染生产检索
 
 ## 配置文件
 
-- `admin-server/src/main/resources/application.yml`：默认 dev profile（MySQL/Redis 本机、PG 远程）
+- `admin-server/src/main/resources/application.yml`：默认 dev profile（MySQL/Redis 本机、PG 远程）；`application-dev.yml` 将 PG 向量库覆盖为 `ai_manager_rag_dev`
 - `application-prod.yml`：树莓派部署（192.168.0.114），由 `SPRING_PROFILES_ACTIVE=prod` 切换
 - Maven 拉取失败时可用 `mvn -s settings-aliyun.xml -pl admin-server -am clean package -DskipTests`
