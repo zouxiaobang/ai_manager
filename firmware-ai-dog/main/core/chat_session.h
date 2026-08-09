@@ -1,5 +1,5 @@
-#ifndef XIAOZHI_CORE_CHAT_SESSION_H
-#define XIAOZHI_CORE_CHAT_SESSION_H
+#ifndef KYLE_CORE_CHAT_SESSION_H
+#define KYLE_CORE_CHAT_SESSION_H
 
 // 会话状态机：idle / connecting / listening / speaking。
 // 纯逻辑，零 ESP-IDF 依赖；合法转移矩阵由 IsValidTransition 给出，非法转移被拒绝。
@@ -7,7 +7,7 @@
 
 #include "core/wire_format.h"  // 复用 AbortReason
 
-namespace xiaozhi {
+namespace kyle {
 
 enum SessionState {
     kIdle,
@@ -50,6 +50,6 @@ private:
     AbortReason last_abort_reason_ = kAbortNone;
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_CORE_CHAT_SESSION_H
+#endif  // KYLE_CORE_CHAT_SESSION_H

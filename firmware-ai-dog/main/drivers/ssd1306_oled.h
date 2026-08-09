@@ -1,9 +1,9 @@
-#ifndef XIAOZHI_DRIVERS_SSD1306_OLED_H
-#define XIAOZHI_DRIVERS_SSD1306_OLED_H
+#ifndef KYLE_DRIVERS_SSD1306_OLED_H
+#define KYLE_DRIVERS_SSD1306_OLED_H
 
 #include "hal/display.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 // SSD1306 OLED 128x64（I2C，supermini-c3 用）。
 // 当前为声明式骨架：TODO(driver) 实现 I2C 命令/GRAM 上传与字符渲染。
@@ -26,6 +26,6 @@ private:
     int height_;
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_DRIVERS_SSD1306_OLED_H
+#endif  // KYLE_DRIVERS_SSD1306_OLED_H

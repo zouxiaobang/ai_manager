@@ -1,7 +1,7 @@
-#ifndef XIAOZHI_HAL_LED_H
-#define XIAOZHI_HAL_LED_H
+#ifndef KYLE_HAL_LED_H
+#define KYLE_HAL_LED_H
 
-namespace xiaozhi {
+namespace kyle {
 
 // 设备状态 → 指示灯状态联动
 enum class LedState {
@@ -18,6 +18,6 @@ public:
     virtual void SetState(LedState s) = 0;
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_HAL_LED_H
+#endif  // KYLE_HAL_LED_H

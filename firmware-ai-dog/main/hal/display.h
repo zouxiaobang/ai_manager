@@ -1,7 +1,7 @@
-#ifndef XIAOZHI_HAL_DISPLAY_H
-#define XIAOZHI_HAL_DISPLAY_H
+#ifndef KYLE_HAL_DISPLAY_H
+#define KYLE_HAL_DISPLAY_H
 
-namespace xiaozhi {
+namespace kyle {
 
 // 显示能力抽象：LVGL 屏 / OLED / 无屏统一走这套接口。
 class IDisplay {
@@ -16,6 +16,6 @@ public:
     virtual int height() const = 0;
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_HAL_DISPLAY_H
+#endif  // KYLE_HAL_DISPLAY_H

@@ -1,14 +1,14 @@
-#ifndef XIAOZHI_BOARDS_SUPERMINI_C3_BOARD_CONFIG_H
-#define XIAOZHI_BOARDS_SUPERMINI_C3_BOARD_CONFIG_H
+#ifndef KYLE_BOARDS_SUPERMINI_C3_BOARD_CONFIG_H
+#define KYLE_BOARDS_SUPERMINI_C3_BOARD_CONFIG_H
 
 // supermini-c3（ESP32-C3）静态引脚配置：纯数据，不依赖 ESP-IDF。
-// 与 G:\xiaozhi-esp32\main\boards\supermini-c3\config.h 对齐。
+// 与旧 supermini-c3 板级 config.h 对齐。
 
 #include <cstddef>
 
 #include "boards/pin_map.h"
 
-namespace xiaozhi {
+namespace kyle {
 namespace supermini_c3 {
 
 // ---- 音频 I2S 直连（无外部 codec）----
@@ -55,6 +55,6 @@ constexpr PinDef kBoardPins[] = {
 constexpr size_t kBoardPinCount = sizeof(kBoardPins) / sizeof(kBoardPins[0]);
 
 }  // namespace supermini_c3
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_BOARDS_SUPERMINI_C3_BOARD_CONFIG_H
+#endif  // KYLE_BOARDS_SUPERMINI_C3_BOARD_CONFIG_H

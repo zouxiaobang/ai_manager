@@ -3,7 +3,7 @@
 #include "mocks/mock_storage.h"
 #include "unity.h"
 
-using namespace xiaozhi;
+using namespace kyle;
 
 TEST_CASE("ota url falls back to compile-time default when storage empty", "[net]") {
     MockStorage store;

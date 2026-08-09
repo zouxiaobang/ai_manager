@@ -1,11 +1,11 @@
-#ifndef XIAOZHI_APP_NVS_STORAGE_H
-#define XIAOZHI_APP_NVS_STORAGE_H
+#ifndef KYLE_APP_NVS_STORAGE_H
+#define KYLE_APP_NVS_STORAGE_H
 
 #include <string>
 
 #include "core/net_config.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 // NVS 存储适配：实现 IStorage，键存于对应 namespace（与旧项目 NVS 布局兼容：
 // "websocket"/"mqtt"/"wifi" 等 namespace 不动）。
@@ -26,6 +26,6 @@ private:
     bool writable_ = false;
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_APP_NVS_STORAGE_H
+#endif  // KYLE_APP_NVS_STORAGE_H

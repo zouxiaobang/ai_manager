@@ -18,12 +18,12 @@ extern "C" void app_main(void) {
     }
     ESP_ERROR_CHECK(ret);
 
-    xiaozhi::IBoard* board = xiaozhi::CreateBoard();
+    kyle::IBoard* board = kyle::CreateBoard();
     board->Init();
     ESP_LOGI(kTag, "board=%s target=%s", board->info().name, board->info().target);
 
-    xiaozhi::NvsStorage storage;
-    xiaozhi::Application app(*board, storage);
+    kyle::NvsStorage storage;
+    kyle::Application app(*board, storage);
     app.Initialize();
     app.Run();  // 永不返回
 }

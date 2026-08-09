@@ -3,7 +3,7 @@
 #include "boards/kyle-s3-lcd/kyle_s3_lcd_board.h"
 #include "boards/supermini-c3/supermini_c3_board.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 IBoard* CreateBoard() {
 #if defined(CONFIG_BOARD_SUPERMINI_C3)
@@ -15,4 +15,4 @@ IBoard* CreateBoard() {
 #endif
 }
 
-}  // namespace xiaozhi
+}  // namespace kyle

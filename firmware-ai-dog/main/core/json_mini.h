@@ -1,5 +1,5 @@
-#ifndef XIAOZHI_CORE_JSON_MINI_H
-#define XIAOZHI_CORE_JSON_MINI_H
+#ifndef KYLE_CORE_JSON_MINI_H
+#define KYLE_CORE_JSON_MINI_H
 
 // 极简 JSON DOM：core/ 层禁止依赖 cJSON / ESP-IDF，这里自给一个够用的解析器。
 // 覆盖对象/字符串/数字/布尔/null/数组，支持嵌套；\uXXXX 仅处理 BMP。
@@ -8,7 +8,7 @@
 #include <utility>
 #include <vector>
 
-namespace xiaozhi {
+namespace kyle {
 namespace json {
 
 class Value {
@@ -56,6 +56,6 @@ public:
 bool Parse(const char* text, Value* out);
 
 }  // namespace json
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_CORE_JSON_MINI_H
+#endif  // KYLE_CORE_JSON_MINI_H

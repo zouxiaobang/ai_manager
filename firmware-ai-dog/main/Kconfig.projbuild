@@ -1,12 +1,12 @@
 # 项目配置：只保留 OTA_URL / BOARD 二选一 choice / 语言 / 唤醒词
 
-menu "Xiaozhi Firmware"
+menu "Kyle Firmware"
 
 config OTA_URL
     string "Default OTA URL"
-    default "https://api.tenclass.net/xiaozhi/ota/"
+    default "http://192.168.0.114:8080/api/iot/ota/"
     help
-        首次激活的默认 OTA 基地址；NVS wifi/ota_url 可覆盖。
+        首次激活的默认 OTA 基地址（指向自建 admin-backend）；NVS wifi/ota_url 可覆盖。
 
 choice BOARD
     prompt "Board selection"

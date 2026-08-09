@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include <cstring>
 
-namespace xiaozhi {
+namespace kyle {
 namespace json {
 
 namespace {
@@ -184,4 +184,4 @@ bool Parse(const char* text, Value* out) {
 }
 
 }  // namespace json
-}  // namespace xiaozhi
+}  // namespace kyle

@@ -1,6 +1,6 @@
 #include "core/chat_session.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 bool ChatSession::IsValidTransition(SessionState from, SessionEvent ev) {
     switch (from) {
@@ -59,4 +59,4 @@ bool ChatSession::HandleEvent(SessionEvent ev) {
     return true;
 }
 
-}  // namespace xiaozhi
+}  // namespace kyle

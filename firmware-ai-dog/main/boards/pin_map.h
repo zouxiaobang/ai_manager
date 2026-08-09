@@ -1,12 +1,12 @@
-#ifndef XIAOZHI_BOARDS_PIN_MAP_H
-#define XIAOZHI_BOARDS_PIN_MAP_H
+#ifndef KYLE_BOARDS_PIN_MAP_H
+#define KYLE_BOARDS_PIN_MAP_H
 
 // 板级声明式引脚表：纯数据，不依赖 ESP-IDF，可在 host 上做冲突校验。
 
 #include <cstddef>
 #include <string>
 
-namespace xiaozhi {
+namespace kyle {
 
 // 未连接（等价于原项目 GPIO_NUM_NC 语义），校验时跳过
 constexpr int kPinNc = -1;
@@ -21,6 +21,6 @@ struct PinDef {
 // 返回 true 表示无冲突；error 非空时写入第一条冲突描述。
 bool ValidatePinMap(const PinDef* pins, size_t count, std::string* error = nullptr);
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_BOARDS_PIN_MAP_H
+#endif  // KYLE_BOARDS_PIN_MAP_H

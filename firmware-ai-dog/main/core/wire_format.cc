@@ -5,7 +5,7 @@
 
 #include "core/json_mini.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 namespace {
 
@@ -195,4 +195,4 @@ ServerHelloInfo ParseServerHello(const char* json) {
     return info;
 }
 
-}  // namespace xiaozhi
+}  // namespace kyle

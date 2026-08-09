@@ -1,6 +1,6 @@
 #include "drivers/no_codec_i2s.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 NoCodecI2s::NoCodecI2s(int mic_ws, int mic_sck, int mic_din, int spk_dout,
                        int input_rate, int output_rate)
@@ -35,4 +35,4 @@ void NoCodecI2s::SetOutputVolume(int v) {
 int NoCodecI2s::input_sample_rate() const { return input_rate_; }
 int NoCodecI2s::output_sample_rate() const { return output_rate_; }
 
-}  // namespace xiaozhi
+}  // namespace kyle

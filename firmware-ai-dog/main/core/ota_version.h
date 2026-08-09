@@ -1,12 +1,12 @@
-#ifndef XIAOZHI_CORE_OTA_VERSION_H
-#define XIAOZHI_CORE_OTA_VERSION_H
+#ifndef KYLE_CORE_OTA_VERSION_H
+#define KYLE_CORE_OTA_VERSION_H
 
 // 固件版本比较 + OTA 配置下发解析。纯逻辑，零 ESP-IDF 依赖。
 
 #include <string>
 #include <vector>
 
-namespace xiaozhi {
+namespace kyle {
 
 // "1.2.3" → {1,2,3}
 std::vector<int> ParseVersion(const std::string& version);
@@ -56,6 +56,6 @@ OtaConfigResponse ParseOtaConfigResponse(const char* json);
 // 综合判断是否升级：force 优先，否则新版本更新才升
 bool ShouldUpgrade(const std::string& current_version, const FirmwareInfo& fw);
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_CORE_OTA_VERSION_H
+#endif  // KYLE_CORE_OTA_VERSION_H

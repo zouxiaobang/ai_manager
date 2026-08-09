@@ -40,7 +40,7 @@ void UnityFail(const char* msg, const char* file, int line) {
 }
 
 void UnityRunAll(void) {
-    printf("\n=== xiaozhi host unit tests ===\n");
+    printf("\n=== kyle host unit tests ===\n");
     printf("registered %d test(s)\n", g_test_count);
     for (int i = 0; i < g_test_count; ++i) {
         g_failure = 0;

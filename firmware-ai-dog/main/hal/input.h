@@ -1,9 +1,9 @@
-#ifndef XIAOZHI_HAL_INPUT_H
-#define XIAOZHI_HAL_INPUT_H
+#ifndef KYLE_HAL_INPUT_H
+#define KYLE_HAL_INPUT_H
 
 #include <functional>
 
-namespace xiaozhi {
+namespace kyle {
 
 // 按键/触摸统一输入事件
 struct InputEvent {
@@ -18,6 +18,6 @@ public:
     virtual void OnEvent(std::function<void(const InputEvent&)> cb) = 0;
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_HAL_INPUT_H
+#endif  // KYLE_HAL_INPUT_H

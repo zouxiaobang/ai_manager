@@ -1,11 +1,11 @@
 #include "core/net_config.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 #ifdef CONFIG_OTA_URL
 const char* kDefaultOtaUrl = CONFIG_OTA_URL;
 #else
-const char* kDefaultOtaUrl = "https://api.tenclass.net/xiaozhi/ota/";
+const char* kDefaultOtaUrl = "https://api.tenclass.net/kyle/ota/";
 #endif
 
 NetConfig::NetConfig(IStorage& storage, const std::string& default_ota_url)
@@ -46,4 +46,4 @@ void NetConfig::ApplyOtaResponse(const OtaConfigResponse& resp) {
     }
 }
 
-}  // namespace xiaozhi
+}  // namespace kyle

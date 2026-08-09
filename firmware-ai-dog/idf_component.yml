@@ -1,7 +1,0 @@
-# 精简依赖：新架构只保留必要组件，按保留板裁剪
-dependencies:
-  idf:
-    version: ">=5.5.2"
-  # TODO(firmware): 按板型按需启用
-  # espressif/esp-sr: "^2.2.0"          # 唤醒词（kyle-s3-lcd AFE / supermini-c3 Wakenet）
-  # espressif/esp_lvgl_port: "^1.4.0"   # 仅 kyle-s3-lcd 的 LVGL 界面需要

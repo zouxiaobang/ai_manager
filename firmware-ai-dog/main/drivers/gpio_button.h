@@ -1,12 +1,12 @@
-#ifndef XIAOZHI_DRIVERS_GPIO_BUTTON_H
-#define XIAOZHI_DRIVERS_GPIO_BUTTON_H
+#ifndef KYLE_DRIVERS_GPIO_BUTTON_H
+#define KYLE_DRIVERS_GPIO_BUTTON_H
 
 #include <functional>
 #include <vector>
 
 #include "hal/input.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 // GPIO 按键输入（BOOT / 音量 / UP/DOWN）。
 // 当前为声明式骨架：TODO(driver) 接入 gpio 中断 + 消抖 + 单击/双击/长按识别。
@@ -22,6 +22,6 @@ private:
     std::function<void(const InputEvent&)> cb_;
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_DRIVERS_GPIO_BUTTON_H
+#endif  // KYLE_DRIVERS_GPIO_BUTTON_H

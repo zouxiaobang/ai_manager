@@ -1,5 +1,5 @@
-#ifndef XIAOZHI_HAL_BOARD_H
-#define XIAOZHI_HAL_BOARD_H
+#ifndef KYLE_HAL_BOARD_H
+#define KYLE_HAL_BOARD_H
 
 #include "hal/audio_codec.h"
 #include "hal/backlight.h"
@@ -9,7 +9,7 @@
 #include "hal/network.h"
 #include "hal/power.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 // 板级只读信息（Kconfig 选择后，由具体板子提供）
 struct BoardInfo {
@@ -41,6 +41,6 @@ public:
     virtual void Init() = 0;              // 总线/GPIO/电源初始化
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_HAL_BOARD_H
+#endif  // KYLE_HAL_BOARD_H

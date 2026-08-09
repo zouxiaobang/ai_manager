@@ -3,7 +3,7 @@
 #include "core/wire_format.h"
 #include "unity.h"
 
-using namespace xiaozhi;
+using namespace kyle;
 
 TEST_CASE("v2 header big-endian golden bytes", "[wire]") {
     const uint8_t payload[] = {0x01, 0x02, 0x03};

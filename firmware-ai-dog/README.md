@@ -1,6 +1,6 @@
-# firmware-ai-dog — 小智 ESP32 全新架构固件（骨架）
+# firmware-ai-dog — kyle ESP32 全新架构固件（骨架）
 
-从零重构小智 ESP32 固件，只保留 `supermini-c3`（ESP32-C3）与 `kyle-s3-lcd`（ESP32-S3）两块板。
+从零重构kyle ESP32 固件，只保留 `supermini-c3`（ESP32-C3）与 `kyle-s3-lcd`（ESP32-S3）两块板。
 核心原则：**业务/协议层为纯 C/C++ 逻辑、零 ESP-IDF 依赖、可在 PC host 上单元测试**；硬件差异收拢到
 `boards/` 板级配置 + `hal/` 抽象接口。
 
@@ -11,7 +11,7 @@
 
 ```
 firmware-ai-dog/
-├─ CMakeLists.txt                # IDF 工程入口（project(xiaozhi)）
+├─ CMakeLists.txt                # IDF 工程入口（project(kyle)）
 ├─ main/
 │  ├─ CMakeLists.txt             # 按 CONFIG_BOARD_* 只编译一块板
 │  ├─ Kconfig.projbuild          # 只保留 OTA_URL / BOARD choice / 语言 / 唤醒词

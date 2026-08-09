@@ -1,10 +1,10 @@
-#ifndef XIAOZHI_HAL_AUDIO_CODEC_H
-#define XIAOZHI_HAL_AUDIO_CODEC_H
+#ifndef KYLE_HAL_AUDIO_CODEC_H
+#define KYLE_HAL_AUDIO_CODEC_H
 
 #include <cstddef>
 #include <cstdint>
 
-namespace xiaozhi {
+namespace kyle {
 
 // 音频硬件能力抽象：只描述「读写 PCM / 音量 / 采样率」，不含编解码逻辑。
 // 解码归 core/audio_pipeline（本骨架未实现），codec 只做裸 PCM 搬运。
@@ -25,6 +25,6 @@ public:
     virtual int output_sample_rate() const = 0;
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_HAL_AUDIO_CODEC_H
+#endif  // KYLE_HAL_AUDIO_CODEC_H

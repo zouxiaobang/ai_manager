@@ -1,5 +1,5 @@
-#ifndef XIAOZHI_CORE_WIRE_FORMAT_H
-#define XIAOZHI_CORE_WIRE_FORMAT_H
+#ifndef KYLE_CORE_WIRE_FORMAT_H
+#define KYLE_CORE_WIRE_FORMAT_H
 
 // 二进制协议 v1/v2/v3 编解码 + 消息 JSON 组装辅助。
 // 纯 C/C++，零 ESP-IDF 依赖，可在 PC host 上单测（黄金字节向量锁定格式）。
@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace xiaozhi {
+namespace kyle {
 
 // 二进制帧 type 字段（v2 的 16bit / v3 的 8bit）
 enum class WireType : uint8_t { kOpus = 0, kJson = 1 };
@@ -83,6 +83,6 @@ struct ServerHelloInfo {
 };
 ServerHelloInfo ParseServerHello(const char* json);
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_CORE_WIRE_FORMAT_H
+#endif  // KYLE_CORE_WIRE_FORMAT_H

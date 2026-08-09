@@ -5,7 +5,7 @@
 #include "boards/supermini-c3/board_config.h"
 #include "unity.h"
 
-using namespace xiaozhi;
+using namespace kyle;
 
 TEST_CASE("supermini-c3 pin map is conflict-free", "[board]") {
     std::string err;

@@ -1,5 +1,5 @@
-#ifndef XIAOZHI_TEST_MOCKS_MOCK_STORAGE_H
-#define XIAOZHI_TEST_MOCKS_MOCK_STORAGE_H
+#ifndef KYLE_TEST_MOCKS_MOCK_STORAGE_H
+#define KYLE_TEST_MOCKS_MOCK_STORAGE_H
 
 #include <map>
 #include <string>
@@ -7,7 +7,7 @@
 #include "core/net_config.h"
 
 // 内存版 IStorage：模拟 NVS namespace/key，供 net_config host 单测使用。
-class MockStorage : public xiaozhi::IStorage {
+class MockStorage : public kyle::IStorage {
 public:
     std::string GetString(const std::string& ns, const std::string& key,
                           const std::string& def = "") override {
@@ -38,4 +38,4 @@ private:
     std::map<std::string, int> ints_;
 };
 
-#endif  // XIAOZHI_TEST_MOCKS_MOCK_STORAGE_H
+#endif  // KYLE_TEST_MOCKS_MOCK_STORAGE_H

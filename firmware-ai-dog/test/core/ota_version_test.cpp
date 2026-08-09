@@ -1,7 +1,7 @@
 #include "core/ota_version.h"
 #include "unity.h"
 
-using namespace xiaozhi;
+using namespace kyle;
 
 TEST_CASE("parse version string", "[ota]") {
     auto v = ParseVersion("2.0.1");

@@ -2,7 +2,13 @@
 
 #include "core/wire_format.h"
 
-namespace xiaozhi {
+// Run() 需要让出主任务；host 单测环境不定义 ESP_PLATFORM，保持纯 C++。
+#ifdef ESP_PLATFORM
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#endif
+
+namespace kyle {
 
 Application::Application(IBoard& board, IStorage& storage)
     : board_(board), storage_(storage) {}
@@ -27,7 +33,11 @@ void Application::Schedule(std::function<void()> fn) {
 void Application::Run() {
     while (running_) {
         DispatchPendingEvents();
-        // TODO(firmware): 接入 vTaskDelay(pdMS_TO_TICKS(50)) 让出主任务，纯 C++ 骨架先空转。
+        // 让出主任务，避免 IDLE0 饿死触发任务看门狗（真机 task_wdt 已实测触发）。
+        // K5 网络回调/唤醒词就绪后改为事件驱动的阻塞等待，先定频轮询。
+#ifdef ESP_PLATFORM
+        vTaskDelay(pdMS_TO_TICKS(50));
+#endif
     }
 }
 
@@ -50,4 +60,4 @@ void Application::OnInputEvent(const InputEvent& ev) {
     }
 }
 
-}  // namespace xiaozhi
+}  // namespace kyle

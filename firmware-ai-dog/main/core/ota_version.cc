@@ -5,7 +5,7 @@
 
 #include "core/json_mini.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 std::vector<int> ParseVersion(const std::string& version) {
     std::vector<int> numbers;
@@ -70,4 +70,4 @@ OtaConfigResponse ParseOtaConfigResponse(const char* json) {
     return resp;
 }
 
-}  // namespace xiaozhi
+}  // namespace kyle

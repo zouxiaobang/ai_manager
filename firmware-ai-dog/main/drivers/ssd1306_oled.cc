@@ -1,6 +1,6 @@
 #include "drivers/ssd1306_oled.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 Ssd1306Oled::Ssd1306Oled(int sda, int scl, int width, int height)
     : sda_(sda), scl_(scl), width_(width), height_(height) {}
@@ -30,4 +30,4 @@ void Ssd1306Oled::ShowToast(const char* msg, int ms) {
 int Ssd1306Oled::width() const { return width_; }
 int Ssd1306Oled::height() const { return height_; }
 
-}  // namespace xiaozhi
+}  // namespace kyle

@@ -22,6 +22,8 @@ idf_component_register(
         "drivers/no_codec_i2s.cc"
         "drivers/ssd1306_oled.cc"
         "drivers/st7789_lcd.cc"
+        "drivers/lcd_pattern.cc"
+        "drivers/gpio_backlight.cc"
         "drivers/gpio_button.cc"
         "drivers/gpio_led.cc"
         "drivers/no_display.cc"
@@ -32,7 +34,14 @@ idf_component_register(
     REQUIRES
         nvs_flash
     PRIV_REQUIRES
-        # TODO(firmware): 接真实驱动后按需加入 driver / esp_lcd / esp_wifi / esp_netif / esp_websocket_client
+        # F1：固件私有依赖——驱动(传感器/外设)、LCD、网络(WiFi/Netif/WebSocket/HTTP)
+        driver
+        esp_lcd
+        esp_wifi
+        esp_netif
+        esp_websocket_client
+        esp_http_client
+        # F4 启用唤醒词/UI 后按需补充：espressif/esp-sr、espressif/esp_lvgl_port（经 idf_component.yml 引入）
 )
 
 # host 单测独立构建，见 test/CMakeLists.txt（不经过本文件）

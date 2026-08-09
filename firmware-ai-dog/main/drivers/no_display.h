@@ -1,9 +1,9 @@
-#ifndef XIAOZHI_DRIVERS_NO_DISPLAY_H
-#define XIAOZHI_DRIVERS_NO_DISPLAY_H
+#ifndef KYLE_DRIVERS_NO_DISPLAY_H
+#define KYLE_DRIVERS_NO_DISPLAY_H
 
 #include "hal/display.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 // 无屏占位实现：所有显示调用为空操作。
 class NoDisplay : public IDisplay {
@@ -25,6 +25,6 @@ public:
     int height() const override { return 0; }
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_DRIVERS_NO_DISPLAY_H
+#endif  // KYLE_DRIVERS_NO_DISPLAY_H

@@ -1,14 +1,14 @@
-#ifndef XIAOZHI_BOARDS_KYLE_S3_LCD_BOARD_CONFIG_H
-#define XIAOZHI_BOARDS_KYLE_S3_LCD_BOARD_CONFIG_H
+#ifndef KYLE_BOARDS_KYLE_S3_LCD_BOARD_CONFIG_H
+#define KYLE_BOARDS_KYLE_S3_LCD_BOARD_CONFIG_H
 
 // kyle-s3-lcd（ESP32-S3）静态引脚配置：纯数据，不依赖 ESP-IDF。
-// 与 G:\xiaozhi-esp32\main\boards\kyle-s3-lcd\config.h 对齐。
+// 与旧 kyle-s3-lcd 板级 config.h 对齐。
 
 #include <cstddef>
 
 #include "boards/pin_map.h"
 
-namespace xiaozhi {
+namespace kyle {
 namespace kyle_s3_lcd {
 
 // ---- 音频 I2S 直连（无外部 codec，单工）----
@@ -67,6 +67,6 @@ constexpr PinDef kBoardPins[] = {
 constexpr size_t kBoardPinCount = sizeof(kBoardPins) / sizeof(kBoardPins[0]);
 
 }  // namespace kyle_s3_lcd
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_BOARDS_KYLE_S3_LCD_BOARD_CONFIG_H
+#endif  // KYLE_BOARDS_KYLE_S3_LCD_BOARD_CONFIG_H

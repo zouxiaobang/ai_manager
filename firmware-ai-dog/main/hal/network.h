@@ -1,5 +1,5 @@
-#ifndef XIAOZHI_HAL_NETWORK_H
-#define XIAOZHI_HAL_NETWORK_H
+#ifndef KYLE_HAL_NETWORK_H
+#define KYLE_HAL_NETWORK_H
 
 #include <cstddef>
 #include <cstdint>
@@ -7,7 +7,7 @@
 #include <memory>
 #include <string>
 
-namespace xiaozhi {
+namespace kyle {
 
 // WebSocket 能力抽象（协议层只依赖这个接口，便于注入 mock 单测）
 class IWebSocket {
@@ -48,6 +48,6 @@ public:
     virtual std::unique_ptr<IHttp> CreateHttp(int id) = 0;
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_HAL_NETWORK_H
+#endif  // KYLE_HAL_NETWORK_H

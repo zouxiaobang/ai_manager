@@ -1,11 +1,11 @@
-#ifndef XIAOZHI_BOARDS_SUPERMINI_C3_BOARD_H
-#define XIAOZHI_BOARDS_SUPERMINI_C3_BOARD_H
+#ifndef KYLE_BOARDS_SUPERMINI_C3_BOARD_H
+#define KYLE_BOARDS_SUPERMINI_C3_BOARD_H
 
 #include <memory>
 
 #include "hal/board.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 // supermini-c3 板组装：NoCodecI2s + Ssd1306Oled + GpioButton + GpioLed + NoPower
 class SuperminiC3Board : public IBoard {
@@ -31,6 +31,6 @@ private:
     std::unique_ptr<INetwork> network_;
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_BOARDS_SUPERMINI_C3_BOARD_H
+#endif  // KYLE_BOARDS_SUPERMINI_C3_BOARD_H

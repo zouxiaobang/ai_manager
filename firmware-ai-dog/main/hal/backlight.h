@@ -1,7 +1,7 @@
-#ifndef XIAOZHI_HAL_BACKLIGHT_H
-#define XIAOZHI_HAL_BACKLIGHT_H
+#ifndef KYLE_HAL_BACKLIGHT_H
+#define KYLE_HAL_BACKLIGHT_H
 
-namespace xiaozhi {
+namespace kyle {
 
 // 屏幕背光控制（kyle-s3-lcd 有，supermini-c3 OLED 常亮可空）
 class IBacklight {
@@ -11,6 +11,6 @@ public:
     virtual int brightness() const = 0;
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_HAL_BACKLIGHT_H
+#endif  // KYLE_HAL_BACKLIGHT_H

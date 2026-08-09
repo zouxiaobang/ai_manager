@@ -1,9 +1,9 @@
-#ifndef XIAOZHI_DRIVERS_NO_CODEC_I2S_H
-#define XIAOZHI_DRIVERS_NO_CODEC_I2S_H
+#ifndef KYLE_DRIVERS_NO_CODEC_I2S_H
+#define KYLE_DRIVERS_NO_CODEC_I2S_H
 
 #include "hal/audio_codec.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 // 无外部 codec 的 I2S 直连音频（supermini-c3 / kyle-s3-lcd 均为此类）。
 // 当前为声明式骨架：TODO(driver) 接入 esp_driver_i2s_std，Read/Write 对接 DMA 缓冲。
@@ -32,6 +32,6 @@ private:
     bool started_ = false;
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_DRIVERS_NO_CODEC_I2S_H
+#endif  // KYLE_DRIVERS_NO_CODEC_I2S_H

@@ -1,5 +1,5 @@
-#ifndef XIAOZHI_CORE_NET_CONFIG_H
-#define XIAOZHI_CORE_NET_CONFIG_H
+#ifndef KYLE_CORE_NET_CONFIG_H
+#define KYLE_CORE_NET_CONFIG_H
 
 // NVS 读取抽象 + 服务器地址默认值回退策略。
 // 通过注入的 IStorage 读写，core/ 本身不触碰 ESP-IDF NVS，可在 host 上单测。
@@ -9,7 +9,7 @@
 
 #include "core/ota_version.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 // 可注入的键值存储（生产实现为 NVS，测试用内存 map）
 class IStorage {
@@ -24,7 +24,7 @@ public:
     virtual void SetInt(const std::string& ns, const std::string& key, int value) = 0;
 };
 
-// 默认 OTA 基地址：编译期 CONFIG_OTA_URL 优先，否则内置小智官方地址
+// 默认 OTA 基地址：编译期 CONFIG_OTA_URL 优先，否则内置kyle官方地址
 extern const char* kDefaultOtaUrl;
 
 struct WebsocketConfig {
@@ -51,6 +51,6 @@ private:
     std::string default_ota_url_;
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_CORE_NET_CONFIG_H
+#endif  // KYLE_CORE_NET_CONFIG_H

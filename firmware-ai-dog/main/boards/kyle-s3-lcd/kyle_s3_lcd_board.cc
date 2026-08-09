@@ -3,6 +3,7 @@
 #include <memory>
 
 #include "boards/kyle-s3-lcd/board_config.h"
+#include "drivers/gpio_backlight.h"
 #include "drivers/gpio_button.h"
 #include "drivers/gpio_led.h"
 #include "drivers/no_codec_i2s.h"
@@ -10,7 +11,7 @@
 #include "drivers/no_power.h"
 #include "drivers/st7789_lcd.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 const BoardInfo& KyleS3LcdBoard::info() const {
     static const BoardInfo kInfo = {
@@ -37,23 +38,33 @@ IPower* KyleS3LcdBoard::power() { return power_.get(); }
 INetwork* KyleS3LcdBoard::network() { return network_.get(); }
 
 void KyleS3LcdBoard::Init() {
-    // 板级只做组装；TODO(driver): 接入真实 I2S/SPI(I2C)/GPIO 驱动，背光用 LEDC PWM。
+    // 板级只做组装。K1：LCD(SPI) + 背光(LEDC) 已真实化；音频/输入/网络留后续阶段。
     audio_ = std::make_unique<NoCodecI2s>(
         kyle_s3_lcd::kPinMicWs, kyle_s3_lcd::kPinMicSck, kyle_s3_lcd::kPinMicDin,
         kyle_s3_lcd::kPinSpkDout, kyle_s3_lcd::kDefaultInputRate,
         kyle_s3_lcd::kDefaultOutputRate);
-    display_ = std::make_unique<St7789Lcd>(
-        kyle_s3_lcd::kPinDisplayMosi, kyle_s3_lcd::kPinDisplayClk,
-        kyle_s3_lcd::kPinDisplayDc, kyle_s3_lcd::kPinDisplayRst,
-        kyle_s3_lcd::kPinDisplayCs, kyle_s3_lcd::kDisplayWidth,
-        kyle_s3_lcd::kDisplayHeight);
+
+    St7789Config lcd_cfg;
+    lcd_cfg.mosi = kyle_s3_lcd::kPinDisplayMosi;
+    lcd_cfg.clk = kyle_s3_lcd::kPinDisplayClk;
+    lcd_cfg.dc = kyle_s3_lcd::kPinDisplayDc;
+    lcd_cfg.rst = kyle_s3_lcd::kPinDisplayRst;
+    lcd_cfg.cs = kyle_s3_lcd::kPinDisplayCs;
+    lcd_cfg.width = kyle_s3_lcd::kDisplayWidth;
+    lcd_cfg.height = kyle_s3_lcd::kDisplayHeight;
+    // 先以具体类型初始化（Init 是 St7789Lcd 特有方法），再提升为 IDisplay 接口
+    auto lcd = std::make_unique<St7789Lcd>(lcd_cfg);
+    lcd->Init();  // SPI 总线 + panel 初始化，画测试图案
+    display_ = std::move(lcd);
+
     led_ = std::make_unique<GpioLed>(kyle_s3_lcd::kPinLed);
     input_ = std::make_unique<GpioButton>(std::vector<int>{
         kyle_s3_lcd::kPinBoot, kyle_s3_lcd::kPinTouchUp, kyle_s3_lcd::kPinTouchDown});
-    // TODO(driver): 背光 GpioBacklight(kPinBacklight)；触摸 Cst816s 并入 IInput
-    backlight_ = nullptr;
+    backlight_ = std::make_unique<GpioBacklight>(kyle_s3_lcd::kPinBacklight);
+    backlight_->SetBrightness(75);  // 默认亮度，便于观察测试图案
+    // TODO(K2): 触摸 Cst816s 并入 IInput
     power_ = std::make_unique<NoPower>();
     network_ = std::make_unique<NoNetwork>();
 }
 
-}  // namespace xiaozhi
+}  // namespace kyle

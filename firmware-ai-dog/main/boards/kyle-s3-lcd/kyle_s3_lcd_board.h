@@ -1,11 +1,11 @@
-#ifndef XIAOZHI_BOARDS_KYLE_S3_LCD_BOARD_H
-#define XIAOZHI_BOARDS_KYLE_S3_LCD_BOARD_H
+#ifndef KYLE_BOARDS_KYLE_S3_LCD_BOARD_H
+#define KYLE_BOARDS_KYLE_S3_LCD_BOARD_H
 
 #include <memory>
 
 #include "hal/board.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 // kyle-s3-lcd 板组装：NoCodecI2s + St7789Lcd + GpioButton + GpioLed + NoPower
 class KyleS3LcdBoard : public IBoard {
@@ -32,6 +32,6 @@ private:
     std::unique_ptr<INetwork> network_;
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_BOARDS_KYLE_S3_LCD_BOARD_H
+#endif  // KYLE_BOARDS_KYLE_S3_LCD_BOARD_H

@@ -1,7 +1,7 @@
-#ifndef XIAOZHI_HAL_POWER_H
-#define XIAOZHI_HAL_POWER_H
+#ifndef KYLE_HAL_POWER_H
+#define KYLE_HAL_POWER_H
 
-namespace xiaozhi {
+namespace kyle {
 
 // 电源/电池/睡眠能力（supermini-c3 无电池，可用 NoPower 空实现）
 class IPower {
@@ -14,6 +14,6 @@ public:
     virtual void Reboot() = 0;
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_HAL_POWER_H
+#endif  // KYLE_HAL_POWER_H

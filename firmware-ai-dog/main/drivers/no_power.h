@@ -1,9 +1,9 @@
-#ifndef XIAOZHI_DRIVERS_NO_POWER_H
-#define XIAOZHI_DRIVERS_NO_POWER_H
+#ifndef KYLE_DRIVERS_NO_POWER_H
+#define KYLE_DRIVERS_NO_POWER_H
 
 #include "hal/power.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 // 无电池/无电源管理占位（supermini-c3 等）：电量未知、深睡/重启留 TODO。
 class NoPower : public IPower {
@@ -21,6 +21,6 @@ public:
     }
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_DRIVERS_NO_POWER_H
+#endif  // KYLE_DRIVERS_NO_POWER_H

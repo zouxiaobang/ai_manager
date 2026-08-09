@@ -10,7 +10,7 @@
 #include "drivers/no_power.h"
 #include "drivers/ssd1306_oled.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 const BoardInfo& SuperminiC3Board::info() const {
     static const BoardInfo kInfo = {
@@ -53,4 +53,4 @@ void SuperminiC3Board::Init() {
     network_ = std::make_unique<NoNetwork>();
 }
 
-}  // namespace xiaozhi
+}  // namespace kyle

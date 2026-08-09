@@ -1,9 +1,9 @@
-#ifndef XIAOZHI_DRIVERS_GPIO_LED_H
-#define XIAOZHI_DRIVERS_GPIO_LED_H
+#ifndef KYLE_DRIVERS_GPIO_LED_H
+#define KYLE_DRIVERS_GPIO_LED_H
 
 #include "hal/led.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 // 单色 GPIO 状态灯（supermini-c3=GPIO12，kyle-s3-lcd=GPIO48）。
 // 当前为声明式骨架：TODO(driver) 映射 LedState → GPIO 电平/闪烁模式。
@@ -19,6 +19,6 @@ private:
     LedState state_ = LedState::kLedIdle;
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_DRIVERS_GPIO_LED_H
+#endif  // KYLE_DRIVERS_GPIO_LED_H

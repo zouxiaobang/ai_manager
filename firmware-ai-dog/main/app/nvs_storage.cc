@@ -6,7 +6,7 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 namespace {
 constexpr const char* kTag = "NvsStorage";
@@ -69,4 +69,4 @@ void NvsStorage::SetInt(const std::string& ns, const std::string& key, int value
     nvs_close(handle);
 }
 
-}  // namespace xiaozhi
+}  // namespace kyle

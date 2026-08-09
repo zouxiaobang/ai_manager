@@ -1,5 +1,5 @@
-#ifndef XIAOZHI_APP_APPLICATION_H
-#define XIAOZHI_APP_APPLICATION_H
+#ifndef KYLE_APP_APPLICATION_H
+#define KYLE_APP_APPLICATION_H
 
 #include <deque>
 #include <functional>
@@ -9,7 +9,7 @@
 #include "core/net_config.h"
 #include "hal/board.h"
 
-namespace xiaozhi {
+namespace kyle {
 
 // 业务编排骨架：输入事件 → ChatSession 状态机，消息/配置 → wire_format / NetConfig。
 // 保持纯 C++，不依赖 ESP-IDF；真正的 NVS 存储由 app_main 注入 NvsStorage。
@@ -39,6 +39,6 @@ private:
     bool running_ = true;
 };
 
-}  // namespace xiaozhi
+}  // namespace kyle
 
-#endif  // XIAOZHI_APP_APPLICATION_H
+#endif  // KYLE_APP_APPLICATION_H

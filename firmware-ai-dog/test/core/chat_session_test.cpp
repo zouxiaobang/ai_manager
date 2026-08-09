@@ -3,7 +3,7 @@
 #include "core/chat_session.h"
 #include "unity.h"
 
-using namespace xiaozhi;
+using namespace kyle;
 
 TEST_CASE("happy path idle->connecting->listening->speaking->idle", "[chat]") {
     ChatSession s;

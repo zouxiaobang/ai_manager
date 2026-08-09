@@ -2,7 +2,7 @@
 
 #include <cstdio>
 
-namespace xiaozhi {
+namespace kyle {
 
 namespace {
 
@@ -47,4 +47,4 @@ bool ValidatePinMap(const PinDef* pins, size_t count, std::string* error) {
     return true;
 }
 
-}  // namespace xiaozhi
+}  // namespace kyle
