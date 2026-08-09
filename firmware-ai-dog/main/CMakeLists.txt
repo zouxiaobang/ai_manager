@@ -23,8 +23,10 @@ idf_component_register(
         "drivers/ssd1306_oled.cc"
         "drivers/st7789_lcd.cc"
         "drivers/lcd_pattern.cc"
+        "drivers/cst816s_parse.cc"
         "drivers/gpio_backlight.cc"
         "drivers/gpio_button.cc"
+        "drivers/cst816s_touch.cc"
         "drivers/gpio_led.cc"
         "drivers/no_display.cc"
         "drivers/no_power.cc"
@@ -37,6 +39,7 @@ idf_component_register(
         # F1：固件私有依赖——驱动(传感器/外设)、LCD、网络(WiFi/Netif/WebSocket/HTTP)
         driver
         esp_lcd
+        esp_timer
         esp_wifi
         esp_netif
         esp_websocket_client

@@ -3,8 +3,8 @@
 #include <memory>
 
 #include "boards/kyle-s3-lcd/board_config.h"
+#include "drivers/cst816s_touch.h"
 #include "drivers/gpio_backlight.h"
-#include "drivers/gpio_button.h"
 #include "drivers/gpio_led.h"
 #include "drivers/no_codec_i2s.h"
 #include "drivers/no_network.h"
@@ -58,11 +58,12 @@ void KyleS3LcdBoard::Init() {
     display_ = std::move(lcd);
 
     led_ = std::make_unique<GpioLed>(kyle_s3_lcd::kPinLed);
-    input_ = std::make_unique<GpioButton>(std::vector<int>{
-        kyle_s3_lcd::kPinBoot, kyle_s3_lcd::kPinTouchUp, kyle_s3_lcd::kPinTouchDown});
+    // K2：CST816S 触摸作为 IInput；物理按键（BOOT/UP/DOWN）K4 再聚合进同一接口。
+    input_ = std::make_unique<Cst816sTouch>(
+        kyle_s3_lcd::kPinTouchSda, kyle_s3_lcd::kPinTouchScl,
+        kyle_s3_lcd::kDisplayWidth, kyle_s3_lcd::kDisplayHeight);
     backlight_ = std::make_unique<GpioBacklight>(kyle_s3_lcd::kPinBacklight);
     backlight_->SetBrightness(75);  // 默认亮度，便于观察测试图案
-    // TODO(K2): 触摸 Cst816s 并入 IInput
     power_ = std::make_unique<NoPower>();
     network_ = std::make_unique<NoNetwork>();
 }
