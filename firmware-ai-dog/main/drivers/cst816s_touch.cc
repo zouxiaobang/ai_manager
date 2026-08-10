@@ -19,8 +19,9 @@ namespace kyle {
 namespace {
 // 触摸轮询周期：50Hz 足够跟手，串口轨迹日志也不会刷屏
 constexpr int kPollPeriodMs = 20;
-// I2C 单次传输超时：100kHz 下 5 字节不到 1ms，50ms 远超；
-// 有界超时避免设备挂起时任务永久阻塞触发看门狗
+// I2C 单次传输超时：100kHz 下 5 字节不到 1ms，50ms 远超传输时间。
+// 有界超时避免设备真挂起时任务永久阻塞触发看门狗；
+// 待机期读取失败是 CST816S 省电特性（见 PollOnce 注释），与超时无关。
 constexpr int kI2cTimeoutMs = 50;
 }  // namespace
 
@@ -101,7 +102,9 @@ void Cst816sTouch::PollOnce() {
     uint8_t raw[5] = {};
     esp_err_t ret = i2c_master_transmit_receive(impl_->dev, &reg, 1, raw, sizeof(raw), kI2cTimeoutMs);
     if (ret != ESP_OK) {
-        ESP_LOGW(TAG, "触点读取失败: %s", esp_err_to_name(ret));
+        // CST816S 无触摸一段时间后自动进入待机省电，待机期 I2C 从机不响应（NACK）；
+        // 属预期省电行为而非故障，触摸瞬间芯片唤醒即恢复。打 V 级避免刷屏。
+        ESP_LOGV(TAG, "触点读取失败: %s", esp_err_to_name(ret));
         return;
     }
 
