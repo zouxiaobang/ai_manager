@@ -18,6 +18,7 @@ add_executable(unit_tests
     drivers/lcd_pattern_test.cpp
     drivers/backlight_test.cpp
     drivers/cst816s_parse_test.cpp
+    drivers/i2s_audio_math_test.cpp
     ${CORE_DIR}/json_mini.cc
     ${CORE_DIR}/wire_format.cc
     ${CORE_DIR}/chat_session.cc
@@ -26,6 +27,7 @@ add_executable(unit_tests
     ${BOARD_DIR}/pin_conflict.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/../main/drivers/lcd_pattern.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/../main/drivers/cst816s_parse.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/../main/drivers/i2s_audio_math.cc
 )
 
 target_include_directories(unit_tests PRIVATE

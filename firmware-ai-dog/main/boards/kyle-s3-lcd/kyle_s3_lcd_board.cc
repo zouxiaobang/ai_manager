@@ -38,11 +38,11 @@ IPower* KyleS3LcdBoard::power() { return power_.get(); }
 INetwork* KyleS3LcdBoard::network() { return network_.get(); }
 
 void KyleS3LcdBoard::Init() {
-    // 板级只做组装。K1：LCD(SPI) + 背光(LEDC) 已真实化；音频/输入/网络留后续阶段。
+    // 板级只做组装。K1：LCD(SPI) + 背光(LEDC)；K2：触摸。K3：I2S 直连音频已真实化。
     audio_ = std::make_unique<NoCodecI2s>(
-        kyle_s3_lcd::kPinMicWs, kyle_s3_lcd::kPinMicSck, kyle_s3_lcd::kPinMicDin,
-        kyle_s3_lcd::kPinSpkDout, kyle_s3_lcd::kDefaultInputRate,
-        kyle_s3_lcd::kDefaultOutputRate);
+        kyle_s3_lcd::kPinSpkBclk, kyle_s3_lcd::kPinSpkLrck, kyle_s3_lcd::kPinSpkDout,
+        kyle_s3_lcd::kPinMicSck, kyle_s3_lcd::kPinMicWs, kyle_s3_lcd::kPinMicDin,
+        kyle_s3_lcd::kDefaultInputRate, kyle_s3_lcd::kDefaultOutputRate);
 
     St7789Config lcd_cfg;
     lcd_cfg.mosi = kyle_s3_lcd::kPinDisplayMosi;

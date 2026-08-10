@@ -20,6 +20,7 @@ idf_component_register(
         "boards/pin_conflict.cc"
         "${BOARD_SRC}"
         "drivers/no_codec_i2s.cc"
+        "drivers/i2s_audio_math.cc"
         "drivers/ssd1306_oled.cc"
         "drivers/st7789_lcd.cc"
         "drivers/lcd_pattern.cc"
@@ -38,6 +39,7 @@ idf_component_register(
     PRIV_REQUIRES
         # F1：固件私有依赖——驱动(传感器/外设)、LCD、网络(WiFi/Netif/WebSocket/HTTP)
         driver
+        esp_driver_i2s
         esp_lcd
         esp_timer
         esp_wifi

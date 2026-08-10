@@ -39,9 +39,9 @@ INetwork* SuperminiC3Board::network() { return network_.get(); }
 void SuperminiC3Board::Init() {
     // 板级只做组装（依赖注入）；TODO(driver): 接入真实 I2S/I2C/GPIO 驱动并初始化总线。
     audio_ = std::make_unique<NoCodecI2s>(
-        supermini_c3::kPinMicWs, supermini_c3::kPinMicSck, supermini_c3::kPinMicDin,
-        supermini_c3::kPinSpkDin, supermini_c3::kDefaultInputRate,
-        supermini_c3::kDefaultOutputRate);
+        supermini_c3::kPinSpkBclk, supermini_c3::kPinSpkLrc, supermini_c3::kPinSpkDin,
+        supermini_c3::kPinMicSck, supermini_c3::kPinMicWs, supermini_c3::kPinMicDin,
+        supermini_c3::kDefaultInputRate, supermini_c3::kDefaultOutputRate);
     display_ = std::make_unique<Ssd1306Oled>(
         supermini_c3::kPinOledSda, supermini_c3::kPinOledScl,
         supermini_c3::kDisplayWidth, supermini_c3::kDisplayHeight);

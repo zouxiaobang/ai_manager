@@ -36,4 +36,11 @@ config WAKE_WORD
     help
         唤醒词文本；supermini-c3 用 Wakenet、kyle-s3-lcd 用 Multinet。
 
+config AUDIO_SELFTEST
+    bool "Run K3 audio self-test on boot"
+    default y
+    help
+        K3 真机验证用：启动后先播 440Hz 正弦（扬声器可闻），再循环打印麦克风电平。
+        K6 音频流水线接入后置 n。
+
 endmenu
