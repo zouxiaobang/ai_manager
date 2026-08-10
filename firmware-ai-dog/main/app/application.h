@@ -30,6 +30,9 @@ public:
 private:
     void DispatchPendingEvents();
     void OnInputEvent(const InputEvent& ev);
+    void ToggleSession();
+    void AdjustVolume(int delta);
+    void UpdateLedForSession();
 
     IBoard& board_;
     IStorage& storage_;
@@ -37,6 +40,7 @@ private:
     ChatSession session_;
     std::deque<std::function<void()>> queue_;
     bool running_ = true;
+    int volume_ = 70;  // 与 NoCodecI2s 默认音量一致
 };
 
 }  // namespace kyle

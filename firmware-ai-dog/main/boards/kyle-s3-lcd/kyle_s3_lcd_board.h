@@ -2,6 +2,7 @@
 #define KYLE_BOARDS_KYLE_S3_LCD_BOARD_H
 
 #include <memory>
+#include <vector>
 
 #include "hal/board.h"
 
@@ -21,6 +22,8 @@ public:
     IPower* power() override;
     INetwork* network() override;
     void Init() override;
+    void RegisterDevice(IDevice* device) override;
+    void EnterSleep() override;
 
 private:
     std::unique_ptr<IAudioCodec> audio_;
@@ -30,6 +33,8 @@ private:
     std::unique_ptr<IBacklight> backlight_;
     std::unique_ptr<IPower> power_;
     std::unique_ptr<INetwork> network_;
+    // 注册的设备指针（板拥有 unique_ptr，此处仅借用；注册顺序即下电关断顺序）
+    std::vector<IDevice*> devices_;
 };
 
 }  // namespace kyle

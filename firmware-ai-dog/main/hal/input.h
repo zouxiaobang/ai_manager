@@ -5,10 +5,16 @@
 
 namespace kyle {
 
+// 统一 button_id 约定：物理按键 0/1/2，触摸固定 10（区分两类输入源）
+constexpr int kButtonBoot = 0;
+constexpr int kButtonVolUp = 1;
+constexpr int kButtonVolDown = 2;
+constexpr int kTouchButtonId = 10;
+
 // 按键/触摸统一输入事件
 struct InputEvent {
     enum { kClick, kDoubleClick, kLongPress } type;
-    int button_id;  // 0 = BOOT，1 = VOL+ / UP，2 = VOL- / DOWN ...
+    int button_id;  // 见上方 kButton* / kTouchButtonId 约定
 };
 
 class IInput {

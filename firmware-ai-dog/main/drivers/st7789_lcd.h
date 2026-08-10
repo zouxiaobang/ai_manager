@@ -32,7 +32,8 @@ public:
     ~St7789Lcd() override;
 
     // 初始化 SPI 总线 + panel，成功后画测试图案并亮背光。
-    void Init();
+    // 同时作为 IDevice::Init 的实现（经 IDisplay 继承）：设备列表遍历初始化也能正确上电。
+    void Init() override;
 
     // 测试图案：0=彩色条，1=棋盘格。
     void ShowPattern(int pattern);
@@ -41,6 +42,8 @@ public:
     void SetChatMessage(const char* role, const char* text) override;
     void SetEmotion(const char* e) override;
     void ShowToast(const char* msg, int ms) override;
+    void DisplaySleep() override;  // 深睡前 DISPOFF，ST7789 进入低功耗
+    void Stop() override;          // 下电：DISPOFF 关屏，进入低功耗
     int width() const override;
     int height() const override;
 

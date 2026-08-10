@@ -3,6 +3,7 @@
 
 #include "hal/audio_codec.h"
 #include "hal/backlight.h"
+#include "hal/device.h"
 #include "hal/display.h"
 #include "hal/input.h"
 #include "hal/led.h"
@@ -39,6 +40,12 @@ public:
     virtual IPower* power() = 0;          // 可空
     virtual INetwork* network() = 0;
     virtual void Init() = 0;              // 总线/GPIO/电源初始化
+    // 注册设备（LED/功放/麦克风/屏/背光/电源等）进板级列表。注册顺序即整板下电时
+    // 遍历调 Stop() 的顺序，板在 Init 里按关断顺序注册（外设先、电源最后）。
+    virtual void RegisterDevice(IDevice* device) = 0;
+    // 深睡前关断序列：遍历已注册设备调用 Stop()，各设备自己做关断。
+    // 顺序敏感约束（先灭背光再关屏、深睡必须是最后动作）由板在注册顺序里保证。
+    virtual void EnterSleep() = 0;
 };
 
 }  // namespace kyle

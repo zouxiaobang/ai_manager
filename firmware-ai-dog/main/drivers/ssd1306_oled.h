@@ -16,6 +16,7 @@ public:
     void SetChatMessage(const char* role, const char* text) override;
     void SetEmotion(const char* e) override;
     void ShowToast(const char* msg, int ms) override;
+    void Stop() override;  // 下电：关显示（当前 DisplaySleep 空实现，预留）
     int width() const override;
     int height() const override;
 

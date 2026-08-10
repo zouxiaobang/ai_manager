@@ -1,10 +1,12 @@
 #ifndef KYLE_HAL_POWER_H
 #define KYLE_HAL_POWER_H
 
+#include "hal/device.h"
+
 namespace kyle {
 
 // 电源/电池/睡眠能力（supermini-c3 无电池，可用 NoPower 空实现）
-class IPower {
+class IPower : public IDevice {
 public:
     virtual ~IPower() = default;
 

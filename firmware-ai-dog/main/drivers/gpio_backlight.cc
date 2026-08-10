@@ -45,6 +45,11 @@ void GpioBacklight::SetBrightness(int percent) {
     ESP_LOGI(TAG, "背光亮度 %d%%", brightness_);
 }
 
+void GpioBacklight::Stop() {
+    // 下电：背光亮度归零，避免深睡期间背光持续耗电
+    SetBrightness(0);
+}
+
 int GpioBacklight::brightness() const { return brightness_; }
 
 }  // namespace kyle

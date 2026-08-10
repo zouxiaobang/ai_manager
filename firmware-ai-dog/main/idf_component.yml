@@ -6,6 +6,9 @@ dependencies:
   # esp_websocket_client 自 ESP-IDF v5.5 起移出内置组件，改由组件管理器引入（F3 网络层使用）
   espressif/esp_websocket_client:
     version: "^1.8.0"
+  # kyle-s3-lcd 板载状态灯是 WS2812 RGB 灯珠（GPIO48），需 led_strip 组件（K4）
+  espressif/led_strip:
+    version: "^3.0.1"
   # F4 再启用（当前驱动为桩、无唤醒词/UI 调用，F1 不引入第三方组件以免无谓拉大构建）：
   # espressif/esp-sr:
   #   version: "^2.2.0"

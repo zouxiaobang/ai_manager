@@ -20,9 +20,12 @@ TouchPoint ParseCst816sPoint(const uint8_t raw[5], int width, int height) {
     return p;
 }
 
-TouchGestureDetector::TouchGestureDetector() : TouchGestureDetector(Config{}) {}
+TouchGestureDetector::TouchGestureDetector() : TouchGestureDetector(Config{}, kTouchButtonId) {}
 
-TouchGestureDetector::TouchGestureDetector(const Config& cfg) : cfg_(cfg) {}
+TouchGestureDetector::TouchGestureDetector(const Config& cfg) : TouchGestureDetector(cfg, kTouchButtonId) {}
+
+TouchGestureDetector::TouchGestureDetector(const Config& cfg, int button_id)
+    : cfg_(cfg), button_id_(button_id) {}
 
 bool TouchGestureDetector::Update(bool touched, int64_t now_ms, InputEvent* out) {
     InputEvent dummy{};
@@ -40,7 +43,7 @@ bool TouchGestureDetector::Update(bool touched, int64_t now_ms, InputEvent* out)
         now_ms - press_start_ms_ >= cfg_.long_press_thresh_ms) {
         long_press_fired_ = true;
         out->type = InputEvent::kLongPress;
-        out->button_id = kTouchButtonId;
+        out->button_id = button_id_;
         prev_touched_ = touched;
         return true;
     }
@@ -64,7 +67,7 @@ bool TouchGestureDetector::Update(bool touched, int64_t now_ms, InputEvent* out)
         } else {
             out->type = InputEvent::kClick;
         }
-        out->button_id = kTouchButtonId;
+        out->button_id = button_id_;
         click_count_ = 0;
         return true;
     }

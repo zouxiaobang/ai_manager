@@ -21,6 +21,11 @@ void Ssd1306Oled::SetEmotion(const char* e) {
     // TODO(driver)
 }
 
+void Ssd1306Oled::Stop() {
+    // 下电：关显示。DisplaySleep 当前为空实现，SSD1306 关显示命令留待 TODO(driver)
+    DisplaySleep();
+}
+
 void Ssd1306Oled::ShowToast(const char* msg, int ms) {
     (void)msg;
     (void)ms;

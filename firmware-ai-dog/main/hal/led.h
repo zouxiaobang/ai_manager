@@ -1,6 +1,8 @@
 #ifndef KYLE_HAL_LED_H
 #define KYLE_HAL_LED_H
 
+#include "hal/device.h"
+
 namespace kyle {
 
 // 设备状态 → 指示灯状态联动
@@ -12,7 +14,7 @@ enum class LedState {
     kLedError,
 };
 
-class ILed {
+class ILed : public IDevice {
 public:
     virtual ~ILed() = default;
     virtual void SetState(LedState s) = 0;

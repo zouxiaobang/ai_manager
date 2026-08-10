@@ -36,6 +36,21 @@ IBacklight* SuperminiC3Board::backlight() { return nullptr; }
 IPower* SuperminiC3Board::power() { return power_.get(); }
 INetwork* SuperminiC3Board::network() { return network_.get(); }
 
+void SuperminiC3Board::RegisterDevice(IDevice* device) {
+    if (device != nullptr) {
+        devices_.push_back(device);
+    }
+}
+
+void SuperminiC3Board::EnterSleep() {
+    // 与 kyle-s3-lcd 相同的遍历关断语义；无背光，注册顺序为 灭灯→停音频→屏关→深睡。
+    for (IDevice* d : devices_) {
+        if (d != nullptr) {
+            d->Stop();
+        }
+    }
+}
+
 void SuperminiC3Board::Init() {
     // 板级只做组装（依赖注入）；TODO(driver): 接入真实 I2S/I2C/GPIO 驱动并初始化总线。
     audio_ = std::make_unique<NoCodecI2s>(
@@ -49,8 +64,14 @@ void SuperminiC3Board::Init() {
     input_ = std::make_unique<GpioButton>(
         std::vector<int>{supermini_c3::kPinBoot, supermini_c3::kPinVolumeUp,
                          supermini_c3::kPinVolumeDown});
-    power_ = std::make_unique<NoPower>();
+    power_ = std::make_unique<NoPower>(supermini_c3::kPinBoot);  // 深睡由 BOOT 唤醒
     network_ = std::make_unique<NoNetwork>();
+
+    // 注册进设备列表。注册顺序即下电遍历 Stop() 的顺序：灭灯→停音频→屏关→深睡。
+    RegisterDevice(led_.get());
+    RegisterDevice(audio_.get());
+    RegisterDevice(display_.get());
+    RegisterDevice(power_.get());
 }
 
 }  // namespace kyle

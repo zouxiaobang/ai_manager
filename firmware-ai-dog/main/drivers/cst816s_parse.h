@@ -13,9 +13,7 @@ namespace kyle {
 // 寄存器地址
 constexpr uint8_t kCst816sRegTouchData = 0x02;  // 触点状态 + 坐标（0x02 起 5 字节）
 constexpr uint8_t kCst816sI2cAddr = 0x38;
-
-// 触摸事件专用 button_id（物理按键占 0/1/2，触摸固定用 10 区分）
-constexpr int kTouchButtonId = 10;
+// 触摸 button_id 约定见 hal/input.h（kTouchButtonId）
 
 // 触点解析结果
 struct TouchPoint {
@@ -30,6 +28,7 @@ TouchPoint ParseCst816sPoint(const uint8_t raw[5], int width, int height);
 // 软件手势识别：用按压/抬手时序推导单击/双击/长按。
 // 为什么不用硬件手势寄存器：CST816S 坐标模式下 0x01 手势寄存器恒为 0
 //（真机实测），旧项目 xingzhi 板同样走软件时序。
+// 物理按键（GpioButton）复用本类：仅传不同 button_id，时序逻辑完全一致。
 class TouchGestureDetector {
 public:
     struct Config {
@@ -38,8 +37,10 @@ public:
         int double_click_window_ms = 400;  // 两次单击之间的最大间隔
     };
 
-    TouchGestureDetector();  // 默认阈值（Config{} 不能在类内作默认实参，见 .cc 委托构造）
+    TouchGestureDetector();  // 默认阈值 + 触摸 button_id（Config{} 不能在类内作默认实参，见 .cc 委托构造）
     explicit TouchGestureDetector(const Config& cfg);
+    // 指定手势事件的 button_id（触摸默认 kTouchButtonId，按键传各自 id）
+    TouchGestureDetector(const Config& cfg, int button_id);
 
     // 每次轮询喂入触点状态与单调时钟(ms)。命中单击/双击/长按时返回 true 并填 out
     //（out 为空仍推进状态机）。同一手势只输出一次（沿触发）。
@@ -47,6 +48,7 @@ public:
 
 private:
     Config cfg_;
+    int button_id_ = kTouchButtonId;
     bool prev_touched_ = false;
     bool long_press_fired_ = false;
     int64_t press_start_ms_ = 0;

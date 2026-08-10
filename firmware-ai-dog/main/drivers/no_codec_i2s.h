@@ -12,6 +12,7 @@ namespace kyle {
 // 均 32bit mono LEFT，DMA 6×240 帧，与旧 NoAudioCodecSimplex 对齐。
 // 采样变换/音量换算纯函数在 i2s_audio_math.h（host 可测），本驱动只做 I2S 搬运。
 // 头文件不引入 ESP-IDF 类型（pimpl），与 Cst816sTouch 同风格。
+// Stop() 经 IAudioCodec（继承 IDevice）同时满足两接口：下电时停止 I2S 通道。
 class NoCodecI2s : public IAudioCodec {
 public:
     // 引脚顺序与旧 NoAudioCodecSimplex 一致：扬声器(Bclk, Lrck, Dout) + 麦克风(Sck, Ws, Din)

@@ -21,6 +21,7 @@ public:
 
     void SetBrightness(int percent) override;  // 0..100
     int brightness() const override;
+    void Stop() override;  // 下电：背光亮度归零
 
 private:
     static constexpr int kDutyMax = (1 << 10) - 1;  // 1023

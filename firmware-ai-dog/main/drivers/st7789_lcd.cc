@@ -106,6 +106,18 @@ void St7789Lcd::ShowToast(const char* msg, int ms) {
     (void)ms;
 }
 
+void St7789Lcd::DisplaySleep() {
+    // 深睡前关面板显示（DISPOFF 0x28），让 ST7789 进入低功耗，避免深睡后整屏保持耗电
+    if (impl_->init_ok) {
+        esp_lcd_panel_disp_on_off(impl_->panel, false);
+    }
+}
+
+void St7789Lcd::Stop() {
+    // 下电：DISPOFF 关屏进低功耗（设备列表遍历时调用）
+    DisplaySleep();
+}
+
 int St7789Lcd::width() const { return cfg_.width; }
 int St7789Lcd::height() const { return cfg_.height; }
 

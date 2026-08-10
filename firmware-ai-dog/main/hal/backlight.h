@@ -1,10 +1,12 @@
 #ifndef KYLE_HAL_BACKLIGHT_H
 #define KYLE_HAL_BACKLIGHT_H
 
+#include "hal/device.h"
+
 namespace kyle {
 
 // 屏幕背光控制（kyle-s3-lcd 有，supermini-c3 OLED 常亮可空）
-class IBacklight {
+class IBacklight : public IDevice {
 public:
     virtual ~IBacklight() = default;
     virtual void SetBrightness(int percent) = 0;  // 0..100
