@@ -35,7 +35,7 @@ export interface IotDeviceOnlineStatus {
   lastSeenAt?: string
 }
 
-/** 固件 VO（对应后端 domain/vo/FirmwareVO） */
+/** 固件 VO（对应后端 domain/vo/FirmwareVO，status：PUBLISHED/DRAFT） */
 export interface IotFirmware {
   id: number
   version: string
@@ -45,6 +45,7 @@ export interface IotFirmware {
   size?: number
   force?: boolean
   releaseNote?: string
+  status?: string
   createTime?: string
 }
 

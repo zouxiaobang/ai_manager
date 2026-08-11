@@ -20,6 +20,13 @@
       <el-table-column :label="t('iot.firmware.size')" width="110">
         <template #default="{ row }">{{ formatBytes(row.size) }}</template>
       </el-table-column>
+      <el-table-column :label="t('iot.firmware.status')" width="90">
+        <template #default="{ row }">
+          <el-tag :type="firmwareStatusMeta(row.status).tagType" size="small">
+            {{ t(firmwareStatusMeta(row.status).label) }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column :label="t('iot.firmware.force')" width="90">
         <template #default="{ row }">
           <el-tag :type="row.force ? 'danger' : 'info'" size="small">
@@ -163,7 +170,7 @@ import {
 import TablePagination from '@/components/TablePagination.vue'
 import { usePagination } from '@/composables/usePagination'
 import { TABLE_ACTIONS_CELL_CLASS } from '@/constants/table'
-import { formatBytes, formatIotTime, resolveDeviceName, resolveOtaStateMeta } from './iotFormat'
+import { formatBytes, formatIotTime, resolveDeviceName, resolveFirmwareStatusMeta, resolveOtaStateMeta } from './iotFormat'
 
 const { t } = useI18n()
 
@@ -203,6 +210,10 @@ const {
 
 function otaMeta(state?: IotOtaState) {
   return resolveOtaStateMeta(state)
+}
+
+function firmwareStatusMeta(status?: string) {
+  return resolveFirmwareStatusMeta(status)
 }
 
 function normalizeProgress(progress?: number): number {
@@ -274,6 +285,8 @@ async function onPublish(row: IotFirmware) {
   })
   await publishIotFirmware(row.id, false)
   ElMessage.success(t('iot.firmware.publishSuccess'))
+  // 刷新固件列表（状态列 → 已发布）+ OTA 记录表（设备下次 check 生成升级记录，可见进度）
+  await Promise.all([load(true), loadOta(true)])
 }
 
 async function onForceUpgrade(row: IotFirmware) {
@@ -284,7 +297,8 @@ async function onForceUpgrade(row: IotFirmware) {
   )
   await forceUpgradeIotFirmware(row.id)
   ElMessage.success(t('iot.firmware.forceUpgradeSuccess'))
-  await loadOta(true)
+  // 刷新固件列表（force 列 → 强制）+ OTA 记录表（在线设备下次 check 下发升级）
+  await Promise.all([load(true), loadOta(true)])
 }
 
 async function onDelete(row: IotFirmware) {

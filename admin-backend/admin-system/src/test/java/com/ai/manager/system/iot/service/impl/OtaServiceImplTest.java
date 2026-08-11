@@ -6,8 +6,10 @@ import com.ai.manager.system.iot.domain.dto.DeviceActivateRequest;
 import com.ai.manager.system.iot.domain.dto.DeviceActivateResult;
 import com.ai.manager.system.iot.domain.dto.OtaCheckRequest;
 import com.ai.manager.system.iot.domain.dto.OtaCheckResponse;
+import com.ai.manager.system.iot.domain.dto.OtaStatusRequest;
 import com.ai.manager.system.iot.domain.entity.IotDevice;
 import com.ai.manager.system.iot.domain.entity.IotFirmware;
+import com.ai.manager.system.iot.domain.entity.IotOtaRecord;
 import com.ai.manager.system.iot.mapper.IotDeviceMapper;
 import com.ai.manager.system.iot.mapper.IotOtaRecordMapper;
 import com.ai.manager.system.iot.service.FirmwareService;
@@ -29,6 +31,7 @@ import java.util.HexFormat;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -55,6 +58,7 @@ class OtaServiceImplTest {
     static void initMybatisPlus() {
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), IotDevice.class);
         TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), IotFirmware.class);
+        TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), IotOtaRecord.class);
     }
 
     @BeforeEach
@@ -143,7 +147,8 @@ class OtaServiceImplTest {
     }
 
     @Test
-    void check_whenForceFirmware_shouldAlwaysInclude() {
+    void check_whenForceFirmwareDifferentVersion_shouldInclude() {
+        // force + 设备版本不同（更旧）→ 强制升级
         when(iotDeviceMapper.selectOne(any())).thenReturn(device(1L, "aabbccdd", "2.2.1"));
         when(firmwareService.latestPublished()).thenReturn(firmware(9L, "2.2.0", 1));
 
@@ -151,6 +156,42 @@ class OtaServiceImplTest {
 
         assertThat(resp.getFirmware()).isNotNull();
         assertThat(resp.getFirmware().isForce()).isTrue();
+        verify(iotOtaRecordMapper).insert(any(com.ai.manager.system.iot.domain.entity.IotOtaRecord.class));
+    }
+
+    @Test
+    void check_whenForceFirmwareSameVersion_shouldNotInclude() {
+        // force + 版本完全相同：设备已运行该发布版本，不再下发，避免每次 check 无限循环重下
+        when(iotDeviceMapper.selectOne(any())).thenReturn(device(1L, "aabbccdd", "2.2.1"));
+        when(firmwareService.latestPublished()).thenReturn(firmware(9L, "2.2.1", 1));
+
+        OtaCheckResponse resp = service.check(checkRequest("aabbccdd", "2.2.1"));
+
+        assertThat(resp.getFirmware()).isNull();
+        verify(iotOtaRecordMapper, never()).insert(any(com.ai.manager.system.iot.domain.entity.IotOtaRecord.class));
+    }
+
+    @Test
+    void check_whenForceFirmwareDeviceNewer_shouldStillInclude() {
+        // force 允许降级：设备已领先（2.2.2）但后端 force 下推 2.2.0，仍强制刷回
+        when(iotDeviceMapper.selectOne(any())).thenReturn(device(1L, "aabbccdd", "2.2.2"));
+        when(firmwareService.latestPublished()).thenReturn(firmware(9L, "2.2.0", 1));
+
+        OtaCheckResponse resp = service.check(checkRequest("aabbccdd", "2.2.2"));
+
+        assertThat(resp.getFirmware()).isNotNull();
+        assertThat(resp.getFirmware().isForce()).isTrue();
+    }
+
+    @Test
+    void check_whenForceFirmwareDeviceEmptyVersion_shouldInclude() {
+        // 设备没上报版本：force 兜底刷写
+        when(iotDeviceMapper.selectOne(any())).thenReturn(device(1L, "aabbccdd", null));
+        when(firmwareService.latestPublished()).thenReturn(firmware(9L, "2.2.1", 1));
+
+        OtaCheckResponse resp = service.check(checkRequest("aabbccdd", null));
+
+        assertThat(resp.getFirmware()).isNotNull();
     }
 
     @Test
@@ -205,6 +246,94 @@ class OtaServiceImplTest {
 
         assertThat(service.getDownloadInfo(9L).getVersion()).isEqualTo("2.2.1");
         verify(firmwareService).downloadInfo(9L);
+    }
+
+    // ---- OTA 状态上报（POST /api/iot/ota/status）----
+
+    @Test
+    void reportStatus_whenDownloading_shouldMarkUpgradingWithProgress() {
+        when(iotDeviceMapper.selectOne(any())).thenReturn(device(1L, "aabbccdd", "2.0.0"));
+        IotOtaRecord record = otaRecord(7L, 1L, "UPGRADING", 0);
+        when(iotOtaRecordMapper.selectOne(any())).thenReturn(record);
+
+        service.reportStatus(statusRequest("aabbccdd", "DOWNLOADING", 42));
+
+        // DOWNLOADING 归并为进行中；进度更新但不落 finished_at
+        assertThat(record.getState()).isEqualTo("UPGRADING");
+        assertThat(record.getProgress()).isEqualTo(42);
+        assertThat(record.getFinishedAt()).isNull();
+        verify(iotOtaRecordMapper).updateById(record);
+        verify(iotDeviceMapper).updateById(argThat((IotDevice d) -> "UPGRADING".equals(d.getOtaState())));
+    }
+
+    @Test
+    void reportStatus_whenSuccess_shouldFinishAndSyncDeviceState() {
+        when(iotDeviceMapper.selectOne(any())).thenReturn(device(1L, "aabbccdd", "2.0.0"));
+        IotOtaRecord record = otaRecord(7L, 1L, "UPGRADING", 60);
+        when(iotOtaRecordMapper.selectOne(any())).thenReturn(record);
+
+        service.reportStatus(statusRequest("aabbccdd", "SUCCESS", 100));
+
+        assertThat(record.getState()).isEqualTo("SUCCESS");
+        assertThat(record.getProgress()).isEqualTo(100);
+        assertThat(record.getFinishedAt()).isNotNull();
+        verify(iotOtaRecordMapper).updateById(record);
+        verify(iotDeviceMapper).updateById(argThat((IotDevice d) -> "SUCCESS".equals(d.getOtaState())));
+    }
+
+    @Test
+    void reportStatus_whenFailed_shouldFinishAsFailed() {
+        when(iotDeviceMapper.selectOne(any())).thenReturn(device(1L, "aabbccdd", "2.0.0"));
+        IotOtaRecord record = otaRecord(7L, 1L, "UPGRADING", 35);
+        when(iotOtaRecordMapper.selectOne(any())).thenReturn(record);
+
+        service.reportStatus(statusRequest("aabbccdd", "FAILED", 35));
+
+        assertThat(record.getState()).isEqualTo("FAILED");
+        assertThat(record.getFinishedAt()).isNotNull();
+        verify(iotOtaRecordMapper).updateById(record);
+        verify(iotDeviceMapper).updateById(argThat((IotDevice d) -> "FAILED".equals(d.getOtaState())));
+    }
+
+    @Test
+    void reportStatus_whenDeviceMissing_shouldIgnore() {
+        when(iotDeviceMapper.selectOne(any())).thenReturn(null);
+
+        service.reportStatus(statusRequest("deadbeef", "SUCCESS", 100));
+
+        // 陌生 MAC 静默忽略，不建记录、不更新设备
+        verify(iotOtaRecordMapper, never()).selectOne(any());
+        verify(iotOtaRecordMapper, never()).updateById(any(IotOtaRecord.class));
+        verify(iotDeviceMapper, never()).updateById(any(IotDevice.class));
+    }
+
+    @Test
+    void reportStatus_whenNoRecord_shouldIgnore() {
+        when(iotDeviceMapper.selectOne(any())).thenReturn(device(1L, "aabbccdd", "2.0.0"));
+        when(iotOtaRecordMapper.selectOne(any())).thenReturn(null);
+
+        service.reportStatus(statusRequest("aabbccdd", "SUCCESS", 100));
+
+        verify(iotOtaRecordMapper, never()).updateById(any(IotOtaRecord.class));
+        verify(iotDeviceMapper, never()).updateById(any(IotDevice.class));
+    }
+
+    private IotOtaRecord otaRecord(Long id, Long deviceId, String state, int progress) {
+        IotOtaRecord r = new IotOtaRecord();
+        r.setId(id);
+        r.setDeviceId(deviceId);
+        r.setState(state);
+        r.setProgress(progress);
+        r.setDeleted(0);
+        return r;
+    }
+
+    private OtaStatusRequest statusRequest(String mac, String state, int progress) {
+        OtaStatusRequest req = new OtaStatusRequest();
+        req.setMac(mac);
+        req.setState(state);
+        req.setProgress(progress);
+        return req;
     }
 
     private String hmac(String secret, String data) {
