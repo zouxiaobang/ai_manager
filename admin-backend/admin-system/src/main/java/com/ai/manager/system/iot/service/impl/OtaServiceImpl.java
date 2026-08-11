@@ -8,6 +8,7 @@ import com.ai.manager.system.iot.domain.dto.DeviceActivateResult;
 import com.ai.manager.system.iot.domain.dto.FirmwareDownloadInfo;
 import com.ai.manager.system.iot.domain.dto.OtaCheckRequest;
 import com.ai.manager.system.iot.domain.dto.OtaCheckResponse;
+import com.ai.manager.system.iot.domain.dto.OtaStatusRequest;
 import com.ai.manager.system.iot.domain.entity.IotDevice;
 import com.ai.manager.system.iot.domain.entity.IotFirmware;
 import com.ai.manager.system.iot.domain.entity.IotOtaRecord;
@@ -132,10 +133,60 @@ public class OtaServiceImpl implements OtaService {
         return firmwareService.downloadInfo(firmwareId);
     }
 
-    /** 是否需要升级：设备版本为空、强制升级、或服务器版本更新。 */
+    @Override
+    @Transactional
+    public void reportStatus(OtaStatusRequest request) {
+        String mac = normalizeMac(request.getMac());
+        IotDevice device = iotDeviceMapper.selectOne(new LambdaQueryWrapper<IotDevice>()
+                .eq(IotDevice::getDeleted, 0)
+                .eq(IotDevice::getMac, mac)
+                .last("LIMIT 1"));
+        if (device == null) {
+            // 陌生/未注册 MAC：忽略，不创建设备（避免脏数据），等待其上电 OTA check 自动注册
+            log.warn("OTA 状态上报：设备未注册 mac={}", mac);
+            return;
+        }
+        // check 响应未带 record id，按 mac→设备→最新一条 OTA 记录定位（同设备多次升级取最近一次）
+        IotOtaRecord record = iotOtaRecordMapper.selectOne(new LambdaQueryWrapper<IotOtaRecord>()
+                .eq(IotOtaRecord::getDeleted, 0)
+                .eq(IotOtaRecord::getDeviceId, device.getId())
+                .orderByDesc(IotOtaRecord::getId)
+                .last("LIMIT 1"));
+        if (record == null) {
+            log.warn("OTA 状态上报：设备 {} 无升级记录，忽略 mac={}", device.getId(), mac);
+            return;
+        }
+        String state = normalizeReportState(request.getState());
+        Integer progress = request.getProgress() != null ? request.getProgress() : record.getProgress();
+        record.setState(state);
+        record.setProgress(progress);
+        if ("SUCCESS".equals(state) || "FAILED".equals(state)) {
+            record.setFinishedAt(LocalDateTime.now());
+        }
+        iotOtaRecordMapper.updateById(record);
+
+        // 同步设备 OTA 状态（后台设备列表据此展示）；固件版本由升级成功后下一次 OTA check 自动更新
+        device.setOtaState(state);
+        device.setLastSeenAt(LocalDateTime.now());
+        iotDeviceMapper.updateById(device);
+    }
+
+    /**
+     * 是否需要升级。
+     * <p>
+     * force=1 的语义是「越过版本比较强制刷写」：版本相同或更旧都要升。但版本完全相同
+     * （设备已运行该发布版本）时不再下发——否则设备每次 check 都会命中 force、反复重下
+     * 同一份固件，造成「重启→下载→重启」无限循环（实际事故：后台 OTA 记录一直成功、
+     * 设备却永远在重下，且设备列表版本号不变）。
+     * </p>
+     */
     private boolean shouldUpgrade(IotFirmware latest, String currentVersion) {
         if (latest.getForceUpgrade() != null && latest.getForceUpgrade() == 1) {
-            return true;
+            // 设备版本为空：force 兜底刷写；版本不相同（含更旧/更新）→ 强制升级
+            if (!StringUtils.hasText(currentVersion)) {
+                return true;
+            }
+            return compareVersion(latest.getVersion(), currentVersion) != 0;
         }
         if (!StringUtils.hasText(currentVersion)) {
             return true;
@@ -164,6 +215,18 @@ public class OtaServiceImpl implements OtaService {
         } catch (NumberFormatException e) {
             return 0;
         }
+    }
+
+    /** 固件上报状态 → 记录状态：DOWNLOADING 及未知值归并为进行中（UPGRADING）。 */
+    private String normalizeReportState(String state) {
+        if (state == null) {
+            return "UPGRADING";
+        }
+        return switch (state) {
+            case "SUCCESS" -> "SUCCESS";
+            case "FAILED" -> "FAILED";
+            default -> "UPGRADING";
+        };
     }
 
     private void recordOta(Long deviceId, Long firmwareId) {

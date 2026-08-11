@@ -6,6 +6,7 @@ import com.ai.manager.system.iot.domain.dto.DeviceActivateResult;
 import com.ai.manager.system.iot.domain.dto.FirmwareDownloadInfo;
 import com.ai.manager.system.iot.domain.dto.OtaCheckRequest;
 import com.ai.manager.system.iot.domain.dto.OtaCheckResponse;
+import com.ai.manager.system.iot.domain.dto.OtaStatusRequest;
 import com.ai.manager.system.iot.service.OtaService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ContentDisposition;
@@ -56,5 +57,12 @@ public class DeviceOtaController {
         headers.set("X-Firmware-Version", info.getVersion());
         headers.set("X-Firmware-Hash", info.getFileHash());
         return ResponseEntity.ok().headers(headers).body(info.getContent());
+    }
+
+    /** 设备 OTA 升级状态/进度上报（固件下载中每 10%、成功/失败各上报一次）。 */
+    @PostMapping("/status")
+    public ApiResult<Void> reportStatus(@RequestBody OtaStatusRequest request) {
+        otaService.reportStatus(request);
+        return ApiResult.ok();
     }
 }
