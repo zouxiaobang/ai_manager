@@ -35,6 +35,8 @@ IInput* SuperminiC3Board::input() { return input_.get(); }
 IBacklight* SuperminiC3Board::backlight() { return nullptr; }
 IPower* SuperminiC3Board::power() { return power_.get(); }
 INetwork* SuperminiC3Board::network() { return network_.get(); }
+// 无配网能力（NoNetwork + 无配网服务）
+IProvisioningServer* SuperminiC3Board::provisioning() { return nullptr; }
 
 void SuperminiC3Board::RegisterDevice(IDevice* device) {
     if (device != nullptr) {

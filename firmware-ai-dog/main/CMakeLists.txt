@@ -16,6 +16,13 @@ idf_component_register(
         "core/chat_session.cc"
         "core/ota_version.cc"
         "core/net_config.cc"
+        "core/wifi_config.cc"
+        "core/wifi_state.cc"
+        "core/ota_check.cc"
+        "core/ws_protocol.cc"
+        "core/ota_plan.cc"
+        "core/ota_report.cc"
+        "core/provisioning.cc"
         "boards/board_factory.cc"
         "boards/pin_conflict.cc"
         "${BOARD_SRC}"
@@ -35,6 +42,11 @@ idf_component_register(
         "drivers/no_display.cc"
         "drivers/no_power.cc"
         "drivers/no_network.cc"
+        "drivers/network_esp.cc"
+        "drivers/http_esp.cc"
+        "drivers/websocket_esp.cc"
+        "drivers/ota_esp.cc"
+        "drivers/provisioning_esp.cc"
     INCLUDE_DIRS
         "."
     REQUIRES
@@ -49,6 +61,8 @@ idf_component_register(
         esp_netif
         esp_websocket_client
         esp_http_client
+        esp_http_server
+        app_update
         # F4 启用唤醒词/UI 后按需补充：espressif/esp-sr、espressif/esp_lvgl_port（经 idf_component.yml 引入）
 )
 

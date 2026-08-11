@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
 # kyle ESP32 全新架构固件（从零重构，只保留 supermini-c3 / kyle-s3-lcd 两块板）
-set(PROJECT_VER "2.2.1")
+set(PROJECT_VER "2.2.2")
 set(PROJECT_NAME "kyle")
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)

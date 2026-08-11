@@ -122,6 +122,17 @@ TEST_CASE("parse server hello extracts session_id and audio_params", "[wire]") {
     TEST_ASSERT_EQUAL_INT(60, info.frame_duration);
 }
 
+TEST_CASE("parse server hello accepts backend server_hello type", "[wire]") {
+    // 后端 DeviceWsHandler 实际下发的格式（type=server_hello，无 transport 字段）
+    const char* json =
+        "{\"type\":\"server_hello\",\"session_id\":\"27bba484c4284284aaf63cdcdb743164\","
+        "\"audio_params\":{\"sample_rate\":16000,\"channels\":1,\"bits_per_sample\":16}}";
+    auto info = ParseServerHello(json);
+    TEST_ASSERT_TRUE(info.ok);
+    TEST_ASSERT_EQUAL_STRING("27bba484c4284284aaf63cdcdb743164", info.session_id.c_str());
+    TEST_ASSERT_EQUAL_INT(16000, info.sample_rate);
+}
+
 TEST_CASE("parse server hello rejects non-hello message", "[wire]") {
     auto info = ParseServerHello("{\"type\":\"llm\",\"text\":\"x\"}");
     TEST_ASSERT_FALSE(info.ok);

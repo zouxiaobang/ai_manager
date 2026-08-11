@@ -9,6 +9,7 @@
 #include "hal/led.h"
 #include "hal/network.h"
 #include "hal/power.h"
+#include "hal/provisioning.h"
 
 namespace kyle {
 
@@ -39,6 +40,7 @@ public:
     virtual IBacklight* backlight() = 0;  // 可空
     virtual IPower* power() = 0;          // 可空
     virtual INetwork* network() = 0;
+    virtual IProvisioningServer* provisioning() = 0;  // 可空（无配网能力的板返回 nullptr）
     virtual void Init() = 0;              // 总线/GPIO/电源初始化
     // 注册设备（LED/功放/麦克风/屏/背光/电源等）进板级列表。注册顺序即整板下电时
     // 遍历调 Stop() 的顺序，板在 Init 里按关断顺序注册（外设先、电源最后）。

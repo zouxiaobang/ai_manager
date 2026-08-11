@@ -176,7 +176,10 @@ ServerHelloInfo ParseServerHello(const char* json) {
     if (!json::Parse(json, &root) || !root.IsObject()) return info;
 
     const json::Value* type = root.Get("type");
-    if (type == nullptr || !type->IsString() || std::string(type->AsString()) != "hello") return info;
+    // 兼容后端实际下发 "server_hello"（与协议文档 "hello" 两种命名并存）
+    if (type == nullptr || !type->IsString()) return info;
+    const std::string t = type->AsString();
+    if (t != "hello" && t != "server_hello") return info;
 
     const json::Value* sid = root.Get("session_id");
     if (sid && sid->IsString()) info.session_id = sid->AsString();

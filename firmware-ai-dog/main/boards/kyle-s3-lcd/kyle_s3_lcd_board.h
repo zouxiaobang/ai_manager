@@ -21,6 +21,7 @@ public:
     IBacklight* backlight() override;
     IPower* power() override;
     INetwork* network() override;
+    IProvisioningServer* provisioning() override;
     void Init() override;
     void RegisterDevice(IDevice* device) override;
     void EnterSleep() override;
@@ -33,6 +34,7 @@ private:
     std::unique_ptr<IBacklight> backlight_;
     std::unique_ptr<IPower> power_;
     std::unique_ptr<INetwork> network_;
+    std::unique_ptr<IProvisioningServer> provisioner_;  // K5.6 配网服务（esp_http_server）
     // 注册的设备指针（板拥有 unique_ptr，此处仅借用；注册顺序即下电关断顺序）
     std::vector<IDevice*> devices_;
 };

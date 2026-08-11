@@ -24,11 +24,31 @@ config BOARD_KYLE_S3_LCD
 
 endchoice
 
+config WIFI_SSID
+    string "Default WiFi SSID"
+    default ""
+    help
+        配网兜底 SSID（NVS wifi/ssid 为空时使用；menuconfig 填写，不进代码仓库）。
+
+config WIFI_PASSWORD
+    string "Default WiFi password"
+    default ""
+    help
+        配网兜底密码（NVS wifi/password 为空时使用；menuconfig 填写，不进代码仓库）。
+        生产环境应通过配网流程写入 NVS，此处仅作为开发期兜底。
+
 config LANGUAGE
     string "Language code"
     default "zh-CN"
     help
         用于系统信息上报与显示语言（如 zh-CN / en-US）。
+
+config FIRMWARE_VERSION
+    string "Firmware version"
+    default "2.2.2"
+    help
+        固件版本号（OTA check 上报 / 版本比较用，与根 CMakeLists PROJECT_VER 保持一致）。
+        发布新版本时在此递增，后端据此判断是否需要升级。
 
 config WAKE_WORD
     string "Wake word text"

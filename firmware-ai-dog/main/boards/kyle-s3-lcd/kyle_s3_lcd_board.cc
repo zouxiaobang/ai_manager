@@ -8,9 +8,10 @@
 #include "drivers/gpio_backlight.h"
 #include "drivers/gpio_button.h"
 #include "drivers/led_strip_led.h"
+#include "drivers/network_esp.h"
 #include "drivers/no_codec_i2s.h"
-#include "drivers/no_network.h"
 #include "drivers/no_power.h"
+#include "drivers/provisioning_esp.h"
 #include "drivers/st7789_lcd.h"
 
 namespace kyle {
@@ -38,6 +39,7 @@ IInput* KyleS3LcdBoard::input() { return input_.get(); }
 IBacklight* KyleS3LcdBoard::backlight() { return backlight_.get(); }
 IPower* KyleS3LcdBoard::power() { return power_.get(); }
 INetwork* KyleS3LcdBoard::network() { return network_.get(); }
+IProvisioningServer* KyleS3LcdBoard::provisioning() { return provisioner_.get(); }
 
 void KyleS3LcdBoard::RegisterDevice(IDevice* device) {
     if (device != nullptr) {
@@ -92,7 +94,10 @@ void KyleS3LcdBoard::Init() {
     backlight_ = std::make_unique<GpioBacklight>(kyle_s3_lcd::kPinBacklight);
     backlight_->SetBrightness(75);  // 默认亮度，便于观察测试图案
     power_ = std::make_unique<NoPower>(kyle_s3_lcd::kPinBoot);  // 深睡由 BOOT 唤醒
-    network_ = std::make_unique<NoNetwork>();
+    // K5.1：真实网络（esp_wifi STA）。配网信息由 Application 读 NVS/Kconfig 后注入。
+    network_ = std::make_unique<NetworkEsp>();
+    // K5.6：配网 HTTP 服务（esp_http_server）。Application 进配网模式时 Start + 开热点。
+    provisioner_ = std::make_unique<ProvisioningEsp>();
 
     // 注册进设备列表。
     RegisterDevice(led_.get());

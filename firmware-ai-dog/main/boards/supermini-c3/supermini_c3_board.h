@@ -21,6 +21,7 @@ public:
     IBacklight* backlight() override;  // 无背光，返回 nullptr
     IPower* power() override;
     INetwork* network() override;
+    IProvisioningServer* provisioning() override;
     void Init() override;
     void RegisterDevice(IDevice* device) override;
     void EnterSleep() override;

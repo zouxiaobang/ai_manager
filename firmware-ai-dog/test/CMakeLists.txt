@@ -14,6 +14,13 @@ add_executable(unit_tests
     core/chat_session_test.cpp
     core/ota_version_test.cpp
     core/net_config_test.cpp
+    core/wifi_config_test.cpp
+    core/wifi_state_test.cpp
+    core/ota_check_test.cpp
+    core/ota_report_test.cpp
+    core/ws_protocol_test.cpp
+    core/ota_plan_test.cpp
+    core/provisioning_test.cpp
     board/pin_conflict_test.cpp
     drivers/lcd_pattern_test.cpp
     drivers/backlight_test.cpp
@@ -29,6 +36,13 @@ add_executable(unit_tests
     ${CORE_DIR}/chat_session.cc
     ${CORE_DIR}/ota_version.cc
     ${CORE_DIR}/net_config.cc
+    ${CORE_DIR}/wifi_config.cc
+    ${CORE_DIR}/wifi_state.cc
+    ${CORE_DIR}/ota_check.cc
+    ${CORE_DIR}/ota_report.cc
+    ${CORE_DIR}/ws_protocol.cc
+    ${CORE_DIR}/ota_plan.cc
+    ${CORE_DIR}/provisioning.cc
     ${BOARD_DIR}/pin_conflict.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/../main/app/application.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/../main/drivers/lcd_pattern.cc
@@ -44,7 +58,11 @@ target_include_directories(unit_tests PRIVATE
     ${CORE_DIR}
 )
 
-# 与 IDF Kconfig 同源的默认 OTA URL，覆盖验证 CONFIG_OTA_URL 宏路径
+# 与 IDF Kconfig 同源的默认 OTA URL / WiFi 兜底 / 语言 / 固件版本，覆盖验证 CONFIG_* 宏路径
 target_compile_definitions(unit_tests PRIVATE
     "CONFIG_OTA_URL=\"https://api.tenclass.net/kyle/ota/\""
+    "CONFIG_WIFI_SSID=\"kyle-fallback-ssid\""
+    "CONFIG_WIFI_PASSWORD=\"\""
+    "CONFIG_LANGUAGE=\"zh-CN\""
+    "CONFIG_FIRMWARE_VERSION=\"2.2.2\""
 )
