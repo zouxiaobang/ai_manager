@@ -14,3 +14,8 @@ CONFIG_SPIRAM_MODE_OCT=y
 CONFIG_SPIRAM_SPEED_80M=y
 # K3 真机验证：启动后播正弦 + 打印麦克风电平；K6 音频流水线接入后置 n
 CONFIG_AUDIO_SELFTEST=y
+# 固件版本号：统一走 IDF 官方 APP_PROJECT_VER（与 esp_app_desc.version 同源），
+# 避免自定义 CONFIG_FIRMWARE_VERSION 与 PROJECT_VER 两套版本号脱节导致 OTA 循环。
+# 发布新版本在此递增，后端据此判断是否需要升级。
+CONFIG_APP_PROJECT_VER_FROM_CONFIG=y
+CONFIG_APP_PROJECT_VER="2.2.6"

@@ -58,11 +58,12 @@ target_include_directories(unit_tests PRIVATE
     ${CORE_DIR}
 )
 
-# 与 IDF Kconfig 同源的默认 OTA URL / WiFi 兜底 / 语言 / 固件版本，覆盖验证 CONFIG_* 宏路径
+# 与 IDF Kconfig 同源的默认 OTA URL / WiFi 兜底 / 语言 / 固件版本，覆盖验证 CONFIG_* 宏路径。
+# 版本宏用 IDF 官方 APP_PROJECT_VER（与固件同源，见 main/Kconfig.projbuild 说明）
 target_compile_definitions(unit_tests PRIVATE
     "CONFIG_OTA_URL=\"https://api.tenclass.net/kyle/ota/\""
     "CONFIG_WIFI_SSID=\"kyle-fallback-ssid\""
     "CONFIG_WIFI_PASSWORD=\"\""
     "CONFIG_LANGUAGE=\"zh-CN\""
-    "CONFIG_FIRMWARE_VERSION=\"2.2.2\""
+    "CONFIG_APP_PROJECT_VER=\"2.2.2\""
 )

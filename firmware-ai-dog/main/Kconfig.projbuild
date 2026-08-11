@@ -43,12 +43,11 @@ config LANGUAGE
     help
         用于系统信息上报与显示语言（如 zh-CN / en-US）。
 
-config FIRMWARE_VERSION
-    string "Firmware version"
-    default "2.2.2"
-    help
-        固件版本号（OTA check 上报 / 版本比较用，与根 CMakeLists PROJECT_VER 保持一致）。
-        发布新版本时在此递增，后端据此判断是否需要升级。
+# 固件版本号统一使用 IDF 官方 CONFIG_APP_PROJECT_VER（esp_app_format 组件提供，
+# 需开启 APP_PROJECT_VER_FROM_CONFIG）：它与 esp_app_desc.version（app_init 启动日志
+# 的 "App version"）同源，避免曾出现的「自定义 FIRMWARE_VERSION 与 PROJECT_VER 两套
+# 版本号脱节 → OTA 上报永远落后 → 无限重启循环」。版本在 menuconfig
+# "Application manager" 下设置，并在 sdkconfig.defaults.esp32s3 中同步。
 
 config WAKE_WORD
     string "Wake word text"

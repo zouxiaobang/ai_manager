@@ -46,14 +46,24 @@ TEST_CASE("Newer version triggers upgrade with url and version", "[ota_plan]") {
     TEST_ASSERT_EQUAL_STRING("https://example.com/kyle/firmware.bin", plan.url.c_str());
 }
 
-TEST_CASE("Force flag upgrades even when version is not newer", "[ota_plan]") {
+TEST_CASE("Force flag only forces when version differs", "[ota_plan]") {
     FirmwareInfo fw;
     fw.present = true;
     fw.version = "2.2.1";  // 与当前相同
     fw.url = "https://example.com/fw.bin";
     fw.force = true;
+    // 同版本 + force → 不升：否则后端每次 check 都下发同份固件，设备重启→下载→重启循环
     OtaPlan plan = PlanOtaUpgrade("2.2.1", fw);
-    TEST_ASSERT_TRUE(plan.upgrade);
+    TEST_ASSERT_FALSE(plan.upgrade);
+
+    // 版本更旧 → force 强制升（force 核心价值：越过版本比较下推修复）
+    fw.version = "2.2.1";
+    OtaPlan plan_old = PlanOtaUpgrade("2.2.2", fw);
+    TEST_ASSERT_TRUE(plan_old.upgrade);
+
+    // 版本更新（设备已领先）→ force 仍强制刷回，允许后端下推降级修复版
+    OtaPlan plan_new = PlanOtaUpgrade("2.2.0", fw);
+    TEST_ASSERT_TRUE(plan_new.upgrade);
 }
 
 TEST_CASE("Same or older version without force means no upgrade", "[ota_plan]") {

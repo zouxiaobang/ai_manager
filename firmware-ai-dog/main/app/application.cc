@@ -30,8 +30,12 @@ const char* kLanguage() {
 #endif
 }
 const char* kFirmwareVersion() {
-#ifdef CONFIG_FIRMWARE_VERSION
-    return CONFIG_FIRMWARE_VERSION;
+    // 版本号唯一来源 = IDF 官方 CONFIG_APP_PROJECT_VER（配 APP_PROJECT_VER_FROM_CONFIG=y），
+    // 与 esp_app_desc.version（app_init 启动日志的 "App version"）同源——曾因
+    // 自定义 CONFIG_FIRMWARE_VERSION 与 PROJECT_VER 两套版本号脱节，导致 OTA 上报版本
+    // 永远落后于后端记录、无限重启循环。host 测试由 test/CMakeLists 定义同源宏。
+#ifdef CONFIG_APP_PROJECT_VER
+    return CONFIG_APP_PROJECT_VER;
 #else
     return "";
 #endif
@@ -43,6 +47,12 @@ Application::Application(IBoard& board, IStorage& storage)
 
 void Application::Initialize() {
     net_config_ = std::make_unique<NetConfig>(storage_);
+
+    // 启动即打印当前固件版本（与 app_init 的 "App version" 同源），
+    // 便于真机核对 OTA check 上报的版本与后端记录是否一致
+#ifdef ESP_PLATFORM
+    ESP_LOGI("Application", "固件版本: %s", kFirmwareVersion());
+#endif
 
     // 输入事件 → 会话状态机（触摸/按键统一走 OnInputEvent，按 button_id 分发）
     if (auto* input = board_.input()) {
@@ -234,7 +244,16 @@ void Application::RunOtaCheck() {
 #endif
     http->SetHeader("Content-Type", "application/json");
     http->Open("POST", url);
+    // 上报前打印设备 MAC + 固件版本：对照后端 OTA 记录里的版本号，
+    // 若后端记录(如 2.2.3)与这里不一致，即版本循环的根因
+#ifdef ESP_PLATFORM
+    DeviceInfo di = BuildDeviceInfo();
+    ESP_LOGI("Application", "OTA check 上报: client_id=%s firmware_version=%s", di.client_id.c_str(),
+             di.firmware_version.c_str());
+    http->SetContent(BuildOtaCheckBody(di));
+#else
     http->SetContent(BuildOtaCheckBody(BuildDeviceInfo()));
+#endif
     std::string body = http->ReadAll();
     const int status = http->status_code();
 #ifdef ESP_PLATFORM
