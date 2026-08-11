@@ -48,6 +48,11 @@ public class VoicePipelineService {
     public byte[] processTurn(byte[] deviceOpus, String sessionId) {
         int sampleRate = DEFAULT_SAMPLE_RATE;
 
+        // 回显模式：跳过 ASR/TTS，先验证编解码链路（设备 Opus 上行 → 解码 → 重新编码 → 下行）
+        if (properties.getVoice().isEchoMode()) {
+            return echoTurn(deviceOpus, sessionId, sampleRate);
+        }
+
         short[] pcm = opusAudioCodec.decodeToPcm(deviceOpus, sampleRate);
         byte[] wav = WavUtil.pcmToWav(pcm, sampleRate, CHANNELS, BITS_PER_SAMPLE);
 
@@ -63,6 +68,16 @@ public class VoicePipelineService {
 
         short[] ttsPcm = toPcm(tts, sampleRate);
         return opusAudioCodec.encodePcm(ttsPcm, sampleRate);
+    }
+
+    /**
+     * 回显模式：设备 Opus → 解码为 PCM → 重新编码为 Opus 原样下发。
+     * 用于 K6 阶段真机验证编解码链路（ASR/TTS 未配置时 base-url 为空，调用会直接异常）。
+     */
+    private byte[] echoTurn(byte[] deviceOpus, String sessionId, int sampleRate) {
+        short[] pcm = opusAudioCodec.decodeToPcm(deviceOpus, sampleRate);
+        log.info("语音回显 sessionId={}, pcmSamples={}", sessionId, pcm.length);
+        return opusAudioCodec.encodePcm(pcm, sampleRate);
     }
 
     /**

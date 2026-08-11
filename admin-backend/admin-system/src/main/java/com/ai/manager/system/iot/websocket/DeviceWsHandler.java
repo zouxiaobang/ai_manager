@@ -8,6 +8,7 @@ import com.ai.manager.system.iot.mapper.IotSessionMapper;
 import com.ai.manager.system.iot.protocol.BinaryFrame;
 import com.ai.manager.system.iot.protocol.BinaryProtocol;
 import com.ai.manager.system.iot.protocol.WireMessages;
+import com.ai.manager.system.iot.service.VoicePipelineService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.socket.BinaryMessage;
@@ -17,6 +18,7 @@ import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -40,15 +42,19 @@ public class DeviceWsHandler extends AbstractWebSocketHandler {
 
     private final IotSessionMapper iotSessionMapper;
 
+    private final VoicePipelineService voicePipelineService;
+
     /** 设备在线 WebSocket 会话（key=deviceId） */
     private final ConcurrentMap<String, WebSocketSession> liveSessions = new ConcurrentHashMap<>();
 
     public DeviceWsHandler(WsSessionRegistry sessionRegistry, IotProperties iotProperties,
-                           IotDeviceMapper iotDeviceMapper, IotSessionMapper iotSessionMapper) {
+                           IotDeviceMapper iotDeviceMapper, IotSessionMapper iotSessionMapper,
+                           VoicePipelineService voicePipelineService) {
         this.sessionRegistry = sessionRegistry;
         this.iotProperties = iotProperties;
         this.iotDeviceMapper = iotDeviceMapper;
         this.iotSessionMapper = iotSessionMapper;
+        this.voicePipelineService = voicePipelineService;
     }
 
     @Override
@@ -114,11 +120,19 @@ public class DeviceWsHandler extends AbstractWebSocketHandler {
         byte[] frameBytes = message.getPayload().array();
         try {
             BinaryFrame frame = BinaryProtocol.decode(version, frameBytes);
-            // 骨架：将解码后的 Opus 负载交给语音流水线（ASR/TTS），此处仅记录
-            log.debug("设备音频帧 deviceId={}, version={}, type={}, payloadLen={}",
-                    deviceId, frame.getVersion(), frame.getType(), frame.getPayload().length);
+            if (frame.getType() != BinaryProtocol.TYPE_OPUS) {
+                log.debug("忽略非音频二进制帧 deviceId={}, type={}", deviceId, frame.getType());
+                return;
+            }
+            // 语音轮次：设备 Opus → 语音流水线（回显/ASR/TTS）→ 下行 Opus 帧流
+            byte[] downlink = voicePipelineService.processTurn(frame.getPayload(), sessionId(session));
+            if (downlink != null && downlink.length > 0) {
+                sendTtsStart(deviceId);
+                sendOpusFrames(session, downlink, version);
+                sendTtsStop(deviceId);
+            }
         } catch (IllegalArgumentException e) {
-            log.warn("设备音频帧解码失败 deviceId={}, version={}: {}", deviceId, version, e.getMessage());
+            log.warn("设备音频帧处理失败 deviceId={}, version={}: {}", deviceId, version, e.getMessage());
         }
     }
 
@@ -222,6 +236,41 @@ public class DeviceWsHandler extends AbstractWebSocketHandler {
             }
         } catch (Exception e) {
             log.warn("下发设备消息失败: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 下行 Opus 音频：把语音流水线产出的「2 字节大端长度前缀 + Opus 包」分帧流，
+     * 拆成单帧，每帧封装为协商版本的二进制帧（type=Opus）逐帧下发——设备端按「一帧一消息」解码。
+     */
+    private void sendOpusFrames(WebSocketSession session, byte[] framedOpus, int version) {
+        int off = 0;
+        while (off + 2 <= framedOpus.length) {
+            int len = ((framedOpus[off] & 0xff) << 8) | (framedOpus[off + 1] & 0xff);
+            if (len <= 0 || off + 2 + len > framedOpus.length) {
+                log.warn("下行 Opus 分帧流不合法，中止发送: off={}, len={}, total={}", off, len, framedOpus.length);
+                return;
+            }
+            byte[] opusFrame = Arrays.copyOfRange(framedOpus, off + 2, off + 2 + len);
+            byte[] wireFrame = switch (version) {
+                case 1 -> BinaryProtocol.encodeV1(opusFrame);
+                case 2 -> BinaryProtocol.encodeV2(BinaryProtocol.TYPE_OPUS, 0, System.currentTimeMillis(), opusFrame);
+                default -> BinaryProtocol.encodeV3(BinaryProtocol.TYPE_OPUS, 0, opusFrame);
+            };
+            sendBinary(session, wireFrame);
+            off += 2 + len;
+        }
+    }
+
+    private void sendBinary(WebSocketSession session, byte[] payload) {
+        try {
+            synchronized (session) {
+                if (session.isOpen()) {
+                    session.sendMessage(new BinaryMessage(payload));
+                }
+            }
+        } catch (Exception e) {
+            log.warn("下发设备二进制帧失败: {}", e.getMessage());
         }
     }
 

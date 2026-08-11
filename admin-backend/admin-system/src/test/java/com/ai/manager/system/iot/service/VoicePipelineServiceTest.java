@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -45,7 +46,27 @@ class VoicePipelineServiceTest {
         properties = new IotProperties();
         properties.getAsr().setLanguage("zh");
         properties.getTts().setVoice("nova");
+        // 默认回显模式为开，走 ASR/TTS 的用例需显式关闭
+        properties.getVoice().setEchoMode(false);
         service = new VoicePipelineService(asrProvider, ttsProvider, codec, properties);
+    }
+
+    @Test
+    void processTurn_inEchoMode_shouldSkipAsrAndTtsAndEchoBack() {
+        properties.getVoice().setEchoMode(true);
+        byte[] deviceOpus = new byte[]{1, 2, 3};
+        short[] pcm = new short[]{100, 200, 300};
+        byte[] downlink = new byte[]{0, 2, 9, 8};
+        when(codec.decodeToPcm(eq(deviceOpus), eq(16000))).thenReturn(pcm);
+        when(codec.encodePcm(eq(pcm), eq(16000))).thenReturn(downlink);
+
+        byte[] result = service.processTurn(deviceOpus, "s1");
+
+        assertThat(result).isEqualTo(downlink);
+        verify(codec).decodeToPcm(deviceOpus, 16000);
+        verify(codec).encodePcm(pcm, 16000);
+        // 回显模式不触碰 ASR/TTS
+        verifyNoInteractions(asrProvider, ttsProvider);
     }
 
     @Test

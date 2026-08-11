@@ -20,6 +20,12 @@ public final class BinaryProtocol {
     public static final int V2_HEADER_LEN = 9;
     public static final int V3_HEADER_LEN = 4;
 
+    /** 二进制帧负载类型：音频（裸 Opus 帧）——与固件端 core/wire_format WireType::kOpus 对齐 */
+    public static final int TYPE_OPUS = 0;
+
+    /** 二进制帧负载类型：文本 JSON（预留，当前文本消息走独立 JSON 文本帧） */
+    public static final int TYPE_JSON = 1;
+
     private BinaryProtocol() {
     }
 

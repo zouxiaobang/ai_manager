@@ -30,6 +30,9 @@ public class IotProperties {
     /** TTS（语音合成）提供方配置 */
     private Tts tts = new Tts();
 
+    /** 语音链路配置（ai-manager.iot.voice.*） */
+    private Voice voice = new Voice();
+
     /** 激活挑战应答 HMAC-SHA256 密钥 */
     private String activationSecret = "ai-manager-iot-activation-secret";
 
@@ -96,5 +99,16 @@ public class IotProperties {
 
         /** 返回音频格式：wav（走 后端解码→Opus 重编码）或 opus（Ogg Opus，需设备端支持） */
         private String responseFormat = "wav";
+    }
+
+    /**
+     * 语音流水线配置（ai-manager.iot.voice.*）。
+     * 回显模式用于 K6 阶段真机验证「设备 Opus 上行 → 后端解码 → 重新编码 → 下行」编解码链路，
+     * 无需 ASR/TTS 服务（其 base-url 默认空，调用会直接异常）。
+     */
+    @Data
+    public static class Voice {
+        /** 回显模式：跳过 ASR/TTS，设备上行 Opus 解码后原样重新编码下发；接通真实 ASR/TTS 后置 false */
+        private boolean echoMode = true;
     }
 }

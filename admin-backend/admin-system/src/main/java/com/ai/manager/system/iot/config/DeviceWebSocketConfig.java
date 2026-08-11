@@ -2,6 +2,7 @@ package com.ai.manager.system.iot.config;
 
 import com.ai.manager.system.iot.mapper.IotDeviceMapper;
 import com.ai.manager.system.iot.mapper.IotSessionMapper;
+import com.ai.manager.system.iot.service.VoicePipelineService;
 import com.ai.manager.system.iot.websocket.DeviceWsHandler;
 import com.ai.manager.system.iot.websocket.WsHandshakeInterceptor;
 import com.ai.manager.system.iot.websocket.WsSessionRegistry;
@@ -32,6 +33,8 @@ public class DeviceWebSocketConfig implements WebSocketConfigurer {
 
     private final RedisTemplate<String, Object> redisTemplate;
 
+    private final VoicePipelineService voicePipelineService;
+
     @Bean
     public WsSessionRegistry wsSessionRegistry() {
         return new WsSessionRegistry(redisTemplate, iotProperties.getTokenTtlSeconds());
@@ -39,7 +42,7 @@ public class DeviceWebSocketConfig implements WebSocketConfigurer {
 
     @Bean
     public DeviceWsHandler deviceWsHandler(WsSessionRegistry registry) {
-        return new DeviceWsHandler(registry, iotProperties, iotDeviceMapper, iotSessionMapper);
+        return new DeviceWsHandler(registry, iotProperties, iotDeviceMapper, iotSessionMapper, voicePipelineService);
     }
 
     @Bean
