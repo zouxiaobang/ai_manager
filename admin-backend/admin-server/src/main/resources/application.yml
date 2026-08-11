@@ -105,13 +105,13 @@ ai-manager:
     cache-max-mb: 512
   iot:
     # 设备 WebSocket 地址（ESP 侧 wss 反代到 /ws/device）
-    ws-url: ${IOT_WS_URL:ws://127.0.0.1:8080/ws/device}
+    ws-url: ${IOT_WS_URL:ws://192.168.0.114:8080/ws/device}
     # 设备 WebSocket token 有效期（秒）
     token-ttl-seconds: 86400
     # 固件存储目录
     ota-dir: uploads/iot/firmware
     # OTA 固件下载 base url
-    ota-base-url: ${IOT_OTA_BASE_URL:http://127.0.0.1:8080/api/iot/ota/download}
+    ota-base-url: ${IOT_OTA_BASE_URL:http://192.168.0.114:8080/api/iot/ota/download}
     # ASR / TTS provider（走 HTTP，不引重型 SDK；换厂商只改 type / base-url / api-key）
     asr:
       type: ${IOT_ASR_TYPE:openai-compatible}
