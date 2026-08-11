@@ -185,10 +185,14 @@ import { usePagination } from '@/composables/usePagination'
 import { TABLE_ACTIONS_CELL_CLASS } from '@/constants/table'
 import { formatBytes, formatIotTime, resolveDeviceName, resolveFirmwareStatusMeta, resolveOtaStateMeta } from './iotFormat'
 
-const { t } = useI18n()
+const { t, tm } = useI18n()
 
 // 固件升级步骤：数组由 i18n 提供，悬停问号图标展示（见搜索框右侧 tip）
-const upgradeTipSteps = computed(() => t('iot.firmware.upgradeTipSteps'))
+// 注意：数组/复合消息必须用 tm() 取，t() 只返回字符串，对数组 message 会 fallback 成 key 文本（逐字符渲染）
+const upgradeTipSteps = computed(() => {
+  const steps = tm('iot.firmware.upgradeTipSteps')
+  return Array.isArray(steps) ? (steps as string[]) : []
+})
 
 const keyword = ref('')
 const uploadVisible = ref(false)

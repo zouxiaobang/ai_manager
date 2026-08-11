@@ -4,9 +4,12 @@ import ElementPlus from 'element-plus'
 import type { PageResult } from '@/api/pagination'
 import FirmwareList from '../FirmwareList.vue'
 
-// i18n 直接返回 key，避免真实 locale 依赖
+// i18n mock：t 返回 key（避免真实 locale 依赖）；tm 返回假步骤数组（组件用 tm() 取复合消息）
 vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ t: (key: string) => key }),
+  useI18n: () => ({
+    t: (key: string) => key,
+    tm: (key: string) => (key === 'iot.firmware.upgradeTipSteps' ? ['步骤一', '步骤二', '步骤三'] : undefined),
+  }),
 }))
 
 vi.mock('@/api/iot', () => ({
@@ -57,10 +60,11 @@ describe('FirmwareList 组件渲染', () => {
     // el-tooltip 有 show-after=150ms 延迟，等待打开后 tooltip 内容挂载到 body
     await new Promise((resolve) => setTimeout(resolve, 200))
     await flushPromises()
-    // i18n mock 下文案即 key 文本
+    // 标题用 t()（返回 key），步骤用 tm()（返回 mock 数组，逐条渲染）
     const popperText = document.body.textContent ?? ''
     expect(popperText).toContain('iot.firmware.upgradeTipTitle')
-    expect(popperText).toContain('iot.firmware.upgradeTipSteps')
+    expect(popperText).toContain('步骤一')
+    expect(popperText).toContain('步骤三')
   })
 
   it('搜索后透传 keyword 刷新固件列表', async () => {
