@@ -9,6 +9,19 @@
         @keyup.enter="onSearch"
         @clear="onSearch"
       />
+      <el-tooltip placement="bottom-start" :show-after="150">
+        <template #content>
+          <div class="iot-firmware__upgrade-tip">
+            <div class="iot-firmware__upgrade-tip-title">{{ t('iot.firmware.upgradeTipTitle') }}</div>
+            <ol class="iot-firmware__upgrade-tip-steps">
+              <li v-for="step in upgradeTipSteps" :key="step">{{ step }}</li>
+            </ol>
+          </div>
+        </template>
+        <el-icon class="iot-firmware__upgrade-tip-icon" :aria-label="t('iot.firmware.upgradeTipTitle')">
+          <InfoFilled />
+        </el-icon>
+      </el-tooltip>
       <div class="iot-panel__toolbar-spacer" />
       <el-button :loading="loading" @click="onRefresh">{{ t('iot.firmware.refresh') }}</el-button>
       <el-button type="primary" @click="openUpload">{{ t('iot.firmware.upload') }}</el-button>
@@ -19,6 +32,13 @@
       <el-table-column prop="version" :label="t('iot.firmware.version')" width="130" />
       <el-table-column :label="t('iot.firmware.size')" width="110">
         <template #default="{ row }">{{ formatBytes(row.size) }}</template>
+      </el-table-column>
+      <el-table-column :label="t('iot.firmware.status')" width="90">
+        <template #default="{ row }">
+          <el-tag :type="firmwareStatusMeta(row.status).tagType" size="small">
+            {{ t(firmwareStatusMeta(row.status).label) }}
+          </el-tag>
+        </template>
       </el-table-column>
       <el-table-column :label="t('iot.firmware.force')" width="90">
         <template #default="{ row }">
@@ -145,10 +165,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { ElMessage, ElMessageBox, type UploadFile, type UploadUserFile } from 'element-plus'
-import { Delete, Promotion, Top, UploadFilled } from '@element-plus/icons-vue'
+import { Delete, InfoFilled, Promotion, Top, UploadFilled } from '@element-plus/icons-vue'
 import {
   deleteIotFirmware,
   fetchIotFirmwares,
@@ -163,9 +183,12 @@ import {
 import TablePagination from '@/components/TablePagination.vue'
 import { usePagination } from '@/composables/usePagination'
 import { TABLE_ACTIONS_CELL_CLASS } from '@/constants/table'
-import { formatBytes, formatIotTime, resolveDeviceName, resolveOtaStateMeta } from './iotFormat'
+import { formatBytes, formatIotTime, resolveDeviceName, resolveFirmwareStatusMeta, resolveOtaStateMeta } from './iotFormat'
 
 const { t } = useI18n()
+
+// 固件升级步骤：数组由 i18n 提供，悬停问号图标展示（见搜索框右侧 tip）
+const upgradeTipSteps = computed(() => t('iot.firmware.upgradeTipSteps'))
 
 const keyword = ref('')
 const uploadVisible = ref(false)
@@ -203,6 +226,10 @@ const {
 
 function otaMeta(state?: IotOtaState) {
   return resolveOtaStateMeta(state)
+}
+
+function firmwareStatusMeta(status?: string) {
+  return resolveFirmwareStatusMeta(status)
 }
 
 function normalizeProgress(progress?: number): number {
@@ -274,6 +301,8 @@ async function onPublish(row: IotFirmware) {
   })
   await publishIotFirmware(row.id, false)
   ElMessage.success(t('iot.firmware.publishSuccess'))
+  // 刷新固件列表（状态列 → 已发布）+ OTA 记录表（设备下次 check 生成升级记录，可见进度）
+  await Promise.all([load(true), loadOta(true)])
 }
 
 async function onForceUpgrade(row: IotFirmware) {
@@ -284,7 +313,8 @@ async function onForceUpgrade(row: IotFirmware) {
   )
   await forceUpgradeIotFirmware(row.id)
   ElMessage.success(t('iot.firmware.forceUpgradeSuccess'))
-  await loadOta(true)
+  // 刷新固件列表（force 列 → 强制）+ OTA 记录表（在线设备下次 check 下发升级）
+  await Promise.all([load(true), loadOta(true)])
 }
 
 async function onDelete(row: IotFirmware) {
@@ -320,6 +350,26 @@ onMounted(() => {
 
 .iot-panel__search {
   width: 260px;
+}
+
+.iot-firmware__upgrade-tip-icon {
+  font-size: 16px;
+  color: var(--el-color-info);
+  cursor: help;
+}
+
+.iot-firmware__upgrade-tip-title {
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.iot-firmware__upgrade-tip-steps {
+  margin: 0;
+  padding-left: 18px;
+  max-width: 340px;
+  font-size: 12px;
+  line-height: 1.7;
 }
 
 .iot-panel__toolbar-spacer {

@@ -17,6 +17,12 @@ export function resolveOtaStateMeta(state?: IotOtaState): { label: string; tagTy
   return { label: 'iot.ota.statePending', tagType: 'info' }
 }
 
+/** 固件发布状态 → 文案 + 标签类型（对应后端 FirmwareVO.status：PUBLISHED/DRAFT，未知兜底草稿） */
+export function resolveFirmwareStatusMeta(status?: string): { label: string; tagType: TagType } {
+  if (status === 'PUBLISHED') return { label: 'iot.firmware.statusPublished', tagType: 'success' }
+  return { label: 'iot.firmware.statusDraft', tagType: 'info' }
+}
+
 /** 时间字符串格式化：空值/非法返回占位符，合法返回 yyyy-MM-dd HH:mm:ss */
 export function formatIotTime(value?: string | null): string {
   if (!value) return '—'
