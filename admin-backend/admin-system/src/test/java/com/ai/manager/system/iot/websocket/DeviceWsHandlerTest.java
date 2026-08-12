@@ -32,10 +32,15 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * DeviceWsHandler 二进制语音流水线接线测试。
+ * DeviceWsHandler 按段语音流水线接线测试。
  * <p>
- * 覆盖：设备上行 Opus v3 帧 → 语音流水线 → tts start / 下行 Opus 帧 / tts stop；
- * 非音频帧忽略；非法帧不抛异常；下行分帧流按帧拆分。
+ * 端到端录音语义：设备 listen(detect) → 缓冲上行 Opus 帧（累积成分帧流）→
+ * listen(stop) → 整段交语音流水线 → tts start / 下行 Opus 帧 / tts stop。
+ * 未激活缓冲的音频帧被忽略（防逐帧回显风暴）。
+ * </p>
+ * <p>
+ * 注意：afterConnectionEstablished 会生成随机 sessionId 覆盖握手态属性，因此
+ * 各用例先 establish() 再读取真实 sessionId，用于 processTurn 的 stub/verify。
  * </p>
  */
 @ExtendWith(MockitoExtension.class)
@@ -70,7 +75,6 @@ class DeviceWsHandlerTest {
         attrs = new HashMap<>();
         attrs.put(WsHandshakeInterceptor.ATTR_DEVICE_ID, "aabbcc");
         attrs.put(WsHandshakeInterceptor.ATTR_PROTOCOL_VERSION, 3);
-        attrs.put("sessionId", "s1");
         when(session.getAttributes()).thenReturn(attrs);
         when(session.isOpen()).thenReturn(true);
         sent = new ArrayList<>();
@@ -85,54 +89,105 @@ class DeviceWsHandlerTest {
         handler.afterConnectionEstablished(session);
     }
 
-    @Test
-    void handleBinaryMessage_opusFrame_shouldRunPipelineAndSendDownlink() throws Exception {
-        establish();
-        String sid = (String) attrs.get("sessionId");
-        // 上行 v3 Opus 帧（type=0），payload 为单个裸 Opus 包
-        byte[] upFrame = BinaryProtocol.encodeV3(BinaryProtocol.TYPE_OPUS, 0, new byte[]{1, 2, 3});
-        // 语音流水线返回「2 字节大端长度前缀 + Opus 包」分帧流（一帧）
-        byte[] downlinkFramed = new byte[]{0x00, 0x02, (byte) 0xAA, (byte) 0xBB};
-        when(voicePipelineService.processTurn(eq(new byte[]{1, 2, 3}), eq(sid))).thenReturn(downlinkFramed);
+    /** establish 后 attrs 中的真实 sessionId（handler 生成的随机 UUID）。 */
+    private String sessionId() {
+        return (String) attrs.get("sessionId");
+    }
 
-        handler.handleBinaryMessage(session, new BinaryMessage(upFrame));
+    private void listenDetect() throws Exception {
+        handler.handleTextMessage(session, new TextMessage(
+                "{\"type\":\"listen\",\"state\":\"detect\",\"session_id\":\"s1\"}"));
+    }
 
-        verify(voicePipelineService).processTurn(new byte[]{1, 2, 3}, sid);
-        // 3 条下发：tts start → 二进制 Opus 帧 → tts stop
-        assertThat(sent).hasSize(3);
-        TextMessage start = (TextMessage) sent.get(0);
-        assertThat(start.getPayload()).contains("tts").contains("start");
-        BinaryMessage bin = (BinaryMessage) sent.get(1);
-        // 下行帧 = encodeV3(TYPE_OPUS, 0, {AA,BB})
-        assertThat(bin.getPayload().array()).containsExactly(0x00, 0x00, 0x00, 0x02, (byte) 0xAA, (byte) 0xBB);
-        TextMessage stop = (TextMessage) sent.get(2);
-        assertThat(stop.getPayload()).contains("stop");
+    private void listenStop() throws Exception {
+        handler.handleTextMessage(session, new TextMessage(
+                "{\"type\":\"listen\",\"state\":\"stop\",\"session_id\":\"s1\"}"));
+    }
+
+    /** 上行一个裸 Opus payload 的 v3 帧。 */
+    private void sendOpus(byte[] payload) throws Exception {
+        handler.handleBinaryMessage(session,
+                new BinaryMessage(BinaryProtocol.encodeV3(BinaryProtocol.TYPE_OPUS, 0, payload)));
     }
 
     @Test
-    void handleBinaryMessage_multipleFrames_shouldSendOneBinaryPerOpusFrame() throws Exception {
+    void fullTurn_detectBufferFramesStopEchoesWholeSegment() throws Exception {
         establish();
-        String sid = (String) attrs.get("sessionId");
-        byte[] upFrame = BinaryProtocol.encodeV3(BinaryProtocol.TYPE_OPUS, 0, new byte[]{9});
-        // 分帧流含两帧：{0,1,AA} 和 {0,1,BB}
-        byte[] downlinkFramed = new byte[]{0x00, 0x01, (byte) 0xAA, 0x00, 0x01, (byte) 0xBB};
-        when(voicePipelineService.processTurn(any(byte[].class), eq(sid))).thenReturn(downlinkFramed);
+        String sid = sessionId();
+        listenDetect();
+        // 3 帧上行：payload 3B/2B/1B → 缓冲成 {0,3,01,02,03}{0,2,04,05}{0,1,06}
+        sendOpus(new byte[]{0x01, 0x02, 0x03});
+        sendOpus(new byte[]{0x04, 0x05});
+        sendOpus(new byte[]{0x06});
+        // 整段分帧流交语音流水线
+        byte[] expectedSegment = new byte[]{0x00, 0x03, 0x01, 0x02, 0x03, 0x00, 0x02, 0x04, 0x05,
+                0x00, 0x01, 0x06};
+        byte[] downlinkFramed = new byte[]{0x00, 0x02, (byte) 0xAA, (byte) 0xBB};
+        when(voicePipelineService.processTurn(eq(expectedSegment), eq(sid)))
+                .thenReturn(downlinkFramed);
 
-        handler.handleBinaryMessage(session, new BinaryMessage(upFrame));
+        listenStop();
 
-        List<BinaryMessage> binaries = sent.stream()
-                .filter(m -> m instanceof BinaryMessage)
-                .map(m -> (BinaryMessage) m)
-                .toList();
-        assertThat(binaries).hasSize(2);
-        assertThat(binaries.get(0).getPayload().array())
-                .containsExactly(0x00, 0x00, 0x00, 0x01, (byte) 0xAA);
-        assertThat(binaries.get(1).getPayload().array())
-                .containsExactly(0x00, 0x00, 0x00, 0x01, (byte) 0xBB);
+        verify(voicePipelineService).processTurn(expectedSegment, sid);
+        // 3 条下发：tts start → 二进制 Opus 帧 → tts stop
+        assertThat(sent).hasSize(3);
+        TextMessage start = (TextMessage) sent.get(0);
+        assertThat(start.getPayload()).contains("tts").contains("start").contains(sid);
+        BinaryMessage bin = (BinaryMessage) sent.get(1);
+        assertThat(bin.getPayload().array())
+                .containsExactly(0x00, 0x00, 0x00, 0x02, (byte) 0xAA, (byte) 0xBB);
+        TextMessage stop = (TextMessage) sent.get(2);
+        assertThat(stop.getPayload()).contains("tts").contains("stop").contains(sid);
+    }
+
+    @Test
+    void framesBeforeDetect_shouldBeIgnored() throws Exception {
+        establish();
+        // 未 listen(detect)：上行音频帧不缓冲、不触发流水线（防逐帧回显）
+        sendOpus(new byte[]{1, 2, 3});
+        verifyNoInteractions(voicePipelineService);
+        assertThat(sent).isEmpty();
+    }
+
+    @Test
+    void framesAfterStop_shouldBeIgnoredUntilNextDetect() throws Exception {
+        establish();
+        String sid = sessionId();
+        listenDetect();
+        sendOpus(new byte[]{0x01});
+        when(voicePipelineService.processTurn(any(byte[].class), eq(sid))).thenReturn(new byte[0]);
+        listenStop();  // 结束第一段（下行空 → 无下发）
+        assertThat(sent).isEmpty();
+
+        // listen(stop) 后缓冲已关闭：再发帧属于「非缓冲态」，被忽略，不触发第二次 processTurn
+        sendOpus(new byte[]{0x02});
+        verify(voicePipelineService, never()).processTurn(
+                org.mockito.ArgumentMatchers.<byte[]>argThat(a -> a.length == 3 && a[2] == 0x02), eq(sid));
+        // 只发生过一次（第一段），即便把入参放宽也不应有第二次调用
+        verify(voicePipelineService).processTurn(any(byte[].class), eq(sid));
+    }
+
+    @Test
+    void listenStop_withoutDetect_shouldDoNothing() throws Exception {
+        establish();
+        listenStop();  // 无进行中的段
+        verifyNoInteractions(voicePipelineService);
+        assertThat(sent).isEmpty();
+    }
+
+    @Test
+    void emptySegment_shouldNotRunPipeline() throws Exception {
+        establish();
+        listenDetect();
+        listenStop();  // 缓冲为空（无帧）
+        verifyNoInteractions(voicePipelineService);
+        assertThat(sent).isEmpty();
     }
 
     @Test
     void handleBinaryMessage_nonOpusType_shouldIgnore() throws Exception {
+        establish();
+        listenDetect();
         byte[] jsonFrame = BinaryProtocol.encodeV3(BinaryProtocol.TYPE_JSON, 0, new byte[]{1});
 
         handler.handleBinaryMessage(session, new BinaryMessage(jsonFrame));
@@ -143,7 +198,9 @@ class DeviceWsHandlerTest {
 
     @Test
     void handleBinaryMessage_malformedFrame_shouldNotThrow() throws Exception {
-        // 声明 size=5 实际只有 1 字节负载 → 解码抛 size mismatch，被捕获
+        establish();
+        listenDetect();
+        // 声明 size=5 实际只有 1 字节负载 → decodeV3 抛 size mismatch，被 handler 捕获
         byte[] badFrame = new byte[]{0x00, 0x00, 0x00, 0x05, 0x01};
 
         handler.handleBinaryMessage(session, new BinaryMessage(badFrame));
@@ -153,37 +210,45 @@ class DeviceWsHandlerTest {
     }
 
     @Test
-    void handleBinaryMessage_emptyDownlink_shouldNotSendAnything() throws Exception {
-        byte[] upFrame = BinaryProtocol.encodeV3(BinaryProtocol.TYPE_OPUS, 0, new byte[]{1});
-        when(voicePipelineService.processTurn(any(byte[].class), eq("s1"))).thenReturn(new byte[0]);
-
-        handler.handleBinaryMessage(session, new BinaryMessage(upFrame));
-
-        assertThat(sent).isEmpty();
-    }
-
-    @Test
-    void handleBinaryMessage_nullDownlink_shouldNotSendAnything() throws Exception {
-        byte[] upFrame = BinaryProtocol.encodeV3(BinaryProtocol.TYPE_OPUS, 0, new byte[]{1});
-        when(voicePipelineService.processTurn(any(byte[].class), eq("s1"))).thenReturn(null);
-
-        handler.handleBinaryMessage(session, new BinaryMessage(upFrame));
-
-        assertThat(sent).isEmpty();
-    }
-
-    @Test
-    void handleBinaryMessage_sessionClosed_shouldSkipSending() throws Exception {
+    void listenStop_emptyDownlink_shouldNotSendAnything() throws Exception {
         establish();
-        when(session.isOpen()).thenReturn(false);
-        byte[] upFrame = BinaryProtocol.encodeV3(BinaryProtocol.TYPE_OPUS, 0, new byte[]{1});
-        byte[] downlinkFramed = new byte[]{0x00, 0x02, (byte) 0xAA, (byte) 0xBB};
-        when(voicePipelineService.processTurn(any(byte[].class), any(String.class))).thenReturn(downlinkFramed);
+        String sid = sessionId();
+        listenDetect();
+        sendOpus(new byte[]{1});
+        when(voicePipelineService.processTurn(any(byte[].class), eq(sid))).thenReturn(new byte[0]);
 
-        handler.handleBinaryMessage(session, new BinaryMessage(upFrame));
+        listenStop();
 
-        // 会话已关：sendMessage 不会真正发出（内部同步块判断 isOpen）
-        verify(session, never()).sendMessage(any(BinaryMessage.class));
         assertThat(sent).isEmpty();
+    }
+
+    @Test
+    void listenStop_nullDownlink_shouldNotSendAnything() throws Exception {
+        establish();
+        String sid = sessionId();
+        listenDetect();
+        sendOpus(new byte[]{1});
+        when(voicePipelineService.processTurn(any(byte[].class), eq(sid))).thenReturn(null);
+
+        listenStop();
+
+        assertThat(sent).isEmpty();
+    }
+
+    @Test
+    void listenStop_sessionClosed_shouldSkipSending() throws Exception {
+        establish();
+        listenDetect();
+        sendOpus(new byte[]{1});
+        when(session.isOpen()).thenReturn(false);
+        byte[] downlinkFramed = new byte[]{0x00, 0x02, (byte) 0xAA, (byte) 0xBB};
+        when(voicePipelineService.processTurn(any(byte[].class), any(String.class)))
+                .thenReturn(downlinkFramed);
+
+        listenStop();
+
+        // 会话已关：sendText/sendBinary 内部 isOpen 判假，不真正 sendMessage
+        assertThat(sent).isEmpty();
+        verify(session, never()).sendMessage(any(WebSocketMessage.class));
     }
 }
