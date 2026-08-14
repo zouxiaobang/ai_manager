@@ -16,15 +16,27 @@
       <el-tab-pane :label="t('aiKnowledge.tabs.chat')" name="chat">
         <div class="ai-knowledge__tab-content">
           <div class="ak-layout">
+            <!-- 收起后的展开入口窄条（仅收起时显示） -->
+            <div v-if="sidebarCollapsed" class="ak-sidebar__collapsed-bar" @click="expandSidebar">
+              <svg class="ak-sidebar__collapsed-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              <span class="ak-sidebar__collapsed-label">对话</span>
+            </div>
             <!-- 左侧对话列表 -->
-            <aside class="ak-sidebar">
+            <aside class="ak-sidebar" :class="{ 'is-collapsed': sidebarCollapsed }">
               <div class="ak-sidebar__header">
                 <span class="ak-sidebar__header-title">💬 对话列表</span>
-                <el-tooltip content="新增分类" placement="top">
-                  <el-button text circle size="small" class="ak-sidebar__add-cat-btn" @click.stop="addCategory">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                  </el-button>
-                </el-tooltip>
+                <div class="ak-sidebar__header-actions">
+                  <el-tooltip content="新增分类" placement="top">
+                    <el-button text circle size="small" class="ak-sidebar__add-cat-btn" @click.stop="addCategory">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </el-button>
+                  </el-tooltip>
+                  <el-tooltip content="收起对话列表" placement="top">
+                    <el-button text circle size="small" class="ak-sidebar__collapse-btn" @click.stop="collapseSidebar">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                    </el-button>
+                  </el-tooltip>
+                </div>
               </div>
               <!-- 搜索框 -->
               <div class="ak-sidebar__search">
@@ -813,6 +825,7 @@ import { useAiKnowledgeChat } from './composables/useAiKnowledgeChat'
 import { useAiKnowledgeCategories } from './composables/useAiKnowledgeCategories'
 import { useAiKnowledgeRag } from './composables/useAiKnowledgeRag'
 import { useAiKnowledgeSettings } from './composables/useAiKnowledgeSettings'
+import { useAiKnowledgeSidebar } from './composables/useAiKnowledgeSidebar'
 import RagDocumentPreview from './RagDocumentPreview.vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -879,6 +892,9 @@ watch(
 )
 
 // ========== 对话 ==========
+// 左侧对话列表收起/展开状态（纯 UI 状态，不持久化）
+const { sidebarCollapsed, collapseSidebar, expandSidebar } = useAiKnowledgeSidebar()
+
 const useRag = ref(false)
 
 /** AI provider 列表 */
@@ -1223,6 +1239,47 @@ if (activeTab.value !== 'chat') {
   border-right: 1px solid var(--el-border-color-lighter);
   background: #fafafa;
   overflow: hidden;
+  /* 收起时宽度平滑缩至 0，右边框同步淡出避免露出 1px 竖线 */
+  transition: width 0.2s ease, min-width 0.2s ease, border-right-color 0.2s ease;
+
+  &.is-collapsed {
+    width: 0;
+    min-width: 0;
+    border-right-color: transparent;
+  }
+}
+
+/* 收起后的展开入口窄条 */
+.ak-sidebar__collapsed-bar {
+  width: 40px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-top: 16px;
+  background: #fafafa;
+  border-right: 1px solid var(--el-border-color-lighter);
+  color: #6b7280;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: #f3f4f6;
+    color: #374151;
+  }
+}
+
+.ak-sidebar__collapsed-icon {
+  display: block;
+}
+
+.ak-sidebar__collapsed-label {
+  font-size: 11px;
+  letter-spacing: 3px;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
 }
 
 .ak-sidebar__header {
@@ -1240,8 +1297,19 @@ if (activeTab.value !== 'chat') {
   color: #1f2937;
 }
 
+.ak-sidebar__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
 .ak-sidebar__add-cat-btn {
   color: #6b7280;
+  &:hover { color: #374151; background: #e5e7eb; }
+}
+
+.ak-sidebar__collapse-btn {
+  color: #9ca3af;
   &:hover { color: #374151; background: #e5e7eb; }
 }
 
