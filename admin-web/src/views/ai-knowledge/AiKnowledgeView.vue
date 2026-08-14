@@ -1711,10 +1711,10 @@ if (activeTab.value !== 'chat') {
   }
 }
 
-/* PC 宽屏（≥1201px）：问答消息字号统一 18px */
+/* PC 宽屏（≥1201px）：问答消息字号统一 16px */
 @media (min-width: 1201px) {
   .ak-chat__bubble {
-    font-size: 18px;
+    font-size: 16px;
   }
 }
 
