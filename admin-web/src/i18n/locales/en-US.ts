@@ -3201,6 +3201,7 @@ export default {
         searchPlaceholder: 'Search markers…',
         empty: 'No markers yet',
         searchEmpty: 'No matching markers',
+        jumpPrevious: 'Previous marker',
         rename: 'Rename',
         delete: 'Delete marker',
         deleteAll: 'Delete all markers',

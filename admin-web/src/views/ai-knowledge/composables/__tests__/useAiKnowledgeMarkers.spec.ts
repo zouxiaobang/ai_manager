@@ -4,6 +4,7 @@ import {
   useAiKnowledgeMarkers,
   detectTopHeading,
   topRelativeToContainer,
+  previousMarkerFor,
 } from '../useAiKnowledgeMarkers'
 import {
   fetchChatBookmarks,
@@ -250,6 +251,97 @@ describe('useAiKnowledgeMarkers', () => {
       // 重锚定目标 400，但 max = 250-400 = -150 → 钳到 0
       api.jumpToMarker('1')
       expect(container.scrollTop).toBe(0)
+    })
+  })
+
+  describe('jumpToPreviousMarker', () => {
+    it('跳到当前视口上方最近的标记（取记录 scrollTop 最大者，按重锚定计算）', () => {
+      const { api, chatMessagesRef } = setup()
+      const container = buildContainer(
+        [{ id: 'm1', rectTop: 150 }, { id: 'm2', rectTop: 400 }],
+        { scrollTop: 300 },
+      )
+      chatMessagesRef.value = container
+      api.markers.value = [
+        marker({ id: 'm1', msgId: 'm1', msgOffsetTop: 100, scrollTop: 100 }),
+        marker({ id: 'm2', msgId: 'm2', msgOffsetTop: 250, scrollTop: 250 }),
+      ]
+      // 当前 300 → 上一个为 scrollTop=250 的 m2
+      expect(api.jumpToPreviousMarker()).toBe(true)
+      // 重锚定：m2 当前内容偏移 = 400-50+300 = 650；目标 = 650 + (250-250) = 650
+      expect(container.scrollTop).toBe(650)
+    })
+
+    it('当前位于最顶部、无上一个标记时返回 false 且不滚动', () => {
+      const { api, chatMessagesRef } = setup()
+      const container = buildContainer([{ id: 'm1', rectTop: 150 }], { scrollTop: 0 })
+      chatMessagesRef.value = container
+      api.markers.value = [marker({ scrollTop: 100 })]
+      expect(api.jumpToPreviousMarker()).toBe(false)
+      expect(container.scrollTop).toBe(0)
+    })
+
+    it('无容器时返回 false', () => {
+      const { api } = setup()
+      api.markers.value = [marker({ scrollTop: 100 })]
+      expect(api.jumpToPreviousMarker()).toBe(false)
+    })
+
+    it('停靠于某标记（落点与记录值有偏差）时回它的上一个，而不是再次跳回自己（回归）', () => {
+      const { api, chatMessagesRef } = setup()
+      // 当前滚动 505，与标记 m2 的记录值 500 偏差 5px（重锚定/布局偏移场景）
+      const container = buildContainer(
+        [{ id: 'm1', rectTop: 150 }, { id: 'm2', rectTop: 400 }],
+        { scrollTop: 505 },
+      )
+      chatMessagesRef.value = container
+      api.markers.value = [
+        marker({ id: 'm1', msgId: 'm1', msgOffsetTop: 100, scrollTop: 100 }),
+        marker({ id: 'm2', msgId: 'm2', msgOffsetTop: 250, scrollTop: 500 }),
+      ]
+      // 应回 m1 而非再次选中 m2：m1 重锚定目标 = 150-50+505 + (100-100) = 605
+      expect(api.jumpToPreviousMarker()).toBe(true)
+      expect(container.scrollTop).toBe(605)
+    })
+
+    it('停靠于第一个标记时无上一个可回', () => {
+      const { api, chatMessagesRef } = setup()
+      const container = buildContainer([{ id: 'm1', rectTop: 150 }], { scrollTop: 100 })
+      chatMessagesRef.value = container
+      api.markers.value = [marker({ msgId: 'm1', msgOffsetTop: 100, scrollTop: 100 })]
+      expect(api.jumpToPreviousMarker()).toBe(false)
+      expect(container.scrollTop).toBe(100)
+    })
+  })
+
+  describe('previousMarkerFor / hasPreviousAt', () => {
+    const list = () => [
+      marker({ id: 'm1', scrollTop: 100 }),
+      marker({ id: 'm2', scrollTop: 500 }),
+    ]
+
+    it('停靠在标记记录位置（含容差内偏差）时以该标记为界返回更上方的标记', () => {
+      expect(previousMarkerFor(list(), 500)?.id).toBe('m1')
+      expect(previousMarkerFor(list(), 505)?.id).toBe('m1')
+    })
+
+    it('不在任何标记上时返回上方最近标记', () => {
+      expect(previousMarkerFor(list(), 600)?.id).toBe('m2')
+      expect(previousMarkerFor(list(), 300)?.id).toBe('m1')
+    })
+
+    it('第一个标记之前 / 最顶部无上一个时返回 null', () => {
+      expect(previousMarkerFor(list(), 100)).toBeNull()
+      expect(previousMarkerFor(list(), 0)).toBeNull()
+    })
+
+    it('hasPreviousAt 与 previousMarkerFor 判定一致', () => {
+      const { api } = setup()
+      api.markers.value = list()
+      expect(api.hasPreviousAt(500)).toBe(true)
+      expect(api.hasPreviousAt(600)).toBe(true)
+      expect(api.hasPreviousAt(100)).toBe(false)
+      expect(api.hasPreviousAt(0)).toBe(false)
     })
   })
 

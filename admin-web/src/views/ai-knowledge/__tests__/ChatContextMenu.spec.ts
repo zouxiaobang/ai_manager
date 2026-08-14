@@ -24,13 +24,14 @@ function marker(overrides: Partial<ChatBookmark> = {}): ChatBookmark {
   }
 }
 
-function mountMenu(props: { visible?: boolean; markers?: ChatBookmark[] } = {}) {
+function mountMenu(props: { visible?: boolean; markers?: ChatBookmark[]; canJumpPrevious?: boolean } = {}) {
   wrapper = mount(ChatContextMenu, {
     props: {
       visible: true,
       x: 100,
       y: 100,
       markers: [marker()],
+      canJumpPrevious: true,
       ...props,
     },
     global: { plugins: [ElementPlus] },
@@ -71,6 +72,30 @@ describe('ChatContextMenu 右键菜单', () => {
     mountMenu({ markers: [] })
     await nextTick()
     expect(item('.ak-ctx-menu:not(.ak-ctx-menu--sub) .ak-ctx-menu__item.is-danger')).toBeNull()
+  })
+
+  it('渲染「回到上一个标签」菜单项', async () => {
+    mountMenu()
+    await nextTick()
+    expect(item('.ak-ctx-menu__item--jump-prev')).toBeTruthy()
+  })
+
+  it('canJumpPrevious 为 false 时「回到上一个标签」禁用，点击不 emit', async () => {
+    const wrap = mountMenu({ canJumpPrevious: false })
+    await nextTick()
+    const btn = item('.ak-ctx-menu__item--jump-prev') as HTMLButtonElement
+    expect(btn.disabled).toBe(true)
+    btn.click()
+    expect(wrap.emitted('jump-prev')).toBeFalsy()
+    expect(wrap.emitted('close')).toBeFalsy()
+  })
+
+  it('点击「回到上一个标签」emit jump-prev 并 close', async () => {
+    const wrap = mountMenu({ canJumpPrevious: true })
+    await nextTick()
+    item('.ak-ctx-menu__item--jump-prev')!.click()
+    expect(wrap.emitted('jump-prev')).toBeTruthy()
+    expect(wrap.emitted('close')).toBeTruthy()
   })
 
   it('点击「新增标记」emit add-marker 并 close', async () => {

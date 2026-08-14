@@ -3188,6 +3188,7 @@ export default {
         searchPlaceholder: '搜索标记…',
         empty: '暂无标记',
         searchEmpty: '未找到匹配的标记',
+        jumpPrevious: '回到上一个标签',
         rename: '重命名',
         delete: '删除标记',
         deleteAll: '删除全部标记',

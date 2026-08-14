@@ -824,8 +824,10 @@
       :x="chatContextMenu.x"
       :y="chatContextMenu.y"
       :markers="markers"
+      :can-jump-previous="canJumpPrevious"
       @add-marker="handleAddMarker"
       @jump="handleJumpMarker"
+      @jump-prev="handleJumpPrevious"
       @rename="handleRenameMarker"
       @delete="handleDeleteMarker"
       @delete-all="handleDeleteAllMarkers"
@@ -839,7 +841,7 @@
  * AI 天窗视图
  * 包含 AI 对话、RAG 知识库和设置三大功能
  */
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { marked } from 'marked'
 import { hasMarkdownSyntax, markdownToTextSnippet } from '@/utils/markdownToText'
 import { useAiKnowledgePrint } from './composables/useAiKnowledgePrint'
@@ -1141,17 +1143,25 @@ const {
   deleteMarker,
   deleteAllMarkers,
   jumpToMarker,
+  jumpToPreviousMarker,
+  hasPreviousAt,
 } = useAiKnowledgeMarkers({ activeConvId, chatMessagesRef })
 
 // ========== 聊天区右键标记菜单 ==========
-/** 右键菜单显隐与坐标（fixed 定位用 viewport 坐标） */
-const chatContextMenu = reactive({ visible: false, x: 0, y: 0 })
+/** 右键菜单显隐与坐标（fixed 定位用 viewport 坐标）；scrollTop 记录打开瞬间滚动位置供「回到上一个标签」判定 */
+const chatContextMenu = reactive({ visible: false, x: 0, y: 0, scrollTop: 0 })
+
+/** 打开菜单处是否存在「上一个」标记（依据记录 scrollTop，与跳转逻辑同源，避免菜单可用但点击无反应） */
+const canJumpPrevious = computed(() =>
+  chatContextMenu.visible && hasPreviousAt(chatContextMenu.scrollTop),
+)
 
 /** 右键聊天消息区打开标记菜单；无激活会话不弹出 */
 function openChatContextMenu(e: MouseEvent) {
   if (!activeConvId.value) return
   chatContextMenu.x = e.clientX
   chatContextMenu.y = e.clientY
+  chatContextMenu.scrollTop = chatMessagesRef.value?.scrollTop ?? 0
   chatContextMenu.visible = true
 }
 
@@ -1193,6 +1203,11 @@ async function handleAddMarker() {
 /** 点击标记跳转到对应位置 */
 function handleJumpMarker(id: string) {
   jumpToMarker(id)
+}
+
+/** 回到上一个标签：跳到当前视口上方最近的标记（菜单禁用态已兜底，此处直接执行） */
+function handleJumpPrevious() {
+  jumpToPreviousMarker()
 }
 
 /** 重命名标记：弹窗预填当前名称 */

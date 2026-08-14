@@ -54,6 +54,37 @@ export function detectTopHeading(container: HTMLElement): string | null {
 }
 
 /**
+ * 判定「当前停靠在标记上」的容差（px）。
+ * 跳到标记后的实际 scrollTop 因重锚定/布局微偏移会略偏离记录值，若用严格小于比较，
+ * 会把自己所在的标记误判为「上一个」导致卡住回不去；容差覆盖该偏移。
+ */
+const DOCK_TOLERANCE = 16
+
+/**
+ * 计算某滚动位置处「上一个」标记：
+ * 1) 若 scrollTop 与某标记记录位置在容差内，视为「停靠」在该标记上 → 以它记录位置为界取更上方的标记；
+ * 2) 否则取严格位于该滚动位置上方的最近标记。
+ * 返回 null 表示没有上一个标记。
+ */
+export function previousMarkerFor(markers: ChatBookmark[], scrollTop: number): ChatBookmark | null {
+  let docked = -1
+  for (let i = 0; i < markers.length; i++) {
+    if (Math.abs(markers[i].scrollTop - scrollTop) <= DOCK_TOLERANCE) {
+      docked = i
+      break
+    }
+  }
+  const boundary = docked >= 0 ? markers[docked].scrollTop : scrollTop
+  let prev: ChatBookmark | null = null
+  for (const m of markers) {
+    if (m.scrollTop < boundary && (prev === null || m.scrollTop > prev.scrollTop)) {
+      prev = m
+    }
+  }
+  return prev
+}
+
+/**
  * AI 知识页对话标记状态机。
  *
  * <p>为聊天区提供「标记」能力：每个标记记录当前滚动位置（另存锚点消息用于跳转时重锚定，
@@ -170,6 +201,24 @@ export function useAiKnowledgeMarkers(deps: AiKnowledgeMarkersDeps) {
     el.scrollTop = Math.max(0, Math.min(target, el.scrollHeight - el.clientHeight))
   }
 
+  /**
+   * 跳到当前视口处的「上一个」标记（「回到上一个标签」）。
+   * 停靠于某标记时回它的上一个，否则回上方最近标记；无上一个或无容器返回 false。
+   */
+  function jumpToPreviousMarker(): boolean {
+    const el = chatMessagesRef.value
+    if (!el) return false
+    const prev = previousMarkerFor(markers.value, el.scrollTop)
+    if (!prev) return false
+    jumpToMarker(prev.id)
+    return true
+  }
+
+  /** 指定滚动位置上方是否存在「上一个」标记（菜单可用性判定，与 jumpToPreviousMarker 同源逻辑） */
+  function hasPreviousAt(scrollTop: number): boolean {
+    return previousMarkerFor(markers.value, scrollTop) !== null
+  }
+
   return {
     markers,
     markersLoading,
@@ -179,5 +228,7 @@ export function useAiKnowledgeMarkers(deps: AiKnowledgeMarkersDeps) {
     deleteMarker,
     deleteAllMarkers,
     jumpToMarker,
+    jumpToPreviousMarker,
+    hasPreviousAt,
   }
 }

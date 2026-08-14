@@ -33,7 +33,7 @@
         </svg>
       </button>
 
-      <!-- 标记列表子面板：搜索 + 标记项（左键跳转 / 右键重命名、删除） -->
+      <!-- 标记列表子面板：紧贴「标记」选项下方展开（搜索 + 标记项，左键跳转 / 右键重命名、删除） -->
       <div v-if="listExpanded" class="ak-ctx-menu__panel">
         <el-input
           v-model="keyword"
@@ -61,6 +61,21 @@
           </div>
         </div>
       </div>
+
+      <!-- 回到上一个标签：当前视口上方最近的标记；无上一个时禁用 -->
+      <button
+        type="button"
+        class="ak-ctx-menu__item ak-ctx-menu__item--jump-prev"
+        :class="{ 'is-disabled': !canJumpPrevious }"
+        :disabled="!canJumpPrevious"
+        @click="emitAction('jump-prev')"
+      >
+        <svg class="ak-ctx-menu__icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+          <path d="M12 15V7M9 10l3-3 3 3" />
+        </svg>
+        <span>{{ t('aiKnowledge.chat.marker.jumpPrevious') }}</span>
+      </button>
 
       <template v-if="markers.length > 0">
         <div class="ak-ctx-menu__divider" />
@@ -108,6 +123,8 @@ const props = defineProps<{
   x: number
   y: number
   markers: ChatBookmark[]
+  /** 当前滚动位置上方是否存在标记；控制「回到上一个标签」是否可点 */
+  canJumpPrevious: boolean
 }>()
 
 const emit = defineEmits<{
@@ -116,6 +133,7 @@ const emit = defineEmits<{
   rename: [id: string]
   delete: [id: string]
   'delete-all': []
+  'jump-prev': []
   close: []
 }>()
 
@@ -183,7 +201,7 @@ function openSubMenu(event: MouseEvent, marker: ChatBookmark) {
  * emit 是重载函数，switch 收敛出的联合类型无法赋值给单个重载签名，
  * 因此每个分支用字面量显式 emit，保证类型安全。
  */
-function emitAction(action: 'add-marker' | 'jump' | 'rename' | 'delete' | 'delete-all', id?: string) {
+function emitAction(action: 'add-marker' | 'jump' | 'rename' | 'delete' | 'delete-all' | 'jump-prev', id?: string) {
   switch (action) {
     case 'jump':
       emit('jump', id as string)
@@ -196,6 +214,9 @@ function emitAction(action: 'add-marker' | 'jump' | 'rename' | 'delete' | 'delet
       break
     case 'add-marker':
       emit('add-marker')
+      break
+    case 'jump-prev':
+      emit('jump-prev')
       break
     default:
       emit('delete-all')
@@ -239,6 +260,16 @@ function emitAction(action: 'add-marker' | 'jump' | 'rename' | 'delete' | 'delet
 
   &.is-danger {
     color: var(--el-color-danger);
+  }
+
+  &.is-disabled,
+  &:disabled {
+    color: var(--el-text-color-placeholder);
+    cursor: not-allowed;
+
+    &:hover {
+      background: transparent;
+    }
   }
 
   &--expandable {
