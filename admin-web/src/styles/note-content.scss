@@ -25,7 +25,8 @@
 
   strong {
     font-weight: 700;
-    color: #b91c1c;
+    /* 深蓝色，与作战屏 --wr-rail-active-color 一致；带回退值保证打印窗口内联时不依赖该令牌 */
+    color: var(--wr-rail-active-color, #0b21c7);
   }
 
   em {
@@ -34,13 +35,14 @@
   }
 
   code {
-    background: #fef2f2;
-    color: #b91c1c;
+    /* 内联代码整体绿色系：深绿文字 + 浅绿底/边框（同 red-50/200/700 → green-50/200/700 对位） */
+    background: #f0fdf4;
+    color: #15803d;
     padding: 2px 7px;
     border-radius: 4px;
     font-size: 0.85em;
     font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-    border: 1px solid #fecaca;
+    border: 1px solid #bbf7d0;
   }
 
   pre {
