@@ -144,7 +144,7 @@
             <!-- 右侧聊天区域 -->
             <div class="ak-chat">
             <div class="ak-chat__body">
-            <div ref="chatMessagesRef" class="ak-chat__messages">
+            <div ref="chatMessagesRef" class="ak-chat__messages" @scroll="onChatScroll">
               <div v-if="messages.length === 0" class="ak-chat__empty">
                 <div class="ak-chat__empty-icon">
                   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -1110,6 +1110,7 @@ const {
   loadChatUsage,
   recalcContextTokens,
   scrollToMsg,
+  onChatScroll,
   renderMessage,
   sendMessage,
   clearConversation,
@@ -1710,6 +1711,13 @@ if (activeTab.value !== 'chat') {
   }
 }
 
+/* PC 宽屏（≥1201px）：问答消息字号统一 18px */
+@media (min-width: 1201px) {
+  .ak-chat__bubble {
+    font-size: 18px;
+  }
+}
+
 .ak-chat__content {
   /* marked 渲染的 Markdown 内容样式 */
 }
@@ -1723,7 +1731,8 @@ if (activeTab.value !== 'chat') {
 
 .ak-chat__content :deep(strong) {
   font-weight: 700;
-  color: #b91c1c;
+  /* 深蓝，与笔记全屏预览 / 作战屏 --wr-rail-active-color 一致 */
+  color: var(--wr-rail-active-color, #0b21c7);
 }
 
 .ak-chat__content :deep(em) {
@@ -1732,13 +1741,14 @@ if (activeTab.value !== 'chat') {
 }
 
 .ak-chat__content :deep(code) {
-  background: #fef2f2;
-  color: #b91c1c;
+  /* 内联代码整体绿色系：深绿文字 + 浅绿底/边框，与笔记全屏预览一致 */
+  background: #f0fdf4;
+  color: #15803d;
   padding: 2px 7px;
   border-radius: 4px;
   font-size: 0.85em;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  border: 1px solid #fecaca;
+  border: 1px solid #bbf7d0;
 }
 
 .ak-chat__content :deep(pre) {

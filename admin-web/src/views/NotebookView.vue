@@ -3330,6 +3330,16 @@ onBeforeUnmount(() => {
   }
 }
 
+/* PC 宽屏（≥1201px）：MD 编辑与预览字号统一 18px */
+@media (min-width: 1201px) {
+  .notebook-editor__md-preview,
+  .notebook-editor__md-preview.is-split,
+  .notebook-editor__md-textarea,
+  .notebook-editor__md-textarea.is-split {
+    font-size: 18px;
+  }
+}
+
 /* MD 分屏模式左右布局 */
 .notebook-editor__md-split {
   flex: 1 1 auto;

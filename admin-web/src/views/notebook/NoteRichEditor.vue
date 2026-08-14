@@ -1079,6 +1079,18 @@ onBeforeUnmount(() => {
   font-size: 14px;
 }
 
+/* PC 宽屏（≥1201px）：富文本正文字号统一 18px */
+@media (min-width: 1201px) {
+  :deep(.w-e-text-container) {
+    font-size: 18px;
+  }
+
+  :deep(.w-e-text-container p),
+  :deep(.w-e-text-container li) {
+    font-size: 18px;
+  }
+}
+
 :deep(.w-e-text-placeholder) {
   top: 12px;
   left: 20px;

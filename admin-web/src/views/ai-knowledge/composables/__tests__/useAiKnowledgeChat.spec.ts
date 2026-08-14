@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAiKnowledgeChat } from '../useAiKnowledgeChat'
 import {
@@ -245,6 +245,111 @@ describe('useAiKnowledgeChat', () => {
       usageMock.mockResolvedValue({ totalTokens: 1, totalCalls: 2, totalDays: 3 } as never)
       await api.loadChatUsage()
       expect(api.chatUsage.value).toEqual({ totalTokens: 1, totalCalls: 2, totalDays: 3 })
+    })
+  })
+
+  describe('流式输出滚动跟随', () => {
+    /** 构造一个可模拟滚动位置的消息容器元素（保持可变类型以便测试内赋值 scrollHeight） */
+    function mockContainer(overrides: Partial<{ scrollTop: number; clientHeight: number; scrollHeight: number }> = {}) {
+      return {
+        scrollTop: 0,
+        clientHeight: 400,
+        scrollHeight: 1200,
+        ...overrides,
+      }
+    }
+
+    it('在底部时 scrollChatToBottom 滚动到容器底部', async () => {
+      const { api } = setup()
+      const el = mockContainer()
+      api.chatMessagesRef.value = el as unknown as HTMLElement
+
+      api.scrollChatToBottom()
+      await nextTick()
+      expect(el.scrollTop).toBe(1200)
+    })
+
+    it('用户上滑离开底部后暂停跟随，滚回底部自动恢复', async () => {
+      const { api } = setup()
+      const el = mockContainer({ scrollTop: 200 })
+      api.chatMessagesRef.value = el as unknown as HTMLElement
+
+      // 用户上滑到中部（scrollTop=200，未贴底）→ 暂停跟随
+      api.onChatScroll()
+      el.scrollHeight = 1400
+      api.scrollChatToBottom()
+      await nextTick()
+      expect(el.scrollTop).toBe(200) // 未被动拉到底
+
+      // 用户滚回底部 → 恢复跟随，新内容继续自动滚动
+      el.scrollTop = el.scrollHeight - el.clientHeight
+      api.onChatScroll()
+      el.scrollHeight = 1600
+      api.scrollChatToBottom()
+      await nextTick()
+      expect(el.scrollTop).toBe(1600)
+    })
+
+    it('force=true 无视暂停状态强制滚动并恢复跟随', async () => {
+      const { api } = setup()
+      const el = mockContainer({ scrollTop: 200 })
+      api.chatMessagesRef.value = el as unknown as HTMLElement
+      api.onChatScroll() // 用户上滑 → 暂停
+
+      el.scrollHeight = 1600
+      api.scrollChatToBottom(true)
+      await nextTick()
+      expect(el.scrollTop).toBe(1600)
+
+      // 之后不再依赖用户滚动也能跟随
+      el.scrollTop = 100
+      el.scrollHeight = 2000
+      api.scrollChatToBottom()
+      await nextTick()
+      expect(el.scrollTop).toBe(2000)
+    })
+
+    it('发送新问题时上滑状态不强制回底，流式输出同样保持当前位置', async () => {
+      const { api } = setup()
+      const el = mockContainer({ scrollTop: 200 })
+      api.chatMessagesRef.value = el as unknown as HTMLElement
+      api.onChatScroll() // 用户上滑 → 暂停跟随
+      api.question.value = '新问题'
+
+      api.sendMessage()
+      await nextTick()
+      expect(el.scrollTop).toBe(200) // 发送后未被拉到底
+
+      // 跟随仍为暂停：后续 chunk 也不滚动
+      el.scrollHeight = 1600
+      const { onChunk } = lastStreamCall()
+      onChunk!('流式内容')
+      await nextTick()
+      expect(el.scrollTop).toBe(200)
+    })
+
+    it('流式输出中用户上滑后，后续 chunk 不再强制拉到底部', async () => {
+      const { api } = setup()
+      const el = mockContainer({ scrollTop: 200 })
+      api.chatMessagesRef.value = el as unknown as HTMLElement
+      api.question.value = '问题'
+      api.sendMessage()
+      const { onChunk } = lastStreamCall()
+
+      // 流式过程中用户上滑到中部 → 暂停跟随，chunk 不强制滚动
+      api.onChatScroll()
+      el.scrollHeight = 1400
+      onChunk!('第一段')
+      await nextTick()
+      expect(el.scrollTop).toBe(200)
+
+      // 滚回底部后，后续 chunk 恢复跟随
+      el.scrollTop = el.scrollHeight - el.clientHeight
+      api.onChatScroll()
+      el.scrollHeight = 1600
+      onChunk!('第二段')
+      await nextTick()
+      expect(el.scrollTop).toBe(1600)
     })
   })
 })

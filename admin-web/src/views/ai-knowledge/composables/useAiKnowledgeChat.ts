@@ -126,6 +126,23 @@ export function useAiKnowledgeChat(deps: AiKnowledgeChatDeps) {
     } catch { /* ignore */ }
   }
 
+  /** 距容器底部多少像素内视为「在底部」，流式输出保持自动滚动跟随 */
+  const SCROLL_FOLLOW_THRESHOLD = 48
+
+  /**
+   * 是否跟随流式输出自动滚动到底部。
+   * 用户在底部（含阈值）时跟随；手动上滑离开底部后暂停跟随，
+   * 用户滚回底部时由 onChatScroll 自动恢复。
+   */
+  let followLatest = true
+
+  /** 消息容器滚动事件：贴近底部恢复跟随，离开底部暂停跟随 */
+  function onChatScroll() {
+    const el = chatMessagesRef.value
+    if (!el) return
+    followLatest = el.scrollTop + el.clientHeight >= el.scrollHeight - SCROLL_FOLLOW_THRESHOLD
+  }
+
   /** 滚动到指定消息 */
   function scrollToMsg(msgId: string) {
     const el = chatMessagesRef.value?.querySelector(`[data-msg-id="${msgId}"]`)
@@ -134,10 +151,13 @@ export function useAiKnowledgeChat(deps: AiKnowledgeChatDeps) {
     }
   }
 
-  function scrollChatToBottom() {
+  /** 滚动到消息容器底部；force 为 true 时无视当前跟随状态强制滚动并恢复跟随（发送新消息等场景） */
+  function scrollChatToBottom(force = false) {
+    if (force) followLatest = true
     void nextTick(() => {
       const el = chatMessagesRef.value
-      if (el) el.scrollTop = el.scrollHeight
+      if (!el || !followLatest) return
+      el.scrollTop = el.scrollHeight
     })
   }
 
@@ -171,6 +191,7 @@ export function useAiKnowledgeChat(deps: AiKnowledgeChatDeps) {
     void saveMessages()
     question.value = ''
     sending.value = true
+    // 发送新问题不强制回底：尊重当前滚动位置，仅当本就贴底时才跟随滚动
     scrollChatToBottom()
 
     // 预创建助手消息占位（记录回复它的 provider，用于展示该条消息的大模型图标）
@@ -296,6 +317,7 @@ export function useAiKnowledgeChat(deps: AiKnowledgeChatDeps) {
     loadChatUsage,
     recalcContextTokens,
     scrollToMsg,
+    onChatScroll,
     scrollChatToBottom,
     genMsgId,
     renderMessage,

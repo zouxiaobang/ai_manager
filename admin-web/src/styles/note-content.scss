@@ -320,3 +320,11 @@
     transform: translateY(1px);
   }
 }
+
+/* PC 宽屏（≥1201px）：正文基字号增大，便于阅读。
+   打印导出（?inline）走 print 媒体，不匹配该断点，保持原 16px */
+@media (min-width: 1201px) {
+  .note-content-body {
+    font-size: 18px;
+  }
+}
