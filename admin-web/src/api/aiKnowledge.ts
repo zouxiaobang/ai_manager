@@ -431,6 +431,41 @@ export function deleteChatConversation(id: string) {
   return deleteData(`/api/ai-knowledge/chat/conversations/${id}`)
 }
 
+// ==================== 对话标记（bookmark） ==================
+
+export interface ChatBookmark {
+  id: string
+  conversationId: string
+  name: string
+  msgId: string | null
+  msgOffsetTop: number
+  scrollTop: number
+  createdAt: string
+}
+
+export function fetchChatBookmarks(conversationId: string) {
+  return getData<ChatBookmark[]>(`/api/ai-knowledge/chat/conversations/${conversationId}/bookmarks`)
+}
+
+export function createChatBookmark(
+  conversationId: string,
+  data: { name: string; msgId: string | null; msgOffsetTop: number; scrollTop: number },
+) {
+  return postData<ChatBookmark>(`/api/ai-knowledge/chat/conversations/${conversationId}/bookmarks`, data)
+}
+
+export function renameChatBookmark(id: string, name: string) {
+  return putData<void>(`/api/ai-knowledge/chat/bookmarks/${id}`, { name })
+}
+
+export function deleteChatBookmark(id: string) {
+  return deleteData(`/api/ai-knowledge/chat/bookmarks/${id}`)
+}
+
+export function deleteAllChatBookmarks(conversationId: string) {
+  return deleteData(`/api/ai-knowledge/chat/conversations/${conversationId}/bookmarks`)
+}
+
 export interface ChatSearchResult {
   categoryId: string
   categoryName: string

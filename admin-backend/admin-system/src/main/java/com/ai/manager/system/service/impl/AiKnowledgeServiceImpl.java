@@ -3,18 +3,21 @@ package com.ai.manager.system.service.impl;
 import com.ai.manager.common.exception.BusinessException;
 import com.ai.manager.common.result.ResultCode;
 import com.ai.manager.system.config.RagProperties;
+import com.ai.manager.system.domain.dto.AiChatBookmarkSaveRequest;
 import com.ai.manager.system.domain.dto.AiChatCategorySaveRequest;
 import com.ai.manager.system.domain.dto.AiChatConversationSaveRequest;
 import com.ai.manager.system.domain.dto.AiChatUsageRecordRequest;
 import com.ai.manager.system.domain.dto.AiKnowledgeChatRequest;
 import com.ai.manager.system.domain.dto.AiKnowledgeConfigSaveRequest;
 import com.ai.manager.system.domain.dto.AiKnowledgeRagSearchRequest;
+import com.ai.manager.system.domain.entity.AiChatBookmark;
 import com.ai.manager.system.domain.entity.AiChatCategory;
 import com.ai.manager.system.domain.entity.AiChatConversation;
 import com.ai.manager.system.domain.entity.AiChatMessage;
 import com.ai.manager.system.domain.entity.AiKnowledgeConfig;
 import com.ai.manager.system.domain.entity.RagChunk;
 import com.ai.manager.system.domain.entity.RagDocument;
+import com.ai.manager.system.domain.vo.AiChatBookmarkVO;
 import com.ai.manager.system.domain.vo.AiChatCategoryVO;
 import com.ai.manager.system.domain.vo.AiChatConversationVO;
 import com.ai.manager.system.domain.vo.AiChatSearchResultVO;
@@ -29,6 +32,7 @@ import com.ai.manager.system.domain.vo.AiKnowledgeRagSearchResultVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagStatsVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagUploadResultVO;
 import com.ai.manager.system.domain.vo.NbNoteDetailVO;
+import com.ai.manager.system.mapper.AiChatBookmarkMapper;
 import com.ai.manager.system.mapper.AiChatCategoryMapper;
 import com.ai.manager.system.mapper.AiChatConversationMapper;
 import com.ai.manager.system.mapper.AiChatMessageMapper;
@@ -150,6 +154,8 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
     @Qualifier("ragProcessExecutor")
     private final java.util.concurrent.Executor ragProcessExecutor;
     private final RagProperties ragProperties;
+    /** 对话标记：跨设备同步，记录视口定位锚点 */
+    private final AiChatBookmarkMapper bookmarkMapper;
 
     /** 正在处理中的文档 ID（内存防重复提交，进程内生效；重启后为空，可重新入队） */
     private final Set<Long> inFlightDocuments = ConcurrentHashMap.newKeySet();
@@ -1462,5 +1468,84 @@ public class AiKnowledgeServiceImpl implements AiKnowledgeService {
     @Override
     public void recordChatUsage(AiChatUsageRecordRequest request) {
         usageTracker.recordUsage(request.getTokens(), request.getCost());
+    }
+
+    // ==================== 书签管理 ====================
+
+    @Override
+    public List<AiChatBookmarkVO> listChatBookmarks(Long conversationId) {
+        List<AiChatBookmark> bookmarks = bookmarkMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<AiChatBookmark>()
+                        .eq(AiChatBookmark::getConversationId, conversationId)
+                        .orderByAsc(AiChatBookmark::getCreateTime));
+        List<AiChatBookmarkVO> result = new ArrayList<>();
+        for (AiChatBookmark e : bookmarks) {
+            result.add(toBookmarkVO(e));
+        }
+        return result;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public AiChatBookmarkVO createChatBookmark(Long conversationId, AiChatBookmarkSaveRequest request) {
+        // 校验会话存在，避免为不存在的对话创建孤儿标记
+        AiChatConversation conversation = chatConversationMapper.selectById(conversationId);
+        if (conversation == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND.getCode(), "对话不存在");
+        }
+        AiChatBookmark entity = new AiChatBookmark();
+        entity.setConversationId(conversationId);
+        entity.setName(request.getName());
+        entity.setMsgId(request.getMsgId());
+        entity.setMsgOffsetTop(request.getMsgOffsetTop());
+        entity.setScrollTop(request.getScrollTop());
+        entity.setSortOrder(0);
+        // insert 依赖 MyBatis-Plus 回填 id / createTime
+        bookmarkMapper.insert(entity);
+        return toBookmarkVO(entity);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void renameChatBookmark(Long id, AiChatBookmarkSaveRequest request) {
+        AiChatBookmark entity = bookmarkMapper.selectById(id);
+        if (entity == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND.getCode(), "标记不存在");
+        }
+        entity.setName(request.getName());
+        bookmarkMapper.updateById(entity);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteChatBookmark(Long id) {
+        // 先校验存在再逻辑删除，让前端拿到明确错误而不是静默成功
+        AiChatBookmark entity = bookmarkMapper.selectById(id);
+        if (entity == null) {
+            throw new BusinessException(ResultCode.NOT_FOUND.getCode(), "标记不存在");
+        }
+        bookmarkMapper.deleteById(id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteAllChatBookmarks(Long conversationId) {
+        // 级联清空对话下全部标记（@TableLogic 逻辑删除）
+        bookmarkMapper.delete(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<AiChatBookmark>()
+                        .eq(AiChatBookmark::getConversationId, conversationId));
+    }
+
+    /** 实体 → VO 转换（Long 主键/外键交由 ToStringSerializer 序列化为字符串） */
+    private AiChatBookmarkVO toBookmarkVO(AiChatBookmark e) {
+        AiChatBookmarkVO vo = new AiChatBookmarkVO();
+        vo.setId(e.getId());
+        vo.setConversationId(e.getConversationId());
+        vo.setName(e.getName());
+        vo.setMsgId(e.getMsgId());
+        vo.setMsgOffsetTop(e.getMsgOffsetTop());
+        vo.setScrollTop(e.getScrollTop());
+        vo.setCreatedAt(e.getCreateTime());
+        return vo;
     }
 }

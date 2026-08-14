@@ -3,12 +3,16 @@ package com.ai.manager.system.service.impl;
 import com.ai.manager.common.exception.BusinessException;
 import com.ai.manager.common.result.ResultCode;
 import com.ai.manager.system.config.RagProperties;
+import com.ai.manager.system.domain.dto.AiChatBookmarkSaveRequest;
 import com.ai.manager.system.domain.dto.AiKnowledgeChatRequest;
 import com.ai.manager.system.domain.dto.AiKnowledgeConfigSaveRequest;
 import com.ai.manager.system.domain.dto.AiKnowledgeRagSearchRequest;
+import com.ai.manager.system.domain.entity.AiChatBookmark;
+import com.ai.manager.system.domain.entity.AiChatConversation;
 import com.ai.manager.system.domain.entity.AiKnowledgeConfig;
 import com.ai.manager.system.domain.entity.RagChunk;
 import com.ai.manager.system.domain.entity.RagDocument;
+import com.ai.manager.system.domain.vo.AiChatBookmarkVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeChatResponse;
 import com.ai.manager.system.domain.vo.AiKnowledgeConfigVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagBatchImportResultVO;
@@ -17,9 +21,11 @@ import com.ai.manager.system.domain.vo.AiKnowledgeRagDocumentVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagSearchResultVO;
 import com.ai.manager.system.domain.vo.AiKnowledgeRagUploadResultVO;
 import com.ai.manager.system.domain.vo.NbNoteDetailVO;
+import com.ai.manager.system.mapper.AiChatBookmarkMapper;
 import com.ai.manager.system.mapper.AiChatCategoryMapper;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.Wrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -111,6 +117,8 @@ class AiKnowledgeServiceImplTest {
     @Mock
     private AiChatMessageMapper chatMessageMapper;
     @Mock
+    private AiChatBookmarkMapper bookmarkMapper;
+    @Mock
     private RagDocumentMapper ragDocumentMapper;
     @Mock
     private RagChunkMapper ragChunkMapper;
@@ -141,11 +149,13 @@ class AiKnowledgeServiceImplTest {
     private AiKnowledgeServiceImpl service;
     private Path uploadDir;
 
-    /** 纯单测无 Spring 上下文：为 MyBatis-Plus 的 LambdaUpdateWrapper 初始化实体 lambda 缓存 */
+    /** 纯单测无 Spring 上下文：为 MyBatis-Plus 的 LambdaUpdateWrapper/LambdaQueryWrapper 初始化实体 lambda 缓存 */
     @BeforeAll
     static void initMybatisPlusLambdaCache() {
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
         TableInfoHelper.initTableInfo(assistant, RagDocument.class);
+        TableInfoHelper.initTableInfo(assistant, AiChatBookmark.class);
+        TableInfoHelper.initTableInfo(assistant, AiChatConversation.class);
     }
 
     @BeforeEach
@@ -158,7 +168,8 @@ class AiKnowledgeServiceImplTest {
                 configMapper, objectMapper, configStore, configCrypto, apiBaseUrlValidator, nbNoteService,
                 chatCategoryMapper, chatConversationMapper, chatMessageMapper, ragDocumentMapper,
                 ragChunkMapper, strategyFactory, promptBuilder, usageTracker, documentParser,
-                chunkingService, embeddingService, pgVectorStore, ragProcessExecutor, ragProperties);
+                chunkingService, embeddingService, pgVectorStore, ragProcessExecutor, ragProperties,
+                bookmarkMapper);
         service.initRagUploadDir();
     }
 
@@ -896,6 +907,135 @@ class AiKnowledgeServiceImplTest {
         assertThatThrownBy(() -> service.getRagDocumentContent(1L))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("文档文件不存在");
+    }
+
+    // ==================== 书签管理 ====================
+
+    @Test
+    void listChatBookmarks_返回VO且id序列化为字符串() throws Exception {
+        AiChatBookmark e = new AiChatBookmark();
+        ReflectionTestUtils.setField(e, "id", 123L);
+        e.setConversationId(10L);
+        e.setName("进度标记");
+        e.setMsgId("msg-1");
+        e.setMsgOffsetTop(120);
+        e.setScrollTop(800);
+        when(bookmarkMapper.selectList(any())).thenReturn(List.of(e));
+
+        List<AiChatBookmarkVO> result = service.listChatBookmarks(10L);
+
+        assertThat(result).hasSize(1);
+        AiChatBookmarkVO vo = result.get(0);
+        assertThat(vo.getId()).isEqualTo(123L);
+        assertThat(vo.getConversationId()).isEqualTo(10L);
+        assertThat(vo.getName()).isEqualTo("进度标记");
+        assertThat(vo.getMsgId()).isEqualTo("msg-1");
+        assertThat(vo.getMsgOffsetTop()).isEqualTo(120);
+        assertThat(vo.getScrollTop()).isEqualTo(800);
+        // Long 主键序列化为字符串，避免前端 JS 精度丢失
+        ObjectMapper mapper = new ObjectMapper();
+        assertThat(mapper.writeValueAsString(vo)).contains("\"id\":\"123\"");
+    }
+
+    @Test
+    void createChatBookmark_会话存在则插入并返回VO() {
+        AiChatConversation conv = new AiChatConversation();
+        ReflectionTestUtils.setField(conv, "id", 10L);
+        when(chatConversationMapper.selectById(10L)).thenReturn(conv);
+        // 模拟 MyBatis-Plus 回填主键
+        doAnswer(inv -> {
+            AiChatBookmark bookmark = inv.getArgument(0);
+            ReflectionTestUtils.setField(bookmark, "id", 5L);
+            return 1;
+        }).when(bookmarkMapper).insert(any(AiChatBookmark.class));
+
+        AiChatBookmarkSaveRequest request = new AiChatBookmarkSaveRequest();
+        request.setName("进度标记");
+        request.setMsgId("msg-1");
+        request.setMsgOffsetTop(120);
+        request.setScrollTop(800);
+
+        AiChatBookmarkVO vo = service.createChatBookmark(10L, request);
+
+        assertThat(vo.getId()).isEqualTo(5L);
+        assertThat(vo.getConversationId()).isEqualTo(10L);
+        assertThat(vo.getName()).isEqualTo("进度标记");
+        assertThat(vo.getMsgId()).isEqualTo("msg-1");
+        assertThat(vo.getMsgOffsetTop()).isEqualTo(120);
+        assertThat(vo.getScrollTop()).isEqualTo(800);
+
+        ArgumentCaptor<AiChatBookmark> captor = ArgumentCaptor.forClass(AiChatBookmark.class);
+        verify(bookmarkMapper).insert(captor.capture());
+        assertThat(captor.getValue().getConversationId()).isEqualTo(10L);
+        assertThat(captor.getValue().getSortOrder()).isEqualTo(0);
+    }
+
+    @Test
+    void createChatBookmark_会话不存在抛业务异常() {
+        when(chatConversationMapper.selectById(99L)).thenReturn(null);
+
+        AiChatBookmarkSaveRequest request = new AiChatBookmarkSaveRequest();
+        request.setName("x");
+        request.setMsgOffsetTop(0);
+        request.setScrollTop(0);
+
+        assertThatThrownBy(() -> service.createChatBookmark(99L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("对话不存在");
+
+        verify(bookmarkMapper, never()).insert(any(AiChatBookmark.class));
+    }
+
+    @Test
+    void renameChatBookmark_标记不存在抛业务异常() {
+        when(bookmarkMapper.selectById(7L)).thenReturn(null);
+
+        AiChatBookmarkSaveRequest request = new AiChatBookmarkSaveRequest();
+        request.setName("x");
+
+        assertThatThrownBy(() -> service.renameChatBookmark(7L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("标记不存在");
+    }
+
+    @Test
+    void renameChatBookmark_标记存在则更新名称() {
+        AiChatBookmark bookmark = new AiChatBookmark();
+        ReflectionTestUtils.setField(bookmark, "id", 5L);
+        bookmark.setName("旧名");
+        when(bookmarkMapper.selectById(5L)).thenReturn(bookmark);
+
+        AiChatBookmarkSaveRequest request = new AiChatBookmarkSaveRequest();
+        request.setName("新名");
+
+        service.renameChatBookmark(5L, request);
+
+        ArgumentCaptor<AiChatBookmark> captor = ArgumentCaptor.forClass(AiChatBookmark.class);
+        verify(bookmarkMapper).updateById(captor.capture());
+        assertThat(captor.getValue().getName()).isEqualTo("新名");
+    }
+
+    @Test
+    void deleteChatBookmark_标记存在则逻辑删除() {
+        AiChatBookmark bookmark = new AiChatBookmark();
+        ReflectionTestUtils.setField(bookmark, "id", 5L);
+        when(bookmarkMapper.selectById(5L)).thenReturn(bookmark);
+
+        service.deleteChatBookmark(5L);
+
+        verify(bookmarkMapper).deleteById(5L);
+    }
+
+    @Test
+    void deleteAllChatBookmarks_按conversationId逻辑删除() {
+        service.deleteAllChatBookmarks(10L);
+
+        ArgumentCaptor<Wrapper<AiChatBookmark>> captor = ArgumentCaptor.forClass(Wrapper.class);
+        verify(bookmarkMapper).delete(captor.capture());
+        LambdaQueryWrapper<AiChatBookmark> wrapper = (LambdaQueryWrapper<AiChatBookmark>) captor.getValue();
+        // getSqlSegment() 触发条件合并（参数值为惰性生成），校验过滤条件确实带 conversationId
+        assertThat(wrapper.getSqlSegment()).contains("conversation_id");
+        assertThat(wrapper.getParamNameValuePairs()).containsValue(10L);
     }
 
     /** 构造最小存在的文档记录（4.5 守卫复核用） */

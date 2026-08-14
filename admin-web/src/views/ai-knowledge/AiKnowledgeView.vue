@@ -144,7 +144,7 @@
             <!-- 右侧聊天区域 -->
             <div class="ak-chat">
             <div class="ak-chat__body">
-            <div ref="chatMessagesRef" class="ak-chat__messages" @scroll="onChatScroll">
+            <div ref="chatMessagesRef" class="ak-chat__messages" @scroll="onChatScroll" @contextmenu.prevent="openChatContextMenu">
               <div v-if="messages.length === 0" class="ak-chat__empty">
                 <div class="ak-chat__empty-icon">
                   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -817,6 +817,20 @@
       :content="previewContent"
       :loading="previewLoading"
     />
+
+    <!-- 聊天区右键标记菜单：新增标记 / 标记列表（搜索、跳转、重命名、删除）/ 删除全部 -->
+    <ChatContextMenu
+      :visible="chatContextMenu.visible"
+      :x="chatContextMenu.x"
+      :y="chatContextMenu.y"
+      :markers="markers"
+      @add-marker="handleAddMarker"
+      @jump="handleJumpMarker"
+      @rename="handleRenameMarker"
+      @delete="handleDeleteMarker"
+      @delete-all="handleDeleteAllMarkers"
+      @close="closeChatContextMenu"
+    />
   </div>
 </template>
 
@@ -825,19 +839,21 @@
  * AI 天窗视图
  * 包含 AI 对话、RAG 知识库和设置三大功能
  */
-import { ref, watch } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import { marked } from 'marked'
 import { hasMarkdownSyntax, markdownToTextSnippet } from '@/utils/markdownToText'
 import { useAiKnowledgePrint } from './composables/useAiKnowledgePrint'
 import { useAiKnowledgeChat } from './composables/useAiKnowledgeChat'
 import { useAiKnowledgeCategories } from './composables/useAiKnowledgeCategories'
+import { useAiKnowledgeMarkers } from './composables/useAiKnowledgeMarkers'
 import { useAiKnowledgeRag } from './composables/useAiKnowledgeRag'
 import { useAiKnowledgeSettings } from './composables/useAiKnowledgeSettings'
 import { useAiKnowledgeSidebar } from './composables/useAiKnowledgeSidebar'
 import RagDocumentPreview from './RagDocumentPreview.vue'
+import ChatContextMenu from './ChatContextMenu.vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   AI_PROVIDER_MAP,
   type AiProvider,
@@ -1116,6 +1132,133 @@ const {
   clearConversation,
   compressConversation,
 } = useAiKnowledgeChat({ messages, providerList, chatProvider, useRag, activeConvId, saveMessages: () => saveMessagesBridge() })
+
+// ========== 对话标记（bookmark）状态机 ==========
+const {
+  markers,
+  addMarker,
+  renameMarker,
+  deleteMarker,
+  deleteAllMarkers,
+  jumpToMarker,
+} = useAiKnowledgeMarkers({ activeConvId, chatMessagesRef })
+
+// ========== 聊天区右键标记菜单 ==========
+/** 右键菜单显隐与坐标（fixed 定位用 viewport 坐标） */
+const chatContextMenu = reactive({ visible: false, x: 0, y: 0 })
+
+/** 右键聊天消息区打开标记菜单；无激活会话不弹出 */
+function openChatContextMenu(e: MouseEvent) {
+  if (!activeConvId.value) return
+  chatContextMenu.x = e.clientX
+  chatContextMenu.y = e.clientY
+  chatContextMenu.visible = true
+}
+
+function closeChatContextMenu() {
+  chatContextMenu.visible = false
+}
+
+function onCtxMenuKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') closeChatContextMenu()
+}
+
+// 菜单打开期间监听全局点击/Escape 与消息区滚动，用于点击外部/滚动时关闭
+watch(
+  () => chatContextMenu.visible,
+  (visible) => {
+    if (visible) {
+      window.addEventListener('click', closeChatContextMenu)
+      window.addEventListener('keydown', onCtxMenuKeydown)
+      chatMessagesRef.value?.addEventListener('scroll', closeChatContextMenu)
+    } else {
+      window.removeEventListener('click', closeChatContextMenu)
+      window.removeEventListener('keydown', onCtxMenuKeydown)
+      chatMessagesRef.value?.removeEventListener('scroll', closeChatContextMenu)
+    }
+  },
+)
+
+/** 新增标记：名称取当前可见最大级别标题，无标题回落「标记 N」 */
+async function handleAddMarker() {
+  const fallback = t('aiKnowledge.chat.marker.defaultName', { n: markers.value.length + 1 })
+  try {
+    await addMarker(fallback)
+    ElMessage.success(t('aiKnowledge.chat.marker.addSuccess'))
+  } catch {
+    ElMessage.error(t('aiKnowledge.status.error'))
+  }
+}
+
+/** 点击标记跳转到对应位置 */
+function handleJumpMarker(id: string) {
+  jumpToMarker(id)
+}
+
+/** 重命名标记：弹窗预填当前名称 */
+async function handleRenameMarker(id: string) {
+  const marker = markers.value.find(m => m.id === id)
+  if (!marker) return
+  try {
+    const { value } = await ElMessageBox.prompt(t('aiKnowledge.chat.marker.renamePromptTitle'), t('aiKnowledge.chat.marker.rename'), {
+      inputValue: marker.name,
+      inputPlaceholder: t('aiKnowledge.chat.marker.renamePromptPlaceholder'),
+      confirmButtonText: t('app.confirm'),
+      cancelButtonText: t('app.cancel'),
+    })
+    const name = value?.trim()
+    if (!name) return
+    await renameMarker(id, name)
+    ElMessage.success(t('aiKnowledge.chat.marker.renameSuccess'))
+  } catch {
+    // 用户取消输入或接口失败，均不打断
+  }
+}
+
+/** 删除单个标记（一次确认） */
+async function handleDeleteMarker(id: string) {
+  const marker = markers.value.find(m => m.id === id)
+  if (!marker) return
+  try {
+    await ElMessageBox.confirm(t('aiKnowledge.chat.marker.deleteConfirm', { name: marker.name }), t('aiKnowledge.chat.marker.delete'), {
+      type: 'warning',
+      confirmButtonText: t('app.confirm'),
+      cancelButtonText: t('app.cancel'),
+    })
+  } catch {
+    return // 用户取消
+  }
+  try {
+    await deleteMarker(id)
+    ElMessage.success(t('aiKnowledge.chat.marker.deleteSuccess'))
+  } catch {
+    ElMessage.error(t('aiKnowledge.status.error'))
+  }
+}
+
+/** 删除全部标记：连续两次确认（二次确认），任一取消即中止 */
+async function handleDeleteAllMarkers() {
+  try {
+    await ElMessageBox.confirm(t('aiKnowledge.chat.marker.deleteAllConfirm', { n: markers.value.length }), t('aiKnowledge.chat.marker.deleteAll'), {
+      type: 'warning',
+      confirmButtonText: t('app.confirm'),
+      cancelButtonText: t('app.cancel'),
+    })
+    await ElMessageBox.confirm(t('aiKnowledge.chat.marker.deleteAllConfirmAgain'), t('aiKnowledge.chat.marker.deleteAll'), {
+      type: 'warning',
+      confirmButtonText: t('app.confirm'),
+      cancelButtonText: t('app.cancel'),
+    })
+  } catch {
+    return // 任一确认被取消
+  }
+  try {
+    await deleteAllMarkers()
+    ElMessage.success(t('aiKnowledge.chat.marker.deleteAllSuccess'))
+  } catch {
+    ElMessage.error(t('aiKnowledge.status.error'))
+  }
+}
 
 // ========== 设置状态机（Chat 配置加载/保存/连接测试/切换草稿缓存） ==========
 // chat 状态机先构造以提供 loadProviders，settings 后构造读取共享 ref，无循环依赖

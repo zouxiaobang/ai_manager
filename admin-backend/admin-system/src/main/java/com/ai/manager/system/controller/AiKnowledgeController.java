@@ -22,6 +22,8 @@ import com.ai.manager.system.domain.vo.AiChatUsageVO;
 import com.ai.manager.system.domain.dto.AiChatUsageRecordRequest;
 import com.ai.manager.system.domain.dto.AiChatCategorySaveRequest;
 import com.ai.manager.system.domain.dto.AiChatConversationSaveRequest;
+import com.ai.manager.system.domain.dto.AiChatBookmarkSaveRequest;
+import com.ai.manager.system.domain.vo.AiChatBookmarkVO;
 import com.ai.manager.system.service.AiKnowledgeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -339,6 +341,53 @@ public class AiKnowledgeController {
     @PostMapping("/chat/usage")
     public ApiResult<Void> recordChatUsage(@jakarta.validation.Valid @RequestBody AiChatUsageRecordRequest request) {
         aiKnowledgeService.recordChatUsage(request);
+        return ApiResult.ok();
+    }
+
+    // ==================== 书签管理 ====================
+
+    /**
+     * 获取对话的全部标记
+     */
+    @GetMapping("/chat/conversations/{conversationId}/bookmarks")
+    public ApiResult<List<AiChatBookmarkVO>> listChatBookmarks(@PathVariable Long conversationId) {
+        return ApiResult.ok(aiKnowledgeService.listChatBookmarks(conversationId));
+    }
+
+    /**
+     * 在对话下创建标记
+     */
+    @PostMapping("/chat/conversations/{conversationId}/bookmarks")
+    public ApiResult<AiChatBookmarkVO> createChatBookmark(@PathVariable Long conversationId,
+                                                          @RequestBody @jakarta.validation.Valid AiChatBookmarkSaveRequest request) {
+        return ApiResult.ok(aiKnowledgeService.createChatBookmark(conversationId, request));
+    }
+
+    /**
+     * 重命名标记
+     */
+    @PutMapping("/chat/bookmarks/{id}")
+    public ApiResult<Void> renameChatBookmark(@PathVariable Long id,
+                                              @RequestBody @jakarta.validation.Valid AiChatBookmarkSaveRequest request) {
+        aiKnowledgeService.renameChatBookmark(id, request);
+        return ApiResult.ok();
+    }
+
+    /**
+     * 删除单个标记
+     */
+    @DeleteMapping("/chat/bookmarks/{id}")
+    public ApiResult<Void> deleteChatBookmark(@PathVariable Long id) {
+        aiKnowledgeService.deleteChatBookmark(id);
+        return ApiResult.ok();
+    }
+
+    /**
+     * 清空对话下全部标记
+     */
+    @DeleteMapping("/chat/conversations/{conversationId}/bookmarks")
+    public ApiResult<Void> deleteAllChatBookmarks(@PathVariable Long conversationId) {
+        aiKnowledgeService.deleteAllChatBookmarks(conversationId);
         return ApiResult.ok();
     }
 }

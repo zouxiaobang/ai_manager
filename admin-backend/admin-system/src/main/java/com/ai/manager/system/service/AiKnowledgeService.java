@@ -14,8 +14,10 @@ import com.ai.manager.system.domain.vo.AiKnowledgeRagUploadResultVO;
 import com.ai.manager.system.domain.dto.AiKnowledgeChatRequest;
 import com.ai.manager.system.domain.dto.AiChatCategorySaveRequest;
 import com.ai.manager.system.domain.dto.AiChatConversationSaveRequest;
+import com.ai.manager.system.domain.dto.AiChatBookmarkSaveRequest;
 import com.ai.manager.system.domain.vo.AiChatCategoryVO;
 import com.ai.manager.system.domain.vo.AiChatConversationVO;
+import com.ai.manager.system.domain.vo.AiChatBookmarkVO;
 import com.ai.manager.system.domain.vo.AiChatSearchResultVO;
 import com.ai.manager.system.domain.vo.AiChatUsageVO;
 import com.ai.manager.system.domain.dto.AiChatUsageRecordRequest;
@@ -176,4 +178,31 @@ public interface AiKnowledgeService {
      * 记录一次聊天用量
      */
     void recordChatUsage(AiChatUsageRecordRequest request);
+
+    // ==================== 书签管理 ====================
+
+    /**
+     * 获取对话的全部标记
+     */
+    List<AiChatBookmarkVO> listChatBookmarks(Long conversationId);
+
+    /**
+     * 在对话下创建标记
+     */
+    AiChatBookmarkVO createChatBookmark(Long conversationId, AiChatBookmarkSaveRequest request);
+
+    /**
+     * 重命名标记
+     */
+    void renameChatBookmark(Long id, AiChatBookmarkSaveRequest request);
+
+    /**
+     * 删除单个标记
+     */
+    void deleteChatBookmark(Long id);
+
+    /**
+     * 清空对话下全部标记
+     */
+    void deleteAllChatBookmarks(Long conversationId);
 }
