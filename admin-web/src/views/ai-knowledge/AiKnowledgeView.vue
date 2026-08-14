@@ -31,8 +31,16 @@
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     </el-button>
                   </el-tooltip>
-                  <el-tooltip content="收起对话列表" placement="top">
-                    <el-button text circle size="small" class="ak-sidebar__collapse-btn" @click.stop="collapseSidebar">
+                  <el-tooltip content="收起对话列表" placement="top" :visible="collapseTipVisible">
+                    <el-button
+                      text
+                      circle
+                      size="small"
+                      class="ak-sidebar__collapse-btn"
+                      @mouseenter="collapseTipVisible = true"
+                      @mouseleave="collapseTipVisible = false"
+                      @click.stop="handleCollapseSidebar"
+                    >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                     </el-button>
                   </el-tooltip>
@@ -893,7 +901,7 @@ watch(
 
 // ========== 对话 ==========
 // 左侧对话列表收起/展开状态（纯 UI 状态，不持久化）
-const { sidebarCollapsed, collapseSidebar, expandSidebar } = useAiKnowledgeSidebar()
+const { sidebarCollapsed, collapseTipVisible, expandSidebar, handleCollapseSidebar } = useAiKnowledgeSidebar()
 
 const useRag = ref(false)
 

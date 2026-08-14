@@ -15,9 +15,11 @@ function createMql(initialMatches: boolean) {
 
 type SidebarApi = {
   sidebarCollapsed: boolean
+  collapseTipVisible: boolean
   collapseSidebar: () => void
   expandSidebar: () => void
   toggleSidebar: () => void
+  handleCollapseSidebar: () => void
 }
 
 let mql: ReturnType<typeof createMql>
@@ -82,6 +84,14 @@ describe('useAiKnowledgeSidebar 收起/展开状态', () => {
 
     changeListenerOf()({ matches: false } as MediaQueryListEvent)
     expect(api.sidebarCollapsed).toBe(false)
+  })
+
+  it('点击收起时同时隐藏收起按钮 tooltip', () => {
+    const api = vmOf(mountSidebar())
+    api.collapseTipVisible = true // 模拟 hover 已显示 tip
+    api.handleCollapseSidebar()
+    expect(api.sidebarCollapsed).toBe(true)
+    expect(api.collapseTipVisible).toBe(false)
   })
 
   it('collapseSidebar 收起对话列表', () => {

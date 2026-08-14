@@ -37,6 +37,15 @@ export function useAiKnowledgeSidebar() {
     sidebarCollapsed.value = !sidebarCollapsed.value
   }
 
+  /** 收起按钮的 tooltip 是否显示（受控：点击收起后侧边栏消失、hover 无法自然结束，需立即隐藏） */
+  const collapseTipVisible = ref(false)
+
+  /** 点击收起按钮：先隐藏按钮 tooltip，再收起侧边栏 */
+  function handleCollapseSidebar() {
+    collapseTipVisible.value = false
+    collapseSidebar()
+  }
+
   onMounted(() => {
     tabletMql?.addEventListener('change', onTabletRangeChange)
   })
@@ -44,5 +53,5 @@ export function useAiKnowledgeSidebar() {
     tabletMql?.removeEventListener('change', onTabletRangeChange)
   })
 
-  return { sidebarCollapsed, collapseSidebar, expandSidebar, toggleSidebar }
+  return { sidebarCollapsed, collapseTipVisible, collapseSidebar, expandSidebar, toggleSidebar, handleCollapseSidebar }
 }
