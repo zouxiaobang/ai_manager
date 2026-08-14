@@ -1,0 +1,19 @@
+{
+    "target": "esp32c3",
+    "builds": [
+        {
+            "name": "supermini-c3",
+            "sdkconfig_append": [
+                "CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y",
+                "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME=\"partitions/v2/4m.csv\"",
+                "CONFIG_LANGUAGE_ZH_CN=y",
+                "CONFIG_USE_DEVICE_AEC=n",
+                "CONFIG_WAKE_WORD_DISABLED=n",
+                "CONFIG_AUDIO_INPUT_I2S=y",
+                "CONFIG_AUDIO_OUTPUT_I2S=y",
+                "CONFIG_DISPLAY_SPI_ST7789=y",
+                "CONFIG_SPI2_MASTER_IN_IRAM=n"
+            ]
+        }
+    ]
+}
