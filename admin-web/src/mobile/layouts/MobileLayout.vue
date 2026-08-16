@@ -69,10 +69,11 @@ const { t } = useI18n()
 
 const cachedComponents = ref<string[]>([])
 
+// 底部导航：AI 天窗替换原「24小时」tab（24小时仍可从 More / Home 进入，路由保留）
 const tabs = [
   { key: 'home', path: '/home', iconName: 'home' as const, labelKey: 'mobile.nav.home' },
   { key: 'notebook', path: '/notebook', iconName: 'notebook' as const, labelKey: 'mobile.nav.notebook' },
-  { key: '24hour', path: '/24hour', iconName: '24hour' as const, labelKey: 'portal.menu.24hour' },
+  { key: 'aiKnowledge', path: '/ai-knowledge', iconName: 'ai-knowledge' as const, labelKey: 'portal.menu.aiSkylight' },
   { key: 'more', path: '/more', iconName: 'user-center' as const, labelKey: 'mobile.v2.mine' },
 ] as const
 

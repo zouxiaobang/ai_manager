@@ -162,6 +162,12 @@ const router = createRouter({
           meta: { titleKey: 'portal.menu.pomodoro', hideTabBar: true },
         },
         {
+          path: 'ai-knowledge',
+          name: 'mobile-ai-knowledge',
+          component: () => import('@/mobile/views/ai-knowledge/MobileAiKnowledgeView.vue'),
+          meta: { titleKey: 'aiKnowledge.title', tab: 'aiKnowledge' },
+        },
+        {
           path: '24hour',
           name: 'mobile-24hour',
           component: () => import('@/mobile/views/24hour/MobileTwentyFourHourView.vue'),

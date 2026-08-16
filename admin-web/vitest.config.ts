@@ -37,6 +37,7 @@ export default defineConfig({
         'src/views/ecommerce/{expressCalc,expressPanelView,expressPriceView,monthlySettlementView,listingLinkCardView,listingLinkDate,listingLinkSkuView,salesOrderPanelView}.ts',
         'src/views/notebook/{noteDisplay,noteTreeUtils,exportFolderPdf,importRagNote}.ts',
         'src/views/notebook/composables/*.ts',
+        'src/mobile/views/ai-knowledge/{mobileAiKnowledge}.ts',
       ],
       exclude: [
         'src/main_*.ts',
