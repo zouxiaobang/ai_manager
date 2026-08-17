@@ -124,10 +124,12 @@ export function useAiKnowledgeMarkers(deps: AiKnowledgeMarkersDeps) {
 
   /**
    * 在当前滚动位置新增标记。
+   * anchorMsgId 存在时（如移动端长按某条消息）直接锚定该消息，不滚动视口；
+   * 否则按「内容偏移首次盖住视口顶线」推断锚点。
    * 名称优先取当前视口内最大级别标题；无标题时回落调用方传入的默认名。
    * 返回新建标记（含后端回填的 id），失败返回 null（调用方负责错误提示）。
    */
-  async function addMarker(fallbackName: string): Promise<ChatBookmark | null> {
+  async function addMarker(fallbackName: string, anchorMsgId?: string | null): Promise<ChatBookmark | null> {
     const convId = activeConvId.value
     const el = chatMessagesRef.value
     if (!convId || !el) return null
@@ -135,16 +137,25 @@ export function useAiKnowledgeMarkers(deps: AiKnowledgeMarkersDeps) {
     loadSeq++
 
     const scrollTop = el.scrollTop
-    // 锚点消息：内容偏移首次盖住视口顶线的消息行（其内容正处于当前可视位置）
+    // 锚点消息：优先取指定消息（「长按哪条标哪条」且避免视口跳动）；未指定回退视口顶线推断
     let msgId: string | null = null
     let msgOffsetTop = 0
-    const rows = Array.from(el.querySelectorAll<HTMLElement>('.ak-chat__msg-row[data-msg-id]'))
-    for (const row of rows) {
-      const anchor = topRelativeToContainer(row, el)
-      if (anchor + row.offsetHeight >= scrollTop) {
-        msgId = row.getAttribute('data-msg-id')
-        msgOffsetTop = anchor
-        break
+    if (anchorMsgId) {
+      const row = el.querySelector<HTMLElement>(`[data-msg-id="${anchorMsgId}"]`)
+      if (row) {
+        msgId = anchorMsgId
+        msgOffsetTop = topRelativeToContainer(row, el)
+      }
+    }
+    if (!msgId) {
+      const rows = Array.from(el.querySelectorAll<HTMLElement>('.ak-chat__msg-row[data-msg-id]'))
+      for (const row of rows) {
+        const anchor = topRelativeToContainer(row, el)
+        if (anchor + row.offsetHeight >= scrollTop) {
+          msgId = row.getAttribute('data-msg-id')
+          msgOffsetTop = anchor
+          break
+        }
       }
     }
 

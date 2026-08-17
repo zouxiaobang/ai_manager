@@ -419,7 +419,7 @@
         <span class="akm__sheet-title">{{ t('aiKnowledge.chat.marker.marker') }}</span>
         <button type="button" class="akm__sheet-close" @click="markerSheetOpen = false">✕</button>
       </template>
-      <button type="button" class="akm__btn akm__btn--primary akm__btn--block" @click="handleAddMarker">
+      <button type="button" class="akm__btn akm__btn--primary akm__btn--block" @click="handleAddMarker()">
         {{ t('aiKnowledge.chat.marker.addMarker') }}
       </button>
       <button
@@ -517,7 +517,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { marked } from 'marked'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -844,10 +844,8 @@ function openMsgActions() {
 }
 
 async function addMarkerFromPress(msg: ChatMessage) {
-  // 先滚动到被长按的消息，再按当前视口打标，保证标记落在用户所指位置
-  scrollToMsg(msg.id)
-  await nextTick()
-  await handleAddMarker()
+  // 直接锚定被长按的消息打标，不滚动视口（避免跳转到该回答顶部）
+  await handleAddMarker(msg.id)
 }
 
 // ========== 标记操作 ==========
@@ -858,10 +856,11 @@ const filteredMarkers = computed(() => filterMarkersByName(markers.value, marker
 /** 当前滚动位置上方是否存在「上一个」标记（与 PC 端菜单可用性判定同源） */
 const canJumpPrevious = computed(() => hasPreviousAt(chatMessagesRef.value?.scrollTop ?? 0))
 
-async function handleAddMarker() {
+async function handleAddMarker(anchorMsgId?: string | null) {
   const fallback = t('aiKnowledge.chat.marker.defaultName', { n: markers.value.length + 1 })
   try {
-    await addMarker(fallback)
+    // 长按场景传锚点消息直接锚定；标记抽屉按钮不带锚点走视口顶线推断
+    await addMarker(fallback, anchorMsgId)
     ElMessage.success(t('aiKnowledge.chat.marker.addSuccess'))
   } catch {
     ElMessage.error(t('aiKnowledge.status.error'))

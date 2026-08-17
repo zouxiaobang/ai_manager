@@ -220,6 +220,34 @@ describe('useAiKnowledgeMarkers', () => {
 
       expect(createMock).toHaveBeenCalledWith('conv-1', expect.objectContaining({ name: '默认标记' }))
     })
+
+    it('指定锚点消息时直接锚定该消息，不依赖视口顶线', async () => {
+      const { api, chatMessagesRef } = setup()
+      // m1 已滚过视口顶线（不在可视位置），m2 为长按目标：指定 m2 应精确锚定它
+      chatMessagesRef.value = buildContainer(
+        [{ id: 'm1', rectTop: 50 }, { id: 'm2', rectTop: 300, height: 60 }],
+        { scrollTop: 500 },
+      )
+      const created = marker({ id: '9' })
+      createMock.mockResolvedValue(created)
+
+      const result = await api.addMarker('标记 1', 'm2')
+
+      // 偏移 = 300 - 50(containerTop) + 500(scrollTop) = 750；scrollTop 保持原值不跳动
+      expect(createMock).toHaveBeenCalledWith('conv-1', { name: '标记 1', msgId: 'm2', msgOffsetTop: 750, scrollTop: 500 })
+      expect(result).toEqual(created)
+      expect(api.markers.value).toEqual([created])
+    })
+
+    it('指定锚点消息不存在时回退视口顶线推断', async () => {
+      const { api, chatMessagesRef } = setup()
+      chatMessagesRef.value = buildContainer([{ id: 'm1', rectTop: 150 }], { scrollTop: 200 })
+
+      await api.addMarker('标记 1', 'ghost')
+
+      // 回退与原行为一致：m1 偏移 150-50+200=300 盖住视口顶线 200
+      expect(createMock).toHaveBeenCalledWith('conv-1', { name: '标记 1', msgId: 'm1', msgOffsetTop: 300, scrollTop: 200 })
+    })
   })
 
   describe('jumpToMarker', () => {

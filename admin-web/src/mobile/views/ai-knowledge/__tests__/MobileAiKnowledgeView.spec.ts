@@ -251,4 +251,30 @@ describe('MobileAiKnowledgeView 对话与标记交互', () => {
     expect(items[2].attributes('disabled')).toBeDefined()
     expect(items[3].attributes('disabled')).toBeDefined()
   })
+
+  it('长按点「新增标记」：锚定被长按消息且不滚动视口', async () => {
+    api.fetchChatCategories.mockResolvedValue(CATEGORIES_FIXTURE)
+    mountView()
+    await flushPromises()
+
+    const rows = wrapper!.findAll('.ak-chat__msg-row')
+    expect(rows).toHaveLength(2)
+    request.postData.mockClear()
+
+    vi.useFakeTimers()
+    await rows[0].trigger('touchstart')
+    await vi.advanceTimersByTimeAsync(600)
+    await nextTick()
+
+    // 点第一项「新增标记」
+    await wrapper!.findAll('.akm__action-item')[0].trigger('click')
+    // 推进宏任务与微任务，让 createChatBookmark 的异步链落定
+    await vi.advanceTimersByTimeAsync(0)
+    await nextTick()
+
+    const bookmarkCall = request.postData.mock.calls.find(([url]) => String(url).includes('/bookmarks'))
+    expect(bookmarkCall).toBeDefined()
+    // 锚点 = 被长按的消息 m1（而非视口顶线推断），scrollTop 保持 0 未跳动
+    expect((bookmarkCall![1] as { msgId: string | null }).msgId).toBe('m1')
+  })
 })
