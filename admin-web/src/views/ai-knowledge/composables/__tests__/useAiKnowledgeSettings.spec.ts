@@ -188,6 +188,21 @@ describe('useAiKnowledgeSettings', () => {
     expect(chatProvider.value).toBe('qwen')
   })
 
+  it('onChatModelChange 切换后回填 provider，modelOptions 不再重复显示同一模型', () => {
+    const { api } = makeApi()
+    // 模拟聊天区顶部下拉从 openai 切到 claude：只改 chatProvider，不写 configDraft.provider
+    api.onChatModelChange('claude')
+
+    // 不回填时 configDraft.provider 仍为 openai，openai 项会套用 claude 的 model 造成两项相同
+    expect(api.configDraft.value.provider).toBe('claude')
+
+    const opts = api.modelOptions.value
+    const models = opts.map((o) => o.displayModel)
+    expect(new Set(models).size).toBe(models.length)
+    expect(opts.find((o) => o.key === 'openai')?.displayModel).toBe('gpt-4o')
+    expect(opts.find((o) => o.key === 'claude')?.displayModel).toBe('claude-sonnet-4-20250514')
+  })
+
   it('modelOptions 有 providerList 时按列表映射', () => {
     const { api } = makeApi()
     const opts = api.modelOptions.value

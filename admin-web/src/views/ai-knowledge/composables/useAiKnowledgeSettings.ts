@@ -206,6 +206,11 @@ export function useAiKnowledgeSettings({ providerList, chatProvider, loadProvide
       configDraft.value.maxContextMessages = saved?.maxContextMessages ?? 10
     }
 
+    // 恢复完草稿后回填 provider：聊天区顶部切换（onChatModelChange）时 el-select 只更新
+    // chatProvider 而不写 configDraft.provider；不回填会让 modelOptions 用旧 provider 匹配
+    // currentModel，导致下拉里多项显示同一模型（如 openai 项也变成 deepseek-chat）
+    configDraft.value.provider = provider
+
     lastProvider.value = provider
   }
 
