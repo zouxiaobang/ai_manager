@@ -770,6 +770,10 @@ export default {
         name: '24 Hour',
         desc: 'Time-blocked checklist for a productive daily rhythm',
       },
+      claudeTerminal: {
+        name: 'Claude Terminal',
+        desc: 'Built-in Claude Code terminal for commands and tasks',
+      },
     },
   },
   notebook: {

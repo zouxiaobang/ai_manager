@@ -769,6 +769,10 @@ export default {
         name: '24小时',
         desc: '分时段任务清单，让每一天都有节奏',
       },
+      claudeTerminal: {
+        name: 'Claude 终端',
+        desc: '内置 Claude Code 交互终端，随时执行命令与任务',
+      },
     },
   },
   notebook: {
